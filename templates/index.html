@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AzotaPro - Hệ thống Luyện thi Trắc nghiệm AI</title>
+    <title>HocnhanhTN - Hệ thống Luyện thi Trắc nghiệm AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -215,6 +215,12 @@
             border: 1px dashed var(--primary);
         }
 
+    .navbar {
+        display: flex; justify-content: space-between; align-items: center; 
+        background: var(--surface); padding: 15px 20px; border-radius: var(--radius); 
+        box-shadow: var(--shadow); margin-bottom: 24px; border: 1px solid var(--border);
+    }
+
     @keyframes pulse-red {
         0% { background-color: var(--danger); }
         50% { background-color: #991b1b; }
@@ -242,18 +248,79 @@
 </head>
 <body>
 
-<div class="container">
+<!-- Màn hình Đăng nhập / Đăng ký -->
+<div id="authContainer" class="container" style="max-width: 450px; margin-top: 5vh; display: none;">
+    <div class="header">
+        <h1>HocnhanhTN</h1>
+        <p>Hệ thống Nội bộ - Vui lòng đăng nhập</p>
+    </div>
+    <div class="card" id="loginForm">
+        <h2 style="text-align:center; color: var(--primary); margin-top: 0;">Đăng nhập</h2>
+        <input type="text" id="loginUsername" placeholder="Tên đăng nhập">
+        <input type="password" id="loginPassword" placeholder="Mật khẩu">
+        <button class="btn-primary" style="width: 100%; margin-top: 20px;" onclick="handleLogin()">Đăng nhập</button>
+        <p style="text-align:center; margin-top: 15px;">Chưa có tài khoản? <a href="#" onclick="toggleAuth('register')" style="color: var(--primary); font-weight: bold; text-decoration: none;">Đăng ký ngay</a></p>
+    </div>
+
+    <div class="card" id="registerForm" style="display:none;">
+        <h2 style="text-align:center; color: var(--success); margin-top: 0;">Đăng ký Tài khoản</h2>
+        <input type="text" id="regUsername" placeholder="Tên đăng nhập">
+        <input type="password" id="regPassword" placeholder="Mật khẩu">
+        <input type="text" id="regFullName" placeholder="Họ và Tên (VD: Nguyễn Văn A)">
+        <select id="regRole" style="width: 100%; padding: 12px; margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem;">
+            <option value="student">👨‍🎓 Học sinh</option>
+            <option value="teacher">👨‍🏫 Giáo viên</option>
+        </select>
+        <button class="btn-success" style="width: 100%; margin-top: 20px;" onclick="handleRegister()">Gửi yêu cầu Đăng ký</button>
+        <p style="text-align:center; margin-top: 15px;">Đã có tài khoản? <a href="#" onclick="toggleAuth('login')" style="color: var(--primary); font-weight: bold; text-decoration: none;">Đăng nhập</a></p>
+    </div>
+</div>
+
+<!-- Màn hình Quản trị viên (Admin) -->
+<div id="adminContainer" class="container" style="display:none; max-width: 900px; margin-top: 5vh;">
+    <div class="navbar">
+        <h2 style="color: var(--danger); margin: 0;">🛡️ Bảng điều khiển Quản trị viên</h2>
+        <button class="btn-outline" onclick="logout()">Đăng xuất</button>
+    </div>
+    <div class="card">
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Đổi mật khẩu Quản trị viên:</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="password" id="adminOldPwd" placeholder="Mật khẩu hiện tại" style="flex: 1; min-width: 200px;">
+            <input type="password" id="adminNewPwd" placeholder="Mật khẩu mới (Tối thiểu 6 ký tự)" style="flex: 1; min-width: 200px;">
+            <button class="btn-primary" onclick="changeAdminPassword()">Đổi mật khẩu</button>
+        </div>
+    </div>
+    <div class="card">
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Danh sách tài khoản (Chờ duyệt / Đã duyệt):</p>
+        <div id="adminUserList" style="overflow-x: auto;"></div>
+    </div>
+</div>
+
+<!-- Màn hình Chính (Giáo viên / Học sinh) -->
+<div id="mainAppContainer" class="container" style="display:none;">
+    <div class="navbar">
+        <span id="currentUserDisplay" style="font-weight: bold; color: var(--primary); font-size: 1.1rem;"></span>
+        <button class="btn-outline" style="padding: 8px 16px; font-size: 0.9rem;" onclick="logout()">Đăng xuất</button>
+    </div>
+
     <div class="header">
         <h1>Hệ thống Trắc nghiệm Thông minh</h1>
         <p>Bóc tách đề thi siêu tốc với chuẩn định dạng giáo dục</p>
     </div>
 
-    <!-- Màn hình yêu cầu nhập tên -->
+    <!-- Màn hình yêu cầu nhập tên & Lịch sử -->
     <div id="welcomeScreen" class="card" style="display:none; text-align: center; margin-bottom: 24px;">
         <h2 style="color: var(--primary); margin-top:0;">👋 Chào mừng bạn đến với bài thi!</h2>
-        <p style="font-size: 1.1rem; margin-bottom: 20px;">Vui lòng nhập Họ và Tên của bạn để hệ thống tính thời gian và ghi nhận thành tích vào Bảng xếp hạng.</p>
-        <input type="text" id="studentNameInput" placeholder="VD: Nguyễn Văn A..." style="max-width: 350px; margin: 0 auto 20px auto; display: block; text-align: center; font-size: 1.1rem; font-weight: 600;">
-        <button class="btn-primary" style="font-size: 1.1rem; padding: 12px 30px;" onclick="startStudentQuiz()">🚀 Bắt đầu làm bài</button>
+        <p style="font-size: 1.1rem; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống đã nhận diện tài khoản của bạn. Nhấn Bắt đầu để làm bài.</p>
+        <input type="text" id="studentNameInput" style="display: none;">
+        <button id="startBtn" class="btn-primary" style="font-size: 1.1rem; padding: 12px 30px;" onclick="startStudentQuiz()">🚀 Bắt đầu làm bài</button>
+        
+        <!-- Khung hiển thị Lịch sử -->
+        <div id="historySection" style="display:none; margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border);">
+            <p style="color: var(--success); font-weight: 700; margin-bottom: 10px; font-size: 1.1rem;">✅ Hệ thống ghi nhận bạn đã làm bài này trước đó!</p>
+            <p style="margin-bottom: 15px; color: var(--text-muted);">Điểm lần trước: <b id="historyScore" style="color: var(--primary); font-size: 1.3rem;"></b></p>
+            <button class="btn-outline" style="font-size: 1rem; padding: 10px 20px; margin-right: 10px; background: white;" onclick="reviewHistory()">🔍 Xem lại bài đã nộp</button>
+        </div>
     </div>
 
     <!-- Bảng xếp hạng -->
@@ -305,8 +372,8 @@
 
 <script>
     // Tự động nhận diện môi trường (Localhost vs Production)
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const API_BASE_URL = isLocalhost 
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:';
+    const API_BASE_URL = isLocalhost
         ? "http://127.0.0.1:8000" 
         : "https://hocnhanhtracnghiem.onrender.com"; // QUAN TRỌNG: Hãy thay bằng link Render thật của bạn
 
@@ -322,8 +389,104 @@
     let startTime = 0;
     let isStudentMode = false;
     let currentDataMode = 'practice';
+    let isShuffleEnabled = false;
+    let quizProgress = {};
+    
+    let authToken = localStorage.getItem('auth_token');
+    let authRole = localStorage.getItem('auth_role');
+    let authName = localStorage.getItem('auth_name');
 
     window.onload = async function() {
+        checkAuthState();
+    };
+
+    function checkAuthState() {
+        if (!authToken) {
+            document.getElementById('authContainer').style.display = 'block';
+            document.getElementById('mainAppContainer').style.display = 'none';
+            document.getElementById('adminContainer').style.display = 'none';
+        } else if (authRole === 'admin') {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('mainAppContainer').style.display = 'none';
+            document.getElementById('adminContainer').style.display = 'block';
+            loadAdminUsers();
+        } else {
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('adminContainer').style.display = 'none';
+            document.getElementById('mainAppContainer').style.display = 'block';
+            
+            document.getElementById('currentUserDisplay').innerText = `👤 Xin chào, ${authName} (${authRole === 'teacher' ? 'Giáo viên' : 'Học sinh'})`;
+            document.getElementById('studentNameInput').value = authName; // Tự động điền tên học sinh
+            
+            if (authRole === 'student') {
+                document.getElementById('uploadBox').style.display = 'none';
+            }
+            initApp();
+        }
+    }
+
+    function toggleAuth(type) {
+        if(type === 'register') {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        } else {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+        }
+    }
+
+    async function handleLogin() {
+        const u = document.getElementById('loginUsername').value.trim();
+        const p = document.getElementById('loginPassword').value.trim();
+        if(!u || !p) return alert("Vui lòng nhập đủ thông tin");
+        
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            if(res.ok && data.status === 'success') {
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('auth_role', data.role);
+                localStorage.setItem('auth_name', data.full_name);
+                authToken = data.token; authRole = data.role; authName = data.full_name;
+                checkAuthState();
+            } else { alert("Lỗi: " + data.detail); }
+        } catch(e) { 
+            console.error(e);
+            alert(`Lỗi kết nối máy chủ! Backend đang trỏ tới: ${API_BASE_URL}\nHãy đảm bảo bạn đã chạy lệnh: uvicorn main:app --reload`); 
+        }
+    }
+
+    async function handleRegister() {
+        const u = document.getElementById('regUsername').value.trim();
+        const p = document.getElementById('regPassword').value.trim();
+        const fn = document.getElementById('regFullName').value.trim();
+        const r = document.getElementById('regRole').value;
+        if(!u || !p || !fn) return alert("Vui lòng nhập đủ thông tin");
+        
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p, full_name: fn, role: r})
+            });
+            const data = await res.json();
+            if(res.ok && data.status === 'success') {
+                alert("Đăng ký thành công! Vui lòng chờ Quản trị viên duyệt tài khoản.");
+                toggleAuth('login');
+            } else { alert("Lỗi: " + data.detail); }
+        } catch(e) { alert("Lỗi kết nối máy chủ"); }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = window.location.pathname; // Tải lại trang xóa query param
+    }
+
+    async function initApp() {
         const urlParams = new URLSearchParams(window.location.search);
         const quizId = urlParams.get('quiz_id');
         if (quizId) {
@@ -349,7 +512,28 @@
                     
                     document.getElementById('modeSwitch').style.display = 'none'; // Ẩn hoàn toàn các nút công cụ
                     
-                    if (result.is_shuffle) {
+                    isShuffleEnabled = result.is_shuffle;
+                    
+                    // KHÔI PHỤC TIẾN TRÌNH TỪ LOCAL STORAGE
+                    const savedProgress = localStorage.getItem(`quiz_progress_${quizId}`);
+                    if (savedProgress) {
+                        try {
+                            quizProgress = JSON.parse(savedProgress);
+                            if (quizProgress.studentName) document.getElementById('studentNameInput').value = quizProgress.studentName;
+                            if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
+                            
+                            if (quizProgress.completed) {
+                                document.getElementById('historySection').style.display = 'block';
+                                document.getElementById('historyScore').innerText = `${quizProgress.score} / ${currentData.length}`;
+                                document.getElementById('startBtn').innerText = "🔄 Làm lại bài mới (Xóa dữ liệu cũ)";
+                                document.getElementById('startBtn').style.backgroundColor = "var(--text-muted)"; // Làm mờ nút làm mới
+                            } else if (Object.keys(quizProgress.answers || {}).length > 0) {
+                                document.getElementById('startBtn').innerText = "🚀 Tiếp tục làm bài đang dở";
+                            }
+                        } catch(e){}
+                    }
+                    
+                    if ((!quizProgress || !quizProgress.shuffledData) && isShuffleEnabled) {
                         shuffleQuiz(true); // Trộn đề ngầm, không render lại ngay
                     }
                     
@@ -360,17 +544,119 @@
             } catch (e) {
                 document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Lỗi kết nối đến máy chủ.</p>";
             }
+        } else if (authRole === 'student') {
+            document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center; font-size: 1.1rem; color: var(--text-muted);'>👋 Chào học sinh! Bạn chưa mở bài thi nào. Hãy nhấp vào link bài thi do giáo viên gửi để bắt đầu nhé.</div>";
         }
     };
     
     function startStudentQuiz() {
         const nameInput = document.getElementById('studentNameInput').value.trim();
-        if (!nameInput) { alert("Vui lòng nhập Họ và Tên của bạn trước khi làm bài!"); return; }
         studentName = nameInput;
+        
+        // Nếu bấm nút khi đã hoàn thành -> Có nghĩa là muốn Xóa lịch sử làm lại từ đầu
+        if (quizProgress.completed) {
+            quizProgress = {};
+            if (isShuffleEnabled) shuffleQuiz(true);
+        }
+        
+        quizProgress.studentName = studentName;
+        if (!quizProgress.shuffledData) quizProgress.shuffledData = currentData;
+        if (!quizProgress.answers) quizProgress.answers = {};
+        quizProgress.completed = false;
+        saveProgressToLocal();
+        
         document.getElementById('welcomeScreen').style.display = 'none';
         
         switchMode(currentDataMode); 
         if (currentDataMode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    }
+    
+    function reviewHistory() {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        studentName = quizProgress.studentName;
+        currentMode = 'exam'; 
+        document.getElementById('modeSwitch').style.display = 'none';
+        document.getElementById('studentHeader').style.display = 'block';
+        
+        renderData(); 
+        submitExam(true); // Gọi chấm điểm nhưng truyền cờ isReview = true để không gửi server
+    }
+    
+    function saveProgressToLocal() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const quizId = urlParams.get('quiz_id');
+        if (quizId) localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
+    }
+
+    async function loadAdminUsers() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/users?admin_token=${authToken}`);
+            const data = await res.json();
+            if(res.ok && data.status === 'success') {
+                let html = `<table style="width:100%; border-collapse: collapse; text-align:left;">
+                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
+                        <th style="padding: 12px 10px;">Tài khoản</th>
+                        <th style="padding: 12px 10px;">Họ tên</th>
+                        <th style="padding: 12px 10px;">Vai trò</th>
+                        <th style="padding: 12px 10px;">Trạng thái</th>
+                        <th style="padding: 12px 10px;">Thao tác</th>
+                    </tr>`;
+                data.data.forEach(u => {
+                    let roleStr = u.role === 'teacher' ? '👨‍🏫 Giáo viên' : (u.role === 'student' ? '👨‍🎓 Học sinh' : '🛡️ Admin');
+                    let statStr = u.status === 'approved' ? '<span style="color:var(--success); font-weight:bold;">Đã duyệt</span>' : '<span style="color:var(--danger); font-weight:bold;">Chờ duyệt</span>';
+                    let btn = u.status === 'pending' ? `<button class="btn-success" style="width:auto; margin:0; padding: 6px 12px; font-size:0.9rem;" onclick="approveUser('${u.id}')">Duyệt</button>` : '';
+                    let delBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 8px; padding: 6px 12px; font-size:0.9rem; color: var(--danger); border-color: var(--danger);" onclick="deleteUser('${u.id}')">Xóa</button>` : '';
+                    html += `<tr style="border-bottom: 1px solid var(--border);">
+                        <td style="padding: 12px 10px; font-weight: 600;">${u.username}</td>
+                        <td style="padding: 12px 10px;">${u.full_name}</td>
+                        <td style="padding: 12px 10px;">${roleStr}</td>
+                        <td style="padding: 12px 10px;">${statStr}</td>
+                        <td style="padding: 12px 10px;">${btn} ${delBtn}</td>
+                    </tr>`;
+                });
+                html += `</table>`;
+                document.getElementById('adminUserList').innerHTML = html;
+            }
+        } catch(e) { alert("Lỗi tải danh sách người dùng"); }
+    }
+
+    async function approveUser(uid) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/approve`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({admin_token: authToken, user_id: uid}) });
+            if(res.ok) loadAdminUsers();
+        } catch(e) {}
+    }
+
+    async function deleteUser(uid) {
+        if(!confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/delete`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({admin_token: authToken, user_id: uid}) });
+            if(res.ok) loadAdminUsers();
+        } catch(e) {}
+    }
+
+    async function changeAdminPassword() {
+        const oldPwd = document.getElementById('adminOldPwd').value.trim();
+        const newPwd = document.getElementById('adminNewPwd').value.trim();
+        if (!oldPwd || !newPwd) return alert("Vui lòng nhập đủ mật khẩu cũ và mới!");
+        if (newPwd.length < 6) return alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
+        
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/change_password`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ admin_token: authToken, old_password: oldPwd, new_password: newPwd })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                alert("Đổi mật khẩu thành công! Vui lòng đăng nhập lại với mật khẩu mới.");
+                logout();
+            } else {
+                alert("Lỗi: " + data.detail);
+            }
+        } catch(e) {
+            alert("Lỗi kết nối máy chủ");
+        }
     }
 
     async function uploadFile() {
@@ -430,9 +716,10 @@
                 box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
                 q.options.forEach((opt, oIndex) => {
                     let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
+                    let isChecked = quizProgress && quizProgress.answers && quizProgress.answers[qIndex] === opt;
                     box.innerHTML += `
-                        <label class="option-practice" id="exam_opt_${qIndex}_${oIndex}">
-                            <input type="radio" name="exam_${qIndex}" value="${opt}" onchange="selectExamOption(${qIndex}, ${oIndex})">
+                        <label class="option-practice ${isChecked ? 'selected' : ''}" id="exam_opt_${qIndex}_${oIndex}">
+                            <input type="radio" name="exam_${qIndex}" value="${opt}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''}>
                             <span class="opt-badge">${char}</span>
                             <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
                         </label>`;
@@ -456,7 +743,9 @@
         
         if (currentQuestionIndex >= currentData.length) {
             document.getElementById('score-board').style.display = 'block';
-            document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng ${practiceScore} / ${currentData.length} câu. 🎉<br><button class="btn-primary" onclick="switchMode('practice')" style="margin-top:20px;">Luyện tập lại vòng nữa</button>`;
+            document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng ${practiceScore} / ${currentData.length} câu. 🎉<br>
+                <button class="btn-primary" onclick="switchMode('practice')" style="margin-top:20px; margin-right: 10px;">Luyện tập lại vòng nữa</button>
+                <button class="btn-outline" onclick="showPracticeReview()" style="margin-top:20px; background: white;">🔍 Xem chi tiết bài làm</button>`;
             
             if (isStudentMode && studentName) {
                 let timeElapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
@@ -496,6 +785,12 @@
         });
         const selectedLbl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
         if (selectedLbl) selectedLbl.classList.add('selected');
+        
+        if (isStudentMode) {
+            if (!quizProgress.answers) quizProgress.answers = {};
+            quizProgress.answers[qIndex] = currentData[qIndex].options[oIndex];
+            saveProgressToLocal();
+        }
     }
 
     function checkPracticeAnswer(oIndex) {
@@ -503,6 +798,7 @@
         practiceAnswered = true;
         
         const q = currentData[currentQuestionIndex];
+        q.user_answer_practice = q.options[oIndex]; // Lưu lại đáp án của học sinh để dùng cho phần xem lại
         const isCorrect = q.options[oIndex] === q.correct_answer;
         
         if (isCorrect) practiceScore++;
@@ -528,6 +824,40 @@
     function nextPracticeQuestion() {
         currentQuestionIndex++;
         renderPracticeQuestion();
+    }
+    
+    function showPracticeReview() {
+        const container = document.getElementById('quiz-container');
+        container.innerHTML = '';
+        
+        currentData.forEach((q, qIndex) => {
+            const box = document.createElement('div');
+            box.className = 'card question-box';
+            
+            let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+            box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
+            
+            q.options.forEach((opt, oIndex) => {
+                let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
+                
+                let extraClass = '';
+                let isSelected = opt === q.user_answer_practice;
+                if (isSelected) extraClass += ' selected ';
+                if (opt === q.correct_answer) {
+                    extraClass += ' correct ';
+                } else if (isSelected && opt !== q.correct_answer) {
+                    extraClass += ' incorrect ';
+                }
+                
+                box.innerHTML += `
+                    <label class="option-practice ${extraClass.trim()}" style="cursor: default;">
+                        <input type="radio" disabled ${isSelected ? 'checked' : ''}>
+                        <span class="opt-badge">${char}</span>
+                        <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
+                    </label>`;
+            });
+            container.appendChild(box);
+        });
     }
     
     function shuffleQuiz(noRender = false) {
@@ -583,6 +913,10 @@
     function startTimer(minutes) {
         clearInterval(timerInterval);
         let timeRemaining = minutes * 60;
+        
+        if (isStudentMode && quizProgress && quizProgress.timeRemaining !== undefined && quizProgress.timeRemaining !== null && !quizProgress.completed) {
+            timeRemaining = quizProgress.timeRemaining; // Phục hồi đồng hồ
+        }
         const timerDisplay = document.getElementById('timerDisplay');
         timerDisplay.style.display = 'block';
         
@@ -598,6 +932,10 @@
         
         timerInterval = setInterval(() => {
             timeRemaining--;
+            if (isStudentMode) {
+                quizProgress.timeRemaining = timeRemaining;
+                if (timeRemaining % 5 === 0) saveProgressToLocal(); // Cứ 5 giây lưu đồng hồ 1 lần
+            }
             if (timeRemaining < 0) {
                 clearInterval(timerInterval);
                 alert("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.");
@@ -687,21 +1025,37 @@
         } catch(e) { console.log(e); }
     }
 
-    function submitExam() {
+    function submitExam(isReview = false) {
         clearInterval(timerInterval);
         const timerDisplay = document.getElementById('timerDisplay');
         if (timerDisplay) timerDisplay.style.display = 'none';
         
-        let timeElapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        let sessionTime = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        let totalTimeElapsed = isReview ? (quizProgress.timeElapsed || 0) : ((quizProgress.timeElapsed || 0) + sessionTime);
         let score = 0;
         
         currentData.forEach((q, qIndex) => {
-            const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
-            const userAnswer = selected ? selected.value : null;
+            let userAnswer = null;
+            if (isReview && quizProgress && quizProgress.answers) {
+                userAnswer = quizProgress.answers[qIndex];
+            } else {
+                const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
+                userAnswer = selected ? selected.value : null;
+            }
+            
+            // Tự động check vào đáp án trên giao diện nếu đang xem lại (Review)
+            if (isReview && userAnswer) {
+                const oIndex = q.options.indexOf(userAnswer);
+                if(oIndex !== -1) {
+                    const r = document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`);
+                    if(r) r.checked = true;
+                    const lbl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
+                    if(lbl) lbl.classList.add('selected');
+                }
+            }
             
             q.options.forEach((opt, oIndex) => {
                 document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.remove('correct', 'incorrect');
-                // Đóng băng toàn bộ các ô radio để không cho phép sửa lại sau khi đã nộp bài
                 document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`).disabled = true;
             });
             
@@ -721,10 +1075,22 @@
         const scoreBoard = document.getElementById('score-board');
         scoreBoard.style.display = 'block';
         scoreBoard.innerHTML = `Kết quả thi: ${score} / ${currentData.length} câu chính xác! 🎉<br>
-                                <span style="font-size: 1.1rem; color: var(--text-muted);">⏱ Thời gian: ${formatTime(timeElapsed)}</span><br>
+                                <span style="font-size: 1.1rem; color: var(--text-muted);">⏱ Thời gian: ${formatTime(totalTimeElapsed)}</span><br>
                                 <button class="btn-outline" style="margin-top: 15px;" onclick="document.getElementById('quiz-container').scrollIntoView({behavior: 'smooth'})">👇 Cuộn xuống dưới để xem chi tiết sai/đúng</button>`;
         
-        if (isStudentMode && studentName) { submitScoreToServer(score, currentData.length, timeElapsed); }
+        if (!isReview && isStudentMode && studentName) { 
+            if (!quizProgress.answers) quizProgress.answers = {};
+            currentData.forEach((q, qIndex) => {
+                const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
+                if (selected) quizProgress.answers[qIndex] = selected.value;
+            });
+            quizProgress.completed = true;
+            quizProgress.score = score;
+            quizProgress.timeElapsed = totalTimeElapsed;
+            saveProgressToLocal();
+            
+            submitScoreToServer(score, currentData.length, totalTimeElapsed); 
+        }
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }

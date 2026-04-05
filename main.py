@@ -4,6 +4,7 @@ import json
 import uuid
 import tempfile
 import shutil
+import hashlib
 from typing import List, Dict, Any
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
@@ -25,6 +26,17 @@ try:
     cred = credentials.Certificate("firebase-adminsdk.json")
     firebase_admin.initialize_app(cred)
     db = firestore.client()
+    
+    # Khởi tạo Admin mặc định nếu chưa có
+    users = db.collection('users').where('username', '==', 'admin').get()
+    if not users:
+        db.collection('users').add({
+            'username': 'admin',
+            'password': hashlib.sha256('a@a@ankk'.encode()).hexdigest(), # Mật khẩu mặc định là a@a@ankk
+            'full_name': 'Quản trị viên (Admin)',
+            'role': 'admin',
+            'status': 'approved'
+        })
 except Exception as e:
     print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Vui lòng kiểm tra file firebase-adminsdk.json. Chi tiết: {e}")
     db = None
@@ -52,6 +64,25 @@ class SaveQuizRequest(BaseModel):
     mode: str = "practice"
     time_limit: int = 0
     is_shuffle: bool = False
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    role: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class ApproveUserRequest(BaseModel):
+    admin_token: str
+    user_id: str
+
+class ChangePasswordRequest(BaseModel):
+    admin_token: str
+    old_password: str
+    new_password: str
 
 class SubmitScoreRequest(BaseModel):
     quiz_id: str
@@ -132,6 +163,13 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
     """
     So sánh trọng số giữa 4 đáp án (A,B,C,D) để lọc ra đáp án chính xác nhất dựa trên định dạng.
     """
+    # 1. Kiểm tra nếu có đáp án nào được đánh dấu * (Ưu tiên tuyệt đối)
+    for opt in options:
+        if opt.get('is_asterisk'):
+            opt_part, _ = split_option_and_leading_text(opt['text'])
+            return f"{opt['char']}. {opt_part}"
+            
+    # 2. Nếu không có dấu *, tiến hành so sánh theo màu sắc/in đậm
     best_score = -1
     best_option_text = None
     
@@ -197,7 +235,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         prefix = get_auto_numbering_prefix(para, doc, counters)
         if prefix:
             para_text_strip = para.text.strip()
-            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
+            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
             is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
             
             if not is_numbering_text and not is_group_title:
@@ -236,7 +274,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     # BƯỚC 2: Phân tách bằng State Machine (Máy trạng thái) kết hợp Regex siêu chuẩn
     # Xóa bỏ \s* ở cuối để không nuốt khoảng trắng của đáp án A. Dùng lookbehind (?<=) cho các trường hợp viết dính liền (1.A.)
     q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
-    opt_regex = r'(?:^|\s+|(?<=[\.\:\-]))([A-F])[\.\:\)]'
+    opt_regex = r'(?:^|\s+|(?<=[\.\:\-]))(\*?\s*[A-F])[\.\:\)]'
     token_pattern = re.compile(f'({q_regex})|({opt_regex})', re.IGNORECASE)
     
     matches = list(token_pattern.finditer(full_text))
@@ -292,7 +330,9 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
             state = "IN_QUESTION"
             
         elif is_option:
-            char = m.group(3).upper() if m.group(3) else 'A'
+            char_raw = m.group(3).upper() if m.group(3) else 'A'
+            is_asterisk = '*' in char_raw
+            char = char_raw.replace('*', '').strip()
             
             if state == "IN_QUESTION":
                 current_q_text += text_between
@@ -305,7 +345,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 'char': char,
                 'start_idx': m.start(3) if m.start(3) != -1 else match_start,
                 'text': "",
-                'marker_end': match_end
+                'marker_end': match_end,
+                'is_asterisk': is_asterisk
             })
             
         last_idx = match_end
@@ -344,7 +385,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
         prefix = get_auto_numbering_prefix(para, doc, counters)
         if prefix:
             para_text_strip = para.text.strip()
-            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
+            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
             is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
             if not is_numbering_text and not is_group_title:
                 para_text += prefix
@@ -368,8 +409,8 @@ def generate_mcq_with_gemini(marked_text: str, api_key: str) -> List[Dict[str, A
     prompt = f"""
     Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là trích xuất câu hỏi từ văn bản dưới đây.
     1. Trích xuất câu hỏi và 4 đáp án (A, B, C, D).
-    2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK>.
-    3. Loại bỏ thẻ <MARK> ra khỏi kết quả cuối cùng.
+    2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B).
+    3. Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
     4. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
     Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Q1?", "options": ["A. 1", "B. 2", "C. 3", "D. 4"], "correct_answer": "A. 1"}}]
     
@@ -389,6 +430,93 @@ def generate_mcq_with_gemini(marked_text: str, api_key: str) -> List[Dict[str, A
 @app.get("/")
 async def root():
     return {"status": "success", "message": "Backend API is running!"}
+
+@app.post("/api/auth/register", summary="Đăng ký tài khoản mới")
+async def register(req: RegisterRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    existing = db.collection('users').where('username', '==', req.username).get()
+    if existing: raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
+    
+    db.collection('users').add({
+        'username': req.username,
+        'password': hashlib.sha256(req.password.encode()).hexdigest(),
+        'full_name': req.full_name,
+        'role': req.role,
+        'status': 'pending'
+    })
+    return {"status": "success"}
+
+@app.post("/api/auth/login", summary="Đăng nhập")
+async def login(req: LoginRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    users = db.collection('users').where('username', '==', req.username).get()
+    if not users: raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
+    
+    user_doc = users[0]
+    user_data = user_doc.to_dict()
+    if user_data['password'] != hashlib.sha256(req.password.encode()).hexdigest():
+        raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
+        
+    if user_data['status'] != 'approved':
+        raise HTTPException(status_code=403, detail="Tài khoản đang chờ Quản trị viên duyệt.")
+        
+    return {"status": "success", "token": user_doc.id, "role": user_data['role'], "full_name": user_data['full_name']}
+
+@app.get("/api/admin/users", summary="Lấy danh sách user (Admin)")
+async def get_all_users(admin_token: str):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    admin_doc = db.collection('users').document(admin_token).get()
+    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+        
+    users = db.collection('users').get()
+    res = []
+    for u in users:
+        d = u.to_dict()
+        res.append({
+            'id': u.id,
+            'username': d.get('username'),
+            'full_name': d.get('full_name'),
+            'role': d.get('role'),
+            'status': d.get('status')
+        })
+    return {"status": "success", "data": res}
+
+@app.post("/api/admin/approve", summary="Duyệt user (Admin)")
+async def approve_user(req: ApproveUserRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    admin_doc = db.collection('users').document(req.admin_token).get()
+    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền")
+        
+    db.collection('users').document(req.user_id).update({'status': 'approved'})
+    return {"status": "success"}
+
+@app.post("/api/admin/delete", summary="Xóa user (Admin)")
+async def delete_user(req: ApproveUserRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    admin_doc = db.collection('users').document(req.admin_token).get()
+    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền")
+        
+    db.collection('users').document(req.user_id).delete()
+    return {"status": "success"}
+
+@app.post("/api/admin/change_password", summary="Đổi mật khẩu (Admin)")
+async def change_admin_password(req: ChangePasswordRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    admin_doc_ref = db.collection('users').document(req.admin_token)
+    admin_doc = admin_doc_ref.get()
+    
+    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
+        
+    admin_data = admin_doc.to_dict()
+    if admin_data['password'] != hashlib.sha256(req.old_password.encode()).hexdigest():
+        raise HTTPException(status_code=400, detail="Mật khẩu cũ không chính xác")
+        
+    admin_doc_ref.update({'password': hashlib.sha256(req.new_password.encode()).hexdigest()})
+    return {"status": "success"}
 
 @app.post("/api/save_quiz", summary="Lưu bài thi và lấy link")
 async def save_quiz(request: SaveQuizRequest):
