@@ -1,46 +1,33 @@
 import os
 import re
 import json
-import sqlite3
 import uuid
 import tempfile
 import shutil
-from typing import List, Dict, Any, Generator
+from typing import List, Dict, Any
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from docx import Document
 import google.generativeai as genai
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # ==========================================
 # PHẦN 1: CẤU HÌNH & QUẢN LÝ DATABASE
 # ==========================================
-DB_FILE = 'quizzes.db'
 
-def init_db():
-    """Khởi tạo cấu trúc CSDL nếu chưa tồn tại"""
-    with sqlite3.connect(DB_FILE) as conn:
-        c = conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS quizzes (
-                id TEXT PRIMARY KEY,
-                title TEXT,
-                data TEXT
-            )
-        ''')
-        conn.commit()
-
-def get_db() -> Generator[sqlite3.Connection, None, None]:
-    """Dependency Injection: Quản lý vòng đời của DB an toàn"""
-    conn = sqlite3.connect(DB_FILE)
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-init_db()
+# Khởi tạo Firebase
+try:
+    # Đảm bảo bạn đã tải file firebase-adminsdk.json từ Firebase Console và để cùng thư mục
+    cred = credentials.Certificate("firebase-adminsdk.json")
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+except Exception as e:
+    print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Vui lòng kiểm tra file firebase-adminsdk.json. Chi tiết: {e}")
+    db = None
 
 # ==========================================
 # PHẦN 2: CẤU HÌNH FASTAPI & MIDDLEWARE
@@ -568,21 +555,28 @@ async def root():
     return HTMLResponse(content=html_content)
 
 @app.post("/api/save_quiz", summary="Lưu bài thi và lấy link")
-async def save_quiz(request: SaveQuizRequest, db: sqlite3.Connection = Depends(get_db)):
+async def save_quiz(request: SaveQuizRequest):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+        
     quiz_id = str(uuid.uuid4())
-    cursor = db.cursor()
-    cursor.execute('INSERT INTO quizzes (id, title, data) VALUES (?, ?, ?)',
-                   (quiz_id, request.title, json.dumps(request.data, ensure_ascii=False)))
-    db.commit()
+    doc_ref = db.collection('quizzes').document(quiz_id)
+    doc_ref.set({
+        'title': request.title,
+        'data': request.data  # Lưu trực tiếp dạng array/dict không cần json.dumps
+    })
     return {"status": "success", "quiz_id": quiz_id, "link": f"/?quiz_id={quiz_id}"}
 
 @app.get("/api/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID")
-async def get_quiz(quiz_id: str, db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute('SELECT title, data FROM quizzes WHERE id = ?', (quiz_id,))
-    row = cursor.fetchone()
-    if row:
-        return {"status": "success", "title": row[0], "data": json.loads(row[1])}
+async def get_quiz(quiz_id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+        
+    doc_ref = db.collection('quizzes').document(quiz_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        quiz_data = doc.to_dict()
+        return {"status": "success", "title": quiz_data.get('title'), "data": quiz_data.get('data')}
     raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
 
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
