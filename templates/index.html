@@ -206,6 +206,9 @@
 </div>
 
 <script>
+    // QUAN TRỌNG: Thay URL bên dưới bằng Link dự án Render của bạn
+    const API_BASE_URL = "https://hocnhanhtracnghiem.onrender.com";
+
     let currentData = [];
     let currentMode = 'edit';
     let currentQuestionIndex = 0;
@@ -220,7 +223,7 @@
             document.getElementById('btnEdit').style.display = 'none'; 
             document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Đang tải dữ liệu bài thi...</p>";
             try {
-                const response = await fetch('/api/get_quiz/' + quizId);
+                const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}`);
                 const result = await response.json();
                 if (result.status === 'success') {
                     currentData = result.data;
@@ -244,14 +247,14 @@
         document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center;'>⚙️ Hệ thống đang bóc tách câu hỏi... Vui lòng đợi.</div>";
 
         try {
-            const response = await fetch('/api/upload', { method: 'POST', body: formData });
+            const response = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
             const result = await response.json();
             if (result.status === "success") {
                 currentData = result.data || [];
                 document.getElementById('modeSwitch').style.display = 'flex';
                 renderData();
             } else { alert("Lỗi: " + result.detail); }
-        } catch (e) { alert("Lỗi kết nối máy chủ!"); }
+        } catch (e) { alert("Lỗi kết nối máy chủ! Có thể Server đang khởi động lại (Cold Start), hãy thử lại trong ít giây."); }
     }
 
     function renderData() {
@@ -401,14 +404,14 @@
         btn.innerText = "⏳ Đang lưu trữ dữ liệu...";
         btn.disabled = true;
         try {
-            const response = await fetch('/api/save_quiz', {
+            const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: title, data: currentData })
             });
             const result = await response.json();
             if (result.status === 'success') {
-                const shareLink = window.location.origin + result.link;
+                const shareLink = window.location.origin + window.location.pathname + "?quiz_id=" + result.quiz_id;
                 prompt("Lưu thành công! Mời copy đường link bên dưới để gửi cho học sinh/lớp:", shareLink);
             }
         } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
