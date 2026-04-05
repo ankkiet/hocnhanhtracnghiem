@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from docx import Document
+from docx.oxml.ns import qn
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -48,21 +49,84 @@ app.add_middleware(
 class SaveQuizRequest(BaseModel):
     title: str
     data: list
+    mode: str = "practice"
+    time_limit: int = 0
+    is_shuffle: bool = False
+
+class SubmitScoreRequest(BaseModel):
+    quiz_id: str
+    student_name: str
+    score: int
+    total_questions: int
+    time_elapsed: int
 
 # ==========================================
 # PHẦN 3: LÕI THUẬT TOÁN & XỬ LÝ DỮ LIỆU
 # ==========================================
 
-def clean_option_text(text: str) -> str:
-    """Xóa các tiêu đề nhóm/phần (thường dính vào cuối đáp án) để tránh rác dữ liệu."""
+def get_auto_numbering_prefix(para, doc, counters: dict) -> str:
+    """Khôi phục lại text (Câu X / A, B) khi giáo viên dùng List Tự động trong Word"""
+    pPr = para._p.pPr
+    if pPr is None or pPr.numPr is None or pPr.numPr.numId is None:
+        return ""
+        
+    numId = pPr.numPr.numId.val
+    ilvl = pPr.numPr.ilvl.val if pPr.numPr.ilvl is not None else 0
+    numFmt = "decimal"
+    
+    try:
+        if doc.part.numbering_part is not None:
+            numbering_part = doc.part.numbering_part
+            num = numbering_part.element.num_having_numId(numId)
+            if num is not None and num.abstractNumId is not None:
+                abstractNum = numbering_part.element.abstractNum_having_abstractNumId(num.abstractNumId.val)
+                for lvl in abstractNum.xpath('w:lvl'):
+                    if lvl.get(qn('w:ilvl')) == str(ilvl):
+                        numFmt_el = lvl.xpath('w:numFmt')
+                        if numFmt_el:
+                            numFmt = numFmt_el[0].get(qn('w:val'))
+                        break
+    except Exception:
+        pass
+        
+    if numFmt in ["upperLetter", "lowerLetter"]:
+        counters['opt'] += 1
+        return f"{chr(ord('A') + (counters['opt'] - 1) % 26)}. "
+    else:
+        counters['q'] += 1
+        counters['opt'] = 0
+        return f"Câu {counters['q']}: "
+
+def split_option_and_leading_text(text: str) -> tuple[str, str]:
+    """Tách phần văn bản thuộc về đáp án và phần tiêu đề/context của câu tiếp theo."""
     lines = text.split('\n')
-    cleaned = []
-    for line in lines:
-        # Nếu gặp dòng nghi ngờ là Tiêu đề nhóm -> dừng lấy văn bản đáp án
-        if re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', line, re.IGNORECASE):
-            break
-        cleaned.append(line)
-    return '\n'.join(cleaned).strip()
+    opt_lines = []
+    leading_lines = []
+    found_leading = False
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        if found_leading:
+            leading_lines.append(line)
+            continue
+            
+        if not stripped:
+            opt_lines.append(line)
+            continue
+            
+        # Heuristic nhận diện nhóm/context: Dấu hiệu từ khóa hoặc đoạn văn bản riêng biệt
+        is_keyword = bool(re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', stripped, re.IGNORECASE))
+        is_context_hint = bool(re.match(r'^\s*(Đọc đoạn|Đọc văn bản|Read the|Based on|Dựa vào|Cho đoạn|Cho bảng|Mark the|Choose the|Indicate the|Find the|Identify the|Complete the|Select the)\b', stripped, re.IGNORECASE))
+        is_new_block = (i > 0 and not lines[i-1].strip() and len(stripped) > 10)
+        
+        if is_keyword or is_context_hint or is_new_block:
+            found_leading = True
+            leading_lines.append(line)
+        else:
+            opt_lines.append(line)
+            
+    return '\n'.join(opt_lines).strip(), '\n'.join(leading_lines).strip()
 
 def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights: List[int]) -> str:
     """
@@ -107,7 +171,8 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
         # Cập nhật đáp án có mức rank cao nhất
         if score > best_score:
             best_score = score
-            best_option_text = f"{opt['char']}. {clean_option_text(opt['text'])}"
+            opt_part, _ = split_option_and_leading_text(opt['text'])
+            best_option_text = f"{opt['char']}. {opt_part}"
             
     if best_score <= 0:
         return None
@@ -120,6 +185,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     full_text = ""
     format_weights = []
     
+    counters = {'q': 0, 'opt': 0}
+    
     # BƯỚC 1: Quét tài liệu, ánh xạ văn bản và trọng số định dạng
     for para in doc.paragraphs:
         if not para.text.strip():
@@ -127,6 +194,16 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
             format_weights.append(0)
             continue
             
+        prefix = get_auto_numbering_prefix(para, doc, counters)
+        if prefix:
+            para_text_strip = para.text.strip()
+            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
+            is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
+            
+            if not is_numbering_text and not is_group_title:
+                full_text += prefix
+                format_weights.extend([0] * len(prefix))
+                
         for run in para.runs:
             run_text = run.text
             if not run_text: continue
@@ -156,68 +233,97 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         full_text += "\n"
         format_weights.append(0)
 
-    # BƯỚC 2: Phân tách Câu hỏi và Đáp án bằng Regex
-    pattern = re.compile(r'(?:^|\s|\n)([A-D])([\.\:\)])\s*')
-    matches = list(pattern.finditer(full_text))
+    # BƯỚC 2: Phân tách bằng State Machine (Máy trạng thái) kết hợp Regex siêu chuẩn
+    # Xóa bỏ \s* ở cuối để không nuốt khoảng trắng của đáp án A. Dùng lookbehind (?<=) cho các trường hợp viết dính liền (1.A.)
+    q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
+    opt_regex = r'(?:^|\s+|(?<=[\.\:\-]))([A-F])[\.\:\)]'
+    token_pattern = re.compile(f'({q_regex})|({opt_regex})', re.IGNORECASE)
     
+    matches = list(token_pattern.finditer(full_text))
     if not matches: return []
 
     extracted_data = []
     current_q_text = ""
     options = []
     last_idx = 0
+    state = "OUTSIDE" # Trạng thái xử lý: OUTSIDE, IN_QUESTION, IN_OPTION
+    shared_context = "" # Biến lưu tiêu đề nhóm chung (để cấp cho các câu hỏi trống)
     
-    for i, m in enumerate(matches):
-        char = m.group(1)
-        start_idx = m.start(1)
-        text_before = full_text[last_idx:m.start()].strip()
+    for m in matches:
+        is_question = m.group(1) is not None
+        is_option = m.group(2) is not None
         
-        if char == 'A':
-            if options:
-                split_match = re.search(r'\n\s*(?:Câu|Bài)\s*\d+[\.\:\-]', text_before, re.IGNORECASE)
-                if split_match:
-                    last_opt_text = text_before[:split_match.start()].strip()
-                    new_q_text = text_before[split_match.start():].strip()
-                else:
-                    last_opt_text = text_before
-                    new_q_text = ""
-                    
-                options[-1]['text'] += " " + last_opt_text
-                options[-1]['end_idx'] = last_idx + len(last_opt_text)
+        match_start = m.start()
+        match_end = m.end()
+        text_between = full_text[last_idx:match_start]
+        
+        if is_question:
+            if state == "IN_OPTION" and options:
+                opt_part, lead_part = split_option_and_leading_text(text_between)
+                options[-1]['text'] += opt_part
+                options[-1]['end_idx'] = match_start - len(lead_part)
                 
                 correct_ans = evaluate_correct_answer(options, full_text, format_weights)
                 
+                q_text_clean = current_q_text.strip()
+                    
                 extracted_data.append({
-                    "question": current_q_text.strip(),
-                    "options": [f"{opt['char']}. {opt['text'].strip()}" for opt in options],
+                    "group_title": shared_context,
+                    "question": q_text_clean,
+                    "options": [f"{opt['char']}. {split_option_and_leading_text(opt['text'])[0]}" for opt in options],
                     "correct_answer": correct_ans
                 })
-                current_q_text = new_q_text
-                options = []
-            else:
-                current_q_text += " " + text_before
-        else:
-            if options:
-                options[-1]['text'] += " " + text_before
-                options[-1]['end_idx'] = m.start()
-            else:
-                current_q_text += " " + text_before
                 
-        options.append({
-            'char': char,
-            'start_idx': start_idx,
-            'text': "",
-            'marker_end': m.end()
-        })
-        last_idx = m.end()
+                if lead_part:
+                    shared_context = lead_part
+                    
+                # Kế thừa ngữ cảnh (Phần I, đoạn văn...) vào câu tiếp theo
+                current_q_text = lead_part + "\n" if lead_part else ""
+            elif state == "OUTSIDE":
+                _, lead_part = split_option_and_leading_text(text_between)
+                if lead_part:
+                    shared_context = lead_part
+                current_q_text = text_between + "\n"
+            else:
+                current_q_text += text_between + "\n"
+                
+            # Cố tình loại bỏ phần chữ "Câu X:" (m.group(1)) để web tự động điền lại STT đúng
+            options = []
+            state = "IN_QUESTION"
+            
+        elif is_option:
+            char = m.group(3).upper() if m.group(3) else 'A'
+            
+            if state == "IN_QUESTION":
+                current_q_text += text_between
+            elif state == "IN_OPTION" and options:
+                options[-1]['text'] += text_between
+                options[-1]['end_idx'] = match_start
+                
+            state = "IN_OPTION"
+            options.append({
+                'char': char,
+                'start_idx': m.start(3) if m.start(3) != -1 else match_start,
+                'text': "",
+                'marker_end': match_end
+            })
+            
+        last_idx = match_end
         
-    if options:
-        options[-1]['text'] += " " + full_text[last_idx:].strip()
-        options[-1]['end_idx'] = len(full_text)
+    if state == "IN_OPTION" and options:
+        text_between = full_text[last_idx:]
+        opt_part, lead_part = split_option_and_leading_text(text_between)
+        options[-1]['text'] += opt_part
+        options[-1]['end_idx'] = len(full_text) - len(lead_part)
+        
         correct_ans = evaluate_correct_answer(options, full_text, format_weights)
+        
+        q_text_clean = current_q_text.strip()
+            
         extracted_data.append({
-            "question": current_q_text.strip(),
-            "options": [f"{opt['char']}. {opt['text'].strip()}" for opt in options],
+            "group_title": shared_context,
+            "question": q_text_clean,
+            "options": [f"{opt['char']}. {split_option_and_leading_text(opt['text'])[0]}" for opt in options],
             "correct_answer": correct_ans
         })
 
@@ -227,12 +333,22 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ để gửi lên AI"""
     doc = Document(file_path)
     full_text = []
+    counters = {'q': 0, 'opt': 0}
+    
     for para in doc.paragraphs:
         if not para.text.strip():
             full_text.append("\n")
             continue
         
         para_text = ""
+        prefix = get_auto_numbering_prefix(para, doc, counters)
+        if prefix:
+            para_text_strip = para.text.strip()
+            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
+            is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
+            if not is_numbering_text and not is_group_title:
+                para_text += prefix
+                
         for run in para.runs:
             is_highlighted = run.font.highlight_color is not None and run.font.highlight_color != 0
             is_red_text = run.font.color and run.font.color.rgb and str(run.font.color.rgb) == 'FF0000'
@@ -255,7 +371,7 @@ def generate_mcq_with_gemini(marked_text: str, api_key: str) -> List[Dict[str, A
     2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK>.
     3. Loại bỏ thẻ <MARK> ra khỏi kết quả cuối cùng.
     4. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
-    Ví dụ: [{{"question": "Q1?", "options": ["A. Lựa chọn 1", "B. 2", "C. 3", "D. 4"], "correct_answer": "A. Lựa chọn 1"}}]
+    Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Q1?", "options": ["A. 1", "B. 2", "C. 3", "D. 4"], "correct_answer": "A. 1"}}]
     
     Văn bản:
     {marked_text}
@@ -283,7 +399,10 @@ async def save_quiz(request: SaveQuizRequest):
     doc_ref = db.collection('quizzes').document(quiz_id)
     doc_ref.set({
         'title': request.title,
-        'data': request.data  # Lưu trực tiếp dạng array/dict không cần json.dumps
+        'data': request.data,  # Lưu trực tiếp dạng array/dict không cần json.dumps
+        'mode': request.mode,
+        'time_limit': request.time_limit,
+        'is_shuffle': request.is_shuffle
     })
     return {"status": "success", "quiz_id": quiz_id, "link": f"/?quiz_id={quiz_id}"}
 
@@ -296,8 +415,47 @@ async def get_quiz(quiz_id: str):
     doc = doc_ref.get()
     if doc.exists:
         quiz_data = doc.to_dict()
-        return {"status": "success", "title": quiz_data.get('title'), "data": quiz_data.get('data')}
+        return {
+            "status": "success", 
+            "title": quiz_data.get('title'), 
+            "data": quiz_data.get('data'), 
+            "mode": quiz_data.get('mode', 'practice'), 
+            "time_limit": quiz_data.get('time_limit', 0),
+            "is_shuffle": quiz_data.get('is_shuffle', False)
+        }
     raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+
+@app.post("/api/submit_score", summary="Lưu điểm và thời gian của học sinh")
+async def submit_score(request: SubmitScoreRequest):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+    
+    doc_ref = db.collection('quizzes').document(request.quiz_id).collection('submissions').document()
+    doc_ref.set({
+        'student_name': request.student_name,
+        'score': request.score,
+        'total_questions': request.total_questions,
+        'time_elapsed': request.time_elapsed,
+        'timestamp': firestore.SERVER_TIMESTAMP
+    })
+    return {"status": "success"}
+
+@app.get("/api/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top thành tích")
+async def get_leaderboard(quiz_id: str):
+    if db is None: return {"status": "error"}
+    subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
+    docs = subs_ref.get()
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        results.append({
+            'student_name': data.get('student_name', 'Ẩn danh'),
+            'score': data.get('score', 0),
+            'time_elapsed': data.get('time_elapsed', 999999)
+        })
+    # Sắp xếp theo ưu tiên: Điểm cao trước, thời gian ngắn (nhanh hơn) trước
+    results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
+    return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
 async def upload_document(file: UploadFile = File(...), api_key: str = Form(None)):
