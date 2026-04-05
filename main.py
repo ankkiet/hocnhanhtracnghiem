@@ -29,13 +29,19 @@ try:
     
     # Khởi tạo Admin mặc định nếu chưa có
     users = db.collection('users').where('username', '==', 'admin').get()
+    admin_pwd_hash = hashlib.sha256('a@a@ankk'.encode()).hexdigest()
     if not users:
         db.collection('users').add({
             'username': 'admin',
-            'password': hashlib.sha256('a@a@ankk'.encode()).hexdigest(), # Mật khẩu mặc định là a@a@ankk
+            'password': admin_pwd_hash, # Mật khẩu mặc định là a@a@ankk
             'full_name': 'Quản trị viên (Admin)',
             'role': 'admin',
             'status': 'approved'
+        })
+    else:
+        # Cập nhật đè lại mật khẩu để đảm bảo Admin luôn vào được bằng mật khẩu mới
+        db.collection('users').document(users[0].id).update({
+            'password': admin_pwd_hash
         })
 except Exception as e:
     print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Vui lòng kiểm tra file firebase-adminsdk.json. Chi tiết: {e}")
@@ -64,6 +70,8 @@ class SaveQuizRequest(BaseModel):
     mode: str = "practice"
     time_limit: int = 0
     is_shuffle: bool = False
+    creator_id: str = ""
+    status: str = "published"
 
 class RegisterRequest(BaseModel):
     username: str
@@ -83,6 +91,16 @@ class ChangePasswordRequest(BaseModel):
     admin_token: str
     old_password: str
     new_password: str
+
+class ResetPasswordRequest(BaseModel):
+    admin_token: str
+    user_id: str
+    new_password: str
+
+class TogglePublishRequest(BaseModel):
+    teacher_token: str
+    quiz_id: str
+    status: str
 
 class SubmitScoreRequest(BaseModel):
     quiz_id: str
@@ -454,6 +472,7 @@ async def login(req: LoginRequest):
     
     user_doc = users[0]
     user_data = user_doc.to_dict()
+    
     if user_data['password'] != hashlib.sha256(req.password.encode()).hexdigest():
         raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
         
@@ -518,6 +537,18 @@ async def change_admin_password(req: ChangePasswordRequest):
     admin_doc_ref.update({'password': hashlib.sha256(req.new_password.encode()).hexdigest()})
     return {"status": "success"}
 
+@app.post("/api/admin/reset_password", summary="Khôi phục mật khẩu user (Admin)")
+async def reset_user_password(req: ResetPasswordRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    admin_doc = db.collection('users').document(req.admin_token).get()
+    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền")
+        
+    db.collection('users').document(req.user_id).update({
+        'password': hashlib.sha256(req.new_password.encode()).hexdigest()
+    })
+    return {"status": "success"}
+
 @app.post("/api/save_quiz", summary="Lưu bài thi và lấy link")
 async def save_quiz(request: SaveQuizRequest):
     if db is None:
@@ -530,7 +561,10 @@ async def save_quiz(request: SaveQuizRequest):
         'data': request.data,  # Lưu trực tiếp dạng array/dict không cần json.dumps
         'mode': request.mode,
         'time_limit': request.time_limit,
-        'is_shuffle': request.is_shuffle
+        'is_shuffle': request.is_shuffle,
+        'creator_id': request.creator_id,
+        'status': request.status,
+        'created_at': firestore.SERVER_TIMESTAMP
     })
     return {"status": "success", "quiz_id": quiz_id, "link": f"/?quiz_id={quiz_id}"}
 
@@ -543,6 +577,10 @@ async def get_quiz(quiz_id: str):
     doc = doc_ref.get()
     if doc.exists:
         quiz_data = doc.to_dict()
+        
+        if quiz_data.get('status') == 'unpublished':
+            raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
+            
         return {
             "status": "success", 
             "title": quiz_data.get('title'), 
@@ -552,6 +590,34 @@ async def get_quiz(quiz_id: str):
             "is_shuffle": quiz_data.get('is_shuffle', False)
         }
     raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+
+@app.get("/api/teacher/quizzes", summary="Lấy danh sách đề thi của Giáo viên")
+async def get_teacher_quizzes(teacher_token: str):
+    if db is None: return {"status": "error"}
+    # Chỉ lấy các đề do giáo viên này tạo
+    docs = db.collection('quizzes').where('creator_id', '==', teacher_token).get()
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        results.append({
+            'id': doc.id,
+            'title': data.get('title', 'Không tên'),
+            'mode': data.get('mode', 'practice'),
+            'status': data.get('status', 'published'),
+            'question_count': len(data.get('data', []))
+        })
+    return {"status": "success", "data": results}
+
+@app.post("/api/teacher/toggle_publish", summary="Bật/Tắt xuất bản đề thi")
+async def toggle_publish(req: TogglePublishRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    doc_ref = db.collection('quizzes').document(req.quiz_id)
+    doc = doc_ref.get()
+    if not doc.exists or doc.to_dict().get('creator_id') != req.teacher_token:
+        raise HTTPException(status_code=403, detail="Không có quyền")
+        
+    doc_ref.update({'status': req.status})
+    return {"status": "success"}
 
 @app.post("/api/submit_score", summary="Lưu điểm và thời gian của học sinh")
 async def submit_score(request: SubmitScoreRequest):

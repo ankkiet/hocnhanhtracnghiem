@@ -286,7 +286,7 @@
         <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Đổi mật khẩu Quản trị viên:</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <input type="password" id="adminOldPwd" placeholder="Mật khẩu hiện tại" style="flex: 1; min-width: 200px;">
-            <input type="password" id="adminNewPwd" placeholder="Mật khẩu mới (Tối thiểu 6 ký tự)" style="flex: 1; min-width: 200px;">
+            <input type="password" id="adminNewPwd" placeholder="Mật khẩu mới" style="flex: 1; min-width: 200px;">
             <button class="btn-primary" onclick="changeAdminPassword()">Đổi mật khẩu</button>
         </div>
     </div>
@@ -344,11 +344,28 @@
         <button id="btnShuffle" class="btn-primary" onclick="shuffleQuiz()" style="display: none;">🔀 Trộn đề</button>
     </div>
 
+    <!-- Bảng điều khiển Học sinh (Khi chưa có link) -->
+    <div id="studentDashboard" class="card" style="display:none; text-align: center;">
+        <h2 style="color: var(--primary); margin-top: 0;">🎓 Khu vực Học tập</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Nhập mã đề thi do giáo viên cung cấp để bắt đầu làm bài.</p>
+        <div style="display: flex; max-width: 500px; margin: 0 auto; gap: 10px;">
+            <input type="text" id="joinQuizCode" placeholder="Ví dụ: 123e4567-e89b-12d3..." style="flex-grow: 1; margin: 0;">
+            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap;">Vào thi 🚀</button>
+        </div>
+    </div>
+
     <div class="card upload-section" id="uploadBox">
         <p>Tải lên tài liệu (.docx) của bạn</p>
         <input type="password" id="apiKey" placeholder="🔑 Nhập Gemini API Key (Bỏ trống để dùng thuật toán gốc)">
         <input type="file" id="fileInput" accept=".docx" style="margin-bottom: 20px;">
         <button class="btn-primary" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
+    </div>
+
+    <!-- Bảng quản lý đề thi của Giáo viên -->
+    <div id="teacherDashboard" class="card" style="display:none; margin-top: 24px;">
+        <h2 style="color: var(--primary); margin-top: 0; font-size: 1.5rem;">📚 Quản lý Đề thi của tôi</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;">Danh sách các đề thi bạn đã tạo và xuất bản. Bạn có thể copy mã/link gửi cho học sinh hoặc ẩn đề đi.</p>
+        <div id="teacherQuizList" style="overflow-x: auto;"></div>
     </div>
 
     <input type="text" id="quizTitle" class="card" placeholder="Nhập tên bài kiểm tra (VD: Đề cương Lịch sử kỳ 1)..." style="display:none; font-size: 1.2rem; font-weight: 700; padding: 20px;">
@@ -372,10 +389,12 @@
 
 <script>
     // Tự động nhận diện môi trường (Localhost vs Production)
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.protocol === 'file:';
-    const API_BASE_URL = isLocalhost
-        ? "http://127.0.0.1:8000" 
-        : "https://hocnhanhtracnghiem.onrender.com"; // QUAN TRỌNG: Hãy thay bằng link Render thật của bạn
+    let API_BASE_URL = "https://hocnhanhtracnghiem.onrender.com"; // QUAN TRỌNG: Link Render thật của bạn
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+        API_BASE_URL = "http://127.0.0.1:8000";
+    } else if (window.location.hostname.startsWith('192.168.')) {
+        API_BASE_URL = `http://${window.location.hostname}:8000`; // Hỗ trợ test qua mạng LAN (Live Server IP)
+    }
 
     let currentData = [];
     let currentMode = 'edit';
@@ -420,6 +439,10 @@
             
             if (authRole === 'student') {
                 document.getElementById('uploadBox').style.display = 'none';
+                document.getElementById('studentDashboard').style.display = 'block';
+            } else if (authRole === 'teacher') {
+                document.getElementById('teacherDashboard').style.display = 'block';
+                loadTeacherQuizzes();
             }
             initApp();
         }
@@ -542,10 +565,9 @@
                     document.getElementById('welcomeScreen').style.display = 'block'; // Hiển thị khung nhập tên
                 } else { document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; }
             } catch (e) {
-                document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Lỗi kết nối đến máy chủ.</p>";
+                document.getElementById('quiz-container').innerHTML = `<p style='text-align:center; color: var(--danger);'><b>Không thể truy cập:</b> ${e.message || "Lỗi máy chủ"}</p>`;
+                if (e.message) alert(e.message);
             }
-        } else if (authRole === 'student') {
-            document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center; font-size: 1.1rem; color: var(--text-muted);'>👋 Chào học sinh! Bạn chưa mở bài thi nào. Hãy nhấp vào link bài thi do giáo viên gửi để bắt đầu nhé.</div>";
         }
     };
     
@@ -587,6 +609,60 @@
         const quizId = urlParams.get('quiz_id');
         if (quizId) localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
     }
+    
+    function joinQuizByCode() {
+        const code = document.getElementById('joinQuizCode').value.trim();
+        if (!code) return alert("Vui lòng nhập mã đề thi!");
+        window.location.href = `/?quiz_id=${code}`;
+    }
+
+    async function loadTeacherQuizzes() {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teacher/quizzes?teacher_token=${authToken}`);
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                let html = `<table style="width:100%; border-collapse: collapse; text-align:left; min-width: 600px;">
+                    <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
+                        <th style="padding: 12px 10px;">Tên đề thi</th>
+                        <th style="padding: 12px 10px;">Chế độ</th>
+                        <th style="padding: 12px 10px;">Số câu</th>
+                        <th style="padding: 12px 10px;">Trạng thái</th>
+                        <th style="padding: 12px 10px;">Mã đề / Thao tác</th>
+                    </tr>`;
+                data.data.forEach(q => {
+                    let modeStr = q.mode === 'exam' ? '📝 Thi thử' : '🎯 Luyện tập';
+                    let statusBadge = q.status === 'published' ? '<span style="color:var(--success); font-weight:bold;">Đang mở</span>' : '<span style="color:var(--danger); font-weight:bold;">Đã khóa</span>';
+                    let toggleAction = q.status === 'published' ? 'unpublished' : 'published';
+                    let toggleText = q.status === 'published' ? 'Khóa đề' : 'Mở lại';
+                    
+                    html += `<tr style="border-bottom: 1px solid var(--border);">
+                        <td style="padding: 12px 10px; font-weight: 600; color: var(--primary);">${q.title}</td>
+                        <td style="padding: 12px 10px;">${modeStr}</td>
+                        <td style="padding: 12px 10px;">${q.question_count}</td>
+                        <td style="padding: 12px 10px;">${statusBadge}</td>
+                        <td style="padding: 12px 10px;">
+                            <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${q.id}'); alert('Đã copy mã đề!');">Copy Mã</button>
+                            <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?quiz_id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
+                            <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; margin-top: 4px; border-color: var(--danger); color: var(--danger);" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
+                        </td>
+                    </tr>`;
+                });
+                html += `</table>`;
+                document.getElementById('teacherQuizList').innerHTML = html;
+            }
+        } catch(e) { console.error("Lỗi tải danh sách đề", e); }
+    }
+
+    async function toggleQuizStatus(quizId, newStatus) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teacher/toggle_publish`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, status: newStatus })
+            });
+            if (res.ok) loadTeacherQuizzes();
+        } catch(e) {}
+    }
 
     async function loadAdminUsers() {
         try {
@@ -605,13 +681,14 @@
                     let roleStr = u.role === 'teacher' ? '👨‍🏫 Giáo viên' : (u.role === 'student' ? '👨‍🎓 Học sinh' : '🛡️ Admin');
                     let statStr = u.status === 'approved' ? '<span style="color:var(--success); font-weight:bold;">Đã duyệt</span>' : '<span style="color:var(--danger); font-weight:bold;">Chờ duyệt</span>';
                     let btn = u.status === 'pending' ? `<button class="btn-success" style="width:auto; margin:0; padding: 6px 12px; font-size:0.9rem;" onclick="approveUser('${u.id}')">Duyệt</button>` : '';
+                    let resetBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 8px; padding: 6px 12px; font-size:0.9rem; color: var(--primary); border-color: var(--primary);" onclick="resetUserPassword('${u.id}', '${u.username}')">Đổi MK</button>` : '';
                     let delBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 8px; padding: 6px 12px; font-size:0.9rem; color: var(--danger); border-color: var(--danger);" onclick="deleteUser('${u.id}')">Xóa</button>` : '';
                     html += `<tr style="border-bottom: 1px solid var(--border);">
                         <td style="padding: 12px 10px; font-weight: 600;">${u.username}</td>
                         <td style="padding: 12px 10px;">${u.full_name}</td>
                         <td style="padding: 12px 10px;">${roleStr}</td>
                         <td style="padding: 12px 10px;">${statStr}</td>
-                        <td style="padding: 12px 10px;">${btn} ${delBtn}</td>
+                        <td style="padding: 12px 10px;">${btn} ${resetBtn} ${delBtn}</td>
                     </tr>`;
                 });
                 html += `</table>`;
@@ -635,11 +712,31 @@
         } catch(e) {}
     }
 
+    async function resetUserPassword(uid, username) {
+        const newPwd = prompt(`Nhập mật khẩu mới cho tài khoản "${username}":`);
+        if (newPwd === null) return; // Nhấn Hủy
+        
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/reset_password`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ admin_token: authToken, user_id: uid, new_password: newPwd.trim() })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                alert(`Đã đổi mật khẩu cho tài khoản "${username}" thành công!`);
+            } else {
+                alert("Lỗi: " + data.detail);
+            }
+        } catch(e) {
+            alert("Lỗi kết nối máy chủ");
+        }
+    }
+
     async function changeAdminPassword() {
         const oldPwd = document.getElementById('adminOldPwd').value.trim();
         const newPwd = document.getElementById('adminNewPwd').value.trim();
         if (!oldPwd || !newPwd) return alert("Vui lòng nhập đủ mật khẩu cũ và mới!");
-        if (newPwd.length < 6) return alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
         
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/change_password`, {
@@ -958,12 +1055,13 @@
             const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: title, data: currentData, mode: mode, time_limit: timeLimit, is_shuffle: isShuffle })
+                body: JSON.stringify({ title: title, data: currentData, mode: mode, time_limit: timeLimit, is_shuffle: isShuffle, creator_id: authToken, status: "published" })
             });
             const result = await response.json();
             if (result.status === 'success') {
                 const shareLink = window.location.origin + window.location.pathname + "?quiz_id=" + result.quiz_id;
-                prompt("Lưu thành công! Mời copy đường link bên dưới để gửi cho học sinh/lớp:", shareLink);
+                prompt(`Lưu thành công!\nMã đề: ${result.quiz_id}\n\nHoặc copy đường link bên dưới:`, shareLink);
+                if (authRole === 'teacher') loadTeacherQuizzes(); // Làm mới danh sách
             }
         } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
         btn.innerText = "💾 Lưu & Nhận Link Chia Sẻ";
