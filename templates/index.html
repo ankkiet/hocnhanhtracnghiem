@@ -3,10 +3,445 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống Tạo Câu hỏi Trắc nghiệm AI</title>
+    <title>AzotaPro - Hệ thống Luyện thi Trắc nghiệm AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --success-hover: #059669;
+            --danger: #ef4444;
+            --background: #f3f4f6;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        /* Nút bấn & Inputs */
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        
+        .btn-success { background: var(--success); color: white; width: 100%; margin-top: 15px; }
+        .btn-success:hover { background: var(--success-hover); }
+
+        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
+        .btn-outline.active { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+
+        input[type="text"], input[type="password"], input[type="file"], textarea {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Chế độ xem & Bố cục */
+        .mode-switch {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 30px;
+            display: none; /* Ánh xạ từ JS cũ */
+        }
+
+        .question-box {
+            border-left: 6px solid var(--primary);
+            transition: transform 0.2s ease;
+        }
+        
+        .question-box:hover {
+            transform: translateX(4px);
+        }
+
+        .question-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        /* Đáp án */
+        .option-wrapper {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .option-practice {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f9fafb;
+            margin-bottom: 8px;
+        }
+
+        .option-practice:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+        }
+
+        .option-practice input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+
+        /* Trạng thái chấm điểm */
+        .correct { background-color: #d1fae5 !important; border-color: #34d399 !important; color: #065f46; font-weight: 600; }
+        .incorrect { background-color: #fee2e2 !important; border-color: #f87171 !important; color: #991b1b; text-decoration: line-through; }
+        
+        #score-board {
+            display: none;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            background: #eff6ff;
+            padding: 20px;
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+            border: 1px dashed var(--primary);
+        }
+
+        .upload-section { text-align: center; }
+        .upload-section p { margin-bottom: 15px; font-weight: 600; }
+    </style>
 </head>
 <body>
-    <h1>Chào mừng bạn đến với Hệ thống Tạo Câu hỏi Trắc nghiệm AI</h1>
-    <p>Giao diện web đã tải thành công!</p>
+
+<div class="container">
+    <div class="header">
+        <h1>Hệ thống Trắc nghiệm Thông minh</h1>
+        <p>Bóc tách đề thi siêu tốc với chuẩn định dạng giáo dục</p>
+    </div>
+
+    <div class="mode-switch" id="modeSwitch">
+        <button id="btnEdit" class="btn-outline active" onclick="switchMode('edit')">🛠 Chỉnh sửa</button>
+        <button id="btnPractice" class="btn-outline" onclick="switchMode('practice')">🎯 Luyện tập</button>
+        <button id="btnExam" class="btn-outline" onclick="switchMode('exam')">📝 Thi thử</button>
+        <button id="btnShuffle" class="btn-primary" onclick="shuffleQuiz()" style="display: none;">🔀 Trộn đề</button>
+    </div>
+
+    <div class="card upload-section" id="uploadBox">
+        <p>Tải lên tài liệu (.docx) của bạn</p>
+        <input type="password" id="apiKey" placeholder="🔑 Nhập Gemini API Key (Bỏ trống để dùng thuật toán gốc)">
+        <input type="file" id="fileInput" accept=".docx" style="margin-bottom: 20px;">
+        <button class="btn-primary" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
+    </div>
+
+    <input type="text" id="quizTitle" class="card" placeholder="Nhập tên bài kiểm tra (VD: Đề cương Lịch sử kỳ 1)..." style="display:none; font-size: 1.2rem; font-weight: 700; padding: 20px;">
+    
+    <div id="score-board"></div>
+    <div id="quiz-container"></div>
+    
+    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 10px;" onclick="saveData()">💾 Lưu & Nhận Link Chia Sẻ</button>
+    <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">✔️ Nộp bài & Xem điểm</button>
+</div>
+
+<script>
+    let currentData = [];
+    let currentMode = 'edit';
+    let currentQuestionIndex = 0;
+    let practiceScore = 0;
+    let practiceAnswered = false;
+
+    window.onload = async function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const quizId = urlParams.get('quiz_id');
+        if (quizId) {
+            document.getElementById('uploadBox').style.display = 'none';
+            document.getElementById('btnEdit').style.display = 'none'; 
+            document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Đang tải dữ liệu bài thi...</p>";
+            try {
+                const response = await fetch('/api/get_quiz/' + quizId);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    currentData = result.data;
+                    document.querySelector('.header p').innerText = result.title;
+                    document.getElementById('modeSwitch').style.display = 'flex';
+                    switchMode('practice'); 
+                } else { document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; }
+            } catch (e) {
+                document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Lỗi kết nối đến máy chủ.</p>";
+            }
+        }
+    };
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files[0]) { alert("Vui lòng chọn file .docx!"); return; }
+        
+        const formData = new FormData();
+        formData.append("api_key", document.getElementById('apiKey').value.trim());
+        formData.append("file", fileInput.files[0]);
+        document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center;'>⚙️ Hệ thống đang bóc tách câu hỏi... Vui lòng đợi.</div>";
+
+        try {
+            const response = await fetch('/api/upload', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.status === "success") {
+                currentData = result.data || [];
+                document.getElementById('modeSwitch').style.display = 'flex';
+                renderData();
+            } else { alert("Lỗi: " + result.detail); }
+        } catch (e) { alert("Lỗi kết nối máy chủ!"); }
+    }
+
+    function renderData() {
+        const container = document.getElementById('quiz-container');
+        container.innerHTML = '';
+        if (currentData.length === 0) { container.innerHTML = "<div class='card'>Không tìm thấy câu hỏi nào. Vui lòng kiểm tra lại định dạng file Word.</div>"; return; }
+        
+        document.getElementById('score-board').style.display = 'none';
+        
+        if (currentMode === 'practice') {
+            renderPracticeQuestion();
+            return;
+        }
+
+        currentData.forEach((q, qIndex) => {
+            const box = document.createElement('div');
+            box.className = 'card question-box';
+            box.id = `question_box_${qIndex}`;
+            
+            if (currentMode === 'edit') {
+                box.innerHTML += `<div class="question-title">Câu hỏi ${qIndex + 1}:</div>
+                                  <textarea rows="3" onchange="updateQ(${qIndex}, this.value)">${q.question}</textarea>`;
+                box.innerHTML += `<div style="margin-top:15px; color: var(--text-muted); font-size: 0.9rem;">Đánh dấu vào nút tròn để đặt làm đáp án đúng:</div>`;
+                q.options.forEach((opt, oIndex) => {
+                    const isCorrect = q.correct_answer === opt;
+                    box.innerHTML += `
+                        <div class="option-wrapper">
+                            <input type="radio" name="correct_${qIndex}" ${isCorrect ? 'checked' : ''} onchange="updateCorrect(${qIndex}, ${oIndex})">
+                            <input type="text" value="${opt}" onchange="updateOpt(${qIndex}, ${oIndex}, this.value)">
+                        </div>`;
+                });
+            } else {
+                box.innerHTML += `<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/\\n/g, '<br>')}</div>`;
+                q.options.forEach((opt, oIndex) => {
+                    box.innerHTML += `
+                        <label class="option-practice" id="exam_opt_${qIndex}_${oIndex}">
+                            <input type="radio" name="exam_${qIndex}" value="${opt}">
+                            ${opt.replace(/^[A-D][\.\:\)]\s*/i, '')}
+                        </label>`;
+                });
+            }
+            container.appendChild(box);
+        });
+        
+        document.getElementById('quizTitle').style.display = currentMode === 'edit' ? 'block' : 'none';
+        document.getElementById('saveBtn').style.display = currentMode === 'edit' ? 'block' : 'none';
+        document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
+    }
+    
+    function renderPracticeQuestion() {
+        const container = document.getElementById('quiz-container');
+        container.innerHTML = '';
+        
+        if (currentQuestionIndex >= currentData.length) {
+            document.getElementById('score-board').style.display = 'block';
+            document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng ${practiceScore} / ${currentData.length} câu. 🎉<br><button class="btn-primary" onclick="switchMode('practice')" style="margin-top:20px;">Luyện tập lại vòng nữa</button>`;
+            return;
+        }
+
+        practiceAnswered = false;
+        const q = currentData[currentQuestionIndex];
+        const box = document.createElement('div');
+        box.className = 'card question-box';
+        
+        box.innerHTML += `<div class="question-title">Câu ${currentQuestionIndex + 1} / ${currentData.length}: ${q.question.replace(/\\n/g, '<br>')}</div>`;
+        
+        q.options.forEach((opt, oIndex) => {
+            box.innerHTML += `
+                <label class="option-practice" id="pract_opt_${oIndex}">
+                    <input type="radio" name="pract_radio" onclick="checkPracticeAnswer(${oIndex})">
+                    ${opt.replace(/^[A-D][\.\:\)]\s*/i, '')}
+                </label>`;
+        });
+        
+        box.innerHTML += `<div id="pract_feedback" style="margin-top:20px; font-weight:600; font-size:1.1rem;"></div>`;
+        box.innerHTML += `<button id="nextBtn" class="btn-primary" style="display:none; margin-top:20px;" onclick="nextPracticeQuestion()">Câu tiếp theo ➔</button>`;
+        
+        container.appendChild(box);
+    }
+
+    function checkPracticeAnswer(oIndex) {
+        if (practiceAnswered) return;
+        practiceAnswered = true;
+        
+        const q = currentData[currentQuestionIndex];
+        const isCorrect = q.options[oIndex] === q.correct_answer;
+        
+        if (isCorrect) practiceScore++;
+        
+        q.options.forEach((opt, idx) => {
+            const lbl = document.getElementById(`pract_opt_${idx}`);
+            lbl.querySelector('input').disabled = true;
+            if (opt === q.correct_answer) lbl.classList.add('correct');
+            else if (idx === oIndex && !isCorrect) lbl.classList.add('incorrect');
+        });
+        
+        const feedback = document.getElementById('pract_feedback');
+        let correctAnswerDisplay = q.correct_answer ? q.correct_answer.replace(/^[A-D][\.\:\)]\s*/i, '') : "Chưa xác định";
+        feedback.innerHTML = isCorrect ? `<span style="color:var(--success);">✅ Trả lời chính xác!</span>` : `<span style="color:var(--danger);">❌ Sai rồi! Đáp án đúng là: ${correctAnswerDisplay}</span>`;
+        
+        document.getElementById('nextBtn').style.display = 'inline-block';
+        if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
+    }
+    
+    function nextPracticeQuestion() {
+        currentQuestionIndex++;
+        renderPracticeQuestion();
+    }
+    
+    function shuffleQuiz() {
+        for (let i = currentData.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [currentData[i], currentData[j]] = [currentData[j], currentData[i]];
+        }
+        currentData.forEach(q => {
+            for (let i = q.options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [q.options[i], q.options[j]] = [q.options[j], q.options[i]];
+            }
+        });
+        currentQuestionIndex = 0;
+        practiceScore = 0;
+        renderData();
+    }
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.getElementById('btnEdit').className = mode === 'edit' ? 'btn-outline active' : 'btn-outline';
+        document.getElementById('btnPractice').className = mode === 'practice' ? 'btn-outline active' : 'btn-outline';
+        document.getElementById('btnExam').className = mode === 'exam' ? 'btn-outline active' : 'btn-outline';
+        document.getElementById('btnShuffle').style.display = mode === 'edit' ? 'none' : 'inline-block';
+        currentQuestionIndex = 0;
+        practiceScore = 0;
+        renderData();
+    }
+
+    function updateQ(qIndex, value) { currentData[qIndex].question = value; }
+    function updateOpt(qIndex, oIndex, value) {
+        if (currentData[qIndex].correct_answer === currentData[qIndex].options[oIndex]) { currentData[qIndex].correct_answer = value; }
+        currentData[qIndex].options[oIndex] = value; 
+    }
+    function updateCorrect(qIndex, oIndex) { currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex]; }
+
+    async function saveData() {
+        const title = document.getElementById('quizTitle').value.trim() || "Bài kiểm tra không tên";
+        const btn = document.getElementById('saveBtn');
+        btn.innerText = "⏳ Đang lưu trữ dữ liệu...";
+        btn.disabled = true;
+        try {
+            const response = await fetch('/api/save_quiz', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: title, data: currentData })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                const shareLink = window.location.origin + result.link;
+                prompt("Lưu thành công! Mời copy đường link bên dưới để gửi cho học sinh/lớp:", shareLink);
+            }
+        } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
+        btn.innerText = "💾 Lưu & Nhận Link Chia Sẻ";
+        btn.disabled = false;
+    }
+    
+    function submitExam() {
+        let score = 0;
+        currentData.forEach((q, qIndex) => {
+            const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
+            const userAnswer = selected ? selected.value : null;
+            
+            q.options.forEach((opt, oIndex) => {
+                document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.remove('correct', 'incorrect');
+            });
+            
+            q.options.forEach((opt, oIndex) => {
+                if (opt === q.correct_answer) {
+                    document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.add('correct');
+                } else if (opt === userAnswer && userAnswer !== q.correct_answer) {
+                    document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.add('incorrect');
+                }
+            });
+            
+            if (userAnswer === q.correct_answer) score++;
+        });
+        
+        const scoreBoard = document.getElementById('score-board');
+        scoreBoard.style.display = 'block';
+        scoreBoard.innerHTML = `Kết quả thi: ${score} / ${currentData.length} câu chính xác! 🎉`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
 </body>
 </html>

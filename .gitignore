@@ -1,0 +1,18 @@
+# Database
+quizzes.db
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs / OS files
+.vscode/
+.idea/
+.DS_Store
