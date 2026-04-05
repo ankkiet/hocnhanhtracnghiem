@@ -53,6 +53,17 @@ class SaveQuizRequest(BaseModel):
 # PHẦN 3: LÕI THUẬT TOÁN & XỬ LÝ DỮ LIỆU
 # ==========================================
 
+def clean_option_text(text: str) -> str:
+    """Xóa các tiêu đề nhóm/phần (thường dính vào cuối đáp án) để tránh rác dữ liệu."""
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        # Nếu gặp dòng nghi ngờ là Tiêu đề nhóm -> dừng lấy văn bản đáp án
+        if re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', line, re.IGNORECASE):
+            break
+        cleaned.append(line)
+    return '\n'.join(cleaned).strip()
+
 def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights: List[int]) -> str:
     """
     So sánh trọng số giữa 4 đáp án (A,B,C,D) để lọc ra đáp án chính xác nhất dựa trên định dạng.
@@ -67,7 +78,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
         content_end = opt['end_idx']
         
         # 1. Đo lường Trọng số tại điểm neo (Ví dụ ngay tại chữ 'A', 'B')
-        marker_weight = format_weights[start_idx]
+        marker_weight = format_weights[start_idx] if start_idx < len(format_weights) else 0
         if marker_weight == 3: score += 1000    # Đỏ/Highlight
         elif marker_weight == 2: score += 500   # Gạch chân
         elif marker_weight == 1: score += 100   # In đậm
@@ -75,12 +86,12 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
         # 2. Đo lường Trọng số trải dài trên toàn bộ nội dung đáp án
         if content_start < content_end:
             content_weights = format_weights[content_start:content_end]
-            alnum_count = sum(1 for i in range(content_start, content_end) if full_text[i].isalnum())
+            # Đảm bảo không vượt quá index của full_text
+            alnum_count = sum(1 for i in range(content_start, content_end) if i < len(full_text) and full_text[i].isalnum())
             
             if alnum_count > 0:
-                # Đếm số ký tự chữ/số được định dạng
-                formatted_chars = sum(1 for i, w in enumerate(content_weights) if w > 0 and full_text[content_start+i].isalnum())
-                max_w = max(content_weights)
+                formatted_chars = sum(1 for i, w in enumerate(content_weights) if w > 0 and (content_start+i) < len(full_text) and full_text[content_start+i].isalnum())
+                max_w = max(content_weights) if content_weights else 0
                 ratio = formatted_chars / alnum_count
                 
                 # Phân rã logic: Nhấn mạnh phần lớn câu vs. Chỉ nhấn mạnh một từ
@@ -96,7 +107,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
         # Cập nhật đáp án có mức rank cao nhất
         if score > best_score:
             best_score = score
-            best_option_text = f"{opt['char']}. {opt['text'].strip()}"
+            best_option_text = f"{opt['char']}. {clean_option_text(opt['text'])}"
             
     if best_score <= 0:
         return None
@@ -104,7 +115,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
     return best_option_text
 
 def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
-    """Thuật toán phân tách Câu hỏi trắc nghiệm chuẩn Azota."""
+    """Thuật toán phân tách Câu hỏi trắc nghiệm chuẩn Azota siêu tốc và thông minh."""
     doc = Document(file_path)
     full_text = ""
     format_weights = []
