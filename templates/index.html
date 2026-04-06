@@ -1192,6 +1192,16 @@
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    function exitMinimalMode() {
+        if (confirm("Bạn có muốn tạm dừng và thoát khỏi giao diện làm bài không? (Tiến trình của bạn vẫn được bảo lưu)")) {
+            document.body.classList.remove('minimal-mode');
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(err => console.log(err));
+            }
+            window.location.reload(); // Tải lại trang để reset giao diện và đưa về màn hình Welcome
+        }
+    }
 </script>
 </body>
 </html>
