@@ -1,0 +1,360 @@
+:root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --success: #10b981;
+    --success-hover: #059669;
+    --danger: #ef4444;
+    --background: #f3f4f6;
+    --surface: #ffffff;
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --radius: 12px;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--background);
+    color: var(--text-main);
+    margin: 0;
+    padding: 40px 20px;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 900px;
+    margin: auto;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.header h1 {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+.header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.card {
+    background: var(--surface);
+    padding: 30px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+}
+
+/* Nút bấn & Inputs */
+button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+.btn-success { background: var(--success); color: white; width: 100%; margin-top: 15px; }
+.btn-success:hover { background: var(--success-hover); }
+
+.btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-muted); }
+.btn-outline.active { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+
+input[type="text"], input[type="password"], input[type="file"], textarea {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Chế độ xem & Bố cục */
+.mode-switch {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 30px;
+    display: none; /* Ánh xạ từ JS cũ */
+}
+
+.question-box {
+    border-left: 6px solid var(--primary);
+    transition: transform 0.2s ease;
+}
+
+.question-box:hover {
+    transform: translateX(4px);
+}
+
+.question-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+/* Đáp án */
+.option-wrapper {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+}
+
+.option-practice {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f9fafb;
+    margin-bottom: 8px;
+}
+
+.option-practice:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.option-practice input[type="radio"] {
+    display: none;
+}
+
+/* Khối hiển thị A B C D (Tách riêng biệt) */
+.opt-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: #e5e7eb;
+    color: var(--text-main);
+    font-weight: 700;
+    border-radius: 8px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.option-practice:hover .opt-badge {
+    background-color: #d1d5db;
+}
+
+.option-practice.selected {
+    border-color: var(--primary);
+    background-color: #eff6ff;
+}
+
+.option-practice.selected .opt-badge {
+    background-color: var(--primary);
+    color: white;
+}
+
+.correct .opt-badge {
+    background-color: #10b981 !important;
+    color: white !important;
+    border: none;
+}
+
+.incorrect .opt-badge {
+    background-color: #ef4444 !important;
+    color: white !important;
+    border: none;
+}
+
+.opt-text {
+    flex-grow: 1;
+    line-height: 1.5;
+}
+
+/* Trạng thái chấm điểm */
+.correct { background-color: #d1fae5 !important; border-color: #34d399 !important; color: #065f46; font-weight: 600; }
+.incorrect { background-color: #fee2e2 !important; border-color: #f87171 !important; color: #991b1b; text-decoration: line-through; }
+
+#score-board {
+    display: none;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: #eff6ff;
+    padding: 20px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    border: 1px dashed var(--primary);
+}
+
+.navbar {
+    display: flex; justify-content: space-between; align-items: center; 
+    background: var(--surface); padding: 15px 20px; border-radius: var(--radius); 
+    box-shadow: var(--shadow); margin-bottom: 24px; border: 1px solid var(--border);
+}
+
+@keyframes pulse-red {
+    0% { background-color: var(--danger); }
+    50% { background-color: #991b1b; }
+    100% { background-color: var(--danger); }
+}
+
+.upload-section { text-align: center; }
+.upload-section p { margin-bottom: 15px; font-weight: 600; }
+
+/* --- CHẾ ĐỘ TỐI GIẢN (MINIMAL MODE) --- */
+body.minimal-mode .header,
+body.minimal-mode .navbar,
+body.minimal-mode #studentDashboard,
+body.minimal-mode #uploadBox,
+body.minimal-mode #teacherDashboard {
+    display: none !important;
+}
+
+body.minimal-mode #exitMinimalBtn {
+    display: inline-block !important;
+}
+
+body.minimal-mode {
+    padding: 10px;
+    height: 100dvh;
+    overflow: hidden; /* Cấm cuộn toàn trang */
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+body.minimal-mode #mainAppContainer {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+body.minimal-mode #quiz-container {
+    flex-grow: 1;
+    overflow-y: auto; /* Chỉ cuộn vùng nội dung câu hỏi nếu quá dài */
+    padding: 5px;
+    padding-bottom: 60px; /* Tăng khoảng đệm để nút không sát mép màn hình */
+    scrollbar-width: thin;
+}
+
+/* Thu gọn Header để tiết kiệm diện tích */
+body.minimal-mode #studentHeader {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+body.minimal-mode .quiz-title-text {
+    font-size: 1.1rem;
+    margin-bottom: 5px;
+    padding: 0 70px; /* Tránh đè nút thoát */
+}
+
+body.minimal-mode #studentHeader div {
+    font-size: 0.85rem;
+    gap: 12px !important;
+}
+
+body.minimal-mode #exitMinimalBtn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    top: 10px;
+    left: 10px;
+}
+
+body.minimal-mode .question-box {
+    padding: 20px 25px;
+    font-size: 1.1rem;
+    border-left: 5px solid var(--primary);
+    margin-bottom: 15px;
+}
+
+body.minimal-mode .question-title {
+    font-size: 1.15rem;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+body.minimal-mode .option-practice {
+    padding: 10px 15px;
+    font-size: 1rem;
+    margin-bottom: 10px;
+}
+
+body.minimal-mode .opt-badge {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+    margin-right: 12px;
+}
+
+body.minimal-mode #submitBtn {
+    flex-shrink: 0;
+    margin: 10px 0 0 0;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 1.1rem;
+    z-index: 10;
+}
+
+.quiz-title-text { font-size: 1.8rem; }
+
+/* Responsive cho điện thoại */
+@media (max-width: 600px) {
+    body { padding: 15px 10px; }
+    .header h1 { font-size: 1.8rem; }
+    .header p { font-size: 1rem; }
+    .mode-switch { flex-wrap: wrap; gap: 8px; }
+    .mode-switch button { flex: 1 1 calc(50% - 8px); padding: 10px; font-size: 0.9rem; }
+    #btnShuffle { flex: 1 1 100%; }
+    .card { padding: 15px; }
+    .option-wrapper { align-items: center; }
+    .option-wrapper input[type="radio"] { flex-shrink: 0; }
+    .option-wrapper input[type="text"] { flex-grow: 1; margin-left: 8px; }
+    .option-practice { padding: 10px; font-size: 0.95rem; }
+    
+    body.minimal-mode .question-box { padding: 15px; }
+    body.minimal-mode .question-title { font-size: 1.1rem; }
+    body.minimal-mode .option-practice { font-size: 0.95rem; }
+    body.minimal-mode #exitMinimalBtn { position: absolute !important; top: 10px !important; left: 10px !important; margin-bottom: 0; width: auto; }
+    body.minimal-mode .quiz-title-text { font-size: 1.05rem; padding: 0 50px; }
+}
+
+/* Khi hoàn thành bài, cho phép cuộn toàn trang */
+body.minimal-mode.quiz-completed {
+    height: auto;
+    overflow: auto;
+    display: block;
+}
+
+body.minimal-mode.quiz-completed #mainAppContainer {
+    display: block;
+    overflow: visible;
+}
+
+body.minimal-mode.quiz-completed #quiz-container {
+    overflow-y: visible;
+    padding-bottom: 20px;
+}
