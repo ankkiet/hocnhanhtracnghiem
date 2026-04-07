@@ -728,9 +728,9 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict
     2. CHÚ Ý QUAN TRỌNG: Hãy tinh ý tách các đáp án A, B, C, D ra riêng biệt nếu chúng bị dính liền trên cùng một dòng.
     3. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B). Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
     4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. Giữ nguyên các thẻ [IMG_X].
-    5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \\( và \\) (ví dụ: \\(\\frac{{1}}{{2}}\\) ). Hãy GIỮ NGUYÊN ĐỊNH DẠNG LATEX NÀY, tuyệt đối không tự ý giải hay làm mất dấu \\( \\).
+    5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \) (ví dụ: \(\frac{{1}}{{2}}\) ). Hãy GIỮ NGUYÊN ĐỊNH DẠNG LATEX NÀY, tuyệt đối không tự ý giải hay làm mất dấu \( \). **LƯU Ý QUAN TRỌNG:** Vì kết quả trả về là JSON, bạn PHẢI escape tất cả dấu backslash (\) bằng cách nhân đôi chúng lên (ví dụ: \\( thay vì \(, \\frac thay vì \frac).
     6. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
-    Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\(x^2\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
+    Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\\\(x^2\\\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
     
     Văn bản:
     {marked_text}
@@ -740,7 +740,17 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict
     match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
     json_text = match.group(0) if match else response.text
     
-    return json.loads(json_text)
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError:
+        # Khắc phục lỗi LLM quên escape backslash (\) cho công thức Toán (LaTeX) trong JSON.
+        # Replace các dấu \ không hợp lệ thành \\. Ngoại trừ \n, \r, \t, \", \\, \/
+        fixed_json_text = re.sub(r'\\(?![nrt\\"\/])', r'\\\\', json_text)
+        try:
+            return json.loads(fixed_json_text)
+        except json.JSONDecodeError as e:
+            # Lỗi nặng hơn không thể auto-fix
+            raise Exception(f"AI trả về JSON không hợp lệ (thường do công thức toán học bị lỗi định dạng LaTeX). Hãy thử lại. Chi tiết: {str(e)}")
 
 
 # ==========================================
