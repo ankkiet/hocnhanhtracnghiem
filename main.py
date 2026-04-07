@@ -8,6 +8,8 @@ import hashlib
 import base64
 import io
 from typing import List, Dict, Any
+import random
+import string
 
 try:
     from PIL import Image
@@ -886,7 +888,13 @@ async def save_quiz(request: SaveQuizRequest):
         if doc.exists and doc.to_dict().get('creator_id') != request.creator_id:
             raise HTTPException(status_code=403, detail="Không có quyền cập nhật đề này")
     else:
-        quiz_id = str(uuid.uuid4())
+        # Tạo mã ngẫu nhiên dạng AAA-111 (VD: Toán -> MTH-123)
+        while True:
+            part1 = ''.join(random.choices(string.ascii_uppercase, k=3))
+            part2 = ''.join(random.choices(string.digits, k=3))
+            quiz_id = f"{part1}-{part2}"
+            if not db.collection('quizzes').document(quiz_id).get().exists:
+                break
         
     doc_ref = db.collection('quizzes').document(quiz_id)
     data_to_save = {
@@ -904,7 +912,7 @@ async def save_quiz(request: SaveQuizRequest):
         data_to_save['created_at'] = firestore.SERVER_TIMESTAMP
         
     doc_ref.set(data_to_save, merge=True)
-    return {"status": "success", "quiz_id": quiz_id, "link": f"/?quiz_id={quiz_id}"}
+    return {"status": "success", "quiz_id": quiz_id, "link": f"/?id={quiz_id}"}
 
 @app.get("/api/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID")
 async def get_quiz(quiz_id: str, teacher_token: str = None):

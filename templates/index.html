@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- CẤU HÌNH THẺ OPEN GRAPH (Hiển thị ảnh bìa, tiêu đề khi gửi link qua Zalo, Facebook) -->
+    <meta property="og:title" content="📝 Bài thi Trắc nghiệm - HocnhanhTN">
+    <meta property="og:description" content="Nhấn vào link để bắt đầu làm bài thi/kiểm tra ngay!">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80">
+    <meta property="og:type" content="website">
+    
     <title>HocnhanhTN - Hệ thống Luyện thi Trắc nghiệm AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -128,7 +135,7 @@
         <h2 style="color: var(--primary); margin-top: 0;">🎓 Khu vực Học tập</h2>
         <p style="color: var(--text-muted); margin-bottom: 20px;">Nhập mã đề thi do giáo viên cung cấp để bắt đầu làm bài.</p>
         <div style="display: flex; max-width: 500px; margin: 0 auto; gap: 10px;">
-            <input type="text" id="joinQuizCode" placeholder="Ví dụ: 123e4567-e89b-12d3..." style="flex-grow: 1; margin: 0;">
+            <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: ABC-123) hoặc dán Link..." style="flex-grow: 1; margin: 0;">
             <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap;">Vào thi 🚀</button>
         </div>
     </div>

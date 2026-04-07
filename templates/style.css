@@ -237,6 +237,38 @@ input[type="text"]:focus, textarea:focus, .editable-box:focus {
 .upload-section { text-align: center; }
 .upload-section p { margin-bottom: 15px; font-weight: 600; }
 
+/* --- GIAO DIỆN CHIA ĐÔI MÀN HÌNH (EDIT MODE) --- */
+.wide-container {
+    max-width: 1400px !important;
+    transition: max-width 0.3s ease;
+}
+
+.split-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.preview-pane, .editor-pane {
+    flex: 1;
+    width: 50%;
+    height: 75vh;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 20px 20px 20px;
+}
+
+.preview-pane::-webkit-scrollbar, .editor-pane::-webkit-scrollbar { width: 8px; }
+.preview-pane::-webkit-scrollbar-thumb, .editor-pane::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+@media (max-width: 900px) {
+    .split-layout { flex-direction: column; }
+    .preview-pane, .editor-pane { width: 100%; height: auto; max-height: 60vh; }
+}
+
 /* --- CHẾ ĐỘ TỐI GIẢN (MINIMAL MODE) --- */
 body.minimal-mode .header,
 body.minimal-mode .navbar,

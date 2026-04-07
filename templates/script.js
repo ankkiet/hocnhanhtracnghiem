@@ -327,7 +327,16 @@ function reviewHistory() {
 
 async function saveProgressToLocal() {
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id');
+    let quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    
+    // Hỗ trợ link dạng /AAA-111 (Yêu cầu cấu hình Server Route, Frontend xử lý dự phòng)
+    if (!quizId) {
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        if (path && path.length >= 5 && path.length <= 10 && !path.includes('.html')) {
+            quizId = path;
+        }
+    }
+    
     if (quizId) {
         localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
         
@@ -343,9 +352,15 @@ async function saveProgressToLocal() {
 }
 
 function joinQuizByCode() {
-    const code = document.getElementById('joinQuizCode').value.trim();
+    let code = document.getElementById('joinQuizCode').value.trim();
     if (!code) return alert("Vui lòng nhập mã đề thi!");
-    window.location.href = `/?quiz_id=${code}`;
+    
+    // Nếu học sinh lỡ dán cả đường link thì hệ thống tự bóc tách mã ra
+    if (code.includes('?id=')) code = code.split('?id=')[1].split('&')[0];
+    else if (code.includes('?quiz_id=')) code = code.split('?quiz_id=')[1].split('&')[0];
+    else if (code.includes('/')) code = code.substring(code.lastIndexOf('/') + 1);
+
+    window.location.href = `/?id=${code}`;
 }
 
 function toggleTrashView() {
@@ -389,7 +404,7 @@ async function loadTeacherQuizzes() {
                 } else {
                     actionButtons = `
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${q.id}'); alert('Đã copy mã đề!');">Copy Mã</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?quiz_id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--primary); color: var(--primary);" onclick="editQuiz('${q.id}')">✏️ Sửa đề</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'trash')">🗑️ Xóa</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
@@ -706,36 +721,55 @@ function renderData() {
     
     document.getElementById('score-board').style.display = 'none';
     
+    // Mở rộng Container khi ở chế độ chỉnh sửa
+    const mainAppContainer = document.getElementById('mainAppContainer');
+    if (currentMode === 'edit') {
+        mainAppContainer.classList.add('wide-container');
+    } else {
+        mainAppContainer.classList.remove('wide-container');
+    }
+
     if (currentMode === 'practice') {
         renderPracticeQuestion();
         return;
     }
 
-    currentData.forEach((q, qIndex) => {
-        const box = document.createElement('div');
-        box.className = 'card question-box';
-        box.id = `question_box_${qIndex}`;
-        
-        if (currentMode === 'edit') {
-            let banner = "";
-            if (qIndex === 0) {
-                banner = `<div style="background: #e0f2fe; padding: 12px; border-radius: 8px; margin-bottom: 15px; color: #1e40af; font-size: 0.95rem; border: 1px solid #bae6fd; line-height: 1.5;">💡 <b>Mẹo:</b> Công thức Toán học và Hình ảnh sẽ được hiển thị dưới dạng mã code (VD: <code>\\(x^2\\)</code> hoặc <code>[IMG_1]</code>) ở chế độ Chỉnh Sửa để bảo toàn dữ liệu gốc.<br>👉 Hãy chuyển sang tab <b>Luyện tập</b> hoặc <b>Thi thử</b> để xem chúng được hiển thị thực tế tuyệt đẹp nhé!</div>`;
-            }
-            let groupTitleHtml = `<div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">Tiêu đề nhóm / Đoạn văn chung (nếu có):</div>
-                                  <div class="editable-box" style="background: #fef9c3; border-color: #fde047; margin-bottom: 15px;" contenteditable="true" onblur="updateGroupTitle(${qIndex}, this.innerHTML)">${q.group_title || ''}</div>`;
-            box.innerHTML += `${banner}${groupTitleHtml}
-                              <div class="question-title">Câu hỏi ${qIndex + 1}:</div>
-                              <div class="editable-box" contenteditable="true" onblur="updateQ(${qIndex}, this.innerHTML)">${q.question}</div>`;
-            box.innerHTML += `<div style="margin-top:15px; color: var(--text-muted); font-size: 0.9rem;">Đánh dấu vào nút tròn để đặt làm đáp án đúng:</div>`;
-            q.options.forEach((opt, oIndex) => {
-                const isCorrect = q.correct_answer === opt;
-                box.innerHTML += `
-                    <div class="option-wrapper">
-                        <input type="radio" name="correct_${qIndex}" ${isCorrect ? 'checked' : ''} onchange="updateCorrect(${qIndex}, ${oIndex})">
-                        <div class="editable-box" contenteditable="true" onblur="updateOpt(${qIndex}, ${oIndex}, this.innerHTML)" style="flex-grow: 1; margin-left: 8px;">${opt}</div>
-                    </div>`;
-            });
-        } else {
+    if (currentMode === 'edit') {
+        container.innerHTML = `
+            <div class="split-layout">
+                <div class="preview-pane" id="preview-pane">
+                    <h3 style="text-align: center; color: var(--success); margin-top: 0; position: sticky; top: 0; background: var(--surface); padding: 15px 0; z-index: 10; border-bottom: 1px solid var(--border);">👁️ Xem trước (Giao diện Học sinh)</h3>
+                    <div id="preview-content"></div>
+                </div>
+                <div class="editor-pane" id="editor-pane" style="display: flex; flex-direction: column;">
+                    <h3 style="text-align: center; color: var(--primary); margin-top: 0; position: sticky; top: 0; background: var(--surface); padding: 15px 0; z-index: 10; border-bottom: 1px solid var(--border);">🛠 Chỉnh sửa Code </h3>
+                    <div style="background: #e0f2fe; padding: 12px; border-radius: 8px; margin-bottom: 15px; color: #1e40af; font-size: 0.95rem; border: 1px solid #bae6fd; line-height: 1.5;">
+                        💡 <b>Mẹo:</b> Gõ trực tiếp văn bản thô (Code) ở đây sẽ hiển thị ngay lập tức sang màn hình Xem trước bên trái.<br>👉 <b>Đặt dấu <code>*</code> trước chữ cái để đánh dấu đáp án đúng (VD: <code>*A.</code>)</b>.
+                    </div>
+                    <textarea id="azotaEditor" spellcheck="false" style="flex-grow: 1; width: 100%; min-height: 60vh; border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: Consolas, monospace; font-size: 15px; line-height: 1.6; resize: none; outline: none; background: #f8fafc; color: #334155; box-sizing: border-box;"></textarea>
+                </div>
+            </div>
+        `;
+        const previewContent = document.getElementById('preview-content');
+        const azotaEditor = document.getElementById('azotaEditor');
+
+        azotaEditor.value = dataToAzotaText(currentData);
+        renderPreviewAll();
+
+        let editTimeout;
+        azotaEditor.addEventListener('input', function() {
+            clearTimeout(editTimeout);
+            editTimeout = setTimeout(() => {
+                currentData = parseAzotaText(this.value);
+                renderPreviewAll();
+            }, 500);
+        });
+    } else {
+        currentData.forEach((q, qIndex) => {
+            const box = document.createElement('div');
+            box.className = 'card question-box';
+            box.id = `question_box_${qIndex}`;
+            
             let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
             box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
             q.options.forEach((opt, oIndex) => {
@@ -748,9 +782,9 @@ function renderData() {
                         <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
                     </label>`;
             });
-        }
-        container.appendChild(box);
-    });
+            container.appendChild(box);
+        });
+    }
     
     document.getElementById('quizTitle').style.display = currentMode === 'edit' ? 'block' : 'none';
     document.getElementById('quizModeSelect').style.display = currentMode === 'edit' ? 'block' : 'none';
@@ -959,13 +993,137 @@ function switchMode(mode) {
     renderData();
 }
 
-function updateGroupTitle(qIndex, value) { currentData[qIndex].group_title = value; }
-function updateQ(qIndex, value) { currentData[qIndex].question = value; }
-function updateOpt(qIndex, oIndex, value) {
-    if (currentData[qIndex].correct_answer === currentData[qIndex].options[oIndex]) { currentData[qIndex].correct_answer = value; }
-    currentData[qIndex].options[oIndex] = value; 
+function dataToAzotaText(data) {
+    let text = "";
+    data.forEach((q, i) => {
+        if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
+            text += `${q.group_title.replace(/<br>/gi, '\n')}\n`;
+        }
+        let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '').replace(/<br>/gi, '\n');
+        text += `Câu ${i + 1}: ${qClean}\n`;
+        
+        q.options.forEach((opt) => {
+            let isCorrect = (q.correct_answer === opt);
+            let optText = opt.replace(/<br>/gi, '\n');
+            if (isCorrect) {
+                optText = optText.replace(/^([A-F])([\.\:\)])/i, '*$1$2'); // Đánh dấu sao cho đáp án đúng
+            }
+            text += `${optText}\n`;
+        });
+        text += "\n";
+    });
+    return text.trim();
 }
-function updateCorrect(qIndex, oIndex) { currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex]; }
+
+function parseAzotaText(text) {
+    const data = [];
+    let currentQ = null;
+    const lines = text.split('\n');
+    let sharedContext = "";
+
+    const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
+    const optRegex = /^\s*(\*?\s*[A-F])[\.\:\)]/i;
+    const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        
+        if (trimmed === '') continue;
+
+        if (qRegex.test(line)) {
+            if (currentQ) data.push(currentQ);
+            let qText = line.replace(qRegex, '').trim();
+            currentQ = { group_title: sharedContext.trim(), question: qText, options: [], correct_answer: null };
+            sharedContext = ""; 
+        } else if (optRegex.test(line)) {
+            const match = line.match(optRegex);
+            const charRaw = match[1].trim().toUpperCase();
+            const isCorrect = charRaw.includes('*');
+            const char = charRaw.replace('*', '').trim();
+            let optContent = line.replace(optRegex, '').trim();
+            
+            const fullOpt = `${char}. ${optContent}`;
+            if (currentQ) {
+                currentQ.options.push(fullOpt);
+                if (isCorrect) currentQ.correct_answer = fullOpt;
+            }
+        } else if (groupRegex.test(line)) {
+            sharedContext += (sharedContext ? "<br>" : "") + line;
+        } else {
+            if (currentQ && currentQ.options.length > 0) {
+                currentQ.options[currentQ.options.length - 1] += "<br>" + line;
+            } else if (currentQ) {
+                currentQ.question += (currentQ.question ? "<br>" : "") + line;
+            } else {
+                sharedContext += (sharedContext ? "<br>" : "") + line;
+            }
+        }
+    }
+    if (currentQ) data.push(currentQ);
+    
+    // Quét lại nếu chưa có đáp án đúng thì lấy mặc định đáp án A
+    data.forEach(q => {
+        if (!q.correct_answer && q.options.length > 0) { q.correct_answer = q.options[0]; }
+    });
+    return data;
+}
+
+function renderPreviewAll() {
+    const previewContent = document.getElementById('preview-content');
+    if (!previewContent) return;
+    previewContent.innerHTML = '';
+    
+    currentData.forEach((q, qIndex) => {
+        const prevBox = document.createElement('div');
+        prevBox.className = 'question-box';
+        prevBox.style.marginBottom = '24px';
+        prevBox.style.cursor = 'pointer';
+        prevBox.title = 'Nhấn để nhảy tới mã Code của câu này';
+        prevBox.onclick = () => scrollToQuestionInEditor(qIndex);
+        
+        let html = "";
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
+        
+        html += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${qClean.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
+        q.options.forEach((opt, oIndex) => {
+            let isCorrect = q.correct_answer === opt;
+            html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: default;">
+                        <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
+                        <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
+                        <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
+                    </label>`;
+        });
+        prevBox.innerHTML = html;
+        previewContent.appendChild(prevBox);
+    });
+
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        MathJax.typesetPromise([previewContent]).catch((err) => console.log('MathJax error:', err));
+    }
+}
+
+function scrollToQuestionInEditor(qIndex) {
+    const editor = document.getElementById('azotaEditor');
+    if (!editor) return;
+    
+    const text = editor.value;
+    const searchStr = `Câu ${qIndex + 1}:`;
+    const pos = text.indexOf(searchStr);
+    
+    if (pos !== -1) {
+        editor.focus();
+        // Bôi đen "Câu X:" để làm nổi bật cho người dùng
+        editor.setSelectionRange(pos, pos + searchStr.length);
+        
+        // Tính toán cuộn Textarea đến đúng vị trí của câu hỏi
+        const textBefore = text.substring(0, pos);
+        const lineNumber = textBefore.split('\n').length;
+        const lineHeight = 24; // Tương đương font-size 15px * line-height 1.6
+        editor.scrollTop = (lineNumber - 1) * lineHeight + 15 - 60; // Trừ hao 60px để hiển thị cách lề trên một đoạn dễ đọc
+    }
+}
 
 function startTimer(minutes) {
     clearInterval(timerInterval);
@@ -1033,8 +1191,8 @@ async function saveData() {
         });
         const result = await response.json();
         if (result.status === 'success') {
-            const shareLink = window.location.origin + window.location.pathname + "?quiz_id=" + result.quiz_id;
-            prompt(`Lưu thành công!\nMã đề: ${result.quiz_id}\n\nHoặc copy đường link bên dưới:`, shareLink);
+            const shareLink = window.location.origin + window.location.pathname + "?id=" + result.quiz_id;
+            prompt(`Lưu thành công!\nMã đề: ${result.quiz_id}\n\nCopy đường link gọn gàng bên dưới để gửi học sinh:`, shareLink);
             editingQuizId = result.quiz_id;
             if (authRole === 'teacher') loadTeacherQuizzes(); // Làm mới danh sách
         }
