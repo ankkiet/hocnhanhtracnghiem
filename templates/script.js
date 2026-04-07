@@ -28,9 +28,28 @@ let authToken = localStorage.getItem('auth_token');
 let authRole = localStorage.getItem('auth_role');
 let authName = localStorage.getItem('auth_name');
 
+function renderMath() {
+    if (currentMode === 'edit') return; // Không render MathJax trong chế độ sửa để bảo toàn mã LaTeX
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
+    } else {
+        // Chờ MathJax tải xong (do thẻ script là async)
+        setTimeout(renderMath, 500);
+    }
+}
+
 window.onload = async function() {
     checkAuthState();
 };
+
+function escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+}
 
 function checkAuthState() {
     if (!authToken) {
@@ -621,7 +640,6 @@ async function uploadFile() {
     if (!fileInput.files[0]) { alert("Vui lòng chọn file .docx!"); return; }
     
     const formData = new FormData();
-    formData.append("api_key", document.getElementById('apiKey').value.trim());
     formData.append("file", fileInput.files[0]);
     document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center;'>⚙️ Hệ thống đang bóc tách câu hỏi... Vui lòng đợi.</div>";
 
@@ -699,18 +717,22 @@ function renderData() {
         box.id = `question_box_${qIndex}`;
         
         if (currentMode === 'edit') {
+            let banner = "";
+            if (qIndex === 0) {
+                banner = `<div style="background: #e0f2fe; padding: 12px; border-radius: 8px; margin-bottom: 15px; color: #1e40af; font-size: 0.95rem; border: 1px solid #bae6fd; line-height: 1.5;">💡 <b>Mẹo:</b> Công thức Toán học và Hình ảnh sẽ được hiển thị dưới dạng mã code (VD: <code>\\(x^2\\)</code> hoặc <code>[IMG_1]</code>) ở chế độ Chỉnh Sửa để bảo toàn dữ liệu gốc.<br>👉 Hãy chuyển sang tab <b>Luyện tập</b> hoặc <b>Thi thử</b> để xem chúng được hiển thị thực tế tuyệt đẹp nhé!</div>`;
+            }
             let groupTitleHtml = `<div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 5px;">Tiêu đề nhóm / Đoạn văn chung (nếu có):</div>
-                                  <textarea rows="2" style="background: #fef9c3; border-color: #fde047; margin-bottom: 15px;" onchange="updateGroupTitle(${qIndex}, this.value)">${q.group_title || ''}</textarea>`;
-            box.innerHTML += `${groupTitleHtml}
+                                  <div class="editable-box" style="background: #fef9c3; border-color: #fde047; margin-bottom: 15px;" contenteditable="true" onblur="updateGroupTitle(${qIndex}, this.innerHTML)">${q.group_title || ''}</div>`;
+            box.innerHTML += `${banner}${groupTitleHtml}
                               <div class="question-title">Câu hỏi ${qIndex + 1}:</div>
-                              <textarea rows="3" onchange="updateQ(${qIndex}, this.value)">${q.question}</textarea>`;
+                              <div class="editable-box" contenteditable="true" onblur="updateQ(${qIndex}, this.innerHTML)">${q.question}</div>`;
             box.innerHTML += `<div style="margin-top:15px; color: var(--text-muted); font-size: 0.9rem;">Đánh dấu vào nút tròn để đặt làm đáp án đúng:</div>`;
             q.options.forEach((opt, oIndex) => {
                 const isCorrect = q.correct_answer === opt;
                 box.innerHTML += `
                     <div class="option-wrapper">
                         <input type="radio" name="correct_${qIndex}" ${isCorrect ? 'checked' : ''} onchange="updateCorrect(${qIndex}, ${oIndex})">
-                        <input type="text" value="${opt}" onchange="updateOpt(${qIndex}, ${oIndex}, this.value)">
+                        <div class="editable-box" contenteditable="true" onblur="updateOpt(${qIndex}, ${oIndex}, this.innerHTML)" style="flex-grow: 1; margin-left: 8px;">${opt}</div>
                     </div>`;
             });
         } else {
@@ -721,7 +743,7 @@ function renderData() {
                 let isChecked = quizProgress && quizProgress.answers && quizProgress.answers[qIndex] === opt;
                 box.innerHTML += `
                     <label class="option-practice ${isChecked ? 'selected' : ''}" id="exam_opt_${qIndex}_${oIndex}">
-                        <input type="radio" name="exam_${qIndex}" value="${opt}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''}>
+                    <input type="radio" name="exam_${qIndex}" value="${escapeHtml(opt)}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''}>
                         <span class="opt-badge">${char}</span>
                         <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
                     </label>`;
@@ -739,6 +761,7 @@ function renderData() {
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
     if (currentMode !== 'edit') document.getElementById('aiFeedbackBox').style.display = 'none';
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
+    renderMath();
 }
 
 function renderPracticeQuestion() {
@@ -799,6 +822,7 @@ function renderPracticeQuestion() {
     btnWrapper.style.paddingBottom = '30px'; // Thêm khoảng đệm cho riêng nút bấm
     btnWrapper.innerHTML = `<button id="nextBtn" class="btn-primary" style="display:none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" onclick="nextPracticeQuestion()">Câu tiếp ➔</button>`;
     container.appendChild(btnWrapper);
+    renderMath();
 }
 
 function selectExamOption(qIndex, oIndex) {
@@ -886,6 +910,7 @@ function showPracticeReview() {
         });
         container.appendChild(box);
     });
+    renderMath();
 }
 
 function shuffleQuiz(noRender = false) {
