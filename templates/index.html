@@ -175,11 +175,23 @@
     <div id="score-board"></div>
     <div id="quiz-container"></div>
     
+    <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu kiểm tra tùy chọn cho AI (VD: Soát lỗi câu 1 và 2, Kiểm tra lỗi tính toán... Để trống nếu muốn AI tự soát lỗi tổng quát)"></textarea>
     <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">🤖 AI Kiểm tra lỗi & Phân tích Đề thi</button>
     <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 10px;" onclick="saveData()">💾 Lưu & Nhận Link Chia Sẻ</button>
     <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">🔙 Quản lý đề thi</button>
     <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">✔️ Nộp bài & Xem điểm</button>
 </div>
+
+<!-- Lớp phủ (Overlay) màn hình chờ Tải file -->
+<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: white; backdrop-filter: blur(5px);">
+    <div class="progress-bar-container">
+        <div id="progressBar" class="progress-bar-fill"></div>
+    </div>
+    <div id="progressText" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #34d399;">0%</div>
+    <h2 id="loadingStatusText" style="margin-top: 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); font-size: 1.2rem; font-weight: normal; text-align: center;">⚙️ Đang tải file lên...</h2>
+    <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 5px;">Quá trình này có thể mất đến 30 giây đối với đề thi dài.</p>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>

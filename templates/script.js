@@ -144,7 +144,7 @@ function logout() {
 
 async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id');
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
     if (quizId) {
         document.getElementById('uploadBox').style.display = 'none';
         document.getElementById('btnEdit').style.display = 'none'; 
@@ -656,11 +656,46 @@ async function uploadFile() {
     
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
-    document.getElementById('quiz-container').innerHTML = "<div class='card' style='text-align:center;'>⚙️ Hệ thống đang bóc tách câu hỏi... Vui lòng đợi.</div>";
+    
+    // Khởi tạo giao diện Progress Bar
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const statusText = document.getElementById('loadingStatusText');
+    
+    loadingOverlay.style.display = 'flex';
+    progressBar.style.width = '0%';
+    progressText.innerText = '0%';
+    statusText.innerText = '⚙️ Đang tải file lên máy chủ...';
+
+    // Giả lập tiến trình chạy mượt mà
+    let progress = 0;
+    let progressInterval = setInterval(() => {
+        if (progress < 30) {
+            progress += Math.floor(Math.random() * 5) + 2; // Chạy nhanh đoạn đầu
+        } else if (progress < 90) {
+            statusText.innerText = '🤖 AI đang bóc tách và phân tích câu hỏi...';
+            progress += Math.floor(Math.random() * 2) + 1; // Chạy chậm dần đoạn giữa
+        } else if (progress < 98) {
+            statusText.innerText = '✨ Đang hoàn thiện định dạng...';
+            progress += 0.2; // Chạy siêu chậm khi gần xong
+        }
+        if (progress > 98) progress = 98; // Giữ ở mức 98% chờ Server phản hồi
+        progressBar.style.width = progress + '%';
+        progressText.innerText = Math.floor(progress) + '%';
+    }, 600);
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
         const result = await response.json();
+        
+        // Nhận được kết quả -> Ép lên 100%
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        progressText.innerText = '100%';
+        statusText.innerText = '✅ Hoàn tất!';
+        await new Promise(resolve => setTimeout(resolve, 500)); // Đợi nửa giây cho người dùng thấy 100%
+        
         if (result.status === "success") {
             currentData = result.data || [];
             editingQuizId = null;
@@ -669,7 +704,14 @@ async function uploadFile() {
             if (authRole === 'teacher') document.getElementById('backDashboardBtn').style.display = 'block';
             renderData();
         } else { alert("Lỗi: " + result.detail); }
-    } catch (e) { alert("Lỗi kết nối máy chủ! Có thể Server đang khởi động lại (Cold Start), hãy thử lại trong ít giây."); }
+    } catch (e) { 
+        clearInterval(progressInterval);
+        alert("Lỗi kết nối máy chủ! Có thể Server đang khởi động lại (Cold Start), hãy thử lại trong ít giây."); 
+    }
+    finally {
+        clearInterval(progressInterval);
+        document.getElementById('loadingOverlay').style.display = 'none';
+    }
 }
 
 function backToDashboard() {
@@ -682,6 +724,8 @@ function backToDashboard() {
     document.getElementById('quizTimeLimit').style.display = 'none';
     document.getElementById('quizShuffleLabel').style.display = 'none';
     document.getElementById('saveBtn').style.display = 'none';
+    document.getElementById('aiCustomPrompt').style.display = 'none';
+    document.getElementById('aiCustomPrompt').value = '';
     document.getElementById('btnAICheck').style.display = 'none';
     document.getElementById('aiFeedbackBox').style.display = 'none';
     document.getElementById('backDashboardBtn').style.display = 'none';
@@ -692,18 +736,41 @@ function backToDashboard() {
 
 async function checkQuizWithAI() {
     const btn = document.getElementById('btnAICheck');
+    const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
     btn.innerText = "⏳ Đang phân tích, vui lòng chờ khoảng 10-20 giây...";
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({teacher_token: authToken, quiz_data: currentData})
+            body: JSON.stringify({teacher_token: authToken, quiz_data: currentData, custom_prompt: customPrompt})
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
             document.getElementById('aiFeedbackBox').style.display = 'block';
-            let htmlFeedback = data.feedback.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            let htmlFeedback = '';
+            
+            if (Array.isArray(data.feedback) && data.feedback.length > 0) {
+                // Case 1: AI returns a structured array of corrections
+                htmlFeedback = `<p style="margin-top:0; margin-bottom: 15px; font-weight: 600; color: #9333ea;">AI đã phát hiện ${data.feedback.length} vấn đề và đề xuất sửa như sau:</p>`;
+                window.lastAIFeedback = data.feedback; // Lưu biến toàn cục để tránh lỗi vỡ HTML
+                data.feedback.forEach((item, index) => {
+                    htmlFeedback += `
+                        <div class="ai-suggestion-item" style="border: 1px solid #d8b4fe; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #fff;">
+                            <p style="margin-top:0;">
+                                <strong style="color: var(--primary);">Câu ${item.question_index + 1}:</strong>
+                                <span style="color: var(--danger);">${item.reason}</span>
+                            </p>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.9rem;" onclick="applyAISuggestion(${index}, this)">✔️ Áp dụng sửa lỗi này</button>
+                        </div>
+                    `;
+                });
+            } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
+                htmlFeedback = '✅ Tuyệt vời! AI không phát hiện thấy lỗi nào trong đề thi của bạn.';
+            } else {
+                htmlFeedback = (typeof data.feedback === 'string') ? data.feedback.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') : 'AI trả về định dạng không hợp lệ.';
+            }
+
             document.getElementById('aiFeedbackContent').innerHTML = htmlFeedback;
             document.getElementById('aiFeedbackBox').scrollIntoView({behavior: 'smooth'});
         } else { alert("Lỗi AI: " + data.detail); }
@@ -712,6 +779,43 @@ async function checkQuizWithAI() {
     }
     btn.innerText = "🤖 AI Kiểm tra lỗi & Phân tích Đề thi";
     btn.disabled = false;
+}
+
+function applyAISuggestion(index, button) {
+    const { question_index, corrected_data } = window.lastAIFeedback[index];
+
+    if (currentData[question_index]) {
+        const originalGroupTitle = currentData[question_index].group_title;
+
+        currentData[question_index] = {
+            ...corrected_data,
+            group_title: corrected_data.group_title !== undefined ? corrected_data.group_title : originalGroupTitle
+        };
+
+        const azotaEditor = document.getElementById('azotaEditor');
+        if (azotaEditor) {
+            azotaEditor.value = dataToAzotaText(currentData);
+        }
+
+        renderPreviewAll();
+
+        button.innerText = "✅ Đã áp dụng!";
+        button.disabled = true;
+        button.style.backgroundColor = "var(--success)";
+
+        const previewQuestion = document.querySelector(`#preview-content .question-box:nth-child(${question_index + 1})`);
+        if (previewQuestion) {
+            previewQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            previewQuestion.style.transition = 'background-color 1s ease';
+            previewQuestion.style.backgroundColor = '#d1fae5';
+            setTimeout(() => {
+                previewQuestion.style.backgroundColor = '';
+            }, 2000);
+        }
+        
+    } else {
+        alert(`Lỗi: Không tìm thấy câu hỏi với chỉ số ${question_index}.`);
+    }
 }
 
 function renderData() {
@@ -792,6 +896,7 @@ function renderData() {
     const shuffleLabel = document.getElementById('quizShuffleLabel');
     if (shuffleLabel) shuffleLabel.style.display = currentMode === 'edit' ? 'flex' : 'none';
     document.getElementById('saveBtn').style.display = currentMode === 'edit' ? 'block' : 'none';
+    document.getElementById('aiCustomPrompt').style.display = currentMode === 'edit' ? 'block' : 'none';
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
     if (currentMode !== 'edit') document.getElementById('aiFeedbackBox').style.display = 'none';
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
@@ -1209,7 +1314,7 @@ function formatTime(seconds) {
 
 async function submitScoreToServer(score, total, time) {
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id');
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
     if (!quizId) return;
     try {
         await fetch(`${API_BASE_URL}/api/submit_score`, {

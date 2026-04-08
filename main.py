@@ -31,9 +31,13 @@ from firebase_admin import credentials, firestore
 
 # Khởi tạo Firebase
 try:
-    # Đảm bảo bạn đã tải file firebase-adminsdk.json từ Firebase Console và để cùng thư mục
-    cred = credentials.Certificate("firebase-adminsdk.json")
-    firebase_admin.initialize_app(cred)
+    # Dùng đường dẫn tuyệt đối để tránh lỗi khi chạy Uvicorn ở thư mục khác
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
+    
+    cred = credentials.Certificate(cert_path)
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(cred)
     db = firestore.client()
     
     # Khởi tạo Admin mặc định nếu chưa có
@@ -124,6 +128,7 @@ class QuizActionRequest(BaseModel):
 class CheckQuizRequest(BaseModel):
     teacher_token: str
     quiz_data: list
+    custom_prompt: str = ""
 
 class SaveProgressRequest(BaseModel):
     student_token: str
@@ -1005,21 +1010,58 @@ async def check_quiz_ai(req: CheckQuizRequest):
     api_keys = settings_doc.to_dict().get('api_keys')
     
     try:
+        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI DÙNG (CẦN ƯU TIÊN THỰC HIỆN):**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
+        
         prompt = f"""
         Bạn là một chuyên gia giáo dục và biên tập viên kiểm định đề thi trắc nghiệm.
-        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây và phát hiện các lỗi sau:
-        1. Lỗi chính tả, dư thừa chữ, sai ngữ pháp, văn phong lủng củng.
-        2. Lỗi ngữ cảnh, câu hỏi bị thiếu dữ kiện, hoặc nội dung không hợp lý.
-        3. Sai đáp án (nếu dựa vào kiến thức phổ thông bạn phát hiện đáp án được chọn không chính xác).
-        4. Lỗi định dạng/bóc tách: Chữ bị dính liền nhau (lỗi dính chữ), tiêu đề/đoạn văn bị dính vào phần đáp án, hoặc lỗi font chữ gây khó đọc.
-        5. Các lỗi logic khác (ví dụ: các đáp án trùng lặp).
-        
-        Hãy liệt kê chi tiết: Chỉ đích danh "Câu [số]" mắc lỗi gì và đề xuất cách sửa đổi. Trình bày rõ ràng, dễ đọc. Nếu đề thi đã rất tốt, hãy xác nhận không có lỗi.
-        Dữ liệu đề thi (JSON): {json.dumps(req.quiz_data, ensure_ascii=False)}
+        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây.
+        {custom_instructions}
+        Nếu người dùng không có yêu cầu đặc biệt nào, hãy tự động tìm các lỗi chung như: sai đáp án, lỗi chính tả, ngữ pháp, lỗi logic, trùng lặp đáp án, văn phong lủng củng.
+
+        QUY TẮC ĐỊNH DẠNG JSON (BẮT BUỘC PHẢI TUÂN THỦ TUYỆT ĐỐI):
+        1.  **CHỈ** phân tích những câu hỏi có lỗi. **BỎ QUA HOÀN TOÀN** những câu đúng.
+        2.  Đối với mỗi câu lỗi, hãy cung cấp một JSON object chứa:
+            *   `question_index`: (Number) Chỉ số của câu hỏi trong mảng (bắt đầu từ 0).
+            *   `reason`: (String) Giải thích ngắn gọn, rõ ràng về lỗi đã phát hiện.
+            *   `corrected_data`: (Object) Một object chứa dữ liệu đã được sửa, bao gồm `question`, `options`, và `correct_answer`. Giữ nguyên `group_title` của câu hỏi gốc.
+        3.  Kết quả cuối cùng của bạn **BẮT BUỘC** phải là một JSON array chứa các object nói trên.
+        4.  TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY (KHÔNG KÈM BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO BÊN NGOÀI). Nếu đề thi không có lỗi nào, trả về đúng 2 ký tự: []
+        5.  **QUAN TRỌNG:** Giữ nguyên các thẻ HTML (<b>, <i>, <img>, v.v.) và công thức LaTeX (\\(...\\)) nếu có trong dữ liệu gốc.
+
+        Ví dụ về định dạng JSON trả về nếu có lỗi ở câu 1 (index 0):
+        [
+          {{
+            "question_index": 0,
+            "reason": "Lỗi chính tả 'helo' trong câu hỏi.",
+            "corrected_data": {{
+              "group_title": "Đọc đoạn văn...",
+              "question": "Sửa lại thành 'hello world'",
+              "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+              "correct_answer": "A. ..."
+            }}
+          }}
+        ]
+
+        Dữ liệu đề thi (JSON array, câu hỏi được đánh index từ 0):
+        {json.dumps(req.quiz_data, ensure_ascii=False)}
         """
         
         response = call_gemini_with_fallback(prompt, api_keys)
-        return {"status": "success", "feedback": response.text}
+        
+        # Cố gắng parse JSON từ response
+        try:
+            match = re.search(r'\[.*\]', response.text, re.DOTALL)
+            if not match:
+                if "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower() or "tuyệt vời" in response.text.lower():
+                     return {"status": "success", "feedback": []}
+                return {"status": "success", "feedback": response.text}
+
+            json_text = match.group(0)
+            fixed_json_text = re.sub(r'\\(?![nrt\\"\/])', r'\\\\', json_text)
+            feedback_data = json.loads(fixed_json_text)
+            return {"status": "success", "feedback": feedback_data}
+        except (json.JSONDecodeError, ValueError):
+            return {"status": "success", "feedback": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
 
