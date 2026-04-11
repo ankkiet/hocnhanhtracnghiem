@@ -24,9 +24,21 @@ let quizProgress = {};
 let adminApiKeys = [];
 let isShowingTrash = false;
 
+// Khởi tạo bộ nhớ tạm để thu gọn mã Base64 ảnh trong Code Editor
+let globalEditorImageStorage = {};
+let globalEditorImageCounter = 0;
+
 let authToken = localStorage.getItem('auth_token');
 let authRole = localStorage.getItem('auth_role');
 let authName = localStorage.getItem('auth_name');
+
+// Sinh ID ngẫu nhiên cho phiên làm việc để phục vụ Giám sát thi
+let clientSessionId = sessionStorage.getItem('client_session_id');
+if (!clientSessionId) {
+    clientSessionId = 'sess_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('client_session_id', clientSessionId);
+}
+let heartbeatInterval;
 
 function renderMath() {
     if (currentMode === 'edit') return; // Không render MathJax trong chế độ sửa để bảo toàn mã LaTeX
@@ -249,6 +261,30 @@ async function initApp() {
     }
 };
 
+function sendPing() {
+    if (!isStudentMode) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    let quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    if (!quizId) {
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        if (path && path.length >= 5 && path.length <= 10 && !path.includes('.html')) quizId = path;
+    }
+    if (!quizId) return;
+    
+    fetch(`${API_BASE_URL}/api/monitor/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quiz_id: quizId, 
+            session_id: clientSessionId, 
+            student_name: studentName || 'Đang ẩn danh',
+            answers_count: Object.keys(quizProgress.answers || {}).length,
+            time_remaining: quizProgress.timeRemaining || 0,
+            completed: quizProgress.completed || false
+        })
+    }).catch(e => {}); // Lỗi mạng (âm thầm bỏ qua không báo popup)
+}
+
 function startStudentQuiz() {
     const nameInput = document.getElementById('studentNameInput').value.trim();
     studentName = nameInput;
@@ -276,6 +312,14 @@ function startStudentQuiz() {
     
     switchMode(currentDataMode); 
     if (currentDataMode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    
+    const quizContainer = document.getElementById('quiz-container');
+    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    sendPing();
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(sendPing, 10000); // Gửi tín hiệu mỗi 10 giây
 }
 
 function restartPractice() {
@@ -290,7 +334,12 @@ function restartPractice() {
     saveProgressToLocal();
     
     switchMode('practice');
+    
+    const quizContainer = document.getElementById('quiz-container');
+    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    sendPing();
 }
 
 function restartExam() {
@@ -306,7 +355,12 @@ function restartExam() {
     
     switchMode('exam');
     if (currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    
+    const quizContainer = document.getElementById('quiz-container');
+    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    sendPing();
 }
 
 function reviewHistory() {
@@ -405,6 +459,7 @@ async function loadTeacherQuizzes() {
                     actionButtons = `
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${q.id}'); alert('Đã copy mã đề!');">Copy Mã</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #8b5cf6; color: #8b5cf6;" onclick="startMonitoring('${q.id}', '${q.title}')">📊 Giám sát</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--primary); color: var(--primary);" onclick="editQuiz('${q.id}')">✏️ Sửa đề</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'trash')">🗑️ Xóa</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
@@ -495,6 +550,56 @@ async function toggleQuizStatus(quizId, newStatus) {
             body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, status: newStatus })
         });
         if (res.ok) loadTeacherQuizzes();
+    } catch(e) {}
+}
+
+let monitorInterval;
+let monitoringQuizId = null;
+
+function startMonitoring(quizId, title) {
+    monitoringQuizId = quizId;
+    document.getElementById('teacherDashboard').style.display = 'none';
+    document.getElementById('monitorDashboard').style.display = 'block';
+    document.getElementById('monitorQuizTitle').innerText = "Đang giám sát: " + title;
+    fetchMonitorData();
+    monitorInterval = setInterval(fetchMonitorData, 5000); // Lấy dữ liệu 5s/lần
+}
+
+function stopMonitoring() {
+    clearInterval(monitorInterval);
+    monitoringQuizId = null;
+    document.getElementById('monitorDashboard').style.display = 'none';
+    document.getElementById('teacherDashboard').style.display = 'block';
+}
+
+async function fetchMonitorData() {
+    if (!monitoringQuizId) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teacher/monitor/${monitoringQuizId}?teacher_token=${authToken}`);
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            const tbody = document.getElementById('monitorTableBody');
+            if (!data.data || data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: var(--text-muted);">Chưa có học sinh nào tham gia...</td></tr>';
+                document.getElementById('monitorCount').innerText = `Tổng số: 0 học sinh`;
+                return;
+            }
+            
+            data.data.sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (a.is_online !== b.is_online) return a.is_online ? -1 : 1;
+                return a.student_name.localeCompare(b.student_name);
+            });
+            
+            tbody.innerHTML = data.data.map(s => {
+                let status = s.completed ? '<span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">✅ Đã nộp bài</span>' : 
+                             (s.is_online ? '<span style="background:#dbeafe; color:#1e40af; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🟢 Đang làm</span>' : 
+                             '<span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🔴 Mất kết nối</span>');
+                let timeStr = s.time_remaining > 0 ? formatTime(s.time_remaining) : '--';
+                return `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 12px 10px; font-weight: 600;">${s.student_name}</td><td style="padding: 12px 10px;">${status}</td><td style="padding: 12px 10px; font-weight:bold; color:var(--primary);">${s.answers_count} câu</td><td style="padding: 12px 10px;">${timeStr}</td></tr>`;
+            }).join('');
+            document.getElementById('monitorCount').innerText = `Tổng số: ${data.data.length} học sinh`;
+        }
     } catch(e) {}
 }
 
@@ -657,6 +762,9 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
     
+    const useAI = document.getElementById('useAIToggle') ? document.getElementById('useAIToggle').checked : true;
+    formData.append("use_ai", useAI);
+    
     // Khởi tạo giao diện Progress Bar
     const loadingOverlay = document.getElementById('loadingOverlay');
     const progressBar = document.getElementById('progressBar');
@@ -674,7 +782,11 @@ async function uploadFile() {
         if (progress < 30) {
             progress += Math.floor(Math.random() * 5) + 2; // Chạy nhanh đoạn đầu
         } else if (progress < 90) {
-            statusText.innerText = '🤖 AI đang bóc tách và phân tích câu hỏi...';
+            if (useAI) {
+                statusText.innerText = '🤖 AI đang bóc tách và phân tích câu hỏi...';
+            } else {
+                statusText.innerText = '⚡ Đang bóc tách bằng thuật toán Python tốc độ cao...';
+            }
             progress += Math.floor(Math.random() * 2) + 1; // Chạy chậm dần đoạn giữa
         } else if (progress < 98) {
             statusText.innerText = '✨ Đang hoàn thiện định dạng...';
@@ -1088,6 +1200,14 @@ function switchMode(mode) {
     document.getElementById('btnPractice').className = mode === 'practice' ? 'btn-outline active' : 'btn-outline';
     document.getElementById('btnExam').className = mode === 'exam' ? 'btn-outline active' : 'btn-outline';
     document.getElementById('btnShuffle').style.display = mode === 'edit' ? 'none' : 'inline-block';
+    
+    // Ẩn bảng xếp hạng và Timer dọn dẹp khi chuyển chế độ hoặc làm lại bài
+    const lb = document.getElementById('leaderboard');
+    if (lb) lb.style.display = 'none';
+    clearInterval(timerInterval);
+    const timerDisplay = document.getElementById('timerDisplay');
+    if (timerDisplay) timerDisplay.style.display = 'none';
+
     document.body.classList.remove('quiz-completed');
     if (isStudentMode) {
         startTime = Date.now(); // Bắt đầu bấm giờ
@@ -1117,13 +1237,38 @@ function dataToAzotaText(data) {
         });
         text += "\n";
     });
-    return text.trim();
+    
+    text = text.trim();
+    
+    // Xóa bộ nhớ cũ mỗi lần generate lại code cho editor
+    globalEditorImageStorage = {};
+    globalEditorImageCounter = 0;
+    
+    // Tìm toàn bộ thẻ <img> chứa mã Base64 cực dài và thay bằng [HÌNH_ẢNH_X]
+    const imgRegex = /<img[^>]+src=['"]data:[^'"]+['"][^>]*>/gi;
+    text = text.replace(imgRegex, (match) => {
+        let existingKey = Object.keys(globalEditorImageStorage).find(key => globalEditorImageStorage[key] === match);
+        if (existingKey) return existingKey;
+        
+        globalEditorImageCounter++;
+        let placeholder = `[HÌNH_ẢNH_${globalEditorImageCounter}]`;
+        globalEditorImageStorage[placeholder] = match;
+        return placeholder;
+    });
+    
+    return text;
 }
 
 function parseAzotaText(text) {
+    // Trả lại mã Base64 thật cho các thẻ [HÌNH_ẢNH_X] trước khi bóc tách
+    let restoredText = text;
+    for (let key in globalEditorImageStorage) {
+        restoredText = restoredText.split(key).join(globalEditorImageStorage[key]);
+    }
+    
     const data = [];
     let currentQ = null;
-    const lines = text.split('\n');
+    const lines = restoredText.split('\n');
     let sharedContext = "";
 
     const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
@@ -1218,15 +1363,19 @@ function scrollToQuestionInEditor(qIndex) {
     const pos = text.indexOf(searchStr);
     
     if (pos !== -1) {
+        // 1. Chuyển tạm con trỏ xuống dưới mục tiêu một đoạn (khoảng 300 ký tự)
+        const offsetPos = Math.min(text.length, pos + 300);
         editor.focus();
-        // Bôi đen "Câu X:" để làm nổi bật cho người dùng
-        editor.setSelectionRange(pos, pos + searchStr.length);
+        editor.setSelectionRange(offsetPos, offsetPos);
         
-        // Tính toán cuộn Textarea đến đúng vị trí của câu hỏi
-        const textBefore = text.substring(0, pos);
-        const lineNumber = textBefore.split('\n').length;
-        const lineHeight = 24; // Tương đương font-size 15px * line-height 1.6
-        editor.scrollTop = (lineNumber - 1) * lineHeight + 15 - 60; // Trừ hao 60px để hiển thị cách lề trên một đoạn dễ đọc
+        // 2. Dùng mẹo (blur -> focus) ép trình duyệt tự cuộn bản Code đến vị trí đó
+        // Cách này giải quyết triệt để lỗi cuộn sai do văn bản dài tự động xuống dòng (word-wrap)
+        editor.blur();
+        editor.focus();
+        
+        // 3. Đặt lại con trỏ và bôi đen chữ "Câu X:" 
+        // Lúc này mục tiêu sẽ hiển thị chính xác và nằm ở khu vực giữa màn hình rất dễ nhìn
+        editor.setSelectionRange(pos, pos + searchStr.length);
     }
 }
 
@@ -1438,8 +1587,11 @@ function submitExam(isReview = false) {
         saveProgressToLocal();
         
         submitScoreToServer(score, currentData.length, totalTimeElapsed); 
+        sendPing(); // Gửi ping xác nhận báo Đã hoàn thành
     }
     
+    const quizContainer = document.getElementById('quiz-container');
+    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

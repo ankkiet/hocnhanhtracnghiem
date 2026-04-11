@@ -7,6 +7,7 @@ import shutil
 import hashlib
 import base64
 import io
+import datetime
 from typing import List, Dict, Any
 import random
 import string
@@ -21,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from docx import Document
 from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -31,33 +33,43 @@ from firebase_admin import credentials, firestore
 
 # Khởi tạo Firebase
 try:
-    # Dùng đường dẫn tuyệt đối để tránh lỗi khi chạy Uvicorn ở thư mục khác
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
+    # 1. Thử lấy chìa khóa từ Biến môi trường (Dành cho Koyeb)
+    firebase_env = os.environ.get("FIREBASE_JSON")
     
-    cred = credentials.Certificate(cert_path)
+    if firebase_env:
+        # Chuyển chuỗi Text thành dạng Dictionary mà Firebase yêu cầu
+        cred_dict = json.loads(firebase_env)
+        cred = credentials.Certificate(cred_dict)
+        print("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
+    else:
+        # 2. Nếu không có biến môi trường, đọc từ file (Dành cho chạy trên máy tính)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
+        cred = credentials.Certificate(cert_path)
+        print("Đang kết nối Firebase bằng tệp vật lý (Local)...")
+        
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
     db = firestore.client()
     
-    # Khởi tạo Admin mặc định nếu chưa có
+    # --- Phần khởi tạo Admin mặc định bên dưới giữ nguyên ---
     users = db.collection('users').where('username', '==', 'admin').get()
     admin_pwd_hash = hashlib.sha256('a@a@ankk'.encode()).hexdigest()
     if not users:
         db.collection('users').add({
             'username': 'admin',
-            'password': admin_pwd_hash, # Mật khẩu mặc định là a@a@ankk
+            'password': admin_pwd_hash,
             'full_name': 'Quản trị viên (Admin)',
             'role': 'admin',
             'status': 'approved'
         })
     else:
-        # Cập nhật đè lại mật khẩu để đảm bảo Admin luôn vào được bằng mật khẩu mới
         db.collection('users').document(users[0].id).update({
             'password': admin_pwd_hash
         })
+        
 except Exception as e:
-    print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Vui lòng kiểm tra file firebase-adminsdk.json. Chi tiết: {e}")
+    print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Chi tiết: {e}")
     db = None
 
 # ==========================================
@@ -142,6 +154,14 @@ class SubmitScoreRequest(BaseModel):
     total_questions: int
     time_elapsed: int
 
+class PingSessionRequest(BaseModel):
+    quiz_id: str
+    session_id: str
+    student_name: str
+    answers_count: int
+    time_remaining: int
+    completed: bool
+
 # ==========================================
 # PHẦN 3: LÕI THUẬT TOÁN & XỬ LÝ DỮ LIỆU
 # ==========================================
@@ -207,6 +227,11 @@ def recursive_unescape(data):
     elif isinstance(data, str):
         return data.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
     return data
+
+def fix_json_latex_escapes(json_str: str) -> str:
+    """Sửa lỗi LLM trả về các ký tự LaTeX (như \frac, \rightarrow) bị parser JSON hiểu nhầm thành ký tự điều khiển (Escape character)"""
+    # Thay thế các dấu \ đơn độc thành \\, ngoại trừ các trường hợp nó đang escape " hoặc \ hoặc / hợp lệ của JSON
+    return re.sub(r'(?<!\\)\\(?!["\\/])', r'\\\\', json_str)
 
 def get_auto_numbering_prefix(para, doc, counters: dict) -> str:
     """Khôi phục lại text (Câu X / A, B) khi giáo viên dùng List Tự động trong Word"""
@@ -342,7 +367,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     counters = {'q': 0, 'opt': 0}
     
     # BƯỚC 1: Quét tài liệu, ánh xạ văn bản và trọng số định dạng
-    for para in doc.paragraphs:
+    for p_element in doc.element.xpath('.//*[local-name()="p"]'):
+        para = Paragraph(p_element, doc._body)
         raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
         if not raw_text.strip():
             full_text += "\n"
@@ -361,8 +387,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 format_weights.extend([0] * len(prefix))
                 char_html.extend(list(prefix))
                 
-        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing"]'):
-            if node.tag.endswith('}drawing'):
+        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing" or local-name()="pict" or local-name()="object"]'):
+            if node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
                 extent = node.xpath('.//*[local-name()="extent"]')
                 img_style = "max-width: 100%; height: auto;"
                 if extent:
@@ -373,10 +399,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
-                for blip in node.xpath('.//*[local-name()="blip"]'):
-                    rId = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                for img_node in node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]'):
+                    rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                     if not rId:
-                        rId = blip.get(qn('r:embed'))
+                        rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                    if not rId:
+                        rId = img_node.get(qn('r:embed'))
+                    if not rId:
+                        rId = img_node.get(qn('r:id'))
+                    if not rId:
+                        for k, v in img_node.attrib.items():
+                            if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
+                                rId = v
+                                break
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
                         b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
@@ -399,7 +434,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                             if not converted:
                                 image_mapping[placeholder] = f"<br><div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem;'>⚠️ Hệ thống phát hiện ảnh định dạng cũ (WMF/EMF). Trình duyệt web không thể hiển thị loại ảnh này. Vui lòng mở Word, chụp màn hình ảnh này và dán lại dưới dạng JPG/PNG.</div><br>"
                         else:
-                            image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' /><br>"
+                            image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
                         
                         full_text += f" {placeholder} "
                         format_weights.extend([0] * len(f" {placeholder} "))
@@ -576,7 +611,8 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     img_counter = 0
     counters = {'q': 0, 'opt': 0}
     
-    for para in doc.paragraphs:
+    for p_element in doc.element.xpath('.//*[local-name()="p"]'):
+        para = Paragraph(p_element, doc._body)
         raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
         if not raw_text.strip():
             full_text.append("\n")
@@ -591,8 +627,8 @@ def parse_docx_to_marked_text(file_path: str) -> str:
             if not is_numbering_text and not is_group_title:
                 para_text += prefix
                 
-        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing"]'):
-            if node.tag.endswith('}drawing'):
+        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing" or local-name()="pict" or local-name()="object"]'):
+            if node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
                 extent = node.xpath('.//*[local-name()="extent"]')
                 img_style = "max-width: 100%; height: auto;"
                 if extent:
@@ -603,10 +639,19 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
-                for blip in node.xpath('.//*[local-name()="blip"]'):
-                    rId = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                for img_node in node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]'):
+                    rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                     if not rId:
-                        rId = blip.get(qn('r:embed'))
+                        rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                    if not rId:
+                        rId = img_node.get(qn('r:embed'))
+                    if not rId:
+                        rId = img_node.get(qn('r:id'))
+                    if not rId:
+                        for k, v in img_node.attrib.items():
+                            if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
+                                rId = v
+                                break
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
                         b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
@@ -694,11 +739,12 @@ def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
         raise Exception("Hệ thống chưa được cấu hình API Key.")
         
     models_to_try = [
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
         'gemini-3.1-flash-lite',
         'gemini-3-flash',
-        'gemini-2.5-flash-lite',
-        'gemini-2.5-flash',
-        'gemini-1.5-flash'
+        'gemini-2.5-flash-lite'
     ]
     last_error = None
     
@@ -710,7 +756,12 @@ def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
         for model_name in models_to_try:
             try:
                 model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.1
+                    )
+                )
                 return response
             except Exception as e:
                 error_str = str(e).lower()
@@ -732,8 +783,8 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict
     1. Trích xuất câu hỏi và 4 đáp án (A, B, C, D). Tuyệt đối LOẠI BỎ chữ "Câu X:", "Bài X:" hoặc số thứ tự ở đầu câu hỏi.
     2. CHÚ Ý QUAN TRỌNG: Hãy tinh ý tách các đáp án A, B, C, D ra riêng biệt nếu chúng bị dính liền trên cùng một dòng.
     3. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B). Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
-    4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. Giữ nguyên các thẻ [IMG_X].
-    5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \) (ví dụ: \(\frac{{1}}{{2}}\) ). Hãy GIỮ NGUYÊN ĐỊNH DẠNG LATEX NÀY, tuyệt đối không tự ý giải hay làm mất dấu \( \). **LƯU Ý QUAN TRỌNG:** Vì kết quả trả về là JSON, bạn PHẢI escape tất cả dấu backslash (\) bằng cách nhân đôi chúng lên (ví dụ: \\( thay vì \(, \\frac thay vì \frac).
+    4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X] (ví dụ [IMG_1], [IMG_2]). PHẢI GIỮ NGUYÊN CHÚNG TRONG NỘI DUNG.
+    5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \). Dữ liệu này ĐÃ ĐƯỢC ESCAPE SẴN DẤU BACKSLASH (ví dụ \frac, \sqrt, \rightarrow). BẠN PHẢI GIỮ NGUYÊN ĐỊNH DẠNG NÀY KHI TRẢ VỀ JSON. Bắt buộc phải có 2 dấu backslash (\\\\) trong chuỗi JSON.
     6. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
     Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\\\(x^2\\\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
     
@@ -746,16 +797,10 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict
     json_text = match.group(0) if match else response.text
     
     try:
-        return json.loads(json_text)
-    except json.JSONDecodeError:
-        # Khắc phục lỗi LLM quên escape backslash (\) cho công thức Toán (LaTeX) trong JSON.
-        # Replace các dấu \ không hợp lệ thành \\. Ngoại trừ \n, \r, \t, \", \\, \/
-        fixed_json_text = re.sub(r'\\(?![nrt\\"\/])', r'\\\\', json_text)
-        try:
-            return json.loads(fixed_json_text)
-        except json.JSONDecodeError as e:
-            # Lỗi nặng hơn không thể auto-fix
-            raise Exception(f"AI trả về JSON không hợp lệ (thường do công thức toán học bị lỗi định dạng LaTeX). Hãy thử lại. Chi tiết: {str(e)}")
+        json_text = fix_json_latex_escapes(json_text)
+        return json.loads(json_text, strict=False)
+    except json.JSONDecodeError as e:
+        raise Exception(f"AI trả về JSON không hợp lệ (thường do công thức toán học bị lỗi định dạng LaTeX). Hãy thử lại. Chi tiết: {str(e)}")
 
 
 # ==========================================
@@ -1057,8 +1102,8 @@ async def check_quiz_ai(req: CheckQuizRequest):
                 return {"status": "success", "feedback": response.text}
 
             json_text = match.group(0)
-            fixed_json_text = re.sub(r'\\(?![nrt\\"\/])', r'\\\\', json_text)
-            feedback_data = json.loads(fixed_json_text)
+            json_text = fix_json_latex_escapes(json_text)
+            feedback_data = json.loads(json_text, strict=False)
             return {"status": "success", "feedback": feedback_data}
         except (json.JSONDecodeError, ValueError):
             return {"status": "success", "feedback": response.text}
@@ -1085,6 +1130,44 @@ async def get_student_progress(quiz_id: str, student_token: str):
     if prog_doc.exists:
         return {"status": "success", "data": prog_doc.to_dict().get('progress_data')}
     return {"status": "success", "data": None}
+
+@app.post("/api/monitor/ping", summary="Nhận tín hiệu Ping từ thiết bị học sinh")
+async def ping_session(req: PingSessionRequest):
+    if db is None: return {"status": "error"}
+    db.collection('quizzes').document(req.quiz_id).collection('active_sessions').document(req.session_id).set({
+        'student_name': req.student_name,
+        'answers_count': req.answers_count,
+        'time_remaining': req.time_remaining,
+        'completed': req.completed,
+        'updated_at': firestore.SERVER_TIMESTAMP
+    })
+    return {"status": "success"}
+
+@app.get("/api/teacher/monitor/{quiz_id}", summary="Lấy danh sách trạng thái làm bài trực tiếp")
+async def get_monitor_data(quiz_id: str, teacher_token: str):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    doc_ref = db.collection('quizzes').document(quiz_id).get()
+    if not doc_ref.exists or doc_ref.to_dict().get('creator_id') != teacher_token:
+        raise HTTPException(status_code=403, detail="Không có quyền giám sát đề này")
+    
+    sessions = db.collection('quizzes').document(quiz_id).collection('active_sessions').get()
+    res = []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for s in sessions:
+        d = s.to_dict()
+        updated_at = d.get('updated_at')
+        is_online = False
+        if updated_at and (now - updated_at).total_seconds() < 40:
+            is_online = True
+        res.append({
+            'session_id': s.id,
+            'student_name': d.get('student_name', 'Ẩn danh'),
+            'answers_count': d.get('answers_count', 0),
+            'time_remaining': d.get('time_remaining', 0),
+            'completed': d.get('completed', False),
+            'is_online': is_online
+        })
+    return {"status": "success", "data": res}
 
 @app.post("/api/submit_score", summary="Lưu điểm và thời gian của học sinh")
 async def submit_score(request: SubmitScoreRequest):
@@ -1119,7 +1202,7 @@ async def get_leaderboard(quiz_id: str):
     return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
     ext = os.path.splitext(file.filename)[1].lower()
     if ext != ".docx":
         raise HTTPException(status_code=400, detail="Hệ thống chỉ đang hỗ trợ nhận diện trực tiếp qua file .docx")
@@ -1134,7 +1217,7 @@ async def upload_document(file: UploadFile = File(...)):
         api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc and settings_doc.exists else []
         
         extracted_data = None
-        if api_keys:
+        if use_ai and api_keys:
             marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
             extracted_data = generate_mcq_with_gemini(marked_text, api_keys)
             

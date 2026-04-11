@@ -392,12 +392,11 @@ body.minimal-mode #submitBtn {
 /* Khi hoàn thành bài, cho phép cuộn toàn trang */
 body.minimal-mode.quiz-completed {
     height: auto;
+    min-height: 100dvh;
     overflow: auto;
-    display: block;
 }
 
 body.minimal-mode.quiz-completed #mainAppContainer {
-    display: block;
     overflow: visible;
 }
 

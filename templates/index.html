@@ -142,7 +142,12 @@
 
     <div class="card upload-section" id="uploadBox">
         <p>Tải lên tài liệu (.docx) của bạn</p>
-        <input type="file" id="fileInput" accept=".docx" style="margin-bottom: 20px;">
+        <input type="file" id="fileInput" accept=".docx" style="margin-bottom: 15px;">
+        <label style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 0.95rem; cursor: pointer; color: var(--primary); font-weight: 600; background: #eff6ff; padding: 10px 20px; border-radius: 8px; border: 1px solid #bfdbfe; transition: all 0.2s;">
+            <input type="checkbox" id="useAIToggle" checked style="width: 20px; height: 20px; margin: 0 10px 0 0; cursor: pointer;">
+            🤖 Dùng AI bóc tách (Chính xác cao nhưng chậm hơn)
+        </label>
+        <br>
         <button class="btn-primary" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
     </div>
 
@@ -152,6 +157,29 @@
         <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;">Danh sách các đề thi bạn đã tạo và xuất bản. Bạn có thể copy mã/link gửi cho học sinh hoặc ẩn đề đi.</p>
         <button class="btn-outline" id="btnToggleTrash" onclick="toggleTrashView()" style="margin-bottom: 15px;">🗑️ Xem Thùng rác</button>
         <div id="teacherQuizList" style="overflow-x: auto;"></div>
+    </div>
+
+    <!-- Bảng Giám sát thi của Giáo viên -->
+    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
+            <h2 id="monitorQuizTitle" style="color: var(--primary); margin: 0; font-size: 1.3rem;">Đang giám sát...</h2>
+            <button class="btn-outline" onclick="stopMonitoring()">🔙 Quay lại</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+            <span id="monitorCount" style="font-weight: bold; color: var(--text-muted);">Tổng số: 0 học sinh</span>
+            <span style="font-size: 0.9rem; color: var(--success);">🟢 Tự động làm mới mỗi 5 giây</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 600px;">
+                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); background: #f9fafb;">
+                    <th style="padding: 12px 10px;">Họ tên Học sinh</th>
+                    <th style="padding: 12px 10px;">Trạng thái</th>
+                    <th style="padding: 12px 10px;">Số câu đã chọn</th>
+                    <th style="padding: 12px 10px;">Thời gian còn lại</th>
+                </tr>
+                <tbody id="monitorTableBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <input type="text" id="quizTitle" class="card" placeholder="Nhập tên bài kiểm tra (VD: Đề cương Lịch sử kỳ 1)..." style="display:none; font-size: 1.2rem; font-weight: 700; padding: 20px;">
