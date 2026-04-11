@@ -1,5 +1,5 @@
 // Tự động nhận diện môi trường (Localhost vs Production)
-let API_BASE_URL = "https://hocnhanhtracnghiem.onrender.com"; // QUAN TRỌNG: Link Render thật của bạn
+let API_BASE_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app"; // QUAN TRỌNG: Link Koyeb thật của bạn
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
     API_BASE_URL = "http://127.0.0.1:8000";
 } else if (window.location.hostname.startsWith('192.168.')) {
