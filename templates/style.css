@@ -118,6 +118,7 @@ input[type="text"]:focus, textarea:focus, .editable-box:focus {
 .question-box {
     border-left: 6px solid var(--primary);
     transition: transform 0.2s ease;
+    overflow-x: auto; /* Ngăn công thức toán MathJax dài làm vỡ chiều ngang trang */
 }
 
 .question-box:hover {
@@ -128,6 +129,7 @@ input[type="text"]:focus, textarea:focus, .editable-box:focus {
     font-size: 1.15rem;
     font-weight: 600;
     margin-bottom: 15px;
+    word-break: break-word; /* Ngăn text hoặc link quá dài làm vỡ layout */
 }
 
 /* Đáp án */
@@ -203,6 +205,7 @@ input[type="text"]:focus, textarea:focus, .editable-box:focus {
 .opt-text {
     flex-grow: 1;
     line-height: 1.5;
+    word-break: break-word;
 }
 
 /* Trạng thái chấm điểm */
@@ -261,12 +264,48 @@ input[type="text"]:focus, textarea:focus, .editable-box:focus {
     padding: 0 20px 20px 20px;
 }
 
+body.editor-fullscreen .preview-pane,
+body.editor-fullscreen .editor-pane {
+    height: 85vh; /* Mở rộng tối đa khi full màn hình */
+}
+
 .preview-pane::-webkit-scrollbar, .editor-pane::-webkit-scrollbar { width: 8px; }
 .preview-pane::-webkit-scrollbar-thumb, .editor-pane::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
 @media (max-width: 900px) {
     .split-layout { flex-direction: column; }
-    .preview-pane, .editor-pane { width: 100%; height: auto; max-height: 60vh; }
+    .preview-pane { width: 100%; flex: none; height: 45vh; max-height: none; }
+    .editor-pane { width: 100%; flex: none; height: 55vh; max-height: none; min-height: 400px; }
+}
+
+/* --- CHẾ ĐỘ TOÀN MÀN HÌNH (EDITOR FULLSCREEN) --- */
+body.editor-fullscreen .navbar,
+body.editor-fullscreen .header {
+    display: none !important;
+}
+
+body.editor-fullscreen {
+    padding: 15px;
+}
+
+/* --- MODAL CẤU HÌNH XUẤT BẢN --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    width: 90%; max-width: 500px;
+    background: var(--surface); border-radius: var(--radius);
+    padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    animation: modal-pop 0.3s ease-out; border: 1px solid var(--border);
+}
+
+@keyframes modal-pop {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* --- CHẾ ĐỘ TỐI GIẢN (MINIMAL MODE) --- */
@@ -304,6 +343,7 @@ body.minimal-mode #quiz-container {
     padding: 5px;
     padding-bottom: 60px; /* Tăng khoảng đệm để nút không sát mép màn hình */
     scrollbar-width: thin;
+    scroll-margin-top: 100px; /* Chống lỗi cuộn trang bị lấp dưới Sticky Header */
 }
 
 /* Thu gọn Header để tiết kiệm diện tích */
@@ -370,23 +410,85 @@ body.minimal-mode #submitBtn {
 
 /* Responsive cho điện thoại */
 @media (max-width: 600px) {
-    body { padding: 15px 10px; }
-    .header h1 { font-size: 1.8rem; }
-    .header p { font-size: 1rem; }
+    body { padding: 10px 5px; }
+    .header h1 { font-size: 1.6rem; }
+    .header p { font-size: 0.95rem; }
     .mode-switch { flex-wrap: wrap; gap: 8px; }
     .mode-switch button { flex: 1 1 calc(50% - 8px); padding: 10px; font-size: 0.9rem; }
     #btnShuffle { flex: 1 1 100%; }
-    .card { padding: 15px; }
+    .card { padding: 15px; margin-bottom: 15px; border-radius: 10px; }
     .option-wrapper { align-items: center; }
     .option-wrapper input[type="radio"] { flex-shrink: 0; }
     .option-wrapper input[type="text"] { flex-grow: 1; margin-left: 8px; }
-    .option-practice { padding: 10px; font-size: 0.95rem; }
     
-    body.minimal-mode .question-box { padding: 15px; }
-    body.minimal-mode .question-title { font-size: 1.1rem; }
-    body.minimal-mode .option-practice { font-size: 0.95rem; }
-    body.minimal-mode #exitMinimalBtn { position: absolute !important; top: 10px !important; left: 10px !important; margin-bottom: 0; width: auto; }
-    body.minimal-mode .quiz-title-text { font-size: 1.05rem; padding: 0 50px; }
+    .option-practice { padding: 12px; font-size: 1rem; border-radius: 10px; margin-bottom: 10px; min-height: 48px; }
+    .opt-badge { width: 28px; height: 28px; font-size: 0.9rem; margin-right: 10px; }
+    
+    /* Giao diện tối giản (Làm đề) thiết kế chuẩn App Mobile */
+    body.minimal-mode { padding: 0; background: #f9fafb; } 
+    body.minimal-mode #studentHeader { 
+        border-radius: 0 0 15px 15px; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+        padding: 15px 10px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(8px);
+        margin-bottom: 15px;
+    }
+    body.minimal-mode #quiz-container { padding: 5px 10px 160px 10px; } /* Tăng đệm dưới để né đồng hồ & nút nộp bài */
+    body.minimal-mode .question-box { 
+        padding: 15px; 
+        border-radius: 12px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--primary);
+        background: #ffffff;
+        margin-bottom: 20px;
+    }
+    body.minimal-mode .question-title { font-size: 1.1rem; line-height: 1.5; margin-bottom: 15px; }
+    
+    body.minimal-mode #exitMinimalBtn { 
+        position: absolute !important; 
+        top: 10px !important; 
+        left: 10px !important; 
+        margin: 0; 
+        width: auto;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        border: none;
+    }
+    body.minimal-mode .quiz-title-text { font-size: 1.15rem; padding: 0 10px; text-align: center; margin-top: 30px; line-height: 1.4; }
+    body.minimal-mode #studentHeader div { justify-content: space-around; gap: 8px !important; flex-wrap: wrap; }
+    
+    /* Nút nộp bài / Câu tiếp dưới đáy màn hình */
+    body.minimal-mode #submitBtn, #nextBtn {
+        position: fixed !important;
+        bottom: 15px !important;
+        left: 15px !important;
+        right: 15px !important;
+        width: calc(100% - 30px) !important;
+        margin: 0 !important;
+        border-radius: 12px !important;
+        padding: 14px !important;
+        font-size: 1.1rem !important;
+        box-shadow: 0 -4px 15px rgba(0,100,255,0.2) !important;
+        z-index: 101;
+    }
+    
+    /* Đồng hồ nổi */
+    #timerDisplay {
+        top: auto !important;
+        bottom: 75px !important; /* Ngay trên nút nộp bài */
+        right: 15px !important;
+        left: auto !important;
+        padding: 8px 15px !important;
+        font-size: 1rem !important;
+        border-radius: 20px !important;
+        box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3) !important;
+    }
 }
 
 /* Khi hoàn thành bài, cho phép cuộn toàn trang */

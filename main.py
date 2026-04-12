@@ -76,7 +76,7 @@ except Exception as e:
 # PHẦN 2: CẤU HÌNH FASTAPI & MIDDLEWARE
 # ==========================================
 app = FastAPI(
-    title="Hệ thống Tạo Câu hỏi Trắc nghiệm AI - Chuẩn Azota",
+    title="Hệ thống Tạo Câu hỏi Trắc nghiệm AI - Chuẩn HocnhanhTN",
     description="Giao diện API hỗ trợ tải lên file Word và tự động bóc tách câu hỏi trắc nghiệm.",
     version="2.0"
 )
@@ -171,34 +171,175 @@ def parse_omath(node):
     if node is None: return ""
     tag = node.tag.split('}')[-1] if '}' in node.tag else node.tag
     
-    if tag == 'f':
+    # Bộ từ điển chuyển đổi ký tự Unicode Toán/Hóa học sang LaTeX
+    MATH_SYM_MAP = {
+        'π': '\\pi ', 'α': '\\alpha ', 'β': '\\beta ', 'γ': '\\gamma ', 'Δ': '\\Delta ', 
+        'δ': '\\delta ', 'θ': '\\theta ', 'λ': '\\lambda ', 'μ': '\\mu ', 'ρ': '\\rho ',
+        'Σ': '\\Sigma ', 'Ω': '\\Omega ', 'ω': '\\omega ', '∞': '\\infty ', '→': '\\rightarrow ', 
+        '⟶': '\\longrightarrow ', '⇌': '\\rightleftharpoons ',
+        '⇒': '\\Rightarrow ', '⇔': '\\Leftrightarrow ', '≠': '\\neq ', '≈': '\\approx ',
+        '≤': '\\leq ', '≥': '\\geq ', '±': '\\pm ', '×': '\\times ', '÷': '\\div ',
+        '∫': '\\int ', '∑': '\\sum ', '°': '^\\circ ', '∈': '\\in ', '∉': '\\notin ',
+        '⊂': '\\subset ', '∅': '\\emptyset ', '∩': '\\cap ', '∪': '\\cup '
+    }
+    
+    if tag == 'f': # Phân số
         num = node.xpath('./*[local-name()="num"]')
         den = node.xpath('./*[local-name()="den"]')
         return f"\\frac{{{parse_omath(num[0]) if num else ''}}}{{{parse_omath(den[0]) if den else ''}}}"
-    elif tag == 'sSup':
+    elif tag == 'sSup': # Mũ / Lũy thừa
         e = node.xpath('./*[local-name()="e"]')
         sup = node.xpath('./*[local-name()="sup"]')
         return f"{{{parse_omath(e[0]) if e else ''}}}^{{{parse_omath(sup[0]) if sup else ''}}}"
-    elif tag == 'sSub':
+    elif tag == 'sSub': # Chỉ số dưới (Hóa học: H2O, CO2)
         e = node.xpath('./*[local-name()="e"]')
         sub = node.xpath('./*[local-name()="sub"]')
         return f"{{{parse_omath(e[0]) if e else ''}}}_{{{parse_omath(sub[0]) if sub else ''}}}"
-    elif tag == 'sSubSup':
+    elif tag == 'sSubSup': # Tích hợp cả mũ và chỉ số dưới
         e = node.xpath('./*[local-name()="e"]')
         sub = node.xpath('./*[local-name()="sub"]')
         sup = node.xpath('./*[local-name()="sup"]')
         return f"{{{parse_omath(e[0]) if e else ''}}}_{{{parse_omath(sub[0]) if sub else ''}}}^{{{parse_omath(sup[0]) if sup else ''}}}"
-    elif tag == 'rad':
+    elif tag == 'rad': # Căn bậc 2, Căn bậc n
         deg = node.xpath('./*[local-name()="deg"]')
         e = node.xpath('./*[local-name()="e"]')
         if deg and deg[0].xpath('.//*[local-name()="t"]'):
             return f"\\sqrt[{parse_omath(deg[0])}]{{{parse_omath(e[0]) if e else ''}}}"
         return f"\\sqrt{{{parse_omath(e[0]) if e else ''}}}"
-    elif tag == 'd':
+    elif tag == 'nary': # Tích phân, Tổng Sigma, Tích Pi
+        naryPr = node.xpath('./*[local-name()="naryPr"]')
+        chr_val = "\\int "
+        if naryPr:
+            chr_el = naryPr[0].xpath('./*[local-name()="chr"]')
+            if chr_el:
+                c = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '∫')
+                if c == '∑': chr_val = "\\sum "
+                elif c == '∏': chr_val = "\\prod "
+        sub = node.xpath('./*[local-name()="sub"]')
+        sup = node.xpath('./*[local-name()="sup"]')
         e = node.xpath('./*[local-name()="e"]')
-        return f"({str(''.join(parse_omath(c) for c in e))})"
-    elif tag == 't':
-        return node.text or ""
+        sub_str = f"_{{{parse_omath(sub[0])}}}" if sub and sub[0].xpath('.//*[local-name()="t"]') else ""
+        sup_str = f"^{{{parse_omath(sup[0])}}}" if sup and sup[0].xpath('.//*[local-name()="t"]') else ""
+        return f"{chr_val}{sub_str}{sup_str} {{{parse_omath(e[0]) if e else ''}}}"
+    elif tag == 'limLow': # Giới hạn lim hoặc Mũi tên có chữ ở dưới
+        e = node.xpath('./*[local-name()="e"]')
+        lim = node.xpath('./*[local-name()="lim"]')
+        e_text = parse_omath(e[0]) if e else ""
+        lim_text = parse_omath(lim[0]) if lim else ""
+        
+        if 'rightarrow' in e_text or '→' in e_text:
+            return f"\\xrightarrow[{lim_text}]{{}}"
+        elif 'leftarrow' in e_text or '←' in e_text:
+            return f"\\xleftarrow[{lim_text}]{{}}"
+        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
+            return f"\\xrightleftharpoons[{lim_text}]{{}}"
+        elif e_text.strip() == 'lim':
+            return f"\\lim_{{{lim_text}}}"
+        else:
+            return f"\\underset{{{lim_text}}}{{{e_text}}}"
+    elif tag == 'limUpp': # Mũi tên có chữ ở trên
+        e = node.xpath('./*[local-name()="e"]')
+        lim = node.xpath('./*[local-name()="lim"]')
+        e_text = parse_omath(e[0]) if e else ""
+        lim_text = parse_omath(lim[0]) if lim else ""
+        
+        if 'rightarrow' in e_text or '→' in e_text:
+            return f"\\xrightarrow{{{lim_text}}}"
+        elif 'leftarrow' in e_text or '←' in e_text:
+            return f"\\xleftarrow{{{lim_text}}}"
+        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
+            return f"\\xrightleftharpoons{{{lim_text}}}"
+        else:
+            return f"\\overset{{{lim_text}}}{{{e_text}}}"
+    elif tag == 'groupChr': # Ký tự nhóm (Word hay dùng cho mũi tên phản ứng Hóa học)
+        groupChrPr = node.xpath('./*[local-name()="groupChrPr"]')
+        chr_val = ""
+        pos = "bot"
+        if groupChrPr:
+            chr_el = groupChrPr[0].xpath('./*[local-name()="chr"]')
+            if chr_el:
+                chr_val = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '')
+            pos_el = groupChrPr[0].xpath('./*[local-name()="pos"]')
+            if pos_el:
+                pos = pos_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', 'bot')
+                
+        e = node.xpath('./*[local-name()="e"]')
+        e_text = parse_omath(e[0]) if e else ""
+        
+        if chr_val in ['→', '⟶', '\\rightarrow']:
+            return f"\\xrightarrow{{{e_text}}}" if pos == 'bot' else f"\\xrightarrow[{e_text}]{{}}"
+        elif chr_val in ['←', '⟵', '\\leftarrow']:
+            return f"\\xleftarrow{{{e_text}}}" if pos == 'bot' else f"\\xleftarrow[{e_text}]{{}}"
+        elif chr_val in ['⇌', '\\rightleftharpoons']:
+            return f"\\xrightleftharpoons{{{e_text}}}" if pos == 'bot' else f"\\xrightleftharpoons[{e_text}]{{}}"
+        elif chr_val == '︷':
+            return f"\\overbrace{{{e_text}}}"
+        elif chr_val == '︸':
+            return f"\\underbrace{{{e_text}}}"
+        else:
+            return f"\\underset{{{chr_val}}}{{{e_text}}}" if pos == 'bot' else f"\\overset{{{chr_val}}}{{{e_text}}}"
+    elif tag == 'undOvr': # Mũi tên có chữ cả trên lẫn dưới
+        e = node.xpath('./*[local-name()="e"]')
+        und = node.xpath('./*[local-name()="und"]')
+        ovr = node.xpath('./*[local-name()="ovr"]')
+        e_text = parse_omath(e[0]) if e else ""
+        und_text = parse_omath(und[0]) if und else ""
+        ovr_text = parse_omath(ovr[0]) if ovr else ""
+        
+        if 'rightarrow' in e_text or '→' in e_text:
+            return f"\\xrightarrow[{und_text}]{{{ovr_text}}}"
+        elif 'leftarrow' in e_text or '←' in e_text:
+            return f"\\xleftarrow[{und_text}]{{{ovr_text}}}"
+        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
+            return f"\\xrightleftharpoons[{und_text}]{{{ovr_text}}}"
+        else:
+            return f"\\munderover{{{e_text}}}{{{und_text}}}{{{ovr_text}}}"
+    elif tag == 'm': # Ma trận / Cấu trúc bảng
+        mr_nodes = node.xpath('./*[local-name()="mr"]')
+        rows = []
+        for mr in mr_nodes:
+            e_nodes = mr.xpath('./*[local-name()="e"]')
+            cols = [parse_omath(e_node) for e_node in e_nodes]
+            rows.append(" & ".join(cols))
+        joined_rows = " \\\\ ".join(rows)
+        return f"\\begin{{matrix}} {joined_rows} \\end{{matrix}}"
+    elif tag == 'd': # Dấu ngoặc (Trị tuyệt đối, ngoặc tròn, hệ phương trình)
+        dPr = node.xpath('./*[local-name()="dPr"]')
+        begChr, endChr = "(", ")"
+        if dPr:
+            beg_el = dPr[0].xpath('./*[local-name()="begChr"]')
+            end_el = dPr[0].xpath('./*[local-name()="endChr"]')
+            if beg_el: begChr = beg_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '(')
+            if end_el: endChr = end_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', ')')
+        
+        e = node.xpath('./*[local-name()="e"]')
+        inner = "".join(parse_omath(c) for c in e)
+        
+        # Xử lý đặc biệt: Hệ phương trình (ngoặc nhọn 1 bên)
+        if begChr == '{' and endChr == '':
+            if '\\begin{matrix}' in inner:
+                return inner.replace('\\begin{matrix}', '\\begin{cases}').replace('\\end{matrix}', '\\end{cases}')
+        
+        left_delim = "\\left\\{" if begChr == "{" else (f"\\left{begChr}" if begChr else "")
+        right_delim = "\\right\\}" if endChr == "}" else ("\\right." if endChr == "" else f"\\right{endChr}")
+        return f"{left_delim} {inner} {right_delim}"
+    elif tag == 'acc': # Vector, Mũ (Đạo hàm, Hình học)
+        accPr = node.xpath('./*[local-name()="accPr"]')
+        chr_val = ""
+        if accPr:
+            chr_el = accPr[0].xpath('./*[local-name()="chr"]')
+            if chr_el:
+                c = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '')
+                if c in ['⃗', '→']: chr_val = "\\vec"
+                elif c == '̂': chr_val = "\\hat"
+                elif c == '̅': chr_val = "\\overline"
+        e = node.xpath('./*[local-name()="e"]')
+        return f"{chr_val}{{{parse_omath(e[0]) if e else ''}}}" if chr_val else (parse_omath(e[0]) if e else "")
+    elif tag == 't': # Text và Ký tự đặc biệt
+        text = node.text or ""
+        for k, v in MATH_SYM_MAP.items():
+            text = text.replace(k, v)
+        return text
     
     res = ""
     for child in node:
@@ -356,7 +497,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
     return best_option_text
 
 def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
-    """Thuật toán phân tách Câu hỏi trắc nghiệm chuẩn Azota siêu tốc và thông minh."""
+    """Thuật toán phân tách Câu hỏi trắc nghiệm siêu tốc và thông minh."""
     doc = Document(file_path)
     full_text = ""
     format_weights = []
@@ -370,7 +511,9 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     for p_element in doc.element.xpath('.//*[local-name()="p"]'):
         para = Paragraph(p_element, doc._body)
         raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
-        if not raw_text.strip():
+        has_text = bool(raw_text.strip())
+        has_media = bool(para._element.xpath('.//*[local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'))
+        if not has_text and not has_media:
             full_text += "\n"
             format_weights.append(0)
             char_html.append("\n")
@@ -387,8 +530,25 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 format_weights.extend([0] * len(prefix))
                 char_html.extend(list(prefix))
                 
-        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing" or local-name()="pict" or local-name()="object"]'):
-            if node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
+        for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
+            if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
+                continue
+            if node.xpath('ancestor::*[local-name()="Fallback"]') or node.xpath('ancestor::*[local-name()="fallback"]'):
+                continue
+                
+            if node.tag.endswith('}oMath'):
+                math_latex = parse_omath(node)
+                if math_latex:
+                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
+                    math_tag = f" \\({encoded_math}\\) "
+                    full_text += math_tag
+                    format_weights.extend([0] * len(math_tag))
+                    for char in math_tag:
+                        char_html.append(f"<i>{char}</i>")
+            elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
+                img_nodes = node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]')
+                if not img_nodes:
+                    continue
                 extent = node.xpath('.//*[local-name()="extent"]')
                 img_style = "max-width: 100%; height: auto;"
                 if extent:
@@ -399,7 +559,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
-                for img_node in node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]'):
+                        
+                for img_node in img_nodes:
                     rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                     if not rId:
                         rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
@@ -412,6 +573,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                             if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
                                 rId = v
                                 break
+                    
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
                         b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
@@ -439,30 +601,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                         full_text += f" {placeholder} "
                         format_weights.extend([0] * len(f" {placeholder} "))
                         char_html.extend(list(f" {placeholder} "))
-            elif node.tag.endswith('}oMath'):
-                math_latex = parse_omath(node)
-                if math_latex:
-                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
-                    math_tag = f" \\({encoded_math}\\) "
-                    full_text += math_tag
-                    format_weights.extend([0] * len(math_tag))
-                    for char in math_tag:
-                        char_html.append(f"<i>{char}</i>")
-            elif node.tag.endswith('}r'):
-                if node.xpath('ancestor::*[local-name()="oMath"]'): continue
-                
-                t_elements = node.xpath('.//*[local-name()="t"]')
-                if not t_elements: continue
-                run_text = "".join([t.text for t in t_elements if t.text])
+            elif node.tag.endswith('}t'):
+                run_text = node.text
                 if not run_text: continue
                 
-                rPr_list = node.xpath('./*[local-name()="rPr"]')
+                r = node.getparent()
+                rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
                 is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
                 
                 if rPr_list:
                     rPr = rPr_list[0]
                     if rPr.xpath('./*[local-name()="b"]'): is_bold = True
                     if rPr.xpath('./*[local-name()="i"]'): is_italic = True
+                    # Nhận diện chữ gạch chân
                     if rPr.xpath('./*[local-name()="u"]'): is_underline = True
                     
                     highlight = rPr.xpath('./*[local-name()="highlight"]')
@@ -614,7 +765,9 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     for p_element in doc.element.xpath('.//*[local-name()="p"]'):
         para = Paragraph(p_element, doc._body)
         raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
-        if not raw_text.strip():
+        has_text = bool(raw_text.strip())
+        has_media = bool(para._element.xpath('.//*[local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'))
+        if not has_text and not has_media:
             full_text.append("\n")
             continue
         
@@ -627,8 +780,21 @@ def parse_docx_to_marked_text(file_path: str) -> str:
             if not is_numbering_text and not is_group_title:
                 para_text += prefix
                 
-        for node in para._element.xpath('.//*[local-name()="r" or local-name()="oMath" or local-name()="drawing" or local-name()="pict" or local-name()="object"]'):
-            if node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
+        for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
+            if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
+                continue
+            if node.xpath('ancestor::*[local-name()="Fallback"]') or node.xpath('ancestor::*[local-name()="fallback"]'):
+                continue
+
+            if node.tag.endswith('}oMath'):
+                math_latex = parse_omath(node)
+                if math_latex:
+                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
+                    para_text += f" \\({encoded_math}\\) "
+            elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
+                img_nodes = node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]')
+                if not img_nodes:
+                    continue
                 extent = node.xpath('.//*[local-name()="extent"]')
                 img_style = "max-width: 100%; height: auto;"
                 if extent:
@@ -639,7 +805,8 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
-                for img_node in node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]'):
+                        
+                for img_node in img_nodes:
                     rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                     if not rId:
                         rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
@@ -652,6 +819,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                             if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
                                 rId = v
                                 break
+                    
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
                         b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
@@ -676,26 +844,19 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                         else:
                             image_mapping[placeholder] = f"<img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
                         para_text += f" {placeholder} "
-            elif node.tag.endswith('}oMath'):
-                math_latex = parse_omath(node)
-                if math_latex:
-                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
-                    para_text += f" \\({encoded_math}\\) "
-            elif node.tag.endswith('}r'):
-                if node.xpath('ancestor::*[local-name()="oMath"]'): continue
-                
-                t_elements = node.xpath('.//*[local-name()="t"]')
-                if not t_elements: continue
-                run_text = "".join([t.text for t in t_elements if t.text])
+            elif node.tag.endswith('}t'):
+                run_text = node.text
                 if not run_text: continue
                 
-                rPr_list = node.xpath('./*[local-name()="rPr"]')
+                r = node.getparent()
+                rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
                 is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
                 
                 if rPr_list:
                     rPr = rPr_list[0]
                     if rPr.xpath('./*[local-name()="b"]'): is_bold = True
                     if rPr.xpath('./*[local-name()="i"]'): is_italic = True
+                    # Nhận diện chữ gạch chân
                     if rPr.xpath('./*[local-name()="u"]'): is_underline = True
                     
                     highlight = rPr.xpath('./*[local-name()="highlight"]')
@@ -1043,7 +1204,7 @@ async def toggle_publish(req: TogglePublishRequest):
     return {"status": "success"}
 
 @app.post("/api/teacher/check_quiz_ai", summary="AI Kiểm tra lỗi đề thi")
-async def check_quiz_ai(req: CheckQuizRequest):
+def check_quiz_ai(req: CheckQuizRequest):
     if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
     teacher_doc = db.collection('users').document(req.teacher_token).get()
     if not teacher_doc.exists or teacher_doc.to_dict().get('role') not in ['teacher', 'admin']:
@@ -1202,7 +1363,7 @@ async def get_leaderboard(quiz_id: str):
     return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
-async def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
+def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
     ext = os.path.splitext(file.filename)[1].lower()
     if ext != ".docx":
         raise HTTPException(status_code=400, detail="Hệ thống chỉ đang hỗ trợ nhận diện trực tiếp qua file .docx")

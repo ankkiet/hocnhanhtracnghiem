@@ -182,16 +182,6 @@
         </div>
     </div>
 
-    <input type="text" id="quizTitle" class="card" placeholder="Nhập tên bài kiểm tra (VD: Đề cương Lịch sử kỳ 1)..." style="display:none; font-size: 1.2rem; font-weight: 700; padding: 20px;">
-    <select id="quizModeSelect" class="card" style="display:none; width: 100%; padding: 15px; margin-bottom: 24px; font-size: 1.1rem; border: 2px solid var(--primary); cursor: pointer; font-weight: 600;">
-        <option value="practice">🎯 Xuất bản cho học sinh: Chế độ Luyện tập (Biết ngay đúng/sai từng câu)</option>
-        <option value="exam">📝 Xuất bản cho học sinh: Chế độ Thi thử (Làm xong hết toàn bài mới chấm điểm)</option>
-    </select>
-    <input type="number" id="quizTimeLimit" class="card" placeholder="Thời gian làm bài (phút) - Để trống hoặc 0 nếu không giới hạn" style="display:none; width: 100%; padding: 15px; margin-bottom: 24px; font-size: 1.1rem; border: 2px solid var(--primary); box-sizing: border-box; font-weight: 600;">
-    <label id="quizShuffleLabel" class="card" style="display:none; margin-bottom: 24px; font-size: 1.1rem; font-weight: 600; cursor: pointer; align-items: center;">
-        <input type="checkbox" id="quizShuffleToggle" style="width: 20px; height: 20px; margin-right: 10px;">
-        🔀 Tự động trộn ngẫu nhiên câu hỏi & đáp án mỗi lần học sinh truy cập
-    </label>
     <div id="timerDisplay" style="display:none; position: fixed; top: 20px; right: 20px; background: var(--danger); color: white; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; box-shadow: var(--shadow); z-index: 1000; transition: all 0.3s;">⏳ 00:00</div>
     
     <div id="aiFeedbackBox" class="card" style="display:none; border: 2px solid #9333ea; background: #faf5ff; margin-bottom: 24px;">
@@ -205,7 +195,7 @@
     
     <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu kiểm tra tùy chọn cho AI (VD: Soát lỗi câu 1 và 2, Kiểm tra lỗi tính toán... Để trống nếu muốn AI tự soát lỗi tổng quát)"></textarea>
     <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">🤖 AI Kiểm tra lỗi & Phân tích Đề thi</button>
-    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 10px;" onclick="saveData()">💾 Lưu & Nhận Link Chia Sẻ</button>
+    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 15px; font-size: 1.1rem; padding: 15px;" onclick="openPublishModal()">⚙️ Tiếp tục & Cấu hình Xuất bản</button>
     <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">🔙 Quản lý đề thi</button>
     <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">✔️ Nộp bài & Xem điểm</button>
 </div>
@@ -218,6 +208,36 @@
     <div id="progressText" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #34d399;">0%</div>
     <h2 id="loadingStatusText" style="margin-top: 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); font-size: 1.2rem; font-weight: normal; text-align: center;">⚙️ Đang tải file lên...</h2>
     <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 5px;">Quá trình này có thể mất đến 30 giây đối với đề thi dài.</p>
+</div>
+
+<!-- Modal Cấu hình Xuất bản -->
+<div id="publishModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <h2 style="color: var(--primary); margin-top: 0;">⚙️ Cấu hình Xuất bản Đề thi</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Vui lòng thiết lập các thông số trước khi xuất bản cho học sinh.</p>
+        
+        <label style="font-weight: 600; display: block; margin-bottom: 5px;">Tên bài kiểm tra <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 15 phút môn Toán..." style="margin-bottom: 15px;">
+        
+        <label style="font-weight: 600; display: block; margin-bottom: 5px;">Chế độ hiển thị</label>
+        <select id="modalQuizMode" style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem;">
+            <option value="practice">🎯 Luyện tập (Biết ngay đúng/sai từng câu)</option>
+            <option value="exam">📝 Thi thử (Làm xong hết toàn bài mới chấm điểm)</option>
+        </select>
+        
+        <label style="font-weight: 600; display: block; margin-bottom: 5px;">Thời gian làm bài (Phút)</label>
+        <input type="number" id="modalQuizTime" placeholder="Để trống hoặc 0 nếu không giới hạn" style="margin-bottom: 15px;">
+        
+        <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 25px;">
+            <input type="checkbox" id="modalQuizShuffle" style="width: 20px; height: 20px; margin-right: 10px;">
+            🔀 Tự động trộn ngẫu nhiên câu hỏi & đáp án
+        </label>
+        
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn-outline" style="margin: 0; width: auto;" onclick="closePublishModal()">Hủy</button>
+            <button id="btnConfirmPublish" class="btn-primary" style="margin: 0; width: auto;" onclick="confirmPublish()">🚀 Lưu & Xuất bản</button>
+        </div>
+    </div>
 </div>
 
 <script src="script.js"></script>

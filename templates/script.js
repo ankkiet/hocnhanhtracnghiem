@@ -526,17 +526,25 @@ async function editQuiz(quizId) {
             currentData = result.data;
             editingQuizId = quizId;
             
-            document.getElementById('quizTitle').value = result.title;
-            document.getElementById('quizModeSelect').value = result.mode;
-            document.getElementById('quizTimeLimit').value = result.time_limit || "";
-            document.getElementById('quizShuffleToggle').checked = result.is_shuffle;
+            // Lưu tạm cấu hình cũ để lát mở Modal sẽ tự động điền
+            window.tempQuizSettings = {
+                title: result.title,
+                mode: result.mode,
+                timeLimit: result.time_limit,
+                isShuffle: result.is_shuffle
+            };
             
+            document.body.classList.add('editor-fullscreen');
             document.getElementById('uploadBox').style.display = 'none';
             document.getElementById('teacherDashboard').style.display = 'none';
-            document.getElementById('modeSwitch').style.display = 'flex';
-            document.getElementById('backDashboardBtn').style.display = 'block';
             
             switchMode('edit');
+            document.getElementById('saveBtn').style.display = 'block';
+            document.getElementById('saveBtn').innerText = "⚙️ Cập nhật & Cấu hình Xuất bản";
+            document.getElementById('backDashboardBtn').style.display = 'block';
+            document.getElementById('aiCustomPrompt').style.display = 'block';
+            document.getElementById('btnAICheck').style.display = 'block';
+            
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else { alert("Không tìm thấy đề thi."); }
     } catch (e) { alert("Lỗi tải đề thi."); }
@@ -811,10 +819,20 @@ async function uploadFile() {
         if (result.status === "success") {
             currentData = result.data || [];
             editingQuizId = null;
-            document.getElementById('modeSwitch').style.display = 'flex';
+            window.tempQuizSettings = null; // Xóa setting cũ
+            
+            document.body.classList.add('editor-fullscreen');
             document.getElementById('teacherDashboard').style.display = 'none';
+            document.getElementById('uploadBox').style.display = 'none';
+            
+            switchMode('edit');
+            document.getElementById('saveBtn').style.display = 'block';
+            document.getElementById('saveBtn').innerText = "⚙️ Tiếp tục & Cấu hình Xuất bản";
             if (authRole === 'teacher') document.getElementById('backDashboardBtn').style.display = 'block';
-            renderData();
+            document.getElementById('aiCustomPrompt').style.display = 'block';
+            document.getElementById('btnAICheck').style.display = 'block';
+            
+            window.scrollTo(0,0);
         } else { alert("Lỗi: " + result.detail); }
     } catch (e) { 
         clearInterval(progressInterval);
@@ -829,12 +847,10 @@ async function uploadFile() {
 function backToDashboard() {
     currentData = [];
     editingQuizId = null;
+    window.tempQuizSettings = null;
+    document.body.classList.remove('editor-fullscreen');
     document.getElementById('quiz-container').innerHTML = '';
     document.getElementById('modeSwitch').style.display = 'none';
-    document.getElementById('quizTitle').style.display = 'none';
-    document.getElementById('quizModeSelect').style.display = 'none';
-    document.getElementById('quizTimeLimit').style.display = 'none';
-    document.getElementById('quizShuffleLabel').style.display = 'none';
     document.getElementById('saveBtn').style.display = 'none';
     document.getElementById('aiCustomPrompt').style.display = 'none';
     document.getElementById('aiCustomPrompt').value = '';
@@ -844,6 +860,66 @@ function backToDashboard() {
     document.getElementById('uploadBox').style.display = 'block';
     document.getElementById('teacherDashboard').style.display = 'block';
     loadTeacherQuizzes();
+}
+
+function openPublishModal() {
+    document.getElementById('publishModal').style.display = 'flex';
+    if (editingQuizId && window.tempQuizSettings) {
+        document.getElementById('modalQuizTitle').value = window.tempQuizSettings.title || "";
+        document.getElementById('modalQuizMode').value = window.tempQuizSettings.mode || "practice";
+        document.getElementById('modalQuizTime').value = window.tempQuizSettings.timeLimit || "";
+        document.getElementById('modalQuizShuffle').checked = window.tempQuizSettings.isShuffle || false;
+    } else {
+        document.getElementById('modalQuizTitle').value = "";
+        document.getElementById('modalQuizMode').value = "practice";
+        document.getElementById('modalQuizTime').value = "";
+        document.getElementById('modalQuizShuffle').checked = false;
+    }
+}
+
+function closePublishModal() {
+    document.getElementById('publishModal').style.display = 'none';
+}
+
+async function confirmPublish() {
+    const title = document.getElementById('modalQuizTitle').value.trim();
+    if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
+    
+    const mode = document.getElementById('modalQuizMode').value;
+    const timeLimit = parseInt(document.getElementById('modalQuizTime').value) || 0;
+    const isShuffle = document.getElementById('modalQuizShuffle').checked;
+    
+    const btn = document.getElementById('btnConfirmPublish');
+    btn.innerText = "⏳ Đang xử lý...";
+    btn.disabled = true;
+    
+    try {
+        const payload = { 
+            title: title, data: currentData, mode: mode, time_limit: timeLimit, 
+            is_shuffle: isShuffle, creator_id: authToken, status: "published" 
+        };
+        if (editingQuizId) payload.quiz_id = editingQuizId;
+
+        const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            closePublishModal();
+            const shareLink = window.location.origin + window.location.pathname + "?id=" + result.quiz_id;
+            prompt(`Lưu thành công!\nMã đề: ${result.quiz_id}\n\nCopy đường link gọn gàng bên dưới để gửi học sinh:`, shareLink);
+            editingQuizId = result.quiz_id;
+            window.tempQuizSettings = { title, mode, timeLimit, isShuffle };
+            
+            if (confirm("Đã xuất bản thành công! Bạn có muốn quay về màn hình Quản lý không?")) {
+                backToDashboard();
+            }
+        }
+    } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
+    btn.innerText = "🚀 Lưu & Xuất bản";
+    btn.disabled = false;
 }
 
 async function checkQuizWithAI() {
@@ -904,9 +980,9 @@ function applyAISuggestion(index, button) {
             group_title: corrected_data.group_title !== undefined ? corrected_data.group_title : originalGroupTitle
         };
 
-        const azotaEditor = document.getElementById('azotaEditor');
-        if (azotaEditor) {
-            azotaEditor.value = dataToAzotaText(currentData);
+        const codeEditor = document.getElementById('codeEditor');
+        if (codeEditor) {
+            codeEditor.value = dataToEditorText(currentData);
         }
 
         renderPreviewAll();
@@ -953,61 +1029,123 @@ function renderData() {
     if (currentMode === 'edit') {
         container.innerHTML = `
             <div class="split-layout">
-                <div class="preview-pane" id="preview-pane">
-                    <h3 style="text-align: center; color: var(--success); margin-top: 0; position: sticky; top: 0; background: var(--surface); padding: 15px 0; z-index: 10; border-bottom: 1px solid var(--border);">👁️ Xem trước (Giao diện Học sinh)</h3>
-                    <div id="preview-content"></div>
-                </div>
-                <div class="editor-pane" id="editor-pane" style="display: flex; flex-direction: column;">
-                    <h3 style="text-align: center; color: var(--primary); margin-top: 0; position: sticky; top: 0; background: var(--surface); padding: 15px 0; z-index: 10; border-bottom: 1px solid var(--border);">🛠 Chỉnh sửa Code </h3>
-                    <div style="background: #e0f2fe; padding: 12px; border-radius: 8px; margin-bottom: 15px; color: #1e40af; font-size: 0.95rem; border: 1px solid #bae6fd; line-height: 1.5;">
-                        💡 <b>Mẹo:</b> Gõ trực tiếp văn bản thô (Code) ở đây sẽ hiển thị ngay lập tức sang màn hình Xem trước bên trái.<br>👉 <b>Đặt dấu <code>*</code> trước chữ cái để đánh dấu đáp án đúng (VD: <code>*A.</code>)</b>.
+                <div class="preview-pane" id="preview-pane" style="padding: 0;">
+                    <div style="background: #f8fafc; padding: 15px 20px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.3rem;">👁️</span> XEM TRƯỚC (GIAO DIỆN HỌC SINH)
+                        </div>
                     </div>
-                    <textarea id="azotaEditor" spellcheck="false" style="flex-grow: 1; width: 100%; min-height: 60vh; border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: Consolas, monospace; font-size: 15px; line-height: 1.6; resize: none; outline: none; background: #f8fafc; color: #334155; box-sizing: border-box;"></textarea>
+                    <div id="preview-content" style="padding: 20px;"></div>
+                </div>
+                <div class="editor-pane" id="editor-pane" style="display: flex; flex-direction: column; padding: 0; background: #1e1e1e; overflow: hidden; border: 1px solid #333;">
+                    <div style="background: #252526; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #333;">
+                        <div style="font-weight: 700; color: #cccccc; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.3rem;">💻</span> HOCNHANHTN CODE EDITOR
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button style="padding: 6px 14px; font-size: 0.85rem; font-weight: 600; background: #0e639c; border: none; color: white; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1177bb'" onmouseout="this.style.background='#0e639c'" onclick="insertTextToEditor('\\n\\nCâu mới: \\nA. \\nB. \\nC. \\nD. ')">➕ Thêm Câu hỏi</button>
+                        </div>
+                    </div>
+                    <div style="background: #3a3d41; padding: 10px 20px; font-size: 0.9rem; color: #cccccc; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px;">
+                        <span>💡 <b>Mẹo:</b> Đặt dấu <code>*</code> trước đáp án đúng (VD: <code>*A.</code>). Click câu hỏi bên trái để tự động cuộn đến đoạn Code bên phải.</span>
+                    </div>
+                    <div style="flex-grow: 1; position: relative; background: #1e1e1e;">
+                        <style>
+                            .editor-font {
+                                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+                                font-size: 15px;
+                                line-height: 1.8;
+                                padding: 20px 20px 60px 20px;
+                                box-sizing: border-box;
+                                white-space: pre-wrap;
+                                word-wrap: break-word;
+                                margin: 0;
+                                border: none;
+                            }
+                            #codeHighlight {
+                                position: absolute;
+                                top: 0; left: 0; right: 0; bottom: 0;
+                                color: #d4d4d4;
+                                overflow: hidden;
+                                pointer-events: none;
+                            }
+                            #codeEditor {
+                                position: absolute;
+                                top: 0; left: 0; right: 0; bottom: 0;
+                                background: transparent;
+                                color: transparent;
+                                caret-color: #d4d4d4;
+                                resize: none;
+                                outline: none;
+                                overflow-y: auto;
+                            }
+                            #codeEditor::selection { background: #264f78; color: transparent; }
+                            #codeEditor::-webkit-scrollbar { width: 14px; }
+                            #codeEditor::-webkit-scrollbar-track { background: #1e1e1e; }
+                            #codeEditor::-webkit-scrollbar-thumb { background: #424242; border: 4px solid #1e1e1e; border-radius: 8px; }
+                            #codeEditor::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+                            
+                            /* Syntax Colors (Chuẩn VS Code Theme) */
+                            .hl-question { color: #569cd6; font-weight: bold; }
+                            .hl-option { color: #c586c0; font-weight: bold; }
+                            .hl-correct { color: #10b981; font-weight: bold; }
+                            .hl-image { color: #ce9178; }
+                            .hl-math { color: #4ec9b0; }
+                            .hl-group { color: #dcdcaa; font-weight: bold; }
+                            .hl-html { color: #808080; }
+                        </style>
+                        <div id="codeHighlight" class="editor-font"></div>
+                        <textarea id="codeEditor" class="editor-font" spellcheck="false"></textarea>
+                    </div>
                 </div>
             </div>
         `;
         const previewContent = document.getElementById('preview-content');
-        const azotaEditor = document.getElementById('azotaEditor');
+        const codeEditor = document.getElementById('codeEditor');
 
-        azotaEditor.value = dataToAzotaText(currentData);
+        codeEditor.value = dataToEditorText(currentData);
+        updateSyntaxHighlight();
         renderPreviewAll();
 
         let editTimeout;
-        azotaEditor.addEventListener('input', function() {
+        codeEditor.addEventListener('input', function() {
             clearTimeout(editTimeout);
             editTimeout = setTimeout(() => {
-                currentData = parseAzotaText(this.value);
+                updateSyntaxHighlight(); // Đưa vào timeout để chống lag khi gõ nhanh (Debounce)
+                currentData = parseEditorText(this.value);
                 renderPreviewAll();
-            }, 500);
+            }, 300);
+        });
+        
+        codeEditor.addEventListener('scroll', function() {
+            const codeHighlight = document.getElementById('codeHighlight');
+            if (codeHighlight) {
+                codeHighlight.scrollTop = this.scrollTop;
+                codeHighlight.scrollLeft = this.scrollLeft;
+            }
         });
     } else {
+        // TỐI ƯU HIỆU SUẤT RENDER: Gộp thành 1 chuỗi lớn thay vì appendChild liên tục
+        let htmlBuilder = "";
         currentData.forEach((q, qIndex) => {
-            const box = document.createElement('div');
-            box.className = 'card question-box';
-            box.id = `question_box_${qIndex}`;
-            
             let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
-            box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
+            let boxHtml = `<div class="card question-box" id="question_box_${qIndex}">`;
+            boxHtml += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
             q.options.forEach((opt, oIndex) => {
                 let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
                 let isChecked = quizProgress && quizProgress.answers && quizProgress.answers[qIndex] === opt;
-                box.innerHTML += `
+                boxHtml += `
                     <label class="option-practice ${isChecked ? 'selected' : ''}" id="exam_opt_${qIndex}_${oIndex}">
                     <input type="radio" name="exam_${qIndex}" value="${escapeHtml(opt)}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''}>
                         <span class="opt-badge">${char}</span>
                         <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
                     </label>`;
             });
-            container.appendChild(box);
+            boxHtml += `</div>`;
+            htmlBuilder += boxHtml;
         });
+        container.innerHTML = htmlBuilder;
     }
-    
-    document.getElementById('quizTitle').style.display = currentMode === 'edit' ? 'block' : 'none';
-    document.getElementById('quizModeSelect').style.display = currentMode === 'edit' ? 'block' : 'none';
-    document.getElementById('quizTimeLimit').style.display = currentMode === 'edit' ? 'block' : 'none';
-    const shuffleLabel = document.getElementById('quizShuffleLabel');
-    if (shuffleLabel) shuffleLabel.style.display = currentMode === 'edit' ? 'flex' : 'none';
-    document.getElementById('saveBtn').style.display = currentMode === 'edit' ? 'block' : 'none';
     document.getElementById('aiCustomPrompt').style.display = currentMode === 'edit' ? 'block' : 'none';
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
     if (currentMode !== 'edit') document.getElementById('aiFeedbackBox').style.display = 'none';
@@ -1022,9 +1160,11 @@ function renderPracticeQuestion() {
     if (currentQuestionIndex >= currentData.length) {
         document.body.classList.add('quiz-completed'); // Mở khóa thanh cuộn toàn trang
         document.getElementById('score-board').style.display = 'block';
-        document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng ${practiceScore} / ${currentData.length} câu. 🎉<br>
-            <button class="btn-primary" onclick="restartPractice()" style="margin-top:20px; margin-right: 10px;">🔄 Luyện tập lại vòng mới</button>
-            <button class="btn-outline" onclick="showPracticeReview()" style="margin-top:20px; background: white;">🔍 Xem chi tiết bài làm</button>`;
+        document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng <span style="color: var(--primary); font-size: 1.8rem;">${practiceScore}</span> / ${currentData.length} câu. 🎉<br>
+            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
+                <button class="btn-outline" onclick="showPracticeReview()" style="background: white; margin: 0;">🔍 Xem chi tiết bài làm</button>
+                <button class="btn-primary" onclick="restartPractice()" style="margin: 0;">🔄 Luyện tập lại vòng mới</button>
+            </div>`;
         
         if (isStudentMode && studentName && !quizProgress.completed) {
             let timeElapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
@@ -1218,7 +1358,7 @@ function switchMode(mode) {
     renderData();
 }
 
-function dataToAzotaText(data) {
+function dataToEditorText(data) {
     let text = "";
     data.forEach((q, i) => {
         if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
@@ -1259,7 +1399,7 @@ function dataToAzotaText(data) {
     return text;
 }
 
-function parseAzotaText(text) {
+function parseEditorText(text) {
     // Trả lại mã Base64 thật cho các thẻ [HÌNH_ẢNH_X] trước khi bóc tách
     let restoredText = text;
     for (let key in globalEditorImageStorage) {
@@ -1355,27 +1495,37 @@ function renderPreviewAll() {
 }
 
 function scrollToQuestionInEditor(qIndex) {
-    const editor = document.getElementById('azotaEditor');
+    const editor = document.getElementById('codeEditor');
     if (!editor) return;
     
     const text = editor.value;
-    const searchStr = `Câu ${qIndex + 1}:`;
-    const pos = text.indexOf(searchStr);
+    const lines = text.split('\n');
+    const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
     
-    if (pos !== -1) {
-        // 1. Chuyển tạm con trỏ xuống dưới mục tiêu một đoạn (khoảng 300 ký tự)
-        const offsetPos = Math.min(text.length, pos + 300);
-        editor.focus();
-        editor.setSelectionRange(offsetPos, offsetPos);
-        
-        // 2. Dùng mẹo (blur -> focus) ép trình duyệt tự cuộn bản Code đến vị trí đó
-        // Cách này giải quyết triệt để lỗi cuộn sai do văn bản dài tự động xuống dòng (word-wrap)
-        editor.blur();
-        editor.focus();
-        
-        // 3. Đặt lại con trỏ và bôi đen chữ "Câu X:" 
-        // Lúc này mục tiêu sẽ hiển thị chính xác và nằm ở khu vực giữa màn hình rất dễ nhìn
-        editor.setSelectionRange(pos, pos + searchStr.length);
+    let currentQCount = -1;
+    let charOffset = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() !== '') {
+            if (qRegex.test(line)) {
+                currentQCount++;
+                if (currentQCount === qIndex) {
+                    editor.focus();
+                    editor.setSelectionRange(charOffset, charOffset + line.length);
+                    
+                    // Thuật toán cuộn mượt: Tính tọa độ Y tuyệt đối dựa trên tỷ lệ ký tự
+                    // Cách này miễn nhiễm với lỗi Word-wrap và cực kỳ ổn định trên mọi trình duyệt
+                    const scrollRatio = charOffset / text.length;
+                    const targetScroll = editor.scrollHeight * scrollRatio;
+                    
+                    // Đẩy thanh cuộn đến đúng mục tiêu, trừ lùi 56px (~1.5cm) để tạo khoảng thở ở mép trên
+                    editor.scrollTop = targetScroll - 56;
+                    return;
+                }
+            }
+        }
+        charOffset += line.length + 1; // +1 là đếm khoảng trắng của ký tự xuống dòng (\n)
     }
 }
 
@@ -1413,46 +1563,6 @@ function startTimer(minutes) {
         }
         updateDisplay();
     }, 1000);
-}
-
-async function saveData() {
-    const title = document.getElementById('quizTitle').value.trim() || "Bài kiểm tra không tên";
-    const mode = document.getElementById('quizModeSelect').value;
-    const timeLimit = parseInt(document.getElementById('quizTimeLimit').value) || 0;
-    const isShuffle = document.getElementById('quizShuffleToggle').checked;
-    const btn = document.getElementById('saveBtn');
-    btn.innerText = "⏳ Đang lưu trữ dữ liệu...";
-    btn.disabled = true;
-    try {
-        const payload = { 
-            title: title, 
-            data: currentData, 
-            mode: mode, 
-            time_limit: timeLimit, 
-            is_shuffle: isShuffle, 
-            creator_id: authToken, 
-            status: "published" 
-        };
-        
-        if (editingQuizId) {
-            payload.quiz_id = editingQuizId;
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        if (result.status === 'success') {
-            const shareLink = window.location.origin + window.location.pathname + "?id=" + result.quiz_id;
-            prompt(`Lưu thành công!\nMã đề: ${result.quiz_id}\n\nCopy đường link gọn gàng bên dưới để gửi học sinh:`, shareLink);
-            editingQuizId = result.quiz_id;
-            if (authRole === 'teacher') loadTeacherQuizzes(); // Làm mới danh sách
-        }
-    } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
-    btn.innerText = "💾 Lưu & Nhận Link Chia Sẻ";
-    btn.disabled = false;
 }
 
 function formatTime(seconds) {
@@ -1560,10 +1670,12 @@ function submitExam(isReview = false) {
     
     const scoreBoard = document.getElementById('score-board');
     scoreBoard.style.display = 'block';
-    scoreBoard.innerHTML = `Kết quả thi: ${score} / ${currentData.length} câu chính xác! 🎉<br>
+    scoreBoard.innerHTML = `Kết quả thi: <span style="color: var(--primary); font-size: 1.8rem;">${score}</span> / ${currentData.length} câu chính xác! 🎉<br>
                             <span style="font-size: 1.1rem; color: var(--text-muted);">⏱ Thời gian: ${formatTime(totalTimeElapsed)}</span><br>
-                            <button class="btn-outline" style="margin-top: 15px; margin-right: 10px;" onclick="document.getElementById('quiz-container').scrollIntoView({behavior: 'smooth'})">👇 Xem chi tiết sai/đúng</button>
-                            <button class="btn-primary" style="margin-top: 15px;" onclick="restartExam()">🔄 Thi lại vòng mới</button>`;
+                            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                                <button class="btn-outline" style="margin: 0;" onclick="document.getElementById('quiz-container').scrollIntoView({behavior: 'smooth'})">👇 Xem chi tiết sai/đúng</button>
+                                <button class="btn-primary" style="margin: 0;" onclick="restartExam()">🔄 Thi lại vòng mới</button>
+                            </div>`;
     
     if (!isReview && isStudentMode && studentName) { 
         if (!quizProgress.answers) quizProgress.answers = {};
@@ -1604,4 +1716,46 @@ function exitMinimalMode() {
         }
         window.location.reload(); // Tải lại trang để reset giao diện và đưa về màn hình Welcome
     }
+}
+
+// Hàm hỗ trợ chèn nhanh text vào khung Code Editor
+function insertTextToEditor(text) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const val = editor.value;
+    
+    editor.value = val.substring(0, start) + text + val.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + text.length;
+    editor.focus();
+    
+    updateSyntaxHighlight();
+    currentData = parseEditorText(editor.value);
+    renderPreviewAll();
+}
+
+// Hàm xử lý Highlight Code (Syntax Highlighting)
+function updateSyntaxHighlight() {
+    const codeEditor = document.getElementById('codeEditor');
+    const codeHighlight = document.getElementById('codeHighlight');
+    if (!codeEditor || !codeHighlight) return;
+    
+    let text = codeEditor.value;
+    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
+    // Đổi màu các keyword và pattern
+    escaped = escaped.replace(/(\[HÌNH_ẢNH_\d+\])/g, '<span class="hl-image">$1</span>');
+    escaped = escaped.replace(/(\\\([\s\S]*?\\\))/g, '<span class="hl-math">$1</span>');
+    escaped = escaped.replace(/^(\s*)(Câu|Bài|Question|Q)(\s*\d+[\.\:\-\)])/gim, '$1<span class="hl-question">$2$3</span>');
+    escaped = escaped.replace(/^(\s*)(\*\s*[A-F][\.\:\)])/gim, '$1<span class="hl-correct">$2</span>');
+    escaped = escaped.replace(/^(\s*)([A-F][\.\:\)])/gim, '$1<span class="hl-option">$2</span>');
+    escaped = escaped.replace(/^(\s*)(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)(.*)$/gim, '$1<span class="hl-group">$2$3</span>');
+    escaped = escaped.replace(/(&lt;\/?(b|i|u|sub|sup|MARK)&gt;)/gi, '<span class="hl-html">$1</span>');
+    
+    // Fix lỗi mất padding-bottom khi người dùng gõ Enter xuống dòng mới nhất
+    if (escaped.endsWith('\n')) escaped += ' ';
+    
+    codeHighlight.innerHTML = escaped;
 }
