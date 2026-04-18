@@ -7,6 +7,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 }
 
 let currentData = [];
+let serverData = []; // Lưu trữ dữ liệu gốc mới nhất từ Server để phục hồi khi làm lại
 let currentMode = 'edit';
 let currentQuestionIndex = 0;
 let practiceScore = 0;
@@ -166,6 +167,8 @@ async function initApp() {
             const result = await response.json();
             if (result.status === 'success') {
                 currentData = result.data;
+                serverData = JSON.parse(JSON.stringify(result.data));
+                const serverUpdatedAt = result.updated_at || 0;
                 
                 // --- Thiết lập Giao diện Dành riêng cho Học sinh ---
                 document.querySelector('.header').style.display = 'none';
@@ -206,8 +209,18 @@ async function initApp() {
                 if (loadedProgress) {
                     try {
                         quizProgress = loadedProgress;
-                        if (quizProgress.studentName) document.getElementById('studentNameInput').value = quizProgress.studentName;
-                        if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
+                        
+                        if (quizProgress.quizUpdatedAt && serverUpdatedAt > 0 && quizProgress.quizUpdatedAt < serverUpdatedAt) {
+                            alert("⚠️ Đề thi đã được giáo viên cập nhật nội dung/đáp án mới!\nTiến trình làm bài cũ của bạn sẽ được làm mới lại để đảm bảo tính chính xác.");
+                            let oldHistory = quizProgress.history || [];
+                            let sName = quizProgress.studentName || "";
+                            quizProgress = { history: oldHistory, studentName: sName, quizUpdatedAt: serverUpdatedAt };
+                            // Bỏ qua shuffledData cũ để hệ thống dùng currentData (data mới nhất)
+                        } else {
+                            if (quizProgress.studentName) document.getElementById('studentNameInput').value = quizProgress.studentName;
+                            if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
+                            if (!quizProgress.quizUpdatedAt) quizProgress.quizUpdatedAt = serverUpdatedAt;
+                        }
                         
                         if (quizProgress.history && quizProgress.history.length > 0) {
                             const histSec = document.getElementById('historySection');
@@ -285,15 +298,42 @@ function sendPing() {
     }).catch(e => {}); // Lỗi mạng (âm thầm bỏ qua không báo popup)
 }
 
-function startStudentQuiz() {
+async function startStudentQuiz() {
     const nameInput = document.getElementById('studentNameInput').value.trim();
     studentName = nameInput;
     
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+
     // Nếu bấm nút khi đã hoàn thành -> Có nghĩa là muốn Xóa lịch sử làm lại từ đầu
     if (quizProgress.completed) {
+        const startBtn = document.getElementById('startBtn');
+        const originalText = startBtn.innerText;
+        startBtn.innerText = "⏳ Đang tải dữ liệu mới...";
+        startBtn.disabled = true;
+        
+        if (quizId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    serverData = JSON.parse(JSON.stringify(result.data));
+                    isShuffleEnabled = result.is_shuffle;
+                    quizProgress.quizUpdatedAt = result.updated_at || 0;
+                    currentTimeLimit = result.time_limit || 0;
+                    currentDataMode = result.mode || 'practice';
+                }
+            } catch(e) { console.error(e); }
+        }
+
         let oldHistory = quizProgress.history || [];
-        quizProgress = { history: oldHistory };
+        let updatedTs = quizProgress.quizUpdatedAt;
+        quizProgress = { history: oldHistory, quizUpdatedAt: updatedTs };
+        currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
         if (isShuffleEnabled) shuffleQuiz(true);
+        
+        startBtn.innerText = originalText;
+        startBtn.disabled = false;
     }
     
     quizProgress.studentName = studentName;
@@ -323,41 +363,51 @@ function startStudentQuiz() {
 }
 
 function restartPractice() {
-    let oldHistory = quizProgress.history || [];
-    quizProgress = { history: oldHistory, studentName: studentName };
-    if (isShuffleEnabled) {
-        shuffleQuiz(true);
-    }
-    quizProgress.shuffledData = currentData;
-    quizProgress.answers = {};
-    quizProgress.completed = false;
-    saveProgressToLocal();
-    
-    switchMode('practice');
-    
-    const quizContainer = document.getElementById('quiz-container');
-    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    sendPing();
+    fetchLatestDataAndRestart('practice');
 }
 
 function restartExam() {
+    fetchLatestDataAndRestart('exam');
+}
+
+async function fetchLatestDataAndRestart(mode) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    
+    const container = document.getElementById('quiz-container');
+    if (container) container.innerHTML = "<p style='text-align:center; padding: 50px; font-weight: bold; color: var(--primary);'>🔄 Đang tải dữ liệu mới nhất từ máy chủ...</p>";
+    
+    if (quizId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
+            const result = await response.json();
+            if (result.status === 'success') {
+                serverData = JSON.parse(JSON.stringify(result.data));
+                isShuffleEnabled = result.is_shuffle;
+                quizProgress.quizUpdatedAt = result.updated_at || 0;
+                currentTimeLimit = result.time_limit || 0;
+            }
+        } catch(e) { console.error("Lỗi cập nhật data mới", e); }
+    }
+    
     let oldHistory = quizProgress.history || [];
-    quizProgress = { history: oldHistory, studentName: studentName };
+    let updatedTs = quizProgress.quizUpdatedAt;
+    quizProgress = { history: oldHistory, studentName: studentName, quizUpdatedAt: updatedTs };
+    currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
+    
     if (isShuffleEnabled) {
         shuffleQuiz(true);
     }
+    
     quizProgress.shuffledData = currentData;
     quizProgress.answers = {};
     quizProgress.completed = false;
     saveProgressToLocal();
     
-    switchMode('exam');
-    if (currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    switchMode(mode);
+    if (mode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
     
-    const quizContainer = document.getElementById('quiz-container');
-    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
     sendPing();
@@ -524,6 +574,7 @@ async function editQuiz(quizId) {
         const result = await response.json();
         if (result.status === 'success') {
             currentData = result.data;
+            serverData = JSON.parse(JSON.stringify(result.data));
             editingQuizId = quizId;
             
             // Lưu tạm cấu hình cũ để lát mở Modal sẽ tự động điền
@@ -818,6 +869,7 @@ async function uploadFile() {
         
         if (result.status === "success") {
             currentData = result.data || [];
+            serverData = JSON.parse(JSON.stringify(currentData));
             editingQuizId = null;
             window.tempQuizSettings = null; // Xóa setting cũ
             

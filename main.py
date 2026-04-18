@@ -1149,13 +1149,17 @@ async def get_quiz(quiz_id: str, teacher_token: str = None):
         if quiz_data.get('status') == 'unpublished' and not is_creator:
             raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
             
+        updated_at = quiz_data.get('updated_at')
+        updated_ts = updated_at.timestamp() if hasattr(updated_at, 'timestamp') else 0
+            
         return {
             "status": "success", 
             "title": quiz_data.get('title'), 
             "data": quiz_data.get('data'), 
             "mode": quiz_data.get('mode', 'practice'), 
             "time_limit": quiz_data.get('time_limit', 0),
-            "is_shuffle": quiz_data.get('is_shuffle', False)
+            "is_shuffle": quiz_data.get('is_shuffle', False),
+            "updated_at": updated_ts
         }
     raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
 
@@ -1401,7 +1405,13 @@ def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {str(e)}")
+        error_msg = str(e)
+        if "Package not found" in error_msg:
+            raise HTTPException(
+                status_code=400, 
+                detail="File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."
+            )
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {error_msg}")
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
