@@ -1132,7 +1132,13 @@ async def save_quiz(request: SaveQuizRequest):
     if not request.quiz_id:
         data_to_save['created_at'] = firestore.SERVER_TIMESTAMP
         
-    doc_ref.set(data_to_save, merge=True)
+    try:
+        doc_ref.set(data_to_save, merge=True)
+    except Exception as e:
+        if "maximum document size" in str(e).lower() or "exceeds" in str(e).lower():
+            raise HTTPException(status_code=413, detail="Dung lượng đề thi quá lớn (vượt quá 1MB). Hệ thống không thể lưu. Vui lòng giảm bớt hình ảnh hoặc nén ảnh trong file Word trước khi tải lên.")
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu vào cơ sở dữ liệu: {str(e)}")
+
     return {"status": "success", "quiz_id": quiz_id, "link": f"/?id={quiz_id}"}
 
 @app.get("/api/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID")

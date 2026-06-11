@@ -952,10 +952,17 @@ async function confirmPublish() {
         };
         if (editingQuizId) payload.quiz_id = editingQuizId;
 
+        const payloadString = JSON.stringify(payload);
+        const payloadSizeKB = new Blob([payloadString]).size / 1024;
+        
+        if (payloadSizeKB > 900) {
+            alert(`⚠️ CẢNH BÁO: Đề thi của bạn có kích thước khá lớn (${Math.round(payloadSizeKB)} KB), chủ yếu do chứa nhiều hình ảnh. Việc lưu có thể bị lỗi nếu vượt quá giới hạn 1MB của cơ sở dữ liệu.\n\nKhuyên bạn nên nén/thu nhỏ kích thước ảnh trong file Word trước khi tải lên.`);
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: payloadString
         });
         const result = await response.json();
         if (result.status === 'success') {
@@ -1089,19 +1096,19 @@ function renderData() {
                     </div>
                     <div id="preview-content" style="padding: 20px;"></div>
                 </div>
-                <div class="editor-pane" id="editor-pane" style="display: flex; flex-direction: column; padding: 0; background: #1e1e1e; overflow: hidden; border: 1px solid #333;">
-                    <div style="background: #252526; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #333;">
-                        <div style="font-weight: 700; color: #cccccc; display: flex; align-items: center; gap: 8px;">
+                <div class="editor-pane" id="editor-pane" style="display: flex; flex-direction: column; padding: 0; background: #ffffff; overflow: hidden; border: 1px solid #e2e8f0;">
+                    <div style="background: #f8fafc; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #e2e8f0;">
+                        <div style="font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 1.3rem;">💻</span> HOCNHANHTN CODE EDITOR
                         </div>
                         <div style="display: flex; gap: 10px;">
                             <button style="padding: 6px 14px; font-size: 0.85rem; font-weight: 600; background: #0e639c; border: none; color: white; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1177bb'" onmouseout="this.style.background='#0e639c'" onclick="insertTextToEditor('\\n\\nCâu mới: \\nA. \\nB. \\nC. \\nD. ')">➕ Thêm Câu hỏi</button>
                         </div>
                     </div>
-                    <div style="background: #3a3d41; padding: 10px 20px; font-size: 0.9rem; color: #cccccc; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px;">
-                        <span>💡 <b>Mẹo:</b> Đặt dấu <code>*</code> trước đáp án đúng (VD: <code>*A.</code>). Click câu hỏi bên trái để tự động cuộn đến đoạn Code bên phải.</span>
+                    <div style="background: #f1f5f9; padding: 10px 20px; font-size: 0.9rem; color: #334155; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px;">
+                        <span>💡 <b>Mẹo:</b> Gõ <code>Câu</code> và nhấn <b>Tab</b> để tạo nhanh khung câu hỏi. Click câu hỏi bên trái để tự động cuộn đến đoạn Code tương ứng.</span>
                     </div>
-                    <div style="flex-grow: 1; position: relative; background: #1e1e1e;">
+                    <div style="flex-grow: 1; position: relative; background: #ffffff;">
                         <style>
                             .editor-font {
                                 font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
@@ -1117,7 +1124,7 @@ function renderData() {
                             #codeHighlight {
                                 position: absolute;
                                 top: 0; left: 0; right: 0; bottom: 0;
-                                color: #d4d4d4;
+                                color: #333333;
                                 overflow: hidden;
                                 pointer-events: none;
                             }
@@ -1126,24 +1133,24 @@ function renderData() {
                                 top: 0; left: 0; right: 0; bottom: 0;
                                 background: transparent;
                                 color: transparent;
-                                caret-color: #d4d4d4;
+                                caret-color: #000000;
                                 resize: none;
                                 outline: none;
                                 overflow-y: auto;
                             }
-                            #codeEditor::selection { background: #264f78; color: transparent; }
+                        #codeEditor::selection { background: rgba(0, 120, 215, 0.25); color: transparent; }
                             #codeEditor::-webkit-scrollbar { width: 14px; }
-                            #codeEditor::-webkit-scrollbar-track { background: #1e1e1e; }
-                            #codeEditor::-webkit-scrollbar-thumb { background: #424242; border: 4px solid #1e1e1e; border-radius: 8px; }
-                            #codeEditor::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+                            #codeEditor::-webkit-scrollbar-track { background: #f8fafc; }
+                            #codeEditor::-webkit-scrollbar-thumb { background: #cbd5e1; border: 4px solid #f8fafc; border-radius: 8px; }
+                            #codeEditor::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
                             
-                            /* Syntax Colors (Chuẩn VS Code Theme) */
-                            .hl-question { color: #569cd6; font-weight: bold; }
-                            .hl-option { color: #c586c0; font-weight: bold; }
-                            .hl-correct { color: #10b981; font-weight: bold; }
-                            .hl-image { color: #ce9178; }
-                            .hl-math { color: #4ec9b0; }
-                            .hl-group { color: #dcdcaa; font-weight: bold; }
+                            /* Syntax Colors (Chuẩn VS Code Light Theme) */
+                            .hl-question { color: #0000ff; font-weight: bold; }
+                            .hl-option { color: #af00db; font-weight: bold; }
+                            .hl-correct { color: #059669; font-weight: bold; }
+                            .hl-image { color: #a31515; }
+                            .hl-math { color: #267f99; }
+                            .hl-group { color: #795e26; font-weight: bold; }
                             .hl-html { color: #808080; }
                         </style>
                         <div id="codeHighlight" class="editor-font"></div>
@@ -1174,6 +1181,44 @@ function renderData() {
             if (codeHighlight) {
                 codeHighlight.scrollTop = this.scrollTop;
                 codeHighlight.scrollLeft = this.scrollLeft;
+            }
+        });
+        
+        // TÍNH NĂNG AUTO-COMPLETE BẰNG PHÍM TAB
+        codeEditor.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault(); // Chặn hành vi chuyển tab mặc định của trình duyệt
+                const start = this.selectionStart;
+                const end = this.selectionEnd;
+                
+                if (start === end) {
+                    const textBefore = this.value.substring(0, start);
+                    // Bắt từ khóa "cau" hoặc "câu" ở cuối đoạn text (trước con trỏ)
+                    const match = textBefore.match(/(?:^|\n)\s*(cau|câu)$/i);
+                    
+                    if (match) {
+                        // Tự động tính số thứ tự câu tiếp theo
+                        const qCount = (this.value.match(/^(?:Câu|Bài|Question|Q)\s*\d+/gim) || []).length + 1;
+                        const snippet = `Câu ${qCount}: \nA. \nB. \nC. \nD. `;
+                        const replaceStart = start - match[1].length;
+                        
+                        this.value = this.value.substring(0, replaceStart) + snippet + this.value.substring(end);
+                        
+                        // Đặt con trỏ chuột ngay sau chữ "Câu X: "
+                        const newCursorPos = replaceStart + `Câu ${qCount}: `.length;
+                        this.selectionStart = this.selectionEnd = newCursorPos;
+                        
+                        updateSyntaxHighlight();
+                        currentData = parseEditorText(this.value);
+                        renderPreviewAll();
+                        return; // Kết thúc sớm nếu đã Auto-complete
+                    }
+                }
+                
+                // Nếu không gõ "Câu", thực hiện thụt lề (indent) 4 khoảng trắng như VS Code
+                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 4;
+                updateSyntaxHighlight();
             }
         });
     } else {
