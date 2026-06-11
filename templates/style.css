@@ -312,7 +312,7 @@ body.editor-fullscreen {
 body.minimal-mode .header,
 body.minimal-mode .navbar,
 body.minimal-mode #studentDashboard,
-body.minimal-mode #uploadBox,
+body.minimal-mode #creationHub,
 body.minimal-mode #teacherDashboard {
     display: none !important;
 }

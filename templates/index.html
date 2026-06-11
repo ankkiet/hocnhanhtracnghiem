@@ -140,15 +140,39 @@
         </div>
     </div>
 
-    <div class="card upload-section" id="uploadBox">
-        <p>Tải lên tài liệu (.docx) của bạn</p>
-        <input type="file" id="fileInput" accept=".docx" style="margin-bottom: 15px;">
-        <label style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 0.95rem; cursor: pointer; color: var(--primary); font-weight: 600; background: #eff6ff; padding: 10px 20px; border-radius: 8px; border: 1px solid #bfdbfe; transition: all 0.2s;">
-            <input type="checkbox" id="useAIToggle" checked style="width: 20px; height: 20px; margin: 0 10px 0 0; cursor: pointer;">
-            🤖 Dùng AI bóc tách (Chính xác cao nhưng chậm hơn)
-        </label>
-        <br>
-        <button class="btn-primary" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
+    <div id="creationHub" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+        <div class="card upload-section" id="uploadBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
+            <h3 style="color: var(--primary); margin-top: 0;">📂 Bóc tách từ file Word / PDF</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Tải lên tài liệu (.docx, .pdf) của bạn</p>
+            <input type="file" id="fileInput" accept=".docx,.pdf" style="margin-bottom: 15px;">
+            <label style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 0.9rem; cursor: pointer; color: var(--primary); font-weight: 600; background: #eff6ff; padding: 10px 20px; border-radius: 8px; border: 1px solid #bfdbfe; transition: all 0.2s; width: 100%; box-sizing: border-box;">
+                <input type="checkbox" id="useAIToggle" checked style="width: 20px; height: 20px; margin: 0 10px 0 0; cursor: pointer;">
+                🤖 Dùng AI bóc tách (Chính xác cao)
+            </label>
+            <br>
+            <button class="btn-primary" style="width: 100%;" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
+        </div>
+        
+        <div class="card upload-section" id="aiGenerateBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
+            <h3 style="color: #9333ea; margin-top: 0;">✨ Sinh đề tự động bằng AI</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Nhập chủ đề hoặc đoạn văn bản bất kỳ</p>
+            <textarea id="aiGenPrompt" placeholder="VD: Lịch sử Việt Nam thời Lý, hoặc dán một đoạn văn bản đọc hiểu vào đây..." style="min-height: 60px; margin-bottom: 10px; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="flex: 1; text-align: left;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Số câu:</label>
+                    <input type="number" id="aiGenCount" value="5" min="1" max="50" style="margin-top: 4px; padding: 10px;">
+                </div>
+                <div style="flex: 1; text-align: left;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Độ khó:</label>
+                    <select id="aiGenDiff" style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit;">
+                        <option value="Dễ">Dễ</option>
+                        <option value="Trung bình" selected>Trung bình</option>
+                        <option value="Khó">Khó</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-primary" style="background: #9333ea; width: 100%;" onclick="generateQuizWithAI()">Tạo đề bằng AI 🚀</button>
+        </div>
     </div>
 
     <!-- Bảng quản lý đề thi của Giáo viên -->

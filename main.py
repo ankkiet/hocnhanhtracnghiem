@@ -17,7 +17,7 @@ try:
 except ImportError:
     Image = None
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from docx import Document
@@ -141,6 +141,11 @@ class CheckQuizRequest(BaseModel):
     teacher_token: str
     quiz_data: list
     custom_prompt: str = ""
+    
+class GenerateQuizRequest(BaseModel):
+    prompt: str
+    num_questions: int = 5
+    difficulty: str = "Trung bình"
 
 class SaveProgressRequest(BaseModel):
     student_token: str
@@ -165,6 +170,9 @@ class PingSessionRequest(BaseModel):
 # ==========================================
 # PHẦN 3: LÕI THUẬT TOÁN & XỬ LÝ DỮ LIỆU
 # ==========================================
+
+# Khởi tạo bộ nhớ tạm để lưu trạng thái các Tác vụ chạy ngầm (Background Tasks)
+active_tasks = {}
 
 def parse_omath(node):
     """Trình dịch thuật cục bộ Office MathML sang mã LaTeX chuẩn."""
@@ -963,6 +971,58 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict
     except json.JSONDecodeError as e:
         raise Exception(f"AI trả về JSON không hợp lệ (thường do công thức toán học bị lỗi định dạng LaTeX). Hãy thử lại. Chi tiết: {str(e)}")
 
+def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str]) -> List[Dict[str, Any]]:
+    """Dùng Gemini AI để đọc trực tiếp file PDF và bóc tách câu hỏi"""
+    if not api_keys:
+        raise Exception("Hệ thống chưa được cấu hình API Key.")
+        
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash']
+    last_error = None
+    
+    prompt = """
+    Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là đọc tệp PDF này và trích xuất TOÀN BỘ câu hỏi trắc nghiệm.
+    YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
+    1. Trả về một mảng JSON (JSON array) hợp lệ.
+    2. Mỗi câu hỏi là một object gồm:
+       - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh.
+       - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
+       - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
+       - "correct_answer": (String) Đáp án đúng. Nếu trong PDF có đánh dấu đáp án đúng (in đậm, gạch chân, khoanh đỏ, bảng đáp án cuối file), hãy chọn đáp án đó. Nếu không, hãy tự giải và điền đáp án đúng nhất.
+    3. Giữ nguyên định dạng Toán/Lý/Hóa bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
+    4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
+    """
+    
+    for key in api_keys:
+        key = key.strip()
+        if not key: continue
+        genai.configure(api_key=key)
+        
+        uploaded_file = None
+        try:
+            uploaded_file = genai.upload_file(pdf_path) # Upload PDF thẳng lên bộ nhớ tạm của Gemini
+            
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content([uploaded_file, prompt])
+                    
+                    match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+                    json_text = match.group(0) if match else response.text
+                    json_text = fix_json_latex_escapes(json_text)
+                    data = json.loads(json_text, strict=False)
+                    
+                    return data
+                except Exception as e:
+                    last_error = e
+                    if "429" in str(e) or "quota" in str(e).lower() or "503" in str(e): break # Đổi Key
+        except Exception as e:
+            last_error = e
+        finally:
+            if uploaded_file:
+                try: genai.delete_file(uploaded_file.name) # Xóa file rác để tránh đầy dung lượng dự án AI
+                except: pass
+                
+    raise Exception(f"Lỗi khi xử lý PDF bằng AI. Lỗi cuối: {str(last_error)}")
 
 # ==========================================
 # PHẦN 4: GIAO DIỆN & API ENDPOINTS
@@ -1242,7 +1302,7 @@ def check_quiz_ai(req: CheckQuizRequest):
             *   `corrected_data`: (Object) Một object chứa dữ liệu đã được sửa, bao gồm `question`, `options`, và `correct_answer`. Giữ nguyên `group_title` của câu hỏi gốc.
         3.  Kết quả cuối cùng của bạn **BẮT BUỘC** phải là một JSON array chứa các object nói trên.
         4.  TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY (KHÔNG KÈM BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO BÊN NGOÀI). Nếu đề thi không có lỗi nào, trả về đúng 2 ký tự: []
-        5.  **QUAN TRỌNG:** Giữ nguyên các thẻ HTML (<b>, <i>, <img>, v.v.) và công thức LaTeX (\\(...\\)) nếu có trong dữ liệu gốc.
+        5.  **QUAN TRỌNG:** Bạn có toàn quyền can thiệp, sửa đổi LỖI CHÍNH TẢ, DẤU CÂU, TỪ NGỮ và NỘI DUNG. Đối với các thẻ định dạng HTML (như <b>, <i>, <u>) và công thức LaTeX: Hãy giữ nguyên nếu chúng đúng, nhưng **ĐƯỢC PHÉP THÊM, SỬA HOẶC XÓA** các thẻ này để khắc phục lỗi (ví dụ: sửa từ bị in đậm sai, định dạng lại chữ in nghiêng bị thiếu thẻ đóng). Tuyệt đối không xóa các thẻ hình ảnh [IMG_X].
 
         Ví dụ về định dạng JSON trả về nếu có lỗi ở câu 1 (index 0):
         [
@@ -1280,6 +1340,47 @@ def check_quiz_ai(req: CheckQuizRequest):
             return {"status": "success", "feedback": response.text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
+
+@app.post("/api/generate_quiz_ai", summary="Tạo đề thi tự động bằng AI")
+async def generate_quiz_ai(req: GenerateQuizRequest):
+    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
+    
+    settings_doc = db.collection('settings').document('gemini').get()
+    if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
+        raise HTTPException(status_code=400, detail="Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin.")
+    api_keys = settings_doc.to_dict().get('api_keys')
+    
+    prompt = f"""
+    Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là tạo ra một đề thi trắc nghiệm dựa trên yêu cầu sau:
+    - Chủ đề / Nội dung cốt lõi: {req.prompt}
+    - Số lượng câu hỏi: {req.num_questions}
+    - Độ khó: {req.difficulty}
+
+    YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
+    1. Trả về một mảng JSON (JSON array) hợp lệ.
+    2. Mỗi câu hỏi là một object gồm:
+       - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh (nếu có, nếu không để trống "").
+       - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
+       - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
+       - "correct_answer": (String) Đáp án đúng, phải giống y hệt một trong 4 đáp án trong mảng options.
+    3. Giữ nguyên định dạng Toán học/Hóa học nếu có bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
+    4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
+    
+    Ví dụ kết quả trả về:
+    [
+        {{"group_title": "Kiểm tra Lịch sử", "question": "Thủ đô của VN là gì?", "options": ["A. Hà Nội", "B. HCM", "C. Đà Nẵng", "D. Huế"], "correct_answer": "A. Hà Nội"}}
+    ]
+    """
+    
+    try:
+        response = call_gemini_with_fallback(prompt, api_keys)
+        match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+        json_text = match.group(0) if match else response.text
+        json_text = fix_json_latex_escapes(json_text)
+        data = json.loads(json_text, strict=False)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI hoặc parse JSON: {str(e)}")
 
 @app.post("/api/student/save_progress", summary="Lưu tiến trình làm bài của học sinh lên Cloud")
 async def save_student_progress(req: SaveProgressRequest):
@@ -1372,11 +1473,48 @@ async def get_leaderboard(quiz_id: str):
     results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
     return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
+def process_document_background(task_id: str, temp_file_path: str, ext: str, use_ai: bool, api_keys: list, filename: str):
+    try:
+        active_tasks[task_id] = {"status": "processing", "message": "Đang phân tích..."}
+        
+        extracted_data = None
+        if ext == ".pdf":
+            extracted_data = generate_mcq_from_pdf(temp_file_path, api_keys)
+        elif use_ai and api_keys:
+            marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+            extracted_data = generate_mcq_with_gemini(marked_text, api_keys)
+            if image_mapping:
+                extracted_data = replace_placeholders(extracted_data, image_mapping)
+        else:
+            extracted_data = extract_formatting_from_docx(temp_file_path)
+
+        extracted_data = recursive_unescape(extracted_data)
+
+        if not extracted_data:
+             active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi. Vui lòng đảm bảo cấu trúc file theo đúng chuẩn (A., B., C., D.)"}
+             return
+
+        active_tasks[task_id] = {
+            "status": "success",
+            "data": extracted_data,
+            "filename": filename
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "Package not found" in error_msg:
+            active_tasks[task_id] = {"status": "error", "detail": "File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."}
+        else:
+            active_tasks[task_id] = {"status": "error", "detail": f"Lỗi xử lý hệ thống: {error_msg}"}
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
-def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
+def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...) , use_ai: bool = Form(True)):
     ext = os.path.splitext(file.filename)[1].lower()
-    if ext != ".docx":
-        raise HTTPException(status_code=400, detail="Hệ thống chỉ đang hỗ trợ nhận diện trực tiếp qua file .docx")
+    if ext not in [".docx", ".pdf"]:
+        raise HTTPException(status_code=400, detail="Hệ thống chỉ hỗ trợ định dạng Word (.docx) và PDF (.pdf)")
         
     temp_file_path = None
     try:
@@ -1387,40 +1525,44 @@ def upload_document(file: UploadFile = File(...), use_ai: bool = Form(True)):
         settings_doc = db.collection('settings').document('gemini').get() if db else None
         api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc and settings_doc.exists else []
         
-        extracted_data = None
-        if use_ai and api_keys:
-            marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-            extracted_data = generate_mcq_with_gemini(marked_text, api_keys)
+        if ext == ".pdf" and not use_ai:
+            raise HTTPException(status_code=400, detail="Tệp PDF bắt buộc phải sử dụng AI để bóc tách. Vui lòng tích chọn 'Dùng AI bóc tách'.")
+        if (ext == ".pdf" or use_ai) and not api_keys:
+            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình API Key để dùng AI.")
             
-            if image_mapping:
-                extracted_data = replace_placeholders(extracted_data, image_mapping)
-        else:
-            extracted_data = extract_formatting_from_docx(temp_file_path)
-
-        # Giải mã các thẻ HTML (do quá trình escape trước đó hoặc do AI trả về) để Frontend hiển thị chuẩn
-        extracted_data = recursive_unescape(extracted_data)
-
-        if not extracted_data:
-             raise HTTPException(status_code=422, detail="Không thể trích xuất câu hỏi. Vui lòng đảm bảo cấu trúc file theo đúng chuẩn (A., B., C., D.)")
-
+        task_id = str(uuid.uuid4())
+        active_tasks[task_id] = {"status": "pending"}
+        
+        # Bắt đầu luồng phân tích ngầm và không chặn luồng kết nối HTTP
+        background_tasks.add_task(process_document_background, task_id, temp_file_path, ext, use_ai, api_keys, file.filename)
+        
         return {
-            "filename": file.filename,
-            "status": "success",
-            "message": "File đã được phân tích!",
-            "data": extracted_data
+            "status": "processing",
+            "task_id": task_id,
+            "message": "File đang được AI xử lý ngầm..."
         }
         
-    except Exception as e:
-        error_msg = str(e)
-        if "Package not found" in error_msg:
-            raise HTTPException(
-                status_code=400, 
-                detail="File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."
-            )
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {error_msg}")
-    finally:
+    except HTTPException as he:
         if temp_file_path and os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+        raise he
+    except Exception as e:
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        error_msg = str(e)
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {error_msg}")
+
+@app.get("/api/task_status/{task_id}", summary="Kiểm tra trạng thái tiến trình AI")
+def get_task_status(task_id: str):
+    if task_id not in active_tasks:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tiến trình xử lý")
+    
+    task_info = active_tasks[task_id]
+    if task_info["status"] in ["success", "error"]:
+        # Xóa tiến trình khỏi bộ nhớ sau khi Frontend đã nhận được kết quả
+        return active_tasks.pop(task_id)
+        
+    return task_info
 
 if __name__ == "__main__":
     import uvicorn
