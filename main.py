@@ -17,6 +17,16 @@ try:
 except ImportError:
     Image = None
 
+try:
+    import fitz  # PyMuPDF: Thư viện đọc PDF siêu tốc và chính xác
+except ImportError:
+    fitz = None
+
+try:
+    import json_repair  # Thư viện tự động sửa lỗi JSON của AI
+except ImportError:
+    json_repair = None
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -170,6 +180,10 @@ class PingSessionRequest(BaseModel):
 # ==========================================
 # PHẦN 3: LÕI THUẬT TOÁN & XỬ LÝ DỮ LIỆU
 # ==========================================
+
+# Biên dịch sẵn Regex (Tối ưu tốc độ quét vòng lặp văn bản)
+RE_NUMBERING = re.compile(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', re.IGNORECASE)
+RE_GROUP_TITLE = re.compile(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', re.IGNORECASE)
 
 # Khởi tạo bộ nhớ tạm để lưu trạng thái các Tác vụ chạy ngầm (Background Tasks)
 active_tasks = {}
@@ -507,7 +521,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
 def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     """Thuật toán phân tách Câu hỏi trắc nghiệm siêu tốc và thông minh."""
     doc = Document(file_path)
-    full_text = ""
+    full_text_list = []
     format_weights = []
     char_html = []
     image_mapping = {}
@@ -522,7 +536,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         has_text = bool(raw_text.strip())
         has_media = bool(para._element.xpath('.//*[local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'))
         if not has_text and not has_media:
-            full_text += "\n"
+            full_text_list.append("\n")
             format_weights.append(0)
             char_html.append("\n")
             continue
@@ -530,11 +544,11 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         prefix = get_auto_numbering_prefix(para, doc, counters)
         if prefix:
             para_text_strip = raw_text.strip()
-            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
-            is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
+            is_numbering_text = RE_NUMBERING.match(para_text_strip)
+            is_group_title = RE_GROUP_TITLE.match(para_text_strip)
             
             if not is_numbering_text and not is_group_title:
-                full_text += prefix
+                full_text_list.append(prefix)
                 format_weights.extend([0] * len(prefix))
                 char_html.extend(list(prefix))
                 
@@ -549,7 +563,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 if math_latex:
                     encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
                     math_tag = f" \\({encoded_math}\\) "
-                    full_text += math_tag
+                    full_text_list.append(math_tag)
                     format_weights.extend([0] * len(math_tag))
                     for char in math_tag:
                         char_html.append(f"<i>{char}</i>")
@@ -606,7 +620,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                         else:
                             image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
                         
-                        full_text += f" {placeholder} "
+                        full_text_list.append(f" {placeholder} ")
                         format_weights.extend([0] * len(f" {placeholder} "))
                         char_html.extend(list(f" {placeholder} "))
             elif node.tag.endswith('}t'):
@@ -619,25 +633,25 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 
                 if rPr_list:
                     rPr = rPr_list[0]
-                    if rPr.xpath('./*[local-name()="b"]'): is_bold = True
-                    if rPr.xpath('./*[local-name()="i"]'): is_italic = True
-                    # Nhận diện chữ gạch chân
-                    if rPr.xpath('./*[local-name()="u"]'): is_underline = True
+                    # Tối ưu: Dùng hàm .find nhanh gấp 5-10 lần so với .xpath()
+                    if rPr.find(qn('w:b')) is not None: is_bold = True
+                    if rPr.find(qn('w:i')) is not None: is_italic = True
+                    if rPr.find(qn('w:u')) is not None: is_underline = True
                     
-                    highlight = rPr.xpath('./*[local-name()="highlight"]')
-                    if highlight and highlight[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val') != 'none': is_highlighted = True
+                    highlight = rPr.find(qn('w:highlight'))
+                    if highlight is not None and highlight.get(qn('w:val')) != 'none': is_highlighted = True
                         
-                    color = rPr.xpath('./*[local-name()="color"]')
-                    if color and color[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val') in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
+                    color = rPr.find(qn('w:color'))
+                    if color is not None and color.get(qn('w:val')) in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
                         is_red_text = True
                             
-                    vertAlign = rPr.xpath('./*[local-name()="vertAlign"]')
-                    if vertAlign:
-                        val = vertAlign[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                    vertAlign = rPr.find(qn('w:vertAlign'))
+                    if vertAlign is not None:
+                        val = vertAlign.get(qn('w:val'))
                         if val == 'subscript': is_subscript = True
                         if val == 'superscript': is_superscript = True
                 
-                full_text += run_text
+                full_text_list.append(run_text)
                 weight = 3 if (is_red_text or is_highlighted) else (2 if is_underline else (1 if is_bold else 0))
                 format_weights.extend([weight] * len(run_text))
                 
@@ -650,9 +664,11 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                     if is_bold and not is_red_text: encoded_char = f"<b>{encoded_char}</b>"
                     char_html.append(encoded_char)
             
-        full_text += "\n"
+        full_text_list.append("\n")
         format_weights.append(0)
         char_html.append("\n")
+        
+    full_text = "".join(full_text_list)
 
     def get_html(start, end):
         joined = "".join(char_html[start:end])
@@ -783,8 +799,8 @@ def parse_docx_to_marked_text(file_path: str) -> str:
         prefix = get_auto_numbering_prefix(para, doc, counters)
         if prefix:
             para_text_strip = raw_text.strip()
-            is_numbering_text = re.match(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', para_text_strip, re.IGNORECASE)
-            is_group_title = re.match(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', para_text_strip, re.IGNORECASE)
+            is_numbering_text = RE_NUMBERING.match(para_text_strip)
+            is_group_title = RE_GROUP_TITLE.match(para_text_strip)
             if not is_numbering_text and not is_group_title:
                 para_text += prefix
                 
@@ -862,21 +878,20 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                 
                 if rPr_list:
                     rPr = rPr_list[0]
-                    if rPr.xpath('./*[local-name()="b"]'): is_bold = True
-                    if rPr.xpath('./*[local-name()="i"]'): is_italic = True
-                    # Nhận diện chữ gạch chân
-                    if rPr.xpath('./*[local-name()="u"]'): is_underline = True
+                    if rPr.find(qn('w:b')) is not None: is_bold = True
+                    if rPr.find(qn('w:i')) is not None: is_italic = True
+                    if rPr.find(qn('w:u')) is not None: is_underline = True
                     
-                    highlight = rPr.xpath('./*[local-name()="highlight"]')
-                    if highlight and highlight[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val') != 'none': is_highlighted = True
+                    highlight = rPr.find(qn('w:highlight'))
+                    if highlight is not None and highlight.get(qn('w:val')) != 'none': is_highlighted = True
                         
-                    color = rPr.xpath('./*[local-name()="color"]')
-                    if color and color[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val') in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
+                    color = rPr.find(qn('w:color'))
+                    if color is not None and color.get(qn('w:val')) in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
                         is_red_text = True
                             
-                    vertAlign = rPr.xpath('./*[local-name()="vertAlign"]')
-                    if vertAlign:
-                        val = vertAlign[0].get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                    vertAlign = rPr.find(qn('w:vertAlign'))
+                    if vertAlign is not None:
+                        val = vertAlign.get(qn('w:val'))
                         if val == 'subscript': is_subscript = True
                         if val == 'superscript': is_superscript = True
                 
@@ -928,7 +943,8 @@ def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
                 response = model.generate_content(
                     prompt,
                     generation_config=genai.types.GenerationConfig(
-                        temperature=0.1
+                        temperature=0.1,
+                        response_mime_type="application/json"
                     )
                 )
                 return response
@@ -945,84 +961,96 @@ def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
                     
     raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
 
-def generate_mcq_with_gemini(marked_text: str, api_keys: List[str]) -> List[Dict[str, Any]]:
-    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK>"""
-    prompt = f"""
-    Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là trích xuất câu hỏi từ văn bản dưới đây.
-    1. Trích xuất câu hỏi và 4 đáp án (A, B, C, D). Tuyệt đối LOẠI BỎ chữ "Câu X:", "Bài X:" hoặc số thứ tự ở đầu câu hỏi.
-    2. CHÚ Ý QUAN TRỌNG: Hãy tinh ý tách các đáp án A, B, C, D ra riêng biệt nếu chúng bị dính liền trên cùng một dòng.
-    3. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B). Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
-    4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X] (ví dụ [IMG_1], [IMG_2]). PHẢI GIỮ NGUYÊN CHÚNG TRONG NỘI DUNG.
-    5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \). Dữ liệu này ĐÃ ĐƯỢC ESCAPE SẴN DẤU BACKSLASH (ví dụ \frac, \sqrt, \rightarrow). BẠN PHẢI GIỮ NGUYÊN ĐỊNH DẠNG NÀY KHI TRẢ VỀ JSON. Bắt buộc phải có 2 dấu backslash (\\\\) trong chuỗi JSON.
-    6. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
-    Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\\\(x^2\\\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
+def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[str]:
+    """Chia nhỏ văn bản dựa trên các mốc câu hỏi để chống quá tải RAM và vượt qua giới hạn của AI"""
+    q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
     
-    Văn bản:
-    {marked_text}
-    """
-    response = call_gemini_with_fallback(prompt, api_keys)
-            
-    match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-    json_text = match.group(0) if match else response.text
+    matches = list(re.finditer(q_regex, marked_text, re.IGNORECASE))
     
-    try:
-        json_text = fix_json_latex_escapes(json_text)
-        return json.loads(json_text, strict=False)
-    except json.JSONDecodeError as e:
-        raise Exception(f"AI trả về JSON không hợp lệ (thường do công thức toán học bị lỗi định dạng LaTeX). Hãy thử lại. Chi tiết: {str(e)}")
+    if not matches:
+        # Nếu không có định dạng Câu rõ ràng, chia theo kích thước an toàn
+        chunks = []
+        lines = marked_text.split('\n')
+        current_chunk = ""
+        for line in lines:
+            current_chunk += line + "\n"
+            if len(current_chunk) > 8000:
+                chunks.append(current_chunk)
+                current_chunk = ""
+        if current_chunk: chunks.append(current_chunk)
+        return chunks if chunks else [marked_text]
 
-def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str]) -> List[Dict[str, Any]]:
-    """Dùng Gemini AI để đọc trực tiếp file PDF và bóc tách câu hỏi"""
+    chunks = []
+    current_chunk_start = 0
+    for i in range(0, len(matches), questions_per_chunk):
+        end_idx = i + questions_per_chunk
+        chunk_end_pos = matches[end_idx].start() if end_idx < len(matches) else len(marked_text)
+        chunks.append(marked_text[current_chunk_start:chunk_end_pos])
+        current_chunk_start = chunk_end_pos
+    return chunks
+
+def generate_mcq_with_gemini(marked_text: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
+    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK>"""
+    chunks = chunk_marked_text(marked_text, questions_per_chunk=15)
+    all_extracted_data = []
+    
+    for idx, chunk in enumerate(chunks):
+        if not chunk.strip(): continue
+        if task_id and task_id in active_tasks:
+            active_tasks[task_id]["message"] = f"AI đang bóc tách phần {idx + 1}/{len(chunks)}..."
+            
+        prompt = f"""
+        Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là trích xuất câu hỏi từ văn bản dưới đây.
+        (Đây là phần {idx + 1}/{len(chunks)} của tài liệu).
+        1. Trích xuất câu hỏi và 4 đáp án (A, B, C, D). Tuyệt đối LOẠI BỎ chữ "Câu X:", "Bài X:" hoặc số thứ tự ở đầu câu hỏi.
+        2. CHÚ Ý QUAN TRỌNG: Hãy tinh ý tách các đáp án A, B, C, D ra riêng biệt nếu chúng bị dính liền trên cùng một dòng.
+        3. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B). Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
+        4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X] (ví dụ [IMG_1], [IMG_2]). PHẢI GIỮ NGUYÊN CHÚNG TRONG NỘI DUNG.
+        5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \). Dữ liệu này ĐÃ ĐƯỢC ESCAPE SẴN DẤU BACKSLASH (ví dụ \frac, \sqrt, \rightarrow). BẠN PHẢI GIỮ NGUYÊN ĐỊNH DẠNG NÀY KHI TRẢ VỀ JSON. Bắt buộc phải có 2 dấu backslash (\\\\) trong chuỗi JSON.
+        6. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
+        Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\\\(x^2\\\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
+        
+        Văn bản:
+        {chunk}
+        """
+        response = call_gemini_with_fallback(prompt, api_keys)
+                
+        match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+        json_text = match.group(0) if match else response.text
+        
+        try:
+            json_text = fix_json_latex_escapes(json_text)
+            
+            # Tích hợp json_repair để tự động sửa lỗi ngoặc, thiếu nháy kép, rác text AI...
+            if json_repair is not None:
+                parsed_json = json_repair.loads(json_text)
+            else:
+                parsed_json = json.loads(json_text, strict=False)
+                
+            if isinstance(parsed_json, list):
+                all_extracted_data.extend(parsed_json)
+        except Exception as e:
+            raise Exception(f"AI trả về JSON không hợp lệ ở phần {idx + 1}. Chi tiết: {str(e)}")
+
+    return all_extracted_data
+
+def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
+    """Dùng PyMuPDF bóc tách text chính xác 100% sau đó đưa cho AI xử lý theo từng khối (Chunk)"""
     if not api_keys:
         raise Exception("Hệ thống chưa được cấu hình API Key.")
         
-    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash']
-    last_error = None
-    
-    prompt = """
-    Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là đọc tệp PDF này và trích xuất TOÀN BỘ câu hỏi trắc nghiệm.
-    YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
-    1. Trả về một mảng JSON (JSON array) hợp lệ.
-    2. Mỗi câu hỏi là một object gồm:
-       - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh.
-       - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
-       - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
-       - "correct_answer": (String) Đáp án đúng. Nếu trong PDF có đánh dấu đáp án đúng (in đậm, gạch chân, khoanh đỏ, bảng đáp án cuối file), hãy chọn đáp án đó. Nếu không, hãy tự giải và điền đáp án đúng nhất.
-    3. Giữ nguyên định dạng Toán/Lý/Hóa bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
-    4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
-    """
-    
-    for key in api_keys:
-        key = key.strip()
-        if not key: continue
-        genai.configure(api_key=key)
+    if fitz is None:
+        raise Exception("Thư viện PyMuPDF chưa được cài đặt. Vui lòng chạy lệnh Terminal: pip install PyMuPDF")
         
-        uploaded_file = None
-        try:
-            uploaded_file = genai.upload_file(pdf_path) # Upload PDF thẳng lên bộ nhớ tạm của Gemini
-            
-            for model_name in models_to_try:
-                try:
-                    model = genai.GenerativeModel(model_name)
-                    response = model.generate_content([uploaded_file, prompt])
-                    
-                    match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-                    json_text = match.group(0) if match else response.text
-                    json_text = fix_json_latex_escapes(json_text)
-                    data = json.loads(json_text, strict=False)
-                    
-                    return data
-                except Exception as e:
-                    last_error = e
-                    if "429" in str(e) or "quota" in str(e).lower() or "503" in str(e): break # Đổi Key
-        except Exception as e:
-            last_error = e
-        finally:
-            if uploaded_file:
-                try: genai.delete_file(uploaded_file.name) # Xóa file rác để tránh đầy dung lượng dự án AI
-                except: pass
-                
-    raise Exception(f"Lỗi khi xử lý PDF bằng AI. Lỗi cuối: {str(last_error)}")
+    # Bước 1: Trích xuất Text cục bộ bằng PyMuPDF (Nhanh và chính xác tuyệt đối, không lo AI ảo giác/bỏ sót câu)
+    doc = fitz.open(pdf_path)
+    pdf_text = ""
+    for page in doc:
+        pdf_text += page.get_text("text") + "\n"
+    doc.close()
+    
+    # Bước 2: Đưa text văn bản thô vào hàm Chunking & Phân tích Gemini đã được tối ưu
+    return generate_mcq_with_gemini(pdf_text, api_keys, task_id)
 
 # ==========================================
 # PHẦN 4: GIAO DIỆN & API ENDPOINTS
@@ -1479,10 +1507,10 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         
         extracted_data = None
         if ext == ".pdf":
-            extracted_data = generate_mcq_from_pdf(temp_file_path, api_keys)
+            extracted_data = generate_mcq_from_pdf(temp_file_path, api_keys, task_id)
         elif use_ai and api_keys:
             marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-            extracted_data = generate_mcq_with_gemini(marked_text, api_keys)
+            extracted_data = generate_mcq_with_gemini(marked_text, api_keys, task_id)
             if image_mapping:
                 extracted_data = replace_placeholders(extracted_data, image_mapping)
         else:

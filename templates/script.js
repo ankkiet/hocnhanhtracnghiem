@@ -842,7 +842,7 @@ async function uploadFile() {
     let progressInterval = setInterval(() => {
         if (progress < 90) {
             if (useAI) {
-                statusText.innerText = '🤖 AI đang đọc và phân tích (có thể mất 1-2 phút)...';
+                if (statusText.innerText === '⚙️ Đang tải file lên máy chủ...') statusText.innerText = '🤖 AI đang đọc và phân tích (có thể mất 1-2 phút)...';
             } else {
                 statusText.innerText = '⚡ Đang bóc tách bằng thuật toán Python...';
             }
@@ -883,6 +883,9 @@ async function uploadFile() {
                         alert("Phiên phân tích bị gián đoạn do Máy chủ khởi động lại. Vui lòng tải lên lại file.");
                     } else {
                         // Vẫn đang xử lý, hỏi lại sau 3 giây
+                        if (statusData.message && statusData.message !== "Đang phân tích...") {
+                            statusText.innerText = "🤖 " + statusData.message;
+                        }
                         setTimeout(pollTask, 3000);
                     }
                 } catch (pollErr) {
