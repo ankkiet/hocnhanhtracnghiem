@@ -846,12 +846,36 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                     
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
-                        b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
-                        mime_type = image_part.content_type
+                        
+                        # Tối ưu hóa hình ảnh để giảm dung lượng
+                        img_blob = image_part.blob
+                        processed_mime_type = image_part.content_type
+
+                        if Image is not None and image_part.content_type not in ['image/x-emf', 'image/x-wmf']:
+                            try:
+                                with Image.open(io.BytesIO(image_part.blob)) as img:
+                                    if img.width > 800:
+                                        new_width = 800
+                                        new_height = int(new_width * img.height / img.width)
+                                        resample_filter = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.ANTIALIAS
+                                        img = img.resize((new_width, new_height), resample_filter)
+                                    
+                                    output_io = io.BytesIO()
+                                    if img.mode in ('RGBA', 'P'):
+                                        img = img.convert('RGB')
+                                    
+                                    img.save(output_io, format='JPEG', quality=85, optimize=True)
+                                    img_blob = output_io.getvalue()
+                                    processed_mime_type = 'image/jpeg'
+                            except Exception:
+                                img_blob = image_part.blob
+                                processed_mime_type = image_part.content_type
+
+                        b64_encoded = base64.b64encode(img_blob).decode('utf-8')
                         img_counter += 1
                         placeholder = f"[IMG_{img_counter}]"
                         
-                        if mime_type in ['image/x-emf', 'image/x-wmf']:
+                        if image_part.content_type in ['image/x-emf', 'image/x-wmf']:
                             converted = False
                             if Image is not None:
                                 try:
@@ -866,7 +890,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                             if not converted:
                                 image_mapping[placeholder] = f"<div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem; margin: 10px 0;'>⚠️ Ảnh định dạng cũ (WMF/EMF) không được hỗ trợ. Vui lòng dán lại dưới dạng JPG/PNG.</div>"
                         else:
-                            image_mapping[placeholder] = f"<img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                            image_mapping[placeholder] = f"<img src='data:{processed_mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
                         para_text += f" {placeholder} "
             elif node.tag.endswith('}t'):
                 run_text = node.text
