@@ -340,6 +340,8 @@ body.minimal-mode #mainAppContainer {
 body.minimal-mode #quiz-container {
     flex-grow: 1;
     overflow-y: auto; /* Chỉ cuộn vùng nội dung câu hỏi nếu quá dài */
+    -webkit-overflow-scrolling: touch; /* Sửa lỗi không cuộn được trên một số trình duyệt mobile */
+    height: 100%; /* Đảm bảo container có chiều cao xác định để tính toán overflow */
     padding: 5px;
     padding-bottom: 60px; /* Tăng khoảng đệm để nút không sát mép màn hình */
     scrollbar-width: thin;

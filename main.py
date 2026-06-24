@@ -555,8 +555,6 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
             if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
                 continue
-            if node.xpath('ancestor::*[local-name()="Fallback"]') or node.xpath('ancestor::*[local-name()="fallback"]'):
-                continue
                 
             if node.tag.endswith('}oMath'):
                 math_latex = parse_omath(node)
@@ -807,8 +805,6 @@ def parse_docx_to_marked_text(file_path: str) -> str:
         for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
             if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
                 continue
-            if node.xpath('ancestor::*[local-name()="Fallback"]') or node.xpath('ancestor::*[local-name()="fallback"]'):
-                continue
 
             if node.tag.endswith('}oMath'):
                 math_latex = parse_omath(node)
@@ -941,18 +937,16 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     raw_output = re.sub(r'(?<!\n)(\s+)(\*?[A-D][\.\:\)]\s+)', r'\n\2', raw_output)
     return raw_output, image_mapping
 
-def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
-    """Gọi Gemini AI với cơ chế chuyển giao giữa nhiều Key và nhiều Model"""
+async def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
+    """Gọi Gemini AI với cơ chế chuyển giao giữa nhiều Key và nhiều Model (Bất đồng bộ)"""
     if not api_keys:
         raise Exception("Hệ thống chưa được cấu hình API Key.")
         
+    # Tối ưu danh sách model: Ưu tiên các model nhanh, hiệu quả về chi phí và mới nhất
     models_to_try = [
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-3.1-flash-lite',
-        'gemini-3-flash',
-        'gemini-2.5-flash-lite'
+        'gemini-1.5-flash-latest', # Nhanh, rẻ, mới nhất
+        'gemini-1.5-flash',        # Phiên bản ổn định của Flash
+        'gemini-pro'               # Model ổn định, mạnh hơn nhưng chậm hơn
     ]
     last_error = None
     
@@ -964,24 +958,38 @@ def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
         for model_name in models_to_try:
             try:
                 model = genai.GenerativeModel(model_name)
-                response = model.generate_content(
+                # Sử dụng generate_content_async và thêm timeout để tránh treo
+                response = await model.generate_content_async(
                     prompt,
                     generation_config=genai.types.GenerationConfig(
                         temperature=0.1,
                         response_mime_type="application/json"
-                    )
+                    ),
+                    request_options={"timeout": 120} # Timeout 120 giây
                 )
                 return response
             except Exception as e:
                 error_str = str(e).lower()
-                if "404" in error_str or "not found" in error_str:
+                # Bắt lỗi cụ thể hơn
+                if "api key not valid" in error_str:
                     last_error = e
-                    continue # Đổi model, giữ nguyên key
-                elif "429" in error_str or "quota" in error_str or "503" in error_str or "overloaded" in error_str or "key invalid" in error_str:
+                    break # Key sai, đổi key khác ngay
+                elif "404" in error_str or "not found" in error_str or "unsupported" in error_str:
                     last_error = e
-                    break # Bỏ qua model còn lại, đổi sang Key khác
+                    continue # Model không được hỗ trợ, đổi model khác
+                elif "429" in error_str or "quota" in error_str or "503" in error_str or "overloaded" in error_str:
+                    last_error = e
+                    # Tạm dừng một chút trước khi thử lại với key/model khác
+                    import asyncio
+                    await asyncio.sleep(1) 
+                    break # Quá tải, đổi key khác
+                elif "deadline exceeded" in error_str or "timeout" in error_str:
+                    last_error = Exception("AI xử lý quá lâu và bị ngắt kết nối (timeout).")
+                    continue # Thử lại với model khác có thể nhanh hơn
                 else:
-                    raise e
+                    # Các lỗi khác không lường trước
+                    last_error = e
+                    continue # Thử model tiếp theo
                     
     raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
 
@@ -1013,13 +1021,14 @@ def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[s
         current_chunk_start = chunk_end_pos
     return chunks
 
-def generate_mcq_with_gemini(marked_text: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
-    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK>"""
+async def generate_mcq_with_gemini(marked_text: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
+    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK> (Bất đồng bộ)"""
     chunks = chunk_marked_text(marked_text, questions_per_chunk=15)
     all_extracted_data = []
     
-    for idx, chunk in enumerate(chunks):
-        if not chunk.strip(): continue
+    # Sử dụng asyncio.gather để xử lý các chunk song song
+    async def process_chunk(idx, chunk):
+        if not chunk.strip(): return None
         if task_id and task_id in active_tasks:
             active_tasks[task_id]["message"] = f"AI đang bóc tách phần {idx + 1}/{len(chunks)}..."
             
@@ -1037,29 +1046,42 @@ def generate_mcq_with_gemini(marked_text: str, api_keys: List[str], task_id: str
         Văn bản:
         {chunk}
         """
-        response = call_gemini_with_fallback(prompt, api_keys)
-                
-        match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-        json_text = match.group(0) if match else response.text
-        
         try:
+            response = await call_gemini_with_fallback(prompt, api_keys)
+                    
+            match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+            json_text = match.group(0) if match else response.text
+            
             json_text = fix_json_latex_escapes(json_text)
             
-            # Tích hợp json_repair để tự động sửa lỗi ngoặc, thiếu nháy kép, rác text AI...
             if json_repair is not None:
                 parsed_json = json_repair.loads(json_text)
             else:
                 parsed_json = json.loads(json_text, strict=False)
                 
             if isinstance(parsed_json, list):
-                all_extracted_data.extend(parsed_json)
+                return parsed_json
+            return None
         except Exception as e:
-            raise Exception(f"AI trả về JSON không hợp lệ ở phần {idx + 1}. Chi tiết: {str(e)}")
+            # Ghi nhận lỗi cho chunk cụ thể nhưng không làm dừng toàn bộ quá trình
+            print(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
+            return None
+
+    import asyncio
+    tasks = [process_chunk(idx, chunk) for idx, chunk in enumerate(chunks)]
+    results = await asyncio.gather(*tasks)
+    
+    for res in results:
+        if res:
+            all_extracted_data.extend(res)
+
+    if not all_extracted_data and any(c.strip() for c in chunks):
+        raise Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu.")
 
     return all_extracted_data
 
-def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
-    """Dùng PyMuPDF bóc tách text chính xác 100% sau đó đưa cho AI xử lý theo từng khối (Chunk)"""
+async def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
+    """Dùng PyMuPDF bóc tách text chính xác 100% sau đó đưa cho AI xử lý theo từng khối (Chunk) (Bất đồng bộ)"""
     if not api_keys:
         raise Exception("Hệ thống chưa được cấu hình API Key.")
         
@@ -1074,7 +1096,7 @@ def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str], task_id: str = Non
     doc.close()
     
     # Bước 2: Đưa text văn bản thô vào hàm Chunking & Phân tích Gemini đã được tối ưu
-    return generate_mcq_with_gemini(pdf_text, api_keys, task_id)
+    return await generate_mcq_with_gemini(pdf_text, api_keys, task_id)
 
 # ==========================================
 # PHẦN 4: GIAO DIỆN & API ENDPOINTS
@@ -1326,7 +1348,7 @@ async def toggle_publish(req: TogglePublishRequest):
     return {"status": "success"}
 
 @app.post("/api/teacher/check_quiz_ai", summary="AI Kiểm tra lỗi đề thi")
-def check_quiz_ai(req: CheckQuizRequest):
+async def check_quiz_ai(req: CheckQuizRequest):
     if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
     teacher_doc = db.collection('users').document(req.teacher_token).get()
     if not teacher_doc.exists or teacher_doc.to_dict().get('role') not in ['teacher', 'admin']:
@@ -1374,7 +1396,7 @@ def check_quiz_ai(req: CheckQuizRequest):
         {json.dumps(req.quiz_data, ensure_ascii=False)}
         """
         
-        response = call_gemini_with_fallback(prompt, api_keys)
+        response = await call_gemini_with_fallback(prompt, api_keys)
         
         # Cố gắng parse JSON từ response
         try:
@@ -1393,8 +1415,51 @@ def check_quiz_ai(req: CheckQuizRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
 
-@app.post("/api/generate_quiz_ai", summary="Tạo đề thi tự động bằng AI")
-async def generate_quiz_ai(req: GenerateQuizRequest):
+async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, api_keys: List[str]):
+    """Tác vụ chạy ngầm để tạo đề thi từ một chủ đề (prompt)"""
+    try:
+        active_tasks[task_id] = {"status": "processing", "message": "AI đang suy nghĩ và tạo đề..."}
+        
+        prompt = f"""
+        Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là tạo ra một đề thi trắc nghiệm dựa trên yêu cầu sau:
+        - Chủ đề / Nội dung cốt lõi: {req.prompt}
+        - Số lượng câu hỏi: {req.num_questions}
+        - Độ khó: {req.difficulty}
+
+        YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
+        1. Trả về một mảng JSON (JSON array) hợp lệ.
+        2. Mỗi câu hỏi là một object gồm:
+           - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh (nếu có, nếu không để trống "").
+           - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
+           - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
+           - "correct_answer": (String) Đáp án đúng, phải giống y hệt một trong 4 đáp án trong mảng options.
+        3. Giữ nguyên định dạng Toán học/Hóa học nếu có bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
+        4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
+        
+        Ví dụ kết quả trả về:
+        [
+            {{"group_title": "Kiểm tra Lịch sử", "question": "Thủ đô của VN là gì?", "options": ["A. Hà Nội", "B. HCM", "C. Đà Nẵng", "D. Huế"], "correct_answer": "A. Hà Nội"}}
+        ]
+        """
+        
+        response = await call_gemini_with_fallback(prompt, api_keys)
+        match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
+        json_text = match.group(0) if match else response.text
+        json_text = fix_json_latex_escapes(json_text)
+        
+        if json_repair is not None:
+            data = json_repair.loads(json_text)
+        else:
+            data = json.loads(json_text, strict=False)
+            
+        active_tasks[task_id] = {"status": "success", "data": data}
+
+    except Exception as e:
+        active_tasks[task_id] = {"status": "error", "detail": f"Lỗi khi gọi AI hoặc parse JSON: {str(e)}"}
+
+
+@app.post("/api/generate_quiz_ai", summary="Tạo đề thi tự động bằng AI (Chạy ngầm)")
+async def generate_quiz_ai(req: GenerateQuizRequest, background_tasks: BackgroundTasks):
     if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
     
     settings_doc = db.collection('settings').document('gemini').get()
@@ -1402,37 +1467,16 @@ async def generate_quiz_ai(req: GenerateQuizRequest):
         raise HTTPException(status_code=400, detail="Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin.")
     api_keys = settings_doc.to_dict().get('api_keys')
     
-    prompt = f"""
-    Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là tạo ra một đề thi trắc nghiệm dựa trên yêu cầu sau:
-    - Chủ đề / Nội dung cốt lõi: {req.prompt}
-    - Số lượng câu hỏi: {req.num_questions}
-    - Độ khó: {req.difficulty}
-
-    YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
-    1. Trả về một mảng JSON (JSON array) hợp lệ.
-    2. Mỗi câu hỏi là một object gồm:
-       - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh (nếu có, nếu không để trống "").
-       - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
-       - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
-       - "correct_answer": (String) Đáp án đúng, phải giống y hệt một trong 4 đáp án trong mảng options.
-    3. Giữ nguyên định dạng Toán học/Hóa học nếu có bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
-    4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
+    task_id = str(uuid.uuid4())
+    active_tasks[task_id] = {"status": "pending"}
     
-    Ví dụ kết quả trả về:
-    [
-        {{"group_title": "Kiểm tra Lịch sử", "question": "Thủ đô của VN là gì?", "options": ["A. Hà Nội", "B. HCM", "C. Đà Nẵng", "D. Huế"], "correct_answer": "A. Hà Nội"}}
-    ]
-    """
+    background_tasks.add_task(generate_quiz_ai_background, task_id, req, api_keys)
     
-    try:
-        response = call_gemini_with_fallback(prompt, api_keys)
-        match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-        json_text = match.group(0) if match else response.text
-        json_text = fix_json_latex_escapes(json_text)
-        data = json.loads(json_text, strict=False)
-        return {"status": "success", "data": data}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI hoặc parse JSON: {str(e)}")
+    return {
+        "status": "processing",
+        "task_id": task_id,
+        "message": "Yêu cầu đã được tiếp nhận. AI đang xử lý ngầm..."
+    }
 
 @app.post("/api/student/save_progress", summary="Lưu tiến trình làm bài của học sinh lên Cloud")
 async def save_student_progress(req: SaveProgressRequest):
@@ -1526,15 +1570,16 @@ async def get_leaderboard(quiz_id: str):
     return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
 def process_document_background(task_id: str, temp_file_path: str, ext: str, use_ai: bool, api_keys: list, filename: str):
+    import asyncio
     try:
         active_tasks[task_id] = {"status": "processing", "message": "Đang phân tích..."}
         
         extracted_data = None
         if ext == ".pdf":
-            extracted_data = generate_mcq_from_pdf(temp_file_path, api_keys, task_id)
+            extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
         elif use_ai and api_keys:
             marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-            extracted_data = generate_mcq_with_gemini(marked_text, api_keys, task_id)
+            extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
             if image_mapping:
                 extracted_data = replace_placeholders(extracted_data, image_mapping)
         else:
