@@ -47,8 +47,10 @@ from services.ai_service import (
     call_gemini_with_fallback,
     fix_json_latex_escapes,
     generate_mcq_with_gemini,
-    generate_mcq_from_pdf
+    generate_mcq_from_pdf,
+    normalize_question_data
 )
+from services.r2_service import upload_image_to_r2
 from core.state import active_tasks
 
 # ==========================================
@@ -571,7 +573,6 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                     
                     if rId and rId in doc.part.related_parts:
                         image_part = doc.part.related_parts[rId]
-                        b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
                         mime_type = image_part.content_type
                         img_counter += 1
                         placeholder = f"[IMG_{img_counter}]"
@@ -583,15 +584,25 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                                     img = Image.open(io.BytesIO(image_part.blob))
                                     out_io = io.BytesIO()
                                     img.save(out_io, format='PNG')
-                                    b64_new = base64.b64encode(out_io.getvalue()).decode('utf-8')
-                                    image_mapping[placeholder] = f"<br><img src='data:image/png;base64,{b64_new}' class='quiz-image' /><br>"
+                                    png_bytes = out_io.getvalue()
+                                    r2_url = upload_image_to_r2(png_bytes, mime_type="image/png")
+                                    if r2_url:
+                                        image_mapping[placeholder] = f"<br><img src='{r2_url}' class='quiz-image' style='{img_style}' /><br>"
+                                    else:
+                                        b64_new = base64.b64encode(png_bytes).decode('utf-8')
+                                        image_mapping[placeholder] = f"<br><img src='data:image/png;base64,{b64_new}' class='quiz-image' style='{img_style}' /><br>"
                                     converted = True
                                 except Exception:
                                     pass
                             if not converted:
                                 image_mapping[placeholder] = f"<br><div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem;'>⚠️ Hệ thống phát hiện ảnh định dạng cũ (WMF/EMF). Trình duyệt web không thể hiển thị loại ảnh này. Vui lòng mở Word, chụp màn hình ảnh này và dán lại dưới dạng JPG/PNG.</div><br>"
                         else:
-                            image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
+                            r2_url = upload_image_to_r2(image_part.blob, mime_type=mime_type)
+                            if r2_url:
+                                image_mapping[placeholder] = f"<br><img src='{r2_url}' class='quiz-image' style='{img_style}' /><br>"
+                            else:
+                                b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
+                                image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
                         
                         full_text_list.append(f" {placeholder} ")
                         format_weights.extend([0] * len(f" {placeholder} "))
@@ -842,7 +853,6 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                                 img_blob = image_part.blob
                                 processed_mime_type = image_part.content_type
 
-                        b64_encoded = base64.b64encode(img_blob).decode('utf-8')
                         img_counter += 1
                         placeholder = f"[IMG_{img_counter}]"
                         
@@ -853,15 +863,25 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                                     img = Image.open(io.BytesIO(image_part.blob))
                                     out_io = io.BytesIO()
                                     img.save(out_io, format='PNG')
-                                    b64_new = base64.b64encode(out_io.getvalue()).decode('utf-8')
-                                    image_mapping[placeholder] = f"<img src='data:image/png;base64,{b64_new}' class='quiz-image' style='{img_style}' />"
+                                    png_bytes = out_io.getvalue()
+                                    r2_url = upload_image_to_r2(png_bytes, mime_type="image/png")
+                                    if r2_url:
+                                        image_mapping[placeholder] = f"<img src='{r2_url}' class='quiz-image' style='{img_style}' />"
+                                    else:
+                                        b64_new = base64.b64encode(png_bytes).decode('utf-8')
+                                        image_mapping[placeholder] = f"<img src='data:image/png;base64,{b64_new}' class='quiz-image' style='{img_style}' />"
                                     converted = True
                                 except Exception:
                                     pass
                             if not converted:
                                 image_mapping[placeholder] = f"<div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem; margin: 10px 0;'>⚠️ Ảnh định dạng cũ (WMF/EMF) không được hỗ trợ. Vui lòng dán lại dưới dạng JPG/PNG.</div>"
                         else:
-                            image_mapping[placeholder] = f"<img src='data:{processed_mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                            r2_url = upload_image_to_r2(img_blob, mime_type=processed_mime_type)
+                            if r2_url:
+                                image_mapping[placeholder] = f"<img src='{r2_url}' class='quiz-image' style='{img_style}' />"
+                            else:
+                                b64_encoded = base64.b64encode(img_blob).decode('utf-8')
+                                image_mapping[placeholder] = f"<img src='data:{processed_mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
                         para_text += f" {placeholder} "
             elif node.tag.endswith('}t'):
                 run_text = node.text
@@ -946,29 +966,36 @@ async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, ap
     try:
         active_tasks[task_id] = {"status": "processing", "message": "AI đang suy nghĩ và tạo đề..."}
         
+        system_instruction = (
+            "Bạn là một chuyên gia giáo dục và biên soạn đề thi trắc nghiệm xuất sắc. "
+            "Nhiệm vụ của bạn là tạo ra các câu hỏi trắc nghiệm chất lượng cao, đúng chuẩn kiến thức, "
+            "đúng 4 lựa chọn A, B, C, D rõ ràng, và luôn kèm lời giải chi tiết (explain). "
+            "Nếu có công thức toán/lý/hóa, dùng cú pháp LaTeX bọc trong \\( và \\). "
+            "Định dạng trả về bắt buộc là một JSON array duy nhất."
+        )
+        
         prompt = f"""
-        Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là tạo ra một đề thi trắc nghiệm dựa trên yêu cầu sau:
+        Hãy tạo đề thi trắc nghiệm theo thông số sau:
         - Chủ đề / Nội dung cốt lõi: {req.prompt}
         - Số lượng câu hỏi: {req.num_questions}
         - Độ khó: {req.difficulty}
 
-        YÊU CẦU ĐỊNH DẠNG (BẮT BUỘC):
-        1. Trả về một mảng JSON (JSON array) hợp lệ.
-        2. Mỗi câu hỏi là một object gồm:
-           - "group_title": (String) Tiêu đề nhóm câu hỏi hoặc đoạn văn ngữ cảnh (nếu có, nếu không để trống "").
-           - "question": (String) Nội dung câu hỏi. TUYỆT ĐỐI KHÔNG thêm "Câu 1:", "Câu 2:" ở đầu.
-           - "options": (Array of Strings) Mảng chứa đúng 4 đáp án, bắt buộc bắt đầu bằng "A. ", "B. ", "C. ", "D. ".
-           - "correct_answer": (String) Đáp án đúng, phải giống y hệt một trong 4 đáp án trong mảng options.
-        3. Giữ nguyên định dạng Toán học/Hóa học nếu có bằng LaTeX, bọc trong \\( và \\). Dùng 2 dấu backslash (\\\\) trong chuỗi JSON.
-        4. TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY. Không giải thích gì thêm.
-        
-        Ví dụ kết quả trả về:
-        [
-            {{"group_title": "Kiểm tra Lịch sử", "question": "Thủ đô của VN là gì?", "options": ["A. Hà Nội", "B. HCM", "C. Đà Nẵng", "D. Huế"], "correct_answer": "A. Hà Nội"}}
-        ]
+        Mỗi câu hỏi có cấu trúc JSON:
+        {{
+          "group_title": "Tiêu đề nhóm hoặc đoạn văn đọc hiểu (nếu có, không có thì để trống '')",
+          "question": "Nội dung câu hỏi (không thêm 'Câu X:')",
+          "options": ["A. Lựa chọn 1", "B. Lựa chọn 2", "C. Lựa chọn 3", "D. Lựa chọn 4"],
+          "correct_answer": "A. Lựa chọn 1",
+          "explain": "Lời giải thích ngắn gọn, súc tích vì sao đáp án này đúng."
+        }}
         """
         
-        response = await call_gemini_with_fallback(prompt, api_keys)
+        response = await call_gemini_with_fallback(
+            prompt=prompt,
+            api_keys=api_keys,
+            system_instruction=system_instruction,
+            thinking_budget=0
+        )
         match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
         json_text = match.group(0) if match else response.text
         json_text = fix_json_latex_escapes(json_text)
@@ -977,6 +1004,9 @@ async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, ap
             data = json_repair.loads(json_text)
         else:
             data = json.loads(json_text, strict=False)
+            
+        if isinstance(data, list):
+            data = [normalize_question_data(q) for q in data if isinstance(q, dict)]
             
         active_tasks[task_id] = {"status": "success", "data": data}
 

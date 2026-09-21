@@ -10,6 +10,12 @@ from core.security import get_user_from_token
 from core.docx_exporter import export_quiz_to_docx
 from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
 
+try:
+    import json_repair
+except ImportError:
+    json_repair = None
+
+
 router = APIRouter(prefix="/api/teacher", tags=["Teacher Management"])
 
 class QuizActionRequest(BaseModel):
@@ -155,11 +161,16 @@ async def check_quiz_ai(req: CheckQuizRequest):
     try:
         custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI DÙNG:**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
         
+        system_instruction = (
+            "Bạn là một chuyên gia giáo dục và biên tập viên kiểm định chất lượng đề thi trắc nghiệm. "
+            "Nhiệm vụ của bạn là rà soát tỉ mỉ đề thi, phát hiện lỗi sai kiến thức, sai đáp án, "
+            "lỗi ngữ pháp, logic hoặc trùng lặp, và đề xuất sửa lại. "
+            "Chỉ báo cáo các câu có lỗi. Trả về kết quả dưới dạng JSON array duy nhất."
+        )
+        
         prompt = f"""
-        Bạn là một chuyên gia giáo dục và biên tập viên kiểm định đề thi trắc nghiệm.
-        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây.
+        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây:
         {custom_instructions}
-        Tìm các lỗi: sai đáp án, lỗi chính tả, ngữ pháp, lỗi logic, trùng lặp đáp án, văn phong lủng củng.
 
         QUY TẮC ĐỊNH DẠNG JSON:
         1. CHỈ phân tích những câu hỏi có lỗi. BỎ QUA HOÀN TOÀN những câu đúng.
@@ -173,7 +184,12 @@ async def check_quiz_ai(req: CheckQuizRequest):
         {json.dumps(req.quiz_data, ensure_ascii=False)}
         """
         
-        response = await call_gemini_with_fallback(prompt, api_keys)
+        response = await call_gemini_with_fallback(
+            prompt=prompt,
+            api_keys=api_keys,
+            system_instruction=system_instruction,
+            thinking_budget=0
+        )
         match = re.search(r'\[.*\]', response.text, re.DOTALL)
         if not match:
             if "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower():
@@ -182,7 +198,10 @@ async def check_quiz_ai(req: CheckQuizRequest):
 
         json_text = match.group(0)
         json_text = fix_json_latex_escapes(json_text)
-        feedback_data = json.loads(json_text, strict=False)
+        if json_repair is not None:
+            feedback_data = json_repair.loads(json_text)
+        else:
+            feedback_data = json.loads(json_text, strict=False)
         return {"status": "success", "feedback": feedback_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")

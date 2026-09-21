@@ -8,3 +8,4 @@ pyjwt
 pymupdf
 json-repair
 pillow
+boto3
