@@ -1,3 +1,4 @@
+import sys
 import os
 import re
 import json
@@ -11,6 +12,13 @@ import datetime
 from typing import List, Dict, Any
 import random
 import string
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 try:
     from PIL import Image
@@ -29,58 +37,25 @@ except ImportError:
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from docx import Document
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
-import google.generativeai as genai
-import firebase_admin
-from firebase_admin import credentials, firestore
+from services.firebase_service import init_firebase, get_db
+from services.ai_service import (
+    call_gemini_with_fallback,
+    fix_json_latex_escapes,
+    generate_mcq_with_gemini,
+    generate_mcq_from_pdf
+)
+from core.state import active_tasks
 
 # ==========================================
 # PHẦN 1: CẤU HÌNH & QUẢN LÝ DATABASE
 # ==========================================
-
-# Khởi tạo Firebase
-try:
-    # 1. Thử lấy chìa khóa từ Biến môi trường (Dành cho Koyeb)
-    firebase_env = os.environ.get("FIREBASE_JSON")
-    
-    if firebase_env:
-        # Chuyển chuỗi Text thành dạng Dictionary mà Firebase yêu cầu
-        cred_dict = json.loads(firebase_env)
-        cred = credentials.Certificate(cred_dict)
-        print("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
-    else:
-        # 2. Nếu không có biến môi trường, đọc từ file (Dành cho chạy trên máy tính)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
-        cred = credentials.Certificate(cert_path)
-        print("Đang kết nối Firebase bằng tệp vật lý (Local)...")
-        
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
-    db = firestore.client()
-    
-    # --- Phần khởi tạo Admin mặc định bên dưới giữ nguyên ---
-    users = db.collection('users').where('username', '==', 'admin').get()
-    admin_pwd_hash = hashlib.sha256('a@a@ankk'.encode()).hexdigest()
-    if not users:
-        db.collection('users').add({
-            'username': 'admin',
-            'password': admin_pwd_hash,
-            'full_name': 'Quản trị viên (Admin)',
-            'role': 'admin',
-            'status': 'approved'
-        })
-    else:
-        db.collection('users').document(users[0].id).update({
-            'password': admin_pwd_hash
-        })
-        
-except Exception as e:
-    print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Chi tiết: {e}")
-    db = None
+# Khởi tạo Firebase Firestore an toàn (Bảo vệ mật khẩu Admin không bị ghi đè khi restart)
+db = init_firebase()
 
 # ==========================================
 # PHẦN 2: CẤU HÌNH FASTAPI & MIDDLEWARE
@@ -937,483 +912,34 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     raw_output = re.sub(r'(?<!\n)(\s+)(\*?[A-D][\.\:\)]\s+)', r'\n\2', raw_output)
     return raw_output, image_mapping
 
-async def call_gemini_with_fallback(prompt: str, api_keys: List[str]):
-    """Gọi Gemini AI với cơ chế chuyển giao giữa nhiều Key và nhiều Model (Bất đồng bộ)"""
-    if not api_keys:
-        raise Exception("Hệ thống chưa được cấu hình API Key.")
-        
-    # Tối ưu danh sách model: Ưu tiên các model nhanh, hiệu quả về chi phí và mới nhất
-    models_to_try = [
-        'gemini-1.5-flash-latest', # Nhanh, rẻ, mới nhất
-        'gemini-1.5-flash',        # Phiên bản ổn định của Flash
-        'gemini-pro'               # Model ổn định, mạnh hơn nhưng chậm hơn
-    ]
-    last_error = None
-    
-    for key in api_keys:
-        key = key.strip()
-        if not key: continue
-        genai.configure(api_key=key)
-        
-        for model_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(model_name)
-                # Sử dụng generate_content_async và thêm timeout để tránh treo
-                response = await model.generate_content_async(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.1,
-                        response_mime_type="application/json"
-                    ),
-                    request_options={"timeout": 120} # Timeout 120 giây
-                )
-                return response
-            except Exception as e:
-                error_str = str(e).lower()
-                # Bắt lỗi cụ thể hơn
-                if "api key not valid" in error_str:
-                    last_error = e
-                    break # Key sai, đổi key khác ngay
-                elif "404" in error_str or "not found" in error_str or "unsupported" in error_str:
-                    last_error = e
-                    continue # Model không được hỗ trợ, đổi model khác
-                elif "429" in error_str or "quota" in error_str or "503" in error_str or "overloaded" in error_str:
-                    last_error = e
-                    # Tạm dừng một chút trước khi thử lại với key/model khác
-                    import asyncio
-                    await asyncio.sleep(1) 
-                    break # Quá tải, đổi key khác
-                elif "deadline exceeded" in error_str or "timeout" in error_str:
-                    last_error = Exception("AI xử lý quá lâu và bị ngắt kết nối (timeout).")
-                    continue # Thử lại với model khác có thể nhanh hơn
-                else:
-                    # Các lỗi khác không lường trước
-                    last_error = e
-                    continue # Thử model tiếp theo
-                    
-    raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
-
-def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[str]:
-    """Chia nhỏ văn bản dựa trên các mốc câu hỏi để chống quá tải RAM và vượt qua giới hạn của AI"""
-    q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
-    
-    matches = list(re.finditer(q_regex, marked_text, re.IGNORECASE))
-    
-    if not matches:
-        # Nếu không có định dạng Câu rõ ràng, chia theo kích thước an toàn
-        chunks = []
-        lines = marked_text.split('\n')
-        current_chunk = ""
-        for line in lines:
-            current_chunk += line + "\n"
-            if len(current_chunk) > 8000:
-                chunks.append(current_chunk)
-                current_chunk = ""
-        if current_chunk: chunks.append(current_chunk)
-        return chunks if chunks else [marked_text]
-
-    chunks = []
-    current_chunk_start = 0
-    for i in range(0, len(matches), questions_per_chunk):
-        end_idx = i + questions_per_chunk
-        chunk_end_pos = matches[end_idx].start() if end_idx < len(matches) else len(marked_text)
-        chunks.append(marked_text[current_chunk_start:chunk_end_pos])
-        current_chunk_start = chunk_end_pos
-    return chunks
-
-async def generate_mcq_with_gemini(marked_text: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
-    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK> (Bất đồng bộ)"""
-    chunks = chunk_marked_text(marked_text, questions_per_chunk=15)
-    all_extracted_data = []
-    
-    # Sử dụng asyncio.gather để xử lý các chunk song song
-    async def process_chunk(idx, chunk):
-        if not chunk.strip(): return None
-        if task_id and task_id in active_tasks:
-            active_tasks[task_id]["message"] = f"AI đang bóc tách phần {idx + 1}/{len(chunks)}..."
-            
-        prompt = f"""
-        Bạn là một chuyên gia giáo dục. Nhiệm vụ của bạn là trích xuất câu hỏi từ văn bản dưới đây.
-        (Đây là phần {idx + 1}/{len(chunks)} của tài liệu).
-        1. Trích xuất câu hỏi và 4 đáp án (A, B, C, D). Tuyệt đối LOẠI BỎ chữ "Câu X:", "Bài X:" hoặc số thứ tự ở đầu câu hỏi.
-        2. CHÚ Ý QUAN TRỌNG: Hãy tinh ý tách các đáp án A, B, C, D ra riêng biệt nếu chúng bị dính liền trên cùng một dòng.
-        3. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> HOẶC có dấu * ở trước chữ cái đáp án (ví dụ *A, *B). Loại bỏ thẻ <MARK> và dấu * ra khỏi kết quả cuối cùng.
-        4. GIỮ NGUYÊN TOÀN BỘ các thẻ định dạng HTML (như <b>, <i>, <u>, <sub>, <sup>). KHÔNG tự ý chuyển sang Markdown. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X] (ví dụ [IMG_1], [IMG_2]). PHẢI GIỮ NGUYÊN CHÚNG TRONG NỘI DUNG.
-        5. Các công thức Toán/Lý/Hóa đã được bọc sẵn trong thẻ \( và \). Dữ liệu này ĐÃ ĐƯỢC ESCAPE SẴN DẤU BACKSLASH (ví dụ \frac, \sqrt, \rightarrow). BẠN PHẢI GIỮ NGUYÊN ĐỊNH DẠNG NÀY KHI TRẢ VỀ JSON. Bắt buộc phải có 2 dấu backslash (\\\\) trong chuỗi JSON.
-        6. Định dạng trả về bắt buộc là JSON array RẤT NGHIÊM NGẶT.
-        Ví dụ: [{{"group_title": "Đọc đoạn văn...", "question": "Hình sau [IMG_1] là gì? Tính \\\\(x^2\\\\)", "options": ["A. <i>Có</i>", "B. Không", "C. 1", "D. 2"], "correct_answer": "A. <i>Có</i>"}}]
-        
-        Văn bản:
-        {chunk}
-        """
-        try:
-            response = await call_gemini_with_fallback(prompt, api_keys)
-                    
-            match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-            json_text = match.group(0) if match else response.text
-            
-            json_text = fix_json_latex_escapes(json_text)
-            
-            if json_repair is not None:
-                parsed_json = json_repair.loads(json_text)
-            else:
-                parsed_json = json.loads(json_text, strict=False)
-                
-            if isinstance(parsed_json, list):
-                return parsed_json
-            return None
-        except Exception as e:
-            # Ghi nhận lỗi cho chunk cụ thể nhưng không làm dừng toàn bộ quá trình
-            print(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
-            return None
-
-    import asyncio
-    tasks = [process_chunk(idx, chunk) for idx, chunk in enumerate(chunks)]
-    results = await asyncio.gather(*tasks)
-    
-    for res in results:
-        if res:
-            all_extracted_data.extend(res)
-
-    if not all_extracted_data and any(c.strip() for c in chunks):
-        raise Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu.")
-
-    return all_extracted_data
-
-async def generate_mcq_from_pdf(pdf_path: str, api_keys: List[str], task_id: str = None) -> List[Dict[str, Any]]:
-    """Dùng PyMuPDF bóc tách text chính xác 100% sau đó đưa cho AI xử lý theo từng khối (Chunk) (Bất đồng bộ)"""
-    if not api_keys:
-        raise Exception("Hệ thống chưa được cấu hình API Key.")
-        
-    if fitz is None:
-        raise Exception("Thư viện PyMuPDF chưa được cài đặt. Vui lòng chạy lệnh Terminal: pip install PyMuPDF")
-        
-    # Bước 1: Trích xuất Text cục bộ bằng PyMuPDF (Nhanh và chính xác tuyệt đối, không lo AI ảo giác/bỏ sót câu)
-    doc = fitz.open(pdf_path)
-    pdf_text = ""
-    for page in doc:
-        pdf_text += page.get_text("text") + "\n"
-    doc.close()
-    
-    # Bước 2: Đưa text văn bản thô vào hàm Chunking & Phân tích Gemini đã được tối ưu
-    return await generate_mcq_with_gemini(pdf_text, api_keys, task_id)
+# Các thuật toán xử lý AI đã được chuyển sang services/ai_service.py
 
 # ==========================================
 # PHẦN 4: GIAO DIỆN & API ENDPOINTS
 # ==========================================
 
-@app.get("/")
-async def root():
+@app.get("/api/status", summary="Kiểm tra trạng thái máy chủ")
+async def root_status():
     return {"status": "success", "message": "Backend API is running!"}
 
 @app.get("/api/keep-alive", summary="API giữ máy chủ luôn thức")
 async def keep_alive():
     return {"status": "ok", "message": "Hệ thống đang thức và sẵn sàng!"}
 
-@app.post("/api/auth/register", summary="Đăng ký tài khoản mới")
-async def register(req: RegisterRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    existing = db.collection('users').where('username', '==', req.username).get()
-    if existing: raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
-    
-    db.collection('users').add({
-        'username': req.username,
-        'password': hashlib.sha256(req.password.encode()).hexdigest(),
-        'full_name': req.full_name,
-        'role': req.role,
-        'status': 'pending'
-    })
-    return {"status": "success"}
+# ==========================================
+# ĐĂNG KÝ CÁC MODULE ROUTER (TÁCH BIỆT & BẢO MẬT)
+# ==========================================
+from routers.auth import router as auth_router
+from routers.quiz import router as quiz_router
+from routers.student import router as student_router
+from routers.teacher import router as teacher_router
+from routers.admin import router as admin_router
 
-@app.post("/api/auth/login", summary="Đăng nhập")
-async def login(req: LoginRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    users = db.collection('users').where('username', '==', req.username).get()
-    if not users: raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
-    
-    user_doc = users[0]
-    user_data = user_doc.to_dict()
-    
-    if user_data['password'] != hashlib.sha256(req.password.encode()).hexdigest():
-        raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
-        
-    if user_data['status'] != 'approved':
-        raise HTTPException(status_code=403, detail="Tài khoản đang chờ Quản trị viên duyệt.")
-        
-    return {"status": "success", "token": user_doc.id, "role": user_data['role'], "full_name": user_data['full_name']}
-
-@app.get("/api/admin/users", summary="Lấy danh sách user (Admin)")
-async def get_all_users(admin_token: str):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
-        
-    users = db.collection('users').get()
-    res = []
-    for u in users:
-        d = u.to_dict()
-        res.append({
-            'id': u.id,
-            'username': d.get('username'),
-            'full_name': d.get('full_name'),
-            'role': d.get('role'),
-            'status': d.get('status')
-        })
-    return {"status": "success", "data": res}
-
-@app.post("/api/admin/approve", summary="Duyệt user (Admin)")
-async def approve_user(req: ApproveUserRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(req.admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    db.collection('users').document(req.user_id).update({'status': 'approved'})
-    return {"status": "success"}
-
-@app.post("/api/admin/delete", summary="Xóa user (Admin)")
-async def delete_user(req: ApproveUserRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(req.admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    db.collection('users').document(req.user_id).delete()
-    return {"status": "success"}
-
-@app.post("/api/admin/change_password", summary="Đổi mật khẩu (Admin)")
-async def change_admin_password(req: ChangePasswordRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc_ref = db.collection('users').document(req.admin_token)
-    admin_doc = admin_doc_ref.get()
-    
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
-        
-    admin_data = admin_doc.to_dict()
-    if admin_data['password'] != hashlib.sha256(req.old_password.encode()).hexdigest():
-        raise HTTPException(status_code=400, detail="Mật khẩu cũ không chính xác")
-        
-    admin_doc_ref.update({'password': hashlib.sha256(req.new_password.encode()).hexdigest()})
-    return {"status": "success"}
-
-@app.post("/api/admin/reset_password", summary="Khôi phục mật khẩu user (Admin)")
-async def reset_user_password(req: ResetPasswordRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(req.admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    db.collection('users').document(req.user_id).update({
-        'password': hashlib.sha256(req.new_password.encode()).hexdigest()
-    })
-    return {"status": "success"}
-
-@app.post("/api/admin/set_api_key", summary="Cài đặt API Key chung (Admin)")
-async def set_api_key(req: SetApiKeyRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(req.admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    db.collection('settings').document('gemini').set({'api_keys': req.api_keys})
-    return {"status": "success"}
-
-@app.get("/api/admin/get_api_key", summary="Lấy API Key chung (Admin)")
-async def get_api_key(admin_token: str):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    admin_doc = db.collection('users').document(admin_token).get()
-    if not admin_doc.exists or admin_doc.to_dict().get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    settings_doc = db.collection('settings').document('gemini').get()
-    api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
-    return {"status": "success", "api_keys": api_keys}
-
-@app.post("/api/save_quiz", summary="Lưu bài thi và lấy link")
-async def save_quiz(request: SaveQuizRequest):
-    if db is None:
-        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-        
-    if request.quiz_id:
-        quiz_id = request.quiz_id
-        doc_ref = db.collection('quizzes').document(quiz_id)
-        doc = doc_ref.get()
-        if doc.exists and doc.to_dict().get('creator_id') != request.creator_id:
-            raise HTTPException(status_code=403, detail="Không có quyền cập nhật đề này")
-    else:
-        # Tạo mã ngẫu nhiên dạng AAA-111 (VD: Toán -> MTH-123)
-        while True:
-            part1 = ''.join(random.choices(string.ascii_uppercase, k=3))
-            part2 = ''.join(random.choices(string.digits, k=3))
-            quiz_id = f"{part1}-{part2}"
-            if not db.collection('quizzes').document(quiz_id).get().exists:
-                break
-        
-    doc_ref = db.collection('quizzes').document(quiz_id)
-    data_to_save = {
-        'title': request.title,
-        'data': request.data,
-        'mode': request.mode,
-        'time_limit': request.time_limit,
-        'is_shuffle': request.is_shuffle,
-        'creator_id': request.creator_id,
-        'status': request.status,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    }
-    
-    if not request.quiz_id:
-        data_to_save['created_at'] = firestore.SERVER_TIMESTAMP
-        
-    try:
-        doc_ref.set(data_to_save, merge=True)
-    except Exception as e:
-        if "maximum document size" in str(e).lower() or "exceeds" in str(e).lower():
-            raise HTTPException(status_code=413, detail="Dung lượng đề thi quá lớn (vượt quá 1MB). Hệ thống không thể lưu. Vui lòng giảm bớt hình ảnh hoặc nén ảnh trong file Word trước khi tải lên.")
-        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu vào cơ sở dữ liệu: {str(e)}")
-
-    return {"status": "success", "quiz_id": quiz_id, "link": f"/?id={quiz_id}"}
-
-@app.get("/api/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID")
-async def get_quiz(quiz_id: str, teacher_token: str = None):
-    if db is None:
-        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-        
-    doc_ref = db.collection('quizzes').document(quiz_id)
-    doc = doc_ref.get()
-    if doc.exists:
-        quiz_data = doc.to_dict()
-        is_creator = teacher_token and quiz_data.get('creator_id') == teacher_token
-        
-        if quiz_data.get('status') == 'unpublished' and not is_creator:
-            raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
-            
-        updated_at = quiz_data.get('updated_at')
-        updated_ts = updated_at.timestamp() if hasattr(updated_at, 'timestamp') else 0
-            
-        return {
-            "status": "success", 
-            "title": quiz_data.get('title'), 
-            "data": quiz_data.get('data'), 
-            "mode": quiz_data.get('mode', 'practice'), 
-            "time_limit": quiz_data.get('time_limit', 0),
-            "is_shuffle": quiz_data.get('is_shuffle', False),
-            "updated_at": updated_ts
-        }
-    raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
-
-@app.get("/api/teacher/quizzes", summary="Lấy danh sách đề thi của Giáo viên")
-async def get_teacher_quizzes(teacher_token: str):
-    if db is None: return {"status": "error"}
-    # Chỉ lấy các đề do giáo viên này tạo
-    docs = db.collection('quizzes').where('creator_id', '==', teacher_token).get()
-    results = []
-    for doc in docs:
-        data = doc.to_dict()
-        results.append({
-            'id': doc.id,
-            'title': data.get('title', 'Không tên'),
-            'mode': data.get('mode', 'practice'),
-            'status': data.get('status', 'published'),
-            'question_count': len(data.get('data', []))
-        })
-    return {"status": "success", "data": results}
-
-@app.post("/api/teacher/quiz_action", summary="Thao tác với đề thi (Thùng rác, Khôi phục, Xóa vĩnh viễn)")
-async def quiz_action(req: QuizActionRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    doc_ref = db.collection('quizzes').document(req.quiz_id)
-    doc = doc_ref.get()
-    if not doc.exists or doc.to_dict().get('creator_id') != req.teacher_token:
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    if req.action == 'trash':
-        doc_ref.update({'status': 'trashed'})
-    elif req.action == 'restore':
-        doc_ref.update({'status': 'unpublished'}) # Khôi phục về dạng đang khóa
-    elif req.action == 'permanent':
-        doc_ref.delete()
-    return {"status": "success"}
-
-@app.post("/api/teacher/toggle_publish", summary="Bật/Tắt xuất bản đề thi")
-async def toggle_publish(req: TogglePublishRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    doc_ref = db.collection('quizzes').document(req.quiz_id)
-    doc = doc_ref.get()
-    if not doc.exists or doc.to_dict().get('creator_id') != req.teacher_token:
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    doc_ref.update({'status': req.status})
-    return {"status": "success"}
-
-@app.post("/api/teacher/check_quiz_ai", summary="AI Kiểm tra lỗi đề thi")
-async def check_quiz_ai(req: CheckQuizRequest):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    teacher_doc = db.collection('users').document(req.teacher_token).get()
-    if not teacher_doc.exists or teacher_doc.to_dict().get('role') not in ['teacher', 'admin']:
-        raise HTTPException(status_code=403, detail="Không có quyền")
-        
-    settings_doc = db.collection('settings').document('gemini').get()
-    if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
-        raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
-    api_keys = settings_doc.to_dict().get('api_keys')
-    
-    try:
-        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI DÙNG (CẦN ƯU TIÊN THỰC HIỆN):**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
-        
-        prompt = f"""
-        Bạn là một chuyên gia giáo dục và biên tập viên kiểm định đề thi trắc nghiệm.
-        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây.
-        {custom_instructions}
-        Nếu người dùng không có yêu cầu đặc biệt nào, hãy tự động tìm các lỗi chung như: sai đáp án, lỗi chính tả, ngữ pháp, lỗi logic, trùng lặp đáp án, văn phong lủng củng.
-
-        QUY TẮC ĐỊNH DẠNG JSON (BẮT BUỘC PHẢI TUÂN THỦ TUYỆT ĐỐI):
-        1.  **CHỈ** phân tích những câu hỏi có lỗi. **BỎ QUA HOÀN TOÀN** những câu đúng.
-        2.  Đối với mỗi câu lỗi, hãy cung cấp một JSON object chứa:
-            *   `question_index`: (Number) Chỉ số của câu hỏi trong mảng (bắt đầu từ 0).
-            *   `reason`: (String) Giải thích ngắn gọn, rõ ràng về lỗi đã phát hiện.
-            *   `corrected_data`: (Object) Một object chứa dữ liệu đã được sửa, bao gồm `question`, `options`, và `correct_answer`. Giữ nguyên `group_title` của câu hỏi gốc.
-        3.  Kết quả cuối cùng của bạn **BẮT BUỘC** phải là một JSON array chứa các object nói trên.
-        4.  TUYỆT ĐỐI CHỈ TRẢ VỀ JSON ARRAY (KHÔNG KÈM BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO BÊN NGOÀI). Nếu đề thi không có lỗi nào, trả về đúng 2 ký tự: []
-        5.  **QUAN TRỌNG:** Bạn có toàn quyền can thiệp, sửa đổi LỖI CHÍNH TẢ, DẤU CÂU, TỪ NGỮ và NỘI DUNG. Đối với các thẻ định dạng HTML (như <b>, <i>, <u>) và công thức LaTeX: Hãy giữ nguyên nếu chúng đúng, nhưng **ĐƯỢC PHÉP THÊM, SỬA HOẶC XÓA** các thẻ này để khắc phục lỗi (ví dụ: sửa từ bị in đậm sai, định dạng lại chữ in nghiêng bị thiếu thẻ đóng). Tuyệt đối không xóa các thẻ hình ảnh [IMG_X].
-
-        Ví dụ về định dạng JSON trả về nếu có lỗi ở câu 1 (index 0):
-        [
-          {{
-            "question_index": 0,
-            "reason": "Lỗi chính tả 'helo' trong câu hỏi.",
-            "corrected_data": {{
-              "group_title": "Đọc đoạn văn...",
-              "question": "Sửa lại thành 'hello world'",
-              "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-              "correct_answer": "A. ..."
-            }}
-          }}
-        ]
-
-        Dữ liệu đề thi (JSON array, câu hỏi được đánh index từ 0):
-        {json.dumps(req.quiz_data, ensure_ascii=False)}
-        """
-        
-        response = await call_gemini_with_fallback(prompt, api_keys)
-        
-        # Cố gắng parse JSON từ response
-        try:
-            match = re.search(r'\[.*\]', response.text, re.DOTALL)
-            if not match:
-                if "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower() or "tuyệt vời" in response.text.lower():
-                     return {"status": "success", "feedback": []}
-                return {"status": "success", "feedback": response.text}
-
-            json_text = match.group(0)
-            json_text = fix_json_latex_escapes(json_text)
-            feedback_data = json.loads(json_text, strict=False)
-            return {"status": "success", "feedback": feedback_data}
-        except (json.JSONDecodeError, ValueError):
-            return {"status": "success", "feedback": response.text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
+app.include_router(auth_router)
+app.include_router(quiz_router)
+app.include_router(student_router)
+app.include_router(teacher_router)
+app.include_router(admin_router)
 
 async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, api_keys: List[str]):
     """Tác vụ chạy ngầm để tạo đề thi từ một chủ đề (prompt)"""
@@ -1478,96 +1004,7 @@ async def generate_quiz_ai(req: GenerateQuizRequest, background_tasks: Backgroun
         "message": "Yêu cầu đã được tiếp nhận. AI đang xử lý ngầm..."
     }
 
-@app.post("/api/student/save_progress", summary="Lưu tiến trình làm bài của học sinh lên Cloud")
-async def save_student_progress(req: SaveProgressRequest):
-    if db is None: return {"status": "error"}
-    user_doc = db.collection('users').document(req.student_token).get()
-    if not user_doc.exists or user_doc.to_dict().get('role') != 'student':
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập")
 
-    db.collection('users').document(req.student_token).collection('progress').document(req.quiz_id).set({
-        'progress_data': req.progress_data,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    })
-    return {"status": "success"}
-
-@app.get("/api/student/get_progress/{quiz_id}", summary="Lấy tiến trình làm bài từ Cloud")
-async def get_student_progress(quiz_id: str, student_token: str):
-    if db is None: return {"status": "error"}
-    prog_doc = db.collection('users').document(student_token).collection('progress').document(quiz_id).get()
-    if prog_doc.exists:
-        return {"status": "success", "data": prog_doc.to_dict().get('progress_data')}
-    return {"status": "success", "data": None}
-
-@app.post("/api/monitor/ping", summary="Nhận tín hiệu Ping từ thiết bị học sinh")
-async def ping_session(req: PingSessionRequest):
-    if db is None: return {"status": "error"}
-    db.collection('quizzes').document(req.quiz_id).collection('active_sessions').document(req.session_id).set({
-        'student_name': req.student_name,
-        'answers_count': req.answers_count,
-        'time_remaining': req.time_remaining,
-        'completed': req.completed,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    })
-    return {"status": "success"}
-
-@app.get("/api/teacher/monitor/{quiz_id}", summary="Lấy danh sách trạng thái làm bài trực tiếp")
-async def get_monitor_data(quiz_id: str, teacher_token: str):
-    if db is None: raise HTTPException(status_code=500, detail="Lỗi DB")
-    doc_ref = db.collection('quizzes').document(quiz_id).get()
-    if not doc_ref.exists or doc_ref.to_dict().get('creator_id') != teacher_token:
-        raise HTTPException(status_code=403, detail="Không có quyền giám sát đề này")
-    
-    sessions = db.collection('quizzes').document(quiz_id).collection('active_sessions').get()
-    res = []
-    now = datetime.datetime.now(datetime.timezone.utc)
-    for s in sessions:
-        d = s.to_dict()
-        updated_at = d.get('updated_at')
-        is_online = False
-        if updated_at and (now - updated_at).total_seconds() < 40:
-            is_online = True
-        res.append({
-            'session_id': s.id,
-            'student_name': d.get('student_name', 'Ẩn danh'),
-            'answers_count': d.get('answers_count', 0),
-            'time_remaining': d.get('time_remaining', 0),
-            'completed': d.get('completed', False),
-            'is_online': is_online
-        })
-    return {"status": "success", "data": res}
-
-@app.post("/api/submit_score", summary="Lưu điểm và thời gian của học sinh")
-async def submit_score(request: SubmitScoreRequest):
-    if db is None:
-        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-    
-    doc_ref = db.collection('quizzes').document(request.quiz_id).collection('submissions').document()
-    doc_ref.set({
-        'student_name': request.student_name,
-        'score': request.score,
-        'total_questions': request.total_questions,
-        'time_elapsed': request.time_elapsed,
-        'timestamp': firestore.SERVER_TIMESTAMP
-    })
-    return {"status": "success"}
-
-@app.get("/api/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top thành tích")
-async def get_leaderboard(quiz_id: str):
-    if db is None: return {"status": "error"}
-    subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
-    docs = subs_ref.get()
-    results = []
-    for doc in docs:
-        data = doc.to_dict()
-        results.append({
-            'student_name': data.get('student_name', 'Ẩn danh'),
-            'score': data.get('score', 0),
-            'time_elapsed': data.get('time_elapsed', 999999)
-        })
-    # Sắp xếp theo ưu tiên: Điểm cao trước, thời gian ngắn (nhanh hơn) trước
-    results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-    return {"status": "success", "data": results[:50]} # Trả về top 50 người cao nhất
 
 def process_document_background(task_id: str, temp_file_path: str, ext: str, use_ai: bool, api_keys: list, filename: str):
     import asyncio
@@ -1660,6 +1097,13 @@ def get_task_status(task_id: str):
         return active_tasks.pop(task_id)
         
     return task_info
+
+# ==========================================
+# GẮN GIAO DIỆN WEB (STATIC FILES CHO FRONTEND)
+# ==========================================
+templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+if os.path.exists(templates_dir):
+    app.mount("/", StaticFiles(directory=templates_dir, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

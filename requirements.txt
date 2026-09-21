@@ -2,5 +2,9 @@ fastapi
 uvicorn
 python-multipart
 python-docx
-google-generativeai
+google-genai
 firebase-admin
+pyjwt
+pymupdf
+json-repair
+pillow

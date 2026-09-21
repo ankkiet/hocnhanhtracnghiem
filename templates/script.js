@@ -508,11 +508,12 @@ async function loadTeacherQuizzes() {
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--success); color: var(--success);" onclick="handleQuizAction('${q.id}', 'restore')">♻️ Khôi phục</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'permanent')">❌ Xóa vĩnh viễn</button>
                     `;
-                } else {
                     actionButtons = `
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${q.id}'); alert('Đã copy mã đề!');">Copy Mã</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #8b5cf6; color: #8b5cf6;" onclick="startMonitoring('${q.id}', '${q.title}')">📊 Giám sát</button>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #0284c7; color: #0284c7;" onclick="exportQuizDocx('${q.id}')">📥 Tải Word</button>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #059669; color: #059669;" onclick="showQuizAnalytics('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')">📈 Phổ điểm</button>
+                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #8b5cf6; color: #8b5cf6;" onclick="startMonitoring('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')">📊 Giám sát</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--primary); color: var(--primary);" onclick="editQuiz('${q.id}')">✏️ Sửa đề</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'trash')">🗑️ Xóa</button>
                         <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
@@ -540,6 +541,133 @@ async function loadTeacherQuizzes() {
             document.getElementById('teacherQuizList').innerHTML = html;
         }
     } catch(e) { console.error("Lỗi tải danh sách đề", e); }
+}
+
+function exportQuizDocx(quizId) {
+    window.open(`${API_BASE_URL}/api/teacher/export_docx/${quizId}?teacher_token=${authToken}`, '_blank');
+}
+
+async function showQuizAnalytics(quizId, quizTitle) {
+    try {
+        const modal = document.getElementById('analyticsModal');
+        const content = document.getElementById('analyticsContent');
+        if (!modal || !content) return;
+        
+        modal.style.display = 'flex';
+        content.innerHTML = '<div style="text-align:center; padding: 40px;"><div class="spinner" style="margin: 0 auto 15px;"></div> Đang phân tích dữ liệu bài thi...</div>';
+        
+        const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_analytics/${quizId}?teacher_token=${authToken}`);
+        const data = await res.json();
+        
+        if (!res.ok || data.status !== 'success') {
+            content.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:15px;">
+                    <h3 style="margin:0; color:var(--danger);">⚠️ Lỗi</h3>
+                    <button class="btn-outline" style="padding:4px 10px; margin:0;" onclick="closeAnalyticsModal()">Đóng ✕</button>
+                </div>
+                <p style="color:var(--danger);">${data.detail || 'Không thể tải dữ liệu thống kê.'}</p>
+            `;
+            return;
+        }
+        
+        if (data.total_submissions === 0) {
+            content.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:15px;">
+                    <h3 style="margin:0; color:var(--primary);">📊 Báo cáo Phổ điểm</h3>
+                    <button class="btn-outline" style="padding:4px 10px; margin:0;" onclick="closeAnalyticsModal()">Đóng ✕</button>
+                </div>
+                <div style="text-align:center; padding:30px; color:var(--text-muted);">
+                    <h4>${quizTitle}</h4>
+                    <p>Chưa có học sinh nào nộp bài kiểm tra này để thống kê.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let bandsHtml = "";
+        const bands = data.score_bands;
+        const maxBandVal = Math.max(...Object.values(bands), 1);
+        
+        for (const [band, count] of Object.entries(bands)) {
+            const pct = Math.round((count / data.total_submissions) * 100);
+            const barWidth = Math.round((count / maxBandVal) * 100);
+            bandsHtml += `
+                <div style="margin-bottom: 10px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:3px;">
+                        <span>Điểm <b>${band}</b></span>
+                        <span><b>${count}</b> học sinh (${pct}%)</span>
+                    </div>
+                    <div style="background:#e2e8f0; border-radius:4px; height:12px; overflow:hidden;">
+                        <div style="background:var(--primary); height:100%; width:${barWidth}%; border-radius:4px; transition:width 0.5s;"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        let hardestHtml = "";
+        if (data.hardest_questions && data.hardest_questions.length > 0) {
+            hardestHtml = `
+                <div style="margin-top:20px;">
+                    <h4 style="color:#b91c1c; margin-bottom:10px;">⚠️ Các câu hỏi học sinh hay làm sai nhất:</h4>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+            `;
+            data.hardest_questions.forEach(hq => {
+                hardestHtml += `
+                    <div style="background:#fef2f2; border-left:4px solid #ef4444; padding:10px 12px; border-radius:6px; font-size:0.9rem;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <b>Câu ${hq.question_index}</b>
+                            <span style="color:#dc2626; font-weight:bold;">Tỷ lệ làm đúng: ${hq.accuracy_rate}% (${hq.correct_count}/${data.total_submissions})</span>
+                        </div>
+                        <div style="color:#334155;">${hq.question_preview}</div>
+                    </div>
+                `;
+            });
+            hardestHtml += `</div></div>`;
+        }
+        
+        content.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:15px;">
+                <div>
+                    <h3 style="margin:0; color:var(--primary);">📊 Phổ Điểm & Báo Cáo Phân Tích</h3>
+                    <div style="color:var(--text-muted); font-size:0.9rem;">${quizTitle}</div>
+                </div>
+                <button class="btn-outline" style="padding:4px 10px; margin:0;" onclick="closeAnalyticsModal()">Đóng ✕</button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:20px;">
+                <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid var(--border);">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Tổng bài nộp</div>
+                    <div style="font-size:1.5rem; font-weight:bold; color:var(--primary);">${data.total_submissions}</div>
+                </div>
+                <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid var(--border);">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Điểm TB</div>
+                    <div style="font-size:1.5rem; font-weight:bold; color:#0284c7;">${data.average_score}</div>
+                </div>
+                <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid var(--border);">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Điểm cao nhất</div>
+                    <div style="font-size:1.5rem; font-weight:bold; color:#059669;">${data.max_score}</div>
+                </div>
+                <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid var(--border);">
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Điểm thấp nhất</div>
+                    <div style="font-size:1.5rem; font-weight:bold; color:#e11d48;">${data.min_score}</div>
+                </div>
+            </div>
+            
+            <div style="background:#ffffff; border:1px solid var(--border); padding:15px; border-radius:8px; margin-bottom:15px;">
+                <h4 style="margin-top:0; margin-bottom:12px; color:var(--text);">📈 Phân bố điểm số (Thang 10):</h4>
+                ${bandsHtml}
+            </div>
+            
+            ${hardestHtml}
+        `;
+    } catch(err) {
+        console.error("Lỗi showQuizAnalytics", err);
+    }
+}
+
+function closeAnalyticsModal() {
+    const modal = document.getElementById('analyticsModal');
+    if (modal) modal.style.display = 'none';
 }
 
 async function handleQuizAction(quizId, action) {
@@ -1849,7 +1977,7 @@ async function fetchLeaderboard(quizId) {
     } catch(e) { console.log(e); }
 }
 
-function submitExam(isReview = false) {
+async function submitExam(isReview = false) {
     clearInterval(timerInterval);
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.style.display = 'none';
@@ -1858,6 +1986,8 @@ function submitExam(isReview = false) {
     let totalTimeElapsed = isReview ? (quizProgress.timeElapsed || 0) : ((quizProgress.timeElapsed || 0) + sessionTime);
     let score = 0;
     
+    // Thu thập câu trả lời của học sinh
+    let userAnswers = {};
     currentData.forEach((q, qIndex) => {
         let userAnswer = null;
         if (isReview && quizProgress && quizProgress.answers) {
@@ -1866,36 +1996,113 @@ function submitExam(isReview = false) {
             const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
             userAnswer = selected ? selected.value : null;
         }
-        
-        // Tự động check vào đáp án trên giao diện nếu đang xem lại (Review)
-        if (isReview && userAnswer) {
-            const oIndex = q.options.indexOf(userAnswer);
-            if(oIndex !== -1) {
-                const r = document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`);
-                if(r) r.checked = true;
-                const lbl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
-                if(lbl) lbl.classList.add('selected');
-            }
-        }
-        
-        q.options.forEach((opt, oIndex) => {
-            document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.remove('correct', 'incorrect');
-            document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`).disabled = true;
-        });
-        
-        q.options.forEach((opt, oIndex) => {
-            if (opt === q.correct_answer) {
-                document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.add('correct');
-            } else if (opt === userAnswer && userAnswer !== q.correct_answer) {
-                document.getElementById(`exam_opt_${qIndex}_${oIndex}`).classList.add('incorrect');
-            }
-        });
-        
-        if (userAnswer === q.correct_answer) score++;
+        if (userAnswer) userAnswers[qIndex] = userAnswer;
     });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    let backendResults = null;
+    let verifiedScore = null;
+
+    // CHẤM ĐIỂM PHÍA SERVER (BẢO MẬT & CHỐNG HACK ĐIỂM F12)
+    if (!isReview && quizId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/student/submit_exam`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    quiz_id: quizId,
+                    student_name: studentName || 'Học sinh',
+                    student_token: authToken || '',
+                    answers: userAnswers,
+                    time_elapsed: totalTimeElapsed
+                })
+            });
+            const resData = await res.json();
+            if (res.ok && resData.status === 'success') {
+                verifiedScore = resData.score;
+                backendResults = resData.results;
+            }
+        } catch(err) {
+            console.warn("Lỗi kết nối server chấm điểm, sử dụng cơ chế nội bộ:", err);
+        }
+    }
     
-    document.getElementById('submitBtn').style.display = 'none'; // Ẩn nút nộp bài
-    document.body.classList.add('quiz-completed'); // Cho phép cuộn trang thoải mái
+    // Áp dụng kết quả xác thực từ Backend
+    if (backendResults && Array.isArray(backendResults)) {
+        score = verifiedScore;
+        backendResults.forEach(item => {
+            const qIndex = item.question_index;
+            const q = currentData[qIndex];
+            if (!q) return;
+            
+            q.correct_answer = item.correct_answer;
+            q.explain = item.explain;
+            const userAnswer = item.user_answer;
+            
+            q.options.forEach((opt, oIndex) => {
+                const optEl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
+                if (optEl) {
+                    optEl.classList.remove('correct', 'incorrect');
+                    const inputEl = optEl.querySelector('input');
+                    if (inputEl) inputEl.disabled = true;
+                    
+                    if (opt === item.correct_answer) {
+                        optEl.classList.add('correct');
+                    } else if (opt === userAnswer && !item.is_correct) {
+                        optEl.classList.add('incorrect');
+                    }
+                }
+            });
+            
+            // Hiển thị lời giải thích chi tiết dưới câu hỏi nếu có
+            if (item.explain) {
+                const qCard = document.getElementById(`exam_q_${qIndex}`) || (document.getElementById(`exam_opt_${qIndex}_0`) ? document.getElementById(`exam_opt_${qIndex}_0`).parentElement : null);
+                if (qCard && !qCard.querySelector('.exam-explain-box')) {
+                    const expDiv = document.createElement('div');
+                    expDiv.className = 'exam-explain-box';
+                    expDiv.style.cssText = 'margin-top: 12px; padding: 10px 14px; background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 6px; font-size: 0.95rem; color: #166534;';
+                    expDiv.innerHTML = `<b>💡 Hướng dẫn giải:</b> ${item.explain}`;
+                    qCard.appendChild(expDiv);
+                }
+            }
+        });
+    } else {
+        // Fallback chế độ xem lại (Review) hoặc Offline
+        currentData.forEach((q, qIndex) => {
+            let userAnswer = userAnswers[qIndex];
+            
+            if (isReview && userAnswer) {
+                const oIndex = q.options.indexOf(userAnswer);
+                if(oIndex !== -1) {
+                    const r = document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`);
+                    if(r) r.checked = true;
+                    const lbl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
+                    if(lbl) lbl.classList.add('selected');
+                }
+            }
+            
+            q.options.forEach((opt, oIndex) => {
+                const optEl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
+                if (optEl) {
+                    optEl.classList.remove('correct', 'incorrect');
+                    const inputEl = optEl.querySelector('input');
+                    if (inputEl) inputEl.disabled = true;
+                    
+                    if (opt === q.correct_answer) {
+                        optEl.classList.add('correct');
+                    } else if (opt === userAnswer && userAnswer !== q.correct_answer) {
+                        optEl.classList.add('incorrect');
+                    }
+                }
+            });
+            
+            if (userAnswer === q.correct_answer) score++;
+        });
+    }
+    
+    document.getElementById('submitBtn').style.display = 'none';
+    document.body.classList.add('quiz-completed');
     
     const scoreBoard = document.getElementById('score-board');
     scoreBoard.style.display = 'block';
@@ -1908,10 +2115,7 @@ function submitExam(isReview = false) {
     
     if (!isReview && isStudentMode && studentName) { 
         if (!quizProgress.answers) quizProgress.answers = {};
-        currentData.forEach((q, qIndex) => {
-            const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
-            if (selected) quizProgress.answers[qIndex] = selected.value;
-        });
+        Object.assign(quizProgress.answers, userAnswers);
         quizProgress.completed = true;
         quizProgress.score = score;
         quizProgress.timeElapsed = totalTimeElapsed;
@@ -1926,14 +2130,14 @@ function submitExam(isReview = false) {
         });
         
         saveProgressToLocal();
-        
-        submitScoreToServer(score, currentData.length, totalTimeElapsed); 
-        sendPing(); // Gửi ping xác nhận báo Đã hoàn thành
+        sendPing();
+        if (quizId) fetchLeaderboard(quizId);
     }
     
     const quizContainer = document.getElementById('quiz-container');
     if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    renderMath();
 }
 
 function exitMinimalMode() {
