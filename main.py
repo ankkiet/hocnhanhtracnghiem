@@ -41,7 +41,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from docx import Document
-from docx.oxml.ns import qn
+from docx.oxml.ns import qn, nsmap
+if 'o' not in nsmap:
+    nsmap['o'] = 'urn:schemas-microsoft-com:office:office'
+if 'v' not in nsmap:
+    nsmap['v'] = 'urn:schemas-microsoft-com:vml'
 from docx.text.paragraph import Paragraph
 from services.firebase_service import init_firebase, get_db
 from services.ai_service import (
@@ -222,38 +226,53 @@ def extract_answer_key(doc: Document, full_text: str) -> Dict[int, str]:
 def find_image_part_and_id(img_node, doc):
     """Tìm mã quan hệ rId và image_part của ảnh trong tài liệu Word một cách toàn diện nhất"""
     rId = None
-    for attr in [
+    attrs_to_check = [
         '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed',
         '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id',
         '{http://schemas.microsoft.com/office/2006/relationships}id',
         '{urn:schemas-microsoft-com:office:office}relid',
-        qn('r:embed'),
-        qn('r:id'),
-        qn('o:relid'),
+        '{http://schemas.openxmlformats.org/drawingml/2006/main}embed',
+        '{http://schemas.openxmlformats.org/drawingml/2006/main}link',
         'id'
-    ]:
-        val = img_node.get(attr)
-        if val and isinstance(val, str) and (val.startswith('rId') or 'rId' in val):
-            rId = val
-            break
+    ]
+    try:
+        attrs_to_check.append(qn('r:embed'))
+        attrs_to_check.append(qn('r:id'))
+    except Exception:
+        pass
+
+    for attr in attrs_to_check:
+        try:
+            val = img_node.get(attr)
+            if val and isinstance(val, str) and (val.startswith('rId') or 'rId' in val):
+                rId = val
+                break
+        except Exception:
+            continue
             
     if not rId:
-        for k, v in img_node.attrib.items():
-            if isinstance(v, str) and ('rId' in v or 'image' in v.lower()):
-                rId = v
-                break
+        try:
+            for k, v in img_node.attrib.items():
+                if isinstance(v, str) and ('rId' in v or 'image' in v.lower()):
+                    rId = v
+                    break
+        except Exception:
+            pass
 
     if not rId:
         return None, None
 
     image_part = None
-    if hasattr(doc, 'part') and doc.part is not None:
-        if hasattr(doc.part, 'related_parts') and rId in doc.part.related_parts:
-            image_part = doc.part.related_parts[rId]
-        elif hasattr(doc.part, 'rels') and rId in doc.part.rels:
-            rel = doc.part.rels[rId]
-            if hasattr(rel, 'target_part'):
-                image_part = rel.target_part
+    try:
+        if hasattr(doc, 'part') and doc.part is not None:
+            if hasattr(doc.part, 'related_parts') and rId in doc.part.related_parts:
+                image_part = doc.part.related_parts[rId]
+            elif hasattr(doc.part, 'rels') and rId in doc.part.rels:
+                rel = doc.part.rels[rId]
+                if hasattr(rel, 'target_part'):
+                    image_part = rel.target_part
+    except Exception:
+        pass
 
     return rId, image_part
 
@@ -875,21 +894,24 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                         pass
                         
                 for img_node in img_nodes:
-                    rId, image_part = find_image_part_and_id(img_node, doc)
-                    if rId and image_part is not None:
-                        mime_type = image_part.content_type
-                        img_counter += 1
-                        placeholder = f"[IMG_{img_counter}]"
-                        
-                        processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
-                        img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
-                        if img_url:
-                            image_mapping[placeholder] = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
-                        else:
-                            b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
-                            image_mapping[placeholder] = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
-                        
-                        para_text += f" {placeholder} "
+                    try:
+                        rId, image_part = find_image_part_and_id(img_node, doc)
+                        if rId and image_part is not None:
+                            mime_type = image_part.content_type
+                            img_counter += 1
+                            placeholder = f"[IMG_{img_counter}]"
+                            
+                            processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                            img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                            if img_url:
+                                image_mapping[placeholder] = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
+                            else:
+                                b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
+                                image_mapping[placeholder] = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                            
+                            para_text += f" {placeholder} "
+                    except Exception as img_err:
+                        print(f"[CẢNH BÁO] parse_docx_to_marked_text lỗi ảnh: {img_err}")
             elif node.tag.endswith('}t'):
                 run_text = node.text
                 if not run_text: continue

@@ -277,8 +277,24 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(len(task_data["data"]), 2)
 
 
+    def test_find_image_part_and_id_keyerror_o(self):
+        """Test that find_image_part_and_id safely handles drawing nodes without KeyError 'o'."""
+        from main import find_image_part_and_id
+        from docx.oxml import parse_xml
+
+        mock_xml = """<v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+            <v:imagedata o:relid="rId99" r:id="rId99"/>
+        </v:shape>"""
+        node = parse_xml(mock_xml)
+        imagedata = node[0]
+        doc = Document()
+        rId, image_part = find_image_part_and_id(imagedata, doc)
+        self.assertEqual(rId, "rId99")
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
