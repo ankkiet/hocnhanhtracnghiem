@@ -19,3 +19,8 @@ __pycache__/
 
 # Firebase configs
 firebase-adminsdk.json
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+!uploads/images/.gitkeep

@@ -169,8 +169,8 @@ async function initApp() {
             const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
             const result = await response.json();
             if (result.status === 'success') {
-                currentData = result.data;
-                serverData = JSON.parse(JSON.stringify(result.data));
+                currentData = normalizeImageUrls(result.data);
+                serverData = JSON.parse(JSON.stringify(currentData));
                 const serverUpdatedAt = result.updated_at || 0;
                 
                 // --- Thiết lập Giao diện Dành riêng cho Học sinh ---
@@ -320,7 +320,7 @@ async function startStudentQuiz() {
                 const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
                 const result = await response.json();
                 if (result.status === 'success') {
-                    serverData = JSON.parse(JSON.stringify(result.data));
+                    serverData = normalizeImageUrls(result.data);
                     isShuffleEnabled = result.is_shuffle;
                     quizProgress.quizUpdatedAt = result.updated_at || 0;
                     currentTimeLimit = result.time_limit || 0;
@@ -385,7 +385,7 @@ async function fetchLatestDataAndRestart(mode) {
             const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
             const result = await response.json();
             if (result.status === 'success') {
-                serverData = JSON.parse(JSON.stringify(result.data));
+                serverData = normalizeImageUrls(result.data);
                 isShuffleEnabled = result.is_shuffle;
                 quizProgress.quizUpdatedAt = result.updated_at || 0;
                 currentTimeLimit = result.time_limit || 0;
@@ -704,8 +704,8 @@ async function editQuiz(quizId) {
         const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
         const result = await response.json();
         if (result.status === 'success') {
-            currentData = result.data;
-            serverData = JSON.parse(JSON.stringify(result.data));
+            currentData = normalizeImageUrls(result.data);
+            serverData = JSON.parse(JSON.stringify(currentData));
             editingQuizId = quizId;
             
             // Lưu tạm cấu hình cũ để lát mở Modal sẽ tự động điền
@@ -1041,7 +1041,7 @@ async function uploadFile() {
 }
 
 function applyUploadData(dataArray) {
-    currentData = dataArray || [];
+    currentData = normalizeImageUrls(dataArray || []);
     serverData = JSON.parse(JSON.stringify(currentData));
     editingQuizId = null;
     window.tempQuizSettings = null; // Xóa setting cũ
@@ -1103,7 +1103,7 @@ async function generateQuizWithAI() {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         if (response.ok && result.status === "success") {
-            currentData = result.data || [];
+            currentData = normalizeImageUrls(result.data || []);
             serverData = JSON.parse(JSON.stringify(currentData));
             editingQuizId = null; window.tempQuizSettings = null;
             
@@ -1212,11 +1212,23 @@ async function confirmPublish() {
     btn.disabled = false;
 }
 
+function normalizeImageUrls(data) {
+    if (!data) return data;
+    try {
+        let jsonStr = JSON.stringify(data);
+        jsonStr = jsonStr.replace(/https:\/\/pub-4ca74ee0e22a46a39755d1a829865251\.r2\.dev\//g, '/api/images/');
+        return JSON.parse(jsonStr);
+    } catch(e) {
+        return data;
+    }
+}
+
 async function checkQuizWithAI() {
     const btn = document.getElementById('btnAICheck');
     const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
-    btn.innerText = "⏳ Đang phân tích, vui lòng chờ khoảng 10-20 giây...";
+    btn.innerText = "⏳ Đang rà soát và thống kê toàn bộ đề thi (10-20s)...";
     btn.disabled = true;
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
             method: 'POST',
@@ -1226,32 +1238,179 @@ async function checkQuizWithAI() {
         const data = await res.json();
         if (res.ok && data.status === 'success') {
             document.getElementById('aiFeedbackBox').style.display = 'block';
-            let htmlFeedback = '';
-            
+            const statsContainer = document.getElementById('aiFeedbackStats');
+            const contentContainer = document.getElementById('aiFeedbackContent');
+            const btnApplyAll = document.getElementById('btnApplyAllAI');
+
+            window.activeAIFeedbacks = {};
+
             if (Array.isArray(data.feedback) && data.feedback.length > 0) {
-                window.activeAIFeedbacks = {}; // Reset lịch sử cũ
                 data.feedback.forEach(item => {
                     window.activeAIFeedbacks[item.question_index] = item;
                 });
-                
-                htmlFeedback = `<p style="margin: 0; font-weight: 600; color: #9333ea;">✅ AI đã phát hiện ${data.feedback.length} vấn đề. Hãy cuộn xuống khung <b style="color:var(--primary);">XEM TRƯỚC</b> bên dưới để xem chi tiết và tự động sửa từng câu!</p>`;
-                
-                // Render lại khung Xem trước để chèn các ô Gợi ý sửa lỗi vào
+
+                const stats = data.stats || {
+                    total_questions: currentData.length,
+                    valid_questions: currentData.length - data.feedback.length,
+                    error_count: data.feedback.length,
+                    accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
+                    category_counts: { knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
+                };
+
+                // Render Bảng Thống kê 4 ô chỉ số
+                let statsHtml = `
+                    <div class="ai-stat-grid">
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Tổng số câu hỏi</span>
+                            <span class="ai-stat-val" style="color: #2563eb;">${stats.total_questions}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Câu đạt chuẩn 100%</span>
+                            <span class="ai-stat-val" style="color: #10b981;">${stats.valid_questions}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Phát hiện cần sửa</span>
+                            <span class="ai-stat-val" style="color: #ef4444;">${stats.error_count}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Tỷ lệ chính xác</span>
+                            <span class="ai-stat-val" style="color: #9333ea;">${stats.accuracy_rate}%</span>
+                        </div>
+                    </div>
+
+                    <div class="ai-cat-chips">
+                        <span class="ai-cat-chip ai-cat-knowledge">🧠 Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
+                        <span class="ai-cat-chip ai-cat-answer">🎯 Đáp án: <b>${stats.category_counts?.answer || 0}</b></span>
+                        <span class="ai-cat-chip ai-cat-grammar">✍️ Chính tả / Diễn đạt: <b>${stats.category_counts?.grammar_typo || 0}</b></span>
+                        <span class="ai-cat-chip ai-cat-format">📐 Định dạng: <b>${stats.category_counts?.format || 0}</b></span>
+                    </div>
+                `;
+                statsContainer.innerHTML = statsHtml;
+
+                // Render Danh sách chỉ dẫn tận nơi từng câu bị lỗi (Navigator)
+                let errorListHtml = `
+                    <h4 style="margin: 15px 0 10px 0; color: #475569; font-size: 0.95rem; text-transform: uppercase;">
+                        📍 Danh sách các câu phát hiện lỗi (Nhấn để cuộn tới thẻ câu):
+                    </h4>
+                    <div class="ai-error-list-container">
+                `;
+
+                data.feedback.forEach(item => {
+                    const qIdx = item.question_index;
+                    const catClass = item.category === 'knowledge' ? 'ai-cat-knowledge' :
+                                     (item.category === 'answer' ? 'ai-cat-answer' :
+                                     (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'));
+
+                    errorListHtml += `
+                        <div class="ai-error-item" id="ai_summary_item_${qIdx}">
+                            <div style="flex: 1; min-width: 260px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-weight: 800; color: #6b21a8; font-size: 1rem;">Câu ${qIdx + 1}</span>
+                                    <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${item.category_name || 'Lỗi'}</span>
+                                </div>
+                                <div style="font-size: 0.9rem; color: #475569;">${item.reason}</div>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; border-color: #9333ea; color: #9333ea;" onclick="jumpToQuestionCard(${qIdx})">🎯 Tới Câu ${qIdx + 1}</button>
+                                <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})">✨ Sửa câu này</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                errorListHtml += `</div>`;
+                contentContainer.innerHTML = errorListHtml;
+
+                if (btnApplyAll) btnApplyAll.style.display = 'inline-block';
+
+                // Render lại khung Xem trước để chèn các thẻ gợi ý chi tiết
                 renderPreviewAll();
             } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
-                htmlFeedback = '<p style="margin: 0;">✅ Tuyệt vời! AI không phát hiện thấy lỗi nào trong đề thi của bạn.</p>';
+                statsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 25px 10px;">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+                        <h3 style="margin: 0; color: #059669;">Tuyệt vời! Đề thi đạt chuẩn 100% không phát hiện lỗi!</h3>
+                        <p style="margin: 6px 0 0 0; color: #64748b;">Toàn bộ câu hỏi, đáp án và định dạng đều hoàn hảo và sẵn sàng xuất bản.</p>
+                    </div>
+                `;
+                contentContainer.innerHTML = '';
+                if (btnApplyAll) btnApplyAll.style.display = 'none';
             } else {
-                htmlFeedback = (typeof data.feedback === 'string') ? data.feedback.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') : 'AI trả về định dạng không hợp lệ.';
+                statsContainer.innerHTML = '';
+                contentContainer.innerHTML = (typeof data.feedback === 'string') ? data.feedback.replace(/\n/g, '<br>') : 'Phản hồi không hợp lệ.';
+                if (btnApplyAll) btnApplyAll.style.display = 'none';
             }
 
-            document.getElementById('aiFeedbackContent').innerHTML = htmlFeedback;
-            document.getElementById('aiFeedbackBox').scrollIntoView({behavior: 'smooth'});
-        } else { alert("Lỗi AI: " + data.detail); }
+            document.getElementById('aiFeedbackBox').scrollIntoView({behavior: 'smooth', block: 'start'});
+        } else {
+            alert("Lỗi AI: " + (data.detail || "Không thể phân tích đề thi"));
+        }
     } catch(e) {
-        alert("Lỗi kết nối tới máy chủ.");
+        alert("Lỗi kết nối tới máy chủ khi gọi AI.");
     }
     btn.innerText = "🤖 AI Kiểm tra lỗi & Phân tích Đề thi";
     btn.disabled = false;
+}
+
+function jumpToQuestionCard(qIndex) {
+    const targetCard = document.getElementById(`preview_q_${qIndex}`);
+    if (targetCard) {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetCard.classList.remove('ai-target-highlight');
+        void targetCard.offsetWidth; // Kích hoạt reflow
+        targetCard.classList.add('ai-target-highlight');
+        setTimeout(() => {
+            targetCard.classList.remove('ai-target-highlight');
+        }, 3600);
+    }
+    // Đồng bộ cuộn Editor
+    scrollToQuestionInEditor(qIndex);
+}
+
+function applyAllAISuggestions() {
+    if (!window.activeAIFeedbacks || Object.keys(window.activeAIFeedbacks).length === 0) {
+        alert("Không có đề xuất sửa đổi nào cần áp dụng.");
+        return;
+    }
+
+    const count = Object.keys(window.activeAIFeedbacks).length;
+    if (!confirm(`Bạn có chắc muốn tự động sửa toàn bộ ${count} câu lỗi theo đề xuất của AI?`)) {
+        return;
+    }
+
+    for (let qIndexStr in window.activeAIFeedbacks) {
+        const qIndex = parseInt(qIndexStr);
+        const aiData = window.activeAIFeedbacks[qIndex];
+        if (aiData && currentData[qIndex]) {
+            const corrected = aiData.corrected_data;
+            const origGroup = currentData[qIndex].group_title;
+            currentData[qIndex] = {
+                ...corrected,
+                group_title: corrected.group_title !== undefined ? corrected.group_title : origGroup
+            };
+        }
+    }
+
+    window.activeAIFeedbacks = {};
+
+    const codeEditor = document.getElementById('codeEditor');
+    if (codeEditor) {
+        codeEditor.value = dataToEditorText(currentData);
+        updateSyntaxHighlight();
+    }
+
+    renderPreviewAll();
+
+    const btnApplyAll = document.getElementById('btnApplyAllAI');
+    if (btnApplyAll) btnApplyAll.style.display = 'none';
+
+    document.getElementById('aiFeedbackStats').innerHTML = `
+        <div style="text-align: center; padding: 20px 10px;">
+            <div style="font-size: 2.5rem; margin-bottom: 8px;">✨</div>
+            <h3 style="margin: 0; color: #9333ea;">Đã tự động sửa thành công tất cả ${count} câu hỏi!</h3>
+            <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo Code đã được cập nhật hoàn tất.</p>
+        </div>
+    `;
+    document.getElementById('aiFeedbackContent').innerHTML = '';
 }
 
 function applyAISuggestion(question_index) {
@@ -1267,8 +1426,11 @@ function applyAISuggestion(question_index) {
             group_title: corrected_data.group_title !== undefined ? corrected_data.group_title : originalGroupTitle
         };
 
-        // Xóa thông báo AI của câu này để nó biến mất khỏi khung Xem trước
         delete window.activeAIFeedbacks[question_index];
+
+        // Xóa khỏi danh sách tóm tắt ở trên
+        const summaryItem = document.getElementById(`ai_summary_item_${question_index}`);
+        if (summaryItem) summaryItem.remove();
 
         const codeEditor = document.getElementById('codeEditor');
         if (codeEditor) {
@@ -1278,7 +1440,7 @@ function applyAISuggestion(question_index) {
 
         renderPreviewAll();
 
-        const previewQuestion = document.querySelector(`#preview-content .question-box:nth-child(${question_index + 1})`);
+        const previewQuestion = document.getElementById(`preview_q_${question_index}`);
         if (previewQuestion) {
             previewQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
             previewQuestion.style.transition = 'background-color 1s ease';
@@ -1288,7 +1450,6 @@ function applyAISuggestion(question_index) {
             }, 2000);
         }
         
-        // Ẩn bảng thông báo AI tổng nếu đã duyệt hết lỗi
         if (Object.keys(window.activeAIFeedbacks).length === 0) {
             document.getElementById('aiFeedbackBox').style.display = 'none';
         }
@@ -1299,6 +1460,9 @@ function applyAISuggestion(question_index) {
 
 function dismissAISuggestion(question_index) {
     delete window.activeAIFeedbacks[question_index];
+    const summaryItem = document.getElementById(`ai_summary_item_${question_index}`);
+    if (summaryItem) summaryItem.remove();
+    
     renderPreviewAll();
     if (Object.keys(window.activeAIFeedbacks).length === 0) {
         document.getElementById('aiFeedbackBox').style.display = 'none';
@@ -1721,8 +1885,8 @@ function dataToEditorText(data) {
     globalEditorImageStorage = {};
     globalEditorImageCounter = 0;
     
-    // Tìm toàn bộ thẻ <img> chứa mã Base64 cực dài và thay bằng [HÌNH_ẢNH_X]
-    const imgRegex = /<img[^>]+src=['"]data:[^'"]+['"][^>]*>/gi;
+    // Tìm toàn bộ thẻ <img> (Base64 hoặc URL /api/images/...) và thay bằng [HÌNH_ẢNH_X]
+    const imgRegex = /<img[^>]+src=['"][^'"]+['"][^>]*\/?>/gi;
     text = text.replace(imgRegex, (match) => {
         let existingKey = Object.keys(globalEditorImageStorage).find(key => globalEditorImageStorage[key] === match);
         if (existingKey) return existingKey;
@@ -1804,11 +1968,18 @@ function renderPreviewAll() {
     currentData.forEach((q, qIndex) => {
         const prevBox = document.createElement('div');
         prevBox.className = 'question-box';
+        prevBox.id = `preview_q_${qIndex}`;
         prevBox.style.marginBottom = '24px';
         prevBox.style.cursor = 'pointer';
         prevBox.title = 'Nhấn để nhảy tới mã Code của câu này';
         prevBox.onclick = () => scrollToQuestionInEditor(qIndex);
         
+        let hasError = window.activeAIFeedbacks && window.activeAIFeedbacks[qIndex];
+        if (hasError) {
+            prevBox.style.borderColor = '#c084fc';
+            prevBox.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.08)';
+        }
+
         let html = "";
         let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
         let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
@@ -1825,20 +1996,39 @@ function renderPreviewAll() {
         prevBox.innerHTML = html;
         
         // KIỂM TRA VÀ CHÈN UI GỢI Ý CỦA AI VÀO NGAY DƯỚI CÂU HỎI
-        if (window.activeAIFeedbacks && window.activeAIFeedbacks[qIndex]) {
+        if (hasError) {
             const aiData = window.activeAIFeedbacks[qIndex];
+            const catClass = aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
+                             (aiData.category === 'answer' ? 'ai-cat-answer' :
+                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'));
+
             const aiDiv = document.createElement('div');
-            aiDiv.style.cssText = 'margin-top: 15px; padding: 12px; background: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; cursor: default;';
+            aiDiv.style.cssText = 'margin-top: 15px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
             aiDiv.onclick = (e) => e.stopPropagation(); // Ngăn sự kiện cuộn editor
             
+            let corrected = aiData.corrected_data || {};
+            let correctedAnswerText = corrected.correct_answer || '';
+            let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${corrected.explain}</div>` : '';
+
             aiDiv.innerHTML = `
-                <p style="margin: 0 0 10px 0; font-size: 0.95rem; line-height: 1.5;">
-                    <span style="font-size: 1.2rem; vertical-align: middle;">🤖</span>
-                    <strong style="color: #9333ea;">AI Phát hiện lỗi:</strong>
-                    <span style="color: var(--danger);">${aiData.reason}</span>
-                </p>
-                <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea; border: none;" onclick="applyAISuggestion(${qIndex})">✨ Tự động sửa</button>
-                <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; margin-left: 8px; border-color: #d8b4fe; color: #9333ea;" onclick="dismissAISuggestion(${qIndex})">❌ Bỏ qua</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.2rem;">🤖</span>
+                        <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
+                        <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
+                    </div>
+                </div>
+                <div style="color: #dc2626; font-size: 0.92rem; font-weight: 600; margin-bottom: 8px;">
+                    ${aiData.reason}
+                </div>
+                ${correctedAnswerText ? `<div style="font-size: 0.88rem; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #bbf7d0; color: #166534; margin-bottom: 8px;">
+                    <b>✨ Đề xuất đáp án đúng:</b> ${escapeHtml(correctedAnswerText)}
+                </div>` : ''}
+                ${explainText}
+                <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem; background: #9333ea; border: none; border-radius: 6px;" onclick="applyAISuggestion(${qIndex})">✨ Tự động sửa câu này</button>
+                    <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; border-color: #d8b4fe; color: #9333ea; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">❌ Bỏ qua</button>
+                </div>
             `;
             prevBox.appendChild(aiDiv);
         }

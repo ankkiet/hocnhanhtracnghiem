@@ -129,6 +129,11 @@ def parse_omath(node):
             return f"\\xrightleftharpoons[{und_text}]{{{ovr_text}}}"
         else:
             return f"\\munderover{{{e_text}}}{{{und_text}}}{{{ovr_text}}}"
+    elif tag == 'eqArr':  # Hệ phương trình / phương trình nhiều dòng
+        e_nodes = node.xpath('./*[local-name()="e"]')
+        lines = [parse_omath(e) for e in e_nodes]
+        joined = " \\\\ ".join(lines)
+        return f"\\begin{{aligned}} {joined} \\end{{aligned}}"
     elif tag == 'm':  # Ma trận / Bảng
         mr_nodes = node.xpath('./*[local-name()="mr"]')
         rows = []

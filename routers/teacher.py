@@ -163,8 +163,11 @@ async def check_quiz_ai(req: CheckQuizRequest):
         
         system_instruction = (
             "Bạn là một chuyên gia giáo dục và biên tập viên kiểm định chất lượng đề thi trắc nghiệm. "
-            "Nhiệm vụ của bạn là rà soát tỉ mỉ đề thi, phát hiện lỗi sai kiến thức, sai đáp án, "
-            "lỗi ngữ pháp, logic hoặc trùng lặp, và đề xuất sửa lại. "
+            "Nhiệm vụ của bạn là rà soát tỉ mỉ đề thi, phát hiện mọi lỗi sai về: "
+            "1. 'knowledge': Sai kiến thức khoa học, nhầm lẫn khái niệm. "
+            "2. 'answer': Đáp án sai, không có đáp án đúng, hoặc có nhiều hơn 1 đáp án đúng. "
+            "3. 'grammar_typo': Lỗi chính tả, câu chữ lủng củng, diễn đạt khó hiểu. "
+            "4. 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn. "
             "Chỉ báo cáo các câu có lỗi. Trả về kết quả dưới dạng JSON array duy nhất."
         )
         
@@ -172,13 +175,15 @@ async def check_quiz_ai(req: CheckQuizRequest):
         Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây:
         {custom_instructions}
 
-        QUY TẮC ĐỊNH DẠNG JSON:
-        1. CHỈ phân tích những câu hỏi có lỗi. BỎ QUA HOÀN TOÀN những câu đúng.
-        2. Mỗi câu lỗi gồm:
+        QUY TẮC ĐỊNH DẠNG JSON BẮT BUỘC:
+        1. CHỈ phân tích những câu hỏi có lỗi hoặc cần cải thiện. BỎ QUA HOÀN TOÀN những câu đã đúng và chuẩn.
+        2. Mỗi câu lỗi là một đối tượng JSON gồm:
            * question_index: (Number) Chỉ số của câu hỏi trong mảng (bắt đầu từ 0).
-           * reason: (String) Giải thích ngắn gọn lỗi.
-           * corrected_data: (Object) Chứa dữ liệu đã sửa (question, options, correct_answer, group_title).
-        3. BẮT BUỘC chỉ trả về JSON array. Nếu không có lỗi nào, trả về: []
+           * category: (String) Chọn đúng 1 trong 4 loại: 'knowledge', 'answer', 'grammar_typo', 'format'.
+           * category_name: (String) Tên loại lỗi tiếng Việt (vd: 'Sai kiến thức', 'Sai đáp án', 'Lỗi chính tả/diễn đạt', 'Lỗi định dạng').
+           * reason: (String) Giải thích ngắn gọn, rõ ràng nguyên nhân lỗi và tại sao cần sửa.
+           * corrected_data: (Object) Chứa toàn bộ dữ liệu chuẩn sau khi đã sửa (gồm question, options, correct_answer, explain, group_title).
+        3. BẮT BUỘC chỉ trả về JSON array. Nếu toàn bộ đề thi không có lỗi nào, trả về: []
         
         Dữ liệu đề thi:
         {json.dumps(req.quiz_data, ensure_ascii=False)}
@@ -191,18 +196,76 @@ async def check_quiz_ai(req: CheckQuizRequest):
             thinking_budget=0
         )
         match = re.search(r'\[.*\]', response.text, re.DOTALL)
-        if not match:
-            if "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower():
-                return {"status": "success", "feedback": []}
-            return {"status": "success", "feedback": response.text}
+        raw_feedback = []
+        if match:
+            json_text = match.group(0)
+            json_text = fix_json_latex_escapes(json_text)
+            if json_repair is not None:
+                raw_feedback = json_repair.loads(json_text)
+            else:
+                raw_feedback = json.loads(json_text, strict=False)
+        elif "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower():
+            raw_feedback = []
 
-        json_text = match.group(0)
-        json_text = fix_json_latex_escapes(json_text)
-        if json_repair is not None:
-            feedback_data = json_repair.loads(json_text)
-        else:
-            feedback_data = json.loads(json_text, strict=False)
-        return {"status": "success", "feedback": feedback_data}
+        total_q = len(req.quiz_data)
+        feedback_list = []
+        from services.ai_service import normalize_question_data
+
+        if isinstance(raw_feedback, list):
+            for item in raw_feedback:
+                if isinstance(item, dict) and "question_index" in item:
+                    try:
+                        q_idx = int(item["question_index"])
+                        if 0 <= q_idx < total_q:
+                            item["question_index"] = q_idx
+                            item["original_data"] = req.quiz_data[q_idx]
+                            
+                            # Chuẩn hóa dữ liệu đã sửa
+                            if "corrected_data" in item and isinstance(item["corrected_data"], dict):
+                                item["corrected_data"] = normalize_question_data(item["corrected_data"])
+                                
+                            # Chuẩn hóa category
+                            cat = str(item.get("category", "knowledge")).lower()
+                            if cat not in ["knowledge", "answer", "grammar_typo", "format"]:
+                                cat = "knowledge"
+                            item["category"] = cat
+                            
+                            cat_names = {
+                                "knowledge": "Sai kiến thức",
+                                "answer": "Sai đáp án",
+                                "grammar_typo": "Chính tả & Diễn đạt",
+                                "format": "Lỗi định dạng"
+                            }
+                            item["category_name"] = cat_names.get(cat, "Cần cải thiện")
+                            feedback_list.append(item)
+                    except Exception:
+                        pass
+
+        # Tính toán thống kê chuyên sâu
+        error_count = len(feedback_list)
+        valid_count = max(0, total_q - error_count)
+        accuracy_rate = round((valid_count / total_q * 100) if total_q > 0 else 100, 1)
+
+        category_counts = {
+            "knowledge": sum(1 for f in feedback_list if f.get("category") == "knowledge"),
+            "answer": sum(1 for f in feedback_list if f.get("category") == "answer"),
+            "grammar_typo": sum(1 for f in feedback_list if f.get("category") == "grammar_typo"),
+            "format": sum(1 for f in feedback_list if f.get("category") == "format")
+        }
+
+        stats = {
+            "total_questions": total_q,
+            "valid_questions": valid_count,
+            "error_count": error_count,
+            "accuracy_rate": accuracy_rate,
+            "category_counts": category_counts
+        }
+
+        return {
+            "status": "success",
+            "stats": stats,
+            "feedback": feedback_list
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
 

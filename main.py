@@ -36,6 +36,7 @@ except ImportError:
     json_repair = None
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -50,7 +51,9 @@ from services.ai_service import (
     generate_mcq_from_pdf,
     normalize_question_data
 )
-from services.r2_service import upload_image_to_r2
+from services.r2_service import upload_image_to_r2, get_stored_image
+from core.image_converter import process_image_blob
+from core.mathml_parser import parse_omath, MATH_SYM_MAP
 from core.state import active_tasks
 
 # ==========================================
@@ -164,186 +167,95 @@ RE_GROUP_TITLE = re.compile(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE
 
 # Khởi tạo bộ nhớ tạm để lưu trạng thái các Tác vụ chạy ngầm (Background Tasks)
 active_tasks = {}
+def extract_answer_key(doc: Document, full_text: str) -> Dict[int, str]:
+    """
+    Tự động dò tìm và bóc tách Bảng đáp án ở cuối tài liệu Word (nếu có).
+    Hỗ trợ:
+    1. Bảng biểu 2 hàng: Hàng trên là số câu (1, 2, 3...), Hàng dưới là chữ cái A, B, C, D.
+    2. Khối văn bản sau tiêu đề BẢNG ĐÁP ÁN / ĐÁP ÁN / ANSWER KEY (vd: 1.A 2.B 3.C...).
+    """
+    answer_map = {}
+    
+    # 1. Quét các bảng trong tài liệu
+    if hasattr(doc, 'tables') and doc.tables:
+        for table in doc.tables:
+            if len(table.rows) >= 2:
+                for r_idx in range(len(table.rows) - 1):
+                    row_top = [c.text.strip() for c in table.rows[r_idx].cells]
+                    row_bot = [c.text.strip() for c in table.rows[r_idx + 1].cells]
+                    
+                    matches_in_table = 0
+                    temp_table_map = {}
+                    for c_top, c_bot in zip(row_top, row_bot):
+                        num_m = re.search(r'\b(\d+)\b', c_top)
+                        ans_m = re.search(r'\b([A-F])\b', c_bot, re.IGNORECASE)
+                        if num_m and ans_m:
+                            q_num = int(num_m.group(1))
+                            temp_table_map[q_num] = ans_m.group(1).upper()
+                            matches_in_table += 1
+                    
+                    if matches_in_table >= 1:
+                        answer_map.update(temp_table_map)
+                        
+    if answer_map:
+        return answer_map
 
-def parse_omath(node):
-    """Trình dịch thuật cục bộ Office MathML sang mã LaTeX chuẩn."""
-    if node is None: return ""
-    tag = node.tag.split('}')[-1] if '}' in node.tag else node.tag
-    
-    # Bộ từ điển chuyển đổi ký tự Unicode Toán/Hóa học sang LaTeX
-    MATH_SYM_MAP = {
-        'π': '\\pi ', 'α': '\\alpha ', 'β': '\\beta ', 'γ': '\\gamma ', 'Δ': '\\Delta ', 
-        'δ': '\\delta ', 'θ': '\\theta ', 'λ': '\\lambda ', 'μ': '\\mu ', 'ρ': '\\rho ',
-        'Σ': '\\Sigma ', 'Ω': '\\Omega ', 'ω': '\\omega ', '∞': '\\infty ', '→': '\\rightarrow ', 
-        '⟶': '\\longrightarrow ', '⇌': '\\rightleftharpoons ',
-        '⇒': '\\Rightarrow ', '⇔': '\\Leftrightarrow ', '≠': '\\neq ', '≈': '\\approx ',
-        '≤': '\\leq ', '≥': '\\geq ', '±': '\\pm ', '×': '\\times ', '÷': '\\div ',
-        '∫': '\\int ', '∑': '\\sum ', '°': '^\\circ ', '∈': '\\in ', '∉': '\\notin ',
-        '⊂': '\\subset ', '∅': '\\emptyset ', '∩': '\\cap ', '∪': '\\cup '
-    }
-    
-    if tag == 'f': # Phân số
-        num = node.xpath('./*[local-name()="num"]')
-        den = node.xpath('./*[local-name()="den"]')
-        return f"\\frac{{{parse_omath(num[0]) if num else ''}}}{{{parse_omath(den[0]) if den else ''}}}"
-    elif tag == 'sSup': # Mũ / Lũy thừa
-        e = node.xpath('./*[local-name()="e"]')
-        sup = node.xpath('./*[local-name()="sup"]')
-        return f"{{{parse_omath(e[0]) if e else ''}}}^{{{parse_omath(sup[0]) if sup else ''}}}"
-    elif tag == 'sSub': # Chỉ số dưới (Hóa học: H2O, CO2)
-        e = node.xpath('./*[local-name()="e"]')
-        sub = node.xpath('./*[local-name()="sub"]')
-        return f"{{{parse_omath(e[0]) if e else ''}}}_{{{parse_omath(sub[0]) if sub else ''}}}"
-    elif tag == 'sSubSup': # Tích hợp cả mũ và chỉ số dưới
-        e = node.xpath('./*[local-name()="e"]')
-        sub = node.xpath('./*[local-name()="sub"]')
-        sup = node.xpath('./*[local-name()="sup"]')
-        return f"{{{parse_omath(e[0]) if e else ''}}}_{{{parse_omath(sub[0]) if sub else ''}}}^{{{parse_omath(sup[0]) if sup else ''}}}"
-    elif tag == 'rad': # Căn bậc 2, Căn bậc n
-        deg = node.xpath('./*[local-name()="deg"]')
-        e = node.xpath('./*[local-name()="e"]')
-        if deg and deg[0].xpath('.//*[local-name()="t"]'):
-            return f"\\sqrt[{parse_omath(deg[0])}]{{{parse_omath(e[0]) if e else ''}}}"
-        return f"\\sqrt{{{parse_omath(e[0]) if e else ''}}}"
-    elif tag == 'nary': # Tích phân, Tổng Sigma, Tích Pi
-        naryPr = node.xpath('./*[local-name()="naryPr"]')
-        chr_val = "\\int "
-        if naryPr:
-            chr_el = naryPr[0].xpath('./*[local-name()="chr"]')
-            if chr_el:
-                c = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '∫')
-                if c == '∑': chr_val = "\\sum "
-                elif c == '∏': chr_val = "\\prod "
-        sub = node.xpath('./*[local-name()="sub"]')
-        sup = node.xpath('./*[local-name()="sup"]')
-        e = node.xpath('./*[local-name()="e"]')
-        sub_str = f"_{{{parse_omath(sub[0])}}}" if sub and sub[0].xpath('.//*[local-name()="t"]') else ""
-        sup_str = f"^{{{parse_omath(sup[0])}}}" if sup and sup[0].xpath('.//*[local-name()="t"]') else ""
-        return f"{chr_val}{sub_str}{sup_str} {{{parse_omath(e[0]) if e else ''}}}"
-    elif tag == 'limLow': # Giới hạn lim hoặc Mũi tên có chữ ở dưới
-        e = node.xpath('./*[local-name()="e"]')
-        lim = node.xpath('./*[local-name()="lim"]')
-        e_text = parse_omath(e[0]) if e else ""
-        lim_text = parse_omath(lim[0]) if lim else ""
-        
-        if 'rightarrow' in e_text or '→' in e_text:
-            return f"\\xrightarrow[{lim_text}]{{}}"
-        elif 'leftarrow' in e_text or '←' in e_text:
-            return f"\\xleftarrow[{lim_text}]{{}}"
-        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
-            return f"\\xrightleftharpoons[{lim_text}]{{}}"
-        elif e_text.strip() == 'lim':
-            return f"\\lim_{{{lim_text}}}"
-        else:
-            return f"\\underset{{{lim_text}}}{{{e_text}}}"
-    elif tag == 'limUpp': # Mũi tên có chữ ở trên
-        e = node.xpath('./*[local-name()="e"]')
-        lim = node.xpath('./*[local-name()="lim"]')
-        e_text = parse_omath(e[0]) if e else ""
-        lim_text = parse_omath(lim[0]) if lim else ""
-        
-        if 'rightarrow' in e_text or '→' in e_text:
-            return f"\\xrightarrow{{{lim_text}}}"
-        elif 'leftarrow' in e_text or '←' in e_text:
-            return f"\\xleftarrow{{{lim_text}}}"
-        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
-            return f"\\xrightleftharpoons{{{lim_text}}}"
-        else:
-            return f"\\overset{{{lim_text}}}{{{e_text}}}"
-    elif tag == 'groupChr': # Ký tự nhóm (Word hay dùng cho mũi tên phản ứng Hóa học)
-        groupChrPr = node.xpath('./*[local-name()="groupChrPr"]')
-        chr_val = ""
-        pos = "bot"
-        if groupChrPr:
-            chr_el = groupChrPr[0].xpath('./*[local-name()="chr"]')
-            if chr_el:
-                chr_val = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '')
-            pos_el = groupChrPr[0].xpath('./*[local-name()="pos"]')
-            if pos_el:
-                pos = pos_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', 'bot')
-                
-        e = node.xpath('./*[local-name()="e"]')
-        e_text = parse_omath(e[0]) if e else ""
-        
-        if chr_val in ['→', '⟶', '\\rightarrow']:
-            return f"\\xrightarrow{{{e_text}}}" if pos == 'bot' else f"\\xrightarrow[{e_text}]{{}}"
-        elif chr_val in ['←', '⟵', '\\leftarrow']:
-            return f"\\xleftarrow{{{e_text}}}" if pos == 'bot' else f"\\xleftarrow[{e_text}]{{}}"
-        elif chr_val in ['⇌', '\\rightleftharpoons']:
-            return f"\\xrightleftharpoons{{{e_text}}}" if pos == 'bot' else f"\\xrightleftharpoons[{e_text}]{{}}"
-        elif chr_val == '︷':
-            return f"\\overbrace{{{e_text}}}"
-        elif chr_val == '︸':
-            return f"\\underbrace{{{e_text}}}"
-        else:
-            return f"\\underset{{{chr_val}}}{{{e_text}}}" if pos == 'bot' else f"\\overset{{{chr_val}}}{{{e_text}}}"
-    elif tag == 'undOvr': # Mũi tên có chữ cả trên lẫn dưới
-        e = node.xpath('./*[local-name()="e"]')
-        und = node.xpath('./*[local-name()="und"]')
-        ovr = node.xpath('./*[local-name()="ovr"]')
-        e_text = parse_omath(e[0]) if e else ""
-        und_text = parse_omath(und[0]) if und else ""
-        ovr_text = parse_omath(ovr[0]) if ovr else ""
-        
-        if 'rightarrow' in e_text or '→' in e_text:
-            return f"\\xrightarrow[{und_text}]{{{ovr_text}}}"
-        elif 'leftarrow' in e_text or '←' in e_text:
-            return f"\\xleftarrow[{und_text}]{{{ovr_text}}}"
-        elif 'rightleftharpoons' in e_text or '⇌' in e_text:
-            return f"\\xrightleftharpoons[{und_text}]{{{ovr_text}}}"
-        else:
-            return f"\\munderover{{{e_text}}}{{{und_text}}}{{{ovr_text}}}"
-    elif tag == 'm': # Ma trận / Cấu trúc bảng
-        mr_nodes = node.xpath('./*[local-name()="mr"]')
-        rows = []
-        for mr in mr_nodes:
-            e_nodes = mr.xpath('./*[local-name()="e"]')
-            cols = [parse_omath(e_node) for e_node in e_nodes]
-            rows.append(" & ".join(cols))
-        joined_rows = " \\\\ ".join(rows)
-        return f"\\begin{{matrix}} {joined_rows} \\end{{matrix}}"
-    elif tag == 'd': # Dấu ngoặc (Trị tuyệt đối, ngoặc tròn, hệ phương trình)
-        dPr = node.xpath('./*[local-name()="dPr"]')
-        begChr, endChr = "(", ")"
-        if dPr:
-            beg_el = dPr[0].xpath('./*[local-name()="begChr"]')
-            end_el = dPr[0].xpath('./*[local-name()="endChr"]')
-            if beg_el: begChr = beg_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '(')
-            if end_el: endChr = end_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', ')')
-        
-        e = node.xpath('./*[local-name()="e"]')
-        inner = "".join(parse_omath(c) for c in e)
-        
-        # Xử lý đặc biệt: Hệ phương trình (ngoặc nhọn 1 bên)
-        if begChr == '{' and endChr == '':
-            if '\\begin{matrix}' in inner:
-                return inner.replace('\\begin{matrix}', '\\begin{cases}').replace('\\end{matrix}', '\\end{cases}')
-        
-        left_delim = "\\left\\{" if begChr == "{" else (f"\\left{begChr}" if begChr else "")
-        right_delim = "\\right\\}" if endChr == "}" else ("\\right." if endChr == "" else f"\\right{endChr}")
-        return f"{left_delim} {inner} {right_delim}"
-    elif tag == 'acc': # Vector, Mũ (Đạo hàm, Hình học)
-        accPr = node.xpath('./*[local-name()="accPr"]')
-        chr_val = ""
-        if accPr:
-            chr_el = accPr[0].xpath('./*[local-name()="chr"]')
-            if chr_el:
-                c = chr_el[0].get('{http://schemas.openxmlformats.org/officeDocument/2006/math}val', '')
-                if c in ['⃗', '→']: chr_val = "\\vec"
-                elif c == '̂': chr_val = "\\hat"
-                elif c == '̅': chr_val = "\\overline"
-        e = node.xpath('./*[local-name()="e"]')
-        return f"{chr_val}{{{parse_omath(e[0]) if e else ''}}}" if chr_val else (parse_omath(e[0]) if e else "")
-    elif tag == 't': # Text và Ký tự đặc biệt
-        text = node.text or ""
-        for k, v in MATH_SYM_MAP.items():
-            text = text.replace(k, v)
-        return text
-    
-    res = ""
-    for child in node:
-        res += parse_omath(child)
-    return res
+    # 2. Quét trong khối văn bản cuối tài liệu sau tiêu đề BẢNG ĐÁP ÁN
+    key_headers = ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ĐÁP ÁN", "DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM"]
+    ans_section = ""
+    for header in key_headers:
+        pos = full_text.upper().rfind(header)
+        if pos != -1 and (len(full_text) - pos) < 8000:
+            ans_section = full_text[pos:]
+            break
+            
+    if ans_section:
+        pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)\/]?\s*([A-F])\b', re.IGNORECASE)
+        for m in pattern.finditer(ans_section):
+            q_num = int(m.group(1))
+            ans_char = m.group(2).upper()
+            answer_map[q_num] = ans_char
+            
+    return answer_map
+
+
+def find_image_part_and_id(img_node, doc):
+    """Tìm mã quan hệ rId và image_part của ảnh trong tài liệu Word một cách toàn diện nhất"""
+    rId = None
+    for attr in [
+        '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed',
+        '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id',
+        '{http://schemas.microsoft.com/office/2006/relationships}id',
+        '{urn:schemas-microsoft-com:office:office}relid',
+        qn('r:embed'),
+        qn('r:id'),
+        qn('o:relid'),
+        'id'
+    ]:
+        val = img_node.get(attr)
+        if val and isinstance(val, str) and (val.startswith('rId') or 'rId' in val):
+            rId = val
+            break
+            
+    if not rId:
+        for k, v in img_node.attrib.items():
+            if isinstance(v, str) and ('rId' in v or 'image' in v.lower()):
+                rId = v
+                break
+
+    if not rId:
+        return None, None
+
+    image_part = None
+    if hasattr(doc, 'part') and doc.part is not None:
+        if hasattr(doc.part, 'related_parts') and rId in doc.part.related_parts:
+            image_part = doc.part.related_parts[rId]
+        elif hasattr(doc.part, 'rels') and rId in doc.part.rels:
+            rel = doc.part.rels[rId]
+            if hasattr(rel, 'target_part'):
+                image_part = rel.target_part
+
+    return rId, image_part
 
 def replace_placeholders(data, mapping):
     if isinstance(data, dict):
@@ -352,10 +264,19 @@ def replace_placeholders(data, mapping):
         return [replace_placeholders(v, mapping) for v in data]
     elif isinstance(data, str):
         for ph, img_tag in mapping.items():
-            ph_clean = ph.replace('[', '').replace(']', '').strip()
-            # Xử lý an toàn mọi trường hợp AI trả về sai [IMG], bị dính dấu \ hoặc viết thường
-            data = re.sub(r'\\?\[\s*' + re.escape(ph_clean) + r'\s*\\?\]', lambda m: img_tag, data, flags=re.IGNORECASE)
-            data = re.sub(r'\b' + re.escape(ph_clean) + r'\b', lambda m: img_tag, data, flags=re.IGNORECASE)
+            num_match = re.search(r'\d+', ph)
+            if num_match:
+                num = num_match.group(0)
+                pattern = re.compile(
+                    r'\\?\[\s*(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC|PICTURE)?[\s_#-]*' + re.escape(num) + r'\s*\\?\]'
+                    r'|\b(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC)[\s_-]+' + re.escape(num) + r'\b',
+                    re.IGNORECASE
+                )
+                data = pattern.sub(lambda m: img_tag, data)
+            else:
+                ph_clean = ph.replace('[', '').replace(']', '').strip()
+                data = re.sub(r'\\?\[\s*' + re.escape(ph_clean) + r'\s*\\?\]', lambda m: img_tag, data, flags=re.IGNORECASE)
+                data = re.sub(r'\b' + re.escape(ph_clean) + r'\b', lambda m: img_tag, data, flags=re.IGNORECASE)
         return data
     return data
 
@@ -558,51 +479,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                         pass
                         
                 for img_node in img_nodes:
-                    rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-                    if not rId:
-                        rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
-                    if not rId:
-                        rId = img_node.get(qn('r:embed'))
-                    if not rId:
-                        rId = img_node.get(qn('r:id'))
-                    if not rId:
-                        for k, v in img_node.attrib.items():
-                            if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
-                                rId = v
-                                break
-                    
-                    if rId and rId in doc.part.related_parts:
-                        image_part = doc.part.related_parts[rId]
+                    rId, image_part = find_image_part_and_id(img_node, doc)
+                    if rId and image_part is not None:
                         mime_type = image_part.content_type
                         img_counter += 1
                         placeholder = f"[IMG_{img_counter}]"
                         
-                        if mime_type in ['image/x-emf', 'image/x-wmf']:
-                            converted = False
-                            if Image is not None:
-                                try:
-                                    img = Image.open(io.BytesIO(image_part.blob))
-                                    out_io = io.BytesIO()
-                                    img.save(out_io, format='PNG')
-                                    png_bytes = out_io.getvalue()
-                                    r2_url = upload_image_to_r2(png_bytes, mime_type="image/png")
-                                    if r2_url:
-                                        image_mapping[placeholder] = f"<br><img src='{r2_url}' class='quiz-image' style='{img_style}' /><br>"
-                                    else:
-                                        b64_new = base64.b64encode(png_bytes).decode('utf-8')
-                                        image_mapping[placeholder] = f"<br><img src='data:image/png;base64,{b64_new}' class='quiz-image' style='{img_style}' /><br>"
-                                    converted = True
-                                except Exception:
-                                    pass
-                            if not converted:
-                                image_mapping[placeholder] = f"<br><div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem;'>⚠️ Hệ thống phát hiện ảnh định dạng cũ (WMF/EMF). Trình duyệt web không thể hiển thị loại ảnh này. Vui lòng mở Word, chụp màn hình ảnh này và dán lại dưới dạng JPG/PNG.</div><br>"
+                        processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                        img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                        if img_url:
+                            image_mapping[placeholder] = f"<br><img src='{img_url}' class='quiz-image' style='{img_style}' /><br>"
                         else:
-                            r2_url = upload_image_to_r2(image_part.blob, mime_type=mime_type)
-                            if r2_url:
-                                image_mapping[placeholder] = f"<br><img src='{r2_url}' class='quiz-image' style='{img_style}' /><br>"
-                            else:
-                                b64_encoded = base64.b64encode(image_part.blob).decode('utf-8')
-                                image_mapping[placeholder] = f"<br><img src='data:{mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
+                            b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
+                            image_mapping[placeholder] = f"<br><img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
                         
                         full_text_list.append(f" {placeholder} ")
                         format_weights.extend([0] * len(f" {placeholder} "))
@@ -623,17 +512,24 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                     if rPr.find(qn('w:u')) is not None: is_underline = True
                     
                     highlight = rPr.find(qn('w:highlight'))
-                    if highlight is not None and highlight.get(qn('w:val')) != 'none': is_highlighted = True
+                    if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
                         
                     color = rPr.find(qn('w:color'))
-                    if color is not None and color.get(qn('w:val')) in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
-                        is_red_text = True
+                    if color is not None:
+                        c_val = str(color.get(qn('w:val'), '')).upper()
+                        # Nhận diện cả màu Đỏ lẫn màu Xanh lá (giáo viên hay dùng để đánh dấu đáp án)
+                        if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
+                            is_red_text = True
                             
                     vertAlign = rPr.find(qn('w:vertAlign'))
                     if vertAlign is not None:
                         val = vertAlign.get(qn('w:val'))
                         if val == 'subscript': is_subscript = True
                         if val == 'superscript': is_superscript = True
+
+                # Nhận diện ký tự dấu tích đúng (✓, ✔)
+                if '✓' in run_text or '✔' in run_text:
+                    is_red_text = True
                 
                 full_text_list.append(run_text)
                 weight = 3 if (is_red_text or is_highlighted) else (2 if is_underline else (1 if is_bold else 0))
@@ -757,6 +653,22 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
             "correct_answer": correct_ans
         })
 
+    # BƯỚC 3: Nếu có câu hỏi chưa tìm được đáp án đúng, dò tìm Bảng đáp án cuối tài liệu
+    answer_key = extract_answer_key(doc, full_text)
+    for idx, q_item in enumerate(extracted_data):
+        q_num = idx + 1
+        if not q_item.get("correct_answer") and q_num in answer_key:
+            target_char = answer_key[q_num]
+            for opt in q_item.get("options", []):
+                if opt.strip().upper().startswith(f"{target_char}."):
+                    q_item["correct_answer"] = opt
+                    break
+
+    # Đảm bảo câu hỏi luôn có đáp án hợp lệ (ưu tiên A nếu không rõ)
+    for q_item in extracted_data:
+        if not q_item.get("correct_answer") and q_item.get("options"):
+            q_item["correct_answer"] = q_item["options"][0]
+
     if image_mapping:
         extracted_data = replace_placeholders(extracted_data, image_mapping)
 
@@ -813,75 +725,20 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                         pass
                         
                 for img_node in img_nodes:
-                    rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-                    if not rId:
-                        rId = img_node.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
-                    if not rId:
-                        rId = img_node.get(qn('r:embed'))
-                    if not rId:
-                        rId = img_node.get(qn('r:id'))
-                    if not rId:
-                        for k, v in img_node.attrib.items():
-                            if ('embed' in k.lower() or 'id' in k.lower()) and isinstance(v, str) and v.startswith('rId'):
-                                rId = v
-                                break
-                    
-                    if rId and rId in doc.part.related_parts:
-                        image_part = doc.part.related_parts[rId]
-                        
-                        # Tối ưu hóa hình ảnh để giảm dung lượng
-                        img_blob = image_part.blob
-                        processed_mime_type = image_part.content_type
-
-                        if Image is not None and image_part.content_type not in ['image/x-emf', 'image/x-wmf']:
-                            try:
-                                with Image.open(io.BytesIO(image_part.blob)) as img:
-                                    if img.width > 800:
-                                        new_width = 800
-                                        new_height = int(new_width * img.height / img.width)
-                                        resample_filter = Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.ANTIALIAS
-                                        img = img.resize((new_width, new_height), resample_filter)
-                                    
-                                    output_io = io.BytesIO()
-                                    if img.mode in ('RGBA', 'P'):
-                                        img = img.convert('RGB')
-                                    
-                                    img.save(output_io, format='JPEG', quality=85, optimize=True)
-                                    img_blob = output_io.getvalue()
-                                    processed_mime_type = 'image/jpeg'
-                            except Exception:
-                                img_blob = image_part.blob
-                                processed_mime_type = image_part.content_type
-
+                    rId, image_part = find_image_part_and_id(img_node, doc)
+                    if rId and image_part is not None:
+                        mime_type = image_part.content_type
                         img_counter += 1
                         placeholder = f"[IMG_{img_counter}]"
                         
-                        if image_part.content_type in ['image/x-emf', 'image/x-wmf']:
-                            converted = False
-                            if Image is not None:
-                                try:
-                                    img = Image.open(io.BytesIO(image_part.blob))
-                                    out_io = io.BytesIO()
-                                    img.save(out_io, format='PNG')
-                                    png_bytes = out_io.getvalue()
-                                    r2_url = upload_image_to_r2(png_bytes, mime_type="image/png")
-                                    if r2_url:
-                                        image_mapping[placeholder] = f"<img src='{r2_url}' class='quiz-image' style='{img_style}' />"
-                                    else:
-                                        b64_new = base64.b64encode(png_bytes).decode('utf-8')
-                                        image_mapping[placeholder] = f"<img src='data:image/png;base64,{b64_new}' class='quiz-image' style='{img_style}' />"
-                                    converted = True
-                                except Exception:
-                                    pass
-                            if not converted:
-                                image_mapping[placeholder] = f"<div style='padding:10px; background:#fee2e2; color:#991b1b; border-radius:8px; font-size:0.9rem; margin: 10px 0;'>⚠️ Ảnh định dạng cũ (WMF/EMF) không được hỗ trợ. Vui lòng dán lại dưới dạng JPG/PNG.</div>"
+                        processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                        img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                        if img_url:
+                            image_mapping[placeholder] = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
                         else:
-                            r2_url = upload_image_to_r2(img_blob, mime_type=processed_mime_type)
-                            if r2_url:
-                                image_mapping[placeholder] = f"<img src='{r2_url}' class='quiz-image' style='{img_style}' />"
-                            else:
-                                b64_encoded = base64.b64encode(img_blob).decode('utf-8')
-                                image_mapping[placeholder] = f"<img src='data:{processed_mime_type};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                            b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
+                            image_mapping[placeholder] = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                        
                         para_text += f" {placeholder} "
             elif node.tag.endswith('}t'):
                 run_text = node.text
@@ -898,17 +755,22 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                     if rPr.find(qn('w:u')) is not None: is_underline = True
                     
                     highlight = rPr.find(qn('w:highlight'))
-                    if highlight is not None and highlight.get(qn('w:val')) != 'none': is_highlighted = True
+                    if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
                         
                     color = rPr.find(qn('w:color'))
-                    if color is not None and color.get(qn('w:val')) in ['FF0000', 'C00000', 'ED1C24', 'red', 'RED']:
-                        is_red_text = True
+                    if color is not None:
+                        c_val = str(color.get(qn('w:val'), '')).upper()
+                        if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
+                            is_red_text = True
                             
                     vertAlign = rPr.find(qn('w:vertAlign'))
                     if vertAlign is not None:
                         val = vertAlign.get(qn('w:val'))
                         if val == 'subscript': is_subscript = True
                         if val == 'superscript': is_superscript = True
+
+                if '✓' in run_text or '✔' in run_text:
+                    is_red_text = True
                 
                 formatted_text = run_text.replace("<", "&lt;").replace(">", "&gt;")
                 if is_subscript: formatted_text = f"<sub>{formatted_text}</sub>"
@@ -1036,6 +898,18 @@ async def generate_quiz_ai(req: GenerateQuizRequest, background_tasks: Backgroun
 
 
 
+@app.get("/api/images/{file_path:path}", summary="Phục vụ ảnh đề thi an toàn, tốc độ cao và không bị lỗi 403")
+async def serve_image(file_path: str):
+    """Phục vụ hình ảnh từ bộ nhớ cache cục bộ hoặc đồng bộ từ Cloudflare R2 qua S3 client."""
+    content, mime = get_stored_image(file_path)
+    if not content:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hình ảnh")
+    return Response(
+        content=content,
+        media_type=mime,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"}
+    )
+
 def process_document_background(task_id: str, temp_file_path: str, ext: str, use_ai: bool, api_keys: list, filename: str):
     import asyncio
     try:
@@ -1043,14 +917,43 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         
         extracted_data = None
         if ext == ".pdf":
-            extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
+            try:
+                extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
+            except Exception as pdf_ai_err:
+                print(f"[CẢNH BÁO] Lỗi AI bóc tách PDF: {pdf_ai_err}")
+                if fitz:
+                    active_tasks[task_id]["message"] = "Đang đọc văn bản PDF..."
+                    doc = fitz.open(temp_file_path)
+                    pdf_text = "\n".join(page.get_text("text") for page in doc)
+                    doc.close()
+                    if api_keys:
+                        try:
+                            extracted_data = asyncio.run(generate_mcq_with_gemini(pdf_text, api_keys, task_id))
+                        except Exception as inner_err:
+                            print(f"[CẢNH BÁO] Lỗi AI xử lý PDF lần 2: {inner_err}")
         elif use_ai and api_keys:
-            marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-            extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
-            if image_mapping:
-                extracted_data = replace_placeholders(extracted_data, image_mapping)
+            try:
+                marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
+                if image_mapping and extracted_data:
+                    extracted_data = replace_placeholders(extracted_data, image_mapping)
+            except Exception as ai_err:
+                print(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
+                active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
+                extracted_data = extract_formatting_from_docx(temp_file_path)
         else:
             extracted_data = extract_formatting_from_docx(temp_file_path)
+            # Nếu bộ bóc tách nội bộ tìm thấy 0 câu hỏi mà có API Key, tự động cứu hộ bằng AI
+            if (not extracted_data or len(extracted_data) == 0) and api_keys:
+                print("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
+                active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
+                try:
+                    marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                    extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
+                    if image_mapping and extracted_data:
+                        extracted_data = replace_placeholders(extracted_data, image_mapping)
+                except Exception as rescue_err:
+                    print(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
 
         extracted_data = recursive_unescape(extracted_data)
 
@@ -1072,7 +975,8 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             active_tasks[task_id] = {"status": "error", "detail": f"Lỗi xử lý hệ thống: {error_msg}"}
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+            try: os.remove(temp_file_path)
+            except Exception: pass
 
 @app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
 def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...) , use_ai: bool = Form(True)):

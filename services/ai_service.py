@@ -281,23 +281,101 @@ async def generate_mcq_with_gemini(
 
     return all_extracted_data
 
+def apply_image_mapping_to_data(data, mapping):
+    """Thay thế các placeholder ảnh [IMG_X] thành thẻ img HTML trong toàn bộ dữ liệu câu hỏi."""
+    if isinstance(data, dict):
+        return {k: apply_image_mapping_to_data(v, mapping) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [apply_image_mapping_to_data(v, mapping) for v in data]
+    elif isinstance(data, str):
+        for ph, img_tag in mapping.items():
+            num_match = re.search(r'\d+', ph)
+            if num_match:
+                num = num_match.group(0)
+                pattern = re.compile(
+                    r'\\?\[\s*(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC|PICTURE)?[\s_#-]*' + re.escape(num) + r'\s*\\?\]'
+                    r'|\b(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC)[\s_-]+' + re.escape(num) + r'\b',
+                    re.IGNORECASE
+                )
+                data = pattern.sub(lambda m: img_tag, data)
+            else:
+                ph_clean = ph.replace('[', '').replace(']', '').strip()
+                data = re.sub(r'\\?\[\s*' + re.escape(ph_clean) + r'\s*\\?\]', lambda m: img_tag, data, flags=re.IGNORECASE)
+                data = re.sub(r'\b' + re.escape(ph_clean) + r'\b', lambda m: img_tag, data, flags=re.IGNORECASE)
+        return data
+    return data
+
 async def generate_mcq_from_pdf(
     pdf_path: str,
     api_keys: List[str],
     task_id: str = None,
     active_tasks: dict = None
 ) -> List[Dict[str, Any]]:
-    """Dùng PyMuPDF bóc tách text chính xác 100% sau đó đưa cho AI xử lý theo từng khối (Chunk)."""
+    """Dùng PyMuPDF bóc tách text và trích xuất hình ảnh chính xác sau đó đưa cho AI xử lý."""
     if not api_keys:
         raise Exception("Hệ thống chưa được cấu hình API Key.")
         
     if fitz is None:
         raise Exception("Thư viện PyMuPDF chưa được cài đặt.")
         
+    from services.r2_service import upload_image_to_r2
+    from core.image_converter import process_image_blob
+
     doc = fitz.open(pdf_path)
-    pdf_text = ""
+    full_text_parts = []
+    image_mapping = {}
+    img_counter = 0
+
     for page in doc:
-        pdf_text += page.get_text("text") + "\n"
+        page_items = []
+        # 1. Khối văn bản
+        blocks = page.get_text("blocks")
+        for b in blocks:
+            txt = b[4].strip()
+            if txt:
+                page_items.append((b[1], b[0], 'text', b[4]))
+
+        # 2. Khối hình ảnh
+        for img_info in page.get_images():
+            xref = img_info[0]
+            width, height = img_info[2], img_info[3]
+            if width < 30 or height < 30:
+                continue
+
+            rects = page.get_image_rects(xref)
+            if not rects:
+                continue
+
+            try:
+                extracted = doc.extract_image(xref)
+                if not extracted or not extracted.get('image'):
+                    continue
+                
+                raw_bytes = extracted['image']
+                raw_ext = extracted.get('ext', 'png').lower()
+                mime = f"image/{raw_ext}" if raw_ext != 'jpg' else "image/jpeg"
+                processed_bytes, processed_mime = process_image_blob(raw_bytes, mime)
+                
+                img_url = upload_image_to_r2(processed_bytes, mime_type=processed_mime)
+                if img_url:
+                    img_counter += 1
+                    ph = f"[IMG_{img_counter}]"
+                    image_mapping[ph] = f"<img src='{img_url}' class='quiz-image' style='max-width: 100%; height: auto; margin: 8px 0;' />"
+                    for r in rects:
+                        page_items.append((r.y0, r.x0, 'image', f"\n{ph}\n"))
+            except Exception as e:
+                print(f"[CẢNH BÁO] Lỗi trích xuất ảnh PDF xref {xref}: {e}")
+
+        page_items.sort(key=lambda x: (x[0], x[1]))
+        page_text = "\n".join(item[3] for item in page_items)
+        full_text_parts.append(page_text)
+
     doc.close()
-    
-    return await generate_mcq_with_gemini(pdf_text, api_keys, task_id, active_tasks)
+    pdf_text = "\n\n".join(full_text_parts)
+
+    extracted_data = await generate_mcq_with_gemini(pdf_text, api_keys, task_id, active_tasks)
+    if image_mapping and extracted_data:
+        extracted_data = apply_image_mapping_to_data(extracted_data, image_mapping)
+        
+    return extracted_data
+

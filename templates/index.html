@@ -208,10 +208,23 @@
 
     <div id="timerDisplay" style="display:none; position: fixed; top: 20px; right: 20px; background: var(--danger); color: white; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; box-shadow: var(--shadow); z-index: 1000; transition: all 0.3s;">⏳ 00:00</div>
     
-    <div id="aiFeedbackBox" class="card" style="display:none; border: 2px solid #9333ea; background: #faf5ff; margin-bottom: 24px;">
-        <h3 style="color: #9333ea; margin-top: 0;">🤖 AI Phân tích & Gợi ý sửa lỗi</h3>
-        <div id="aiFeedbackContent" style="white-space: pre-wrap; line-height: 1.6; color: var(--text-main);"></div>
-        <button class="btn-outline" style="margin-top: 15px; width: 100%; border-color: #9333ea; color: #9333ea;" onclick="document.getElementById('aiFeedbackBox').style.display='none'">Đóng lại</button>
+    <!-- BẢNG ĐIỀU KHIỂN AI RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI -->
+    <div id="aiFeedbackBox" class="ai-dashboard" style="display:none;">
+        <div class="ai-dashboard-header">
+            <div>
+                <h3 class="ai-dashboard-title">
+                    <span>🤖</span> BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI
+                </h3>
+                <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #6b7280;">Hệ thống AI đã quét toàn bộ câu hỏi, phân loại chi tiết lỗi và hỗ trợ sửa tự động.</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button id="btnApplyAllAI" class="btn-primary" style="background: #9333ea; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; display: none;" onclick="applyAllAISuggestions()">⚡ Sửa TẤT CẢ câu lỗi</button>
+                <button class="btn-outline" style="border-color: #d8b4fe; color: #9333ea; font-size: 0.9rem; padding: 8px 14px;" onclick="document.getElementById('aiFeedbackBox').style.display='none'">✕ Đóng</button>
+            </div>
+        </div>
+
+        <div id="aiFeedbackStats"></div>
+        <div id="aiFeedbackContent"></div>
     </div>
     
     <div id="score-board"></div>
