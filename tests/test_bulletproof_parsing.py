@@ -188,7 +188,97 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(category_counts["format"], 0)
 
 
+    def test_extract_questions_from_text_bulletproof(self):
+        """Test bulletproof text extractor on unusual question and option formats."""
+        from main import extract_questions_from_text_bulletproof
+
+        text = """
+        Câu 1 Cho hàm số y = f(x)
+        A/ Giá trị 10
+        B/ Giá trị 20
+        C/ [ĐÚNG] Giá trị 30
+        D/ Giá trị 40
+
+        [Câu 2] Phương trình có nghiệm:
+        (A) x = 1
+        (B) x = 2
+        (C) x = 3
+        (D) x = 4
+        """
+        results = extract_questions_from_text_bulletproof(text)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(len(results[0]["options"]), 4)
+        self.assertIn("C.", results[0]["correct_answer"])
+        self.assertEqual(len(results[1]["options"]), 4)
+
+    def test_upload_docx_without_ai(self):
+        """Test uploading a DOCX file without AI (use_ai=False) works 100% without error."""
+        import time
+        doc = Document()
+        doc.add_paragraph("Câu 1: Mặt trời mọc ở hướng nào?")
+        doc.add_paragraph("A. Đông")
+        doc.add_paragraph("B. Tây")
+        doc.add_paragraph("C. Nam")
+        doc.add_paragraph("D. Bắc")
+
+        buf = io.BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+
+        response = self.client.post(
+            "/api/upload",
+            files={"file": ("test_no_ai.docx", buf, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            data={"use_ai": "false"}
+        )
+        self.assertEqual(response.status_code, 200)
+        res_json = response.json()
+        self.assertEqual(res_json["status"], "processing")
+        task_id = res_json["task_id"]
+
+        # Chờ task hoàn tất
+        time.sleep(0.5)
+        task_res = self.client.get(f"/api/task_status/{task_id}")
+        self.assertEqual(task_res.status_code, 200)
+        task_data = task_res.json()
+        self.assertEqual(task_data["status"], "success")
+        self.assertTrue(len(task_data["data"]) >= 1)
+        self.assertIn("Mặt trời", task_data["data"][0]["question"])
+
+    def test_upload_pdf_without_ai(self):
+        """Test uploading a PDF file without AI (use_ai=False) parses locally instead of throwing 400 error."""
+        import fitz
+        import time
+
+        # Tạo file PDF đơn giản bằng PyMuPDF
+        pdf_doc = fitz.open()
+        page = pdf_doc.new_page()
+        page.insert_text(
+            (50, 72),
+            "Câu 1: 1 + 1 bằng bao nhiêu?\nA. 1\nB. 2\nC. 3\nD. 4\n\nCâu 2: 2 + 2 bằng bao nhiêu?\nA. 2\nB. 4\nC. 6\nD. 8"
+        )
+        pdf_bytes = pdf_doc.write()
+        pdf_doc.close()
+
+        response = self.client.post(
+            "/api/upload",
+            files={"file": ("test_no_ai.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+            data={"use_ai": "false"}
+        )
+        self.assertEqual(response.status_code, 200)
+        res_json = response.json()
+        self.assertEqual(res_json["status"], "processing")
+        task_id = res_json["task_id"]
+
+        time.sleep(0.5)
+        task_res = self.client.get(f"/api/task_status/{task_id}")
+        self.assertEqual(task_res.status_code, 200)
+        task_data = task_res.json()
+        self.assertEqual(task_data["status"], "success")
+        self.assertEqual(len(task_data["data"]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
+
 
 

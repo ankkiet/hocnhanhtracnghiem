@@ -455,14 +455,17 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 continue
                 
             if node.tag.endswith('}oMath'):
-                math_latex = parse_omath(node)
-                if math_latex:
-                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
-                    math_tag = f" \\({encoded_math}\\) "
-                    full_text_list.append(math_tag)
-                    format_weights.extend([0] * len(math_tag))
-                    for char in math_tag:
-                        char_html.append(f"<i>{char}</i>")
+                try:
+                    math_latex = parse_omath(node)
+                    if math_latex:
+                        encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
+                        math_tag = f" \\({encoded_math}\\) "
+                        full_text_list.append(math_tag)
+                        format_weights.extend([0] * len(math_tag))
+                        for char in math_tag:
+                            char_html.append(f"<i>{char}</i>")
+                except Exception:
+                    pass
             elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
                 img_nodes = node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]')
                 if not img_nodes:
@@ -479,23 +482,26 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                         pass
                         
                 for img_node in img_nodes:
-                    rId, image_part = find_image_part_and_id(img_node, doc)
-                    if rId and image_part is not None:
-                        mime_type = image_part.content_type
-                        img_counter += 1
-                        placeholder = f"[IMG_{img_counter}]"
-                        
-                        processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
-                        img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
-                        if img_url:
-                            image_mapping[placeholder] = f"<br><img src='{img_url}' class='quiz-image' style='{img_style}' /><br>"
-                        else:
-                            b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
-                            image_mapping[placeholder] = f"<br><img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
-                        
-                        full_text_list.append(f" {placeholder} ")
-                        format_weights.extend([0] * len(f" {placeholder} "))
-                        char_html.extend(list(f" {placeholder} "))
+                    try:
+                        rId, image_part = find_image_part_and_id(img_node, doc)
+                        if rId and image_part is not None:
+                            mime_type = image_part.content_type
+                            img_counter += 1
+                            placeholder = f"[IMG_{img_counter}]"
+                            
+                            processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                            img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                            if img_url:
+                                image_mapping[placeholder] = f"<br><img src='{img_url}' class='quiz-image' style='{img_style}' /><br>"
+                            else:
+                                b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
+                                image_mapping[placeholder] = f"<br><img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
+                            
+                            full_text_list.append(f" {placeholder} ")
+                            format_weights.extend([0] * len(f" {placeholder} "))
+                            char_html.extend(list(f" {placeholder} "))
+                    except Exception as img_err:
+                        print(f"[CẢNH BÁO] Không thể xử lý ảnh: {img_err}")
             elif node.tag.endswith('}t'):
                 run_text = node.text
                 if not run_text: continue
@@ -557,8 +563,10 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         return joined.strip()
 
     # BƯỚC 2: Phân tách bằng State Machine (Máy trạng thái) kết hợp Regex siêu chuẩn
-    q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
-    opt_regex = r'(?:^|\s+|(?<=[\.\:\-]))(\*?\s*[A-F])[\.\:\)]'
+    # Hỗ trợ: Câu 1, Câu 1:, Câu 1., Câu 1/, Câu 1-, [Câu 1], (Câu 1), Bài 1, Question 1, Q1, 1., 1/, 1:, 1)
+    q_regex = r'(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])(?:\s+|$)'
+    # Hỗ trợ: A., B., C., D., A:, A), A/, A -, (A), [A], *A., a., b.
+    opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!]\s)|(?<=\))\s*)(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
     token_pattern = re.compile(f'({q_regex})|({opt_regex})', re.IGNORECASE)
     
     matches = list(token_pattern.finditer(full_text))
@@ -598,6 +606,18 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 
                 if lead_part_raw.strip():
                     shared_context = get_html(last_idx + opt_len, match_start)
+                current_q_start = match_end
+                current_q_end = match_end
+            elif state == "IN_QUESTION":
+                # Câu hỏi trước đó không có lựa chọn A, B, C, D rõ ràng -> vẫn lưu lại
+                q_text = get_html(current_q_start, match_start)
+                if q_text.strip():
+                    extracted_data.append({
+                        "group_title": shared_context,
+                        "question": q_text,
+                        "options": [],
+                        "correct_answer": ""
+                    })
                 current_q_start = match_end
                 current_q_end = match_end
             elif state == "OUTSIDE":
@@ -652,17 +672,29 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
             "options": [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options],
             "correct_answer": correct_ans
         })
+    elif state == "IN_QUESTION":
+        q_text = get_html(current_q_start, len(full_text))
+        if q_text.strip():
+            extracted_data.append({
+                "group_title": shared_context,
+                "question": q_text,
+                "options": [],
+                "correct_answer": ""
+            })
 
     # BƯỚC 3: Nếu có câu hỏi chưa tìm được đáp án đúng, dò tìm Bảng đáp án cuối tài liệu
-    answer_key = extract_answer_key(doc, full_text)
-    for idx, q_item in enumerate(extracted_data):
-        q_num = idx + 1
-        if not q_item.get("correct_answer") and q_num in answer_key:
-            target_char = answer_key[q_num]
-            for opt in q_item.get("options", []):
-                if opt.strip().upper().startswith(f"{target_char}."):
-                    q_item["correct_answer"] = opt
-                    break
+    try:
+        answer_key = extract_answer_key(doc, full_text)
+        for idx, q_item in enumerate(extracted_data):
+            q_num = idx + 1
+            if not q_item.get("correct_answer") and q_num in answer_key:
+                target_char = answer_key[q_num]
+                for opt in q_item.get("options", []):
+                    if opt.strip().upper().startswith(f"{target_char}."):
+                        q_item["correct_answer"] = opt
+                        break
+    except Exception as e:
+        print(f"[CẢNH BÁO] Lỗi đọc bảng đáp án: {e}")
 
     # Đảm bảo câu hỏi luôn có đáp án hợp lệ (ưu tiên A nếu không rõ)
     for q_item in extracted_data:
@@ -673,6 +705,124 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         extracted_data = replace_placeholders(extracted_data, image_mapping)
 
     return extracted_data
+
+
+def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict = None) -> List[Dict[str, Any]]:
+    """
+    Bộ bóc tách câu hỏi dự phòng siêu bền vững bằng Regex khối.
+    Tự động chia tách văn bản thành từng câu hỏi và bóc tách các lựa chọn A, B, C, D.
+    """
+    if not raw_text or not raw_text.strip():
+        return []
+
+    q_split_pattern = re.compile(
+        r'(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
+        re.IGNORECASE
+    )
+    
+    matches = list(q_split_pattern.finditer(raw_text))
+    if not matches:
+        return []
+        
+    results = []
+    opt_pattern = re.compile(
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!]\s)|(?<=\))\s*)(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*',
+        re.IGNORECASE
+    )
+    
+    for i, m in enumerate(matches):
+        q_start = m.end()
+        q_end = matches[i+1].start() if i+1 < len(matches) else len(raw_text)
+        block = raw_text[q_start:q_end].strip()
+        
+        opt_matches = list(opt_pattern.finditer(block))
+        if opt_matches:
+            q_text = block[:opt_matches[0].start()].strip()
+            options = []
+            correct_ans = None
+            
+            for j, opt_m in enumerate(opt_matches):
+                char_raw = opt_m.group(1).upper()
+                is_asterisk = '*' in char_raw
+                char = char_raw.replace('*', '').strip()
+                
+                opt_start = opt_m.end()
+                opt_end = opt_matches[j+1].start() if j+1 < len(opt_matches) else len(block)
+                opt_content = block[opt_start:opt_end].strip()
+                
+                opt_content = re.sub(r'\s+', ' ', opt_content)
+                
+                if is_asterisk or '<MARK>' in opt_content or '[ĐÚNG]' in opt_content or '✓' in opt_content or '✔' in opt_content:
+                    clean_opt = opt_content.replace('<MARK>', '').replace('</MARK>', '').strip()
+                    correct_ans = f"{char}. {clean_opt}"
+                    
+                clean_opt_for_list = opt_content.replace('<MARK>', '').replace('</MARK>', '').strip()
+                options.append(f"{char}. {clean_opt_for_list}")
+                
+            if not correct_ans and options:
+                correct_ans = options[0]
+                
+            results.append({
+                "group_title": "",
+                "question": q_text,
+                "options": options,
+                "correct_answer": correct_ans
+            })
+        else:
+            results.append({
+                "group_title": "",
+                "question": block,
+                "options": [],
+                "correct_answer": ""
+            })
+            
+    if image_mapping and results:
+        results = replace_placeholders(results, image_mapping)
+        
+    return results
+
+
+def extract_questions_from_pdf_locally(pdf_path: str) -> List[Dict[str, Any]]:
+    """Bóc tách câu hỏi và hình ảnh từ tệp PDF hoàn toàn cục bộ (không cần AI)."""
+    if not fitz:
+        return []
+    try:
+        doc = fitz.open(pdf_path)
+        full_text_list = []
+        image_mapping = {}
+        img_counter = 0
+        
+        for page_idx in range(len(doc)):
+            page = doc[page_idx]
+            text = page.get_text("text")
+            
+            # Trích xuất ảnh trên trang PDF
+            image_list = page.get_images(full=True)
+            for img_info in image_list:
+                try:
+                    xref = img_info[0]
+                    base_image = doc.extract_image(xref)
+                    image_bytes = base_image.get("image")
+                    image_ext = base_image.get("ext", "png")
+                    if image_bytes:
+                        img_counter += 1
+                        placeholder = f"[IMG_{img_counter}]"
+                        processed_bytes, processed_mime = process_image_blob(image_bytes, f"image/{image_ext}")
+                        img_url = upload_image_to_r2(processed_bytes, mime_type=processed_mime, extension=image_ext)
+                        if img_url:
+                            image_mapping[placeholder] = f"<br><img src='{img_url}' class='quiz-image' style='max-width:100%; height:auto;' /><br>"
+                except Exception as img_err:
+                    print(f"[CẢNH BÁO] Lỗi trích xuất ảnh PDF: {img_err}")
+                    
+            full_text_list.append(text)
+        doc.close()
+        
+        merged_text = "\n".join(full_text_list)
+        return extract_questions_from_text_bulletproof(merged_text, image_mapping)
+    except Exception as e:
+        print(f"[CẢNH BÁO] Lỗi đọc PDF cục bộ: {e}")
+        return []
+
 
 def parse_docx_to_marked_text(file_path: str) -> str:
     """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ để gửi lên AI, đồng thời giữ định dạng HTML"""
@@ -917,22 +1067,28 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         
         extracted_data = None
         if ext == ".pdf":
-            try:
-                extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
-            except Exception as pdf_ai_err:
-                print(f"[CẢNH BÁO] Lỗi AI bóc tách PDF: {pdf_ai_err}")
-                if fitz:
-                    active_tasks[task_id]["message"] = "Đang đọc văn bản PDF..."
-                    doc = fitz.open(temp_file_path)
-                    pdf_text = "\n".join(page.get_text("text") for page in doc)
-                    doc.close()
-                    if api_keys:
-                        try:
-                            extracted_data = asyncio.run(generate_mcq_with_gemini(pdf_text, api_keys, task_id))
-                        except Exception as inner_err:
-                            print(f"[CẢNH BÁO] Lỗi AI xử lý PDF lần 2: {inner_err}")
+            if use_ai and api_keys:
+                try:
+                    active_tasks[task_id]["message"] = "AI đang phân tích tài liệu PDF..."
+                    extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
+                except Exception as pdf_ai_err:
+                    print(f"[CẢNH BÁO] Lỗi AI bóc tách PDF: {pdf_ai_err}")
+                    active_tasks[task_id]["message"] = "Tự động chuyển sang phân tích PDF nội bộ..."
+                    extracted_data = extract_questions_from_pdf_locally(temp_file_path)
+            else:
+                active_tasks[task_id]["message"] = "Đang phân tích PDF bằng thuật toán nội bộ..."
+                extracted_data = extract_questions_from_pdf_locally(temp_file_path)
+                # Nếu bộ phân tích PDF nội bộ không tìm thấy câu hỏi mà có API Key, tự động cứu hộ bằng AI
+                if (not extracted_data or len(extracted_data) == 0) and api_keys:
+                    print("[CẢNH BÁO] PDF nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
+                    active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ PDF..."
+                    try:
+                        extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
+                    except Exception as rescue_err:
+                        print(f"[CẢNH BÁO] AI cứu hộ PDF gặp lỗi: {rescue_err}")
         elif use_ai and api_keys:
             try:
+                active_tasks[task_id]["message"] = "AI đang phân tích tài liệu Word..."
                 marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
                 extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
                 if image_mapping and extracted_data:
@@ -940,10 +1096,33 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             except Exception as ai_err:
                 print(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
                 active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
-                extracted_data = extract_formatting_from_docx(temp_file_path)
+                try:
+                    extracted_data = extract_formatting_from_docx(temp_file_path)
+                except Exception:
+                    extracted_data = None
+                if not extracted_data:
+                    try:
+                        extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
+                    except Exception:
+                        pass
         else:
-            extracted_data = extract_formatting_from_docx(temp_file_path)
-            # Nếu bộ bóc tách nội bộ tìm thấy 0 câu hỏi mà có API Key, tự động cứu hộ bằng AI
+            # use_ai = False: Phân tích DOCX bằng Python nội bộ
+            active_tasks[task_id]["message"] = "Đang phân tích tài liệu bằng thuật toán Python..."
+            try:
+                extracted_data = extract_formatting_from_docx(temp_file_path)
+            except Exception as docx_err:
+                print(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
+                extracted_data = None
+                
+            # Nếu bộ bóc tách chính không tìm thấy câu hỏi, kích hoạt bộ bóc tách dự phòng (Engine 2)
+            if not extracted_data or len(extracted_data) == 0:
+                try:
+                    marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                    extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
+                except Exception as fb_err:
+                    print(f"[CẢNH BÁO] Bộ bóc tách dự phòng gặp lỗi: {fb_err}")
+                    
+            # Nếu cả 2 bộ bóc tách nội bộ đều không tìm thấy câu hỏi mà hệ thống CÓ API key, tự động kích hoạt AI cứu hộ
             if (not extracted_data or len(extracted_data) == 0) and api_keys:
                 print("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
                 active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
@@ -958,7 +1137,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         extracted_data = recursive_unescape(extracted_data)
 
         if not extracted_data:
-             active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi. Vui lòng đảm bảo cấu trúc file theo đúng chuẩn (A., B., C., D.)"}
+             active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi từ file. Vui lòng đảm bảo file có chứa câu hỏi dạng 'Câu 1:' hoặc '1.' và các phương án A, B, C, D."}
              return
 
         active_tasks[task_id] = {
@@ -978,7 +1157,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             try: os.remove(temp_file_path)
             except Exception: pass
 
-@app.post("/api/upload", summary="Tải lên và phân tích file DOCX")
+@app.post("/api/upload", summary="Tải lên và phân tích file DOCX hoặc PDF")
 def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...) , use_ai: bool = Form(True)):
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in [".docx", ".pdf"]:
@@ -993,10 +1172,9 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
         settings_doc = db.collection('settings').document('gemini').get() if db else None
         api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc and settings_doc.exists else []
         
-        if ext == ".pdf" and not use_ai:
-            raise HTTPException(status_code=400, detail="Tệp PDF bắt buộc phải sử dụng AI để bóc tách. Vui lòng tích chọn 'Dùng AI bóc tách'.")
-        if (ext == ".pdf" or use_ai) and not api_keys:
-            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình API Key để dùng AI.")
+        # Nếu người dùng bật AI nhưng hệ thống chưa có API key, tự động chuyển sang phân tích Python nội bộ
+        if use_ai and not api_keys:
+            use_ai = False
             
         task_id = str(uuid.uuid4())
         active_tasks[task_id] = {"status": "pending"}
@@ -1004,10 +1182,11 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
         # Bắt đầu luồng phân tích ngầm và không chặn luồng kết nối HTTP
         background_tasks.add_task(process_document_background, task_id, temp_file_path, ext, use_ai, api_keys, file.filename)
         
+        mode_msg = "AI" if (use_ai and api_keys) else "thuật toán Python"
         return {
             "status": "processing",
             "task_id": task_id,
-            "message": "File đang được AI xử lý ngầm..."
+            "message": f"File đang được xử lý bằng {mode_msg}..."
         }
         
     except HTTPException as he:
