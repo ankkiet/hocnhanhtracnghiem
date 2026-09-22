@@ -81,8 +81,22 @@ def upload_image_to_r2(image_bytes: bytes, mime_type: str = "image/jpeg", extens
     if not image_bytes:
         return None
 
+    # Kiểm tra tính hợp lệ của ảnh
+    from core.image_converter import detect_image_format
+    detected_fmt = detect_image_format(image_bytes)
+    # Hỗ trợ cả trường hợp tham số mime_type được truyền tên file (ví dụ "test_img.gif")
+    is_valid_image = (
+        detected_fmt != "unknown" or
+        mime_type.startswith("image/") or
+        any(mime_type.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".emf", ".wmf", ".bmp", ".tiff"])
+    )
+    if not is_valid_image:
+        return None
+
     if not extension:
-        if "png" in mime_type:
+        if detected_fmt != "unknown":
+            extension = f".{detected_fmt}" if detected_fmt != "jpeg" else ".jpg"
+        elif "png" in mime_type:
             extension = ".png"
         elif "webp" in mime_type:
             extension = ".webp"

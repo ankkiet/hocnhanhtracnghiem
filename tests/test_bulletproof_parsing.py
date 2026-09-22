@@ -246,7 +246,12 @@ class TestBulletproofParsing(unittest.TestCase):
 
     def test_upload_pdf_without_ai(self):
         """Test uploading a PDF file without AI (use_ai=False) parses locally instead of throwing 400 error."""
-        import fitz
+        try:
+            import fitz
+        except ImportError:
+            fitz = None
+        if fitz is None:
+            self.skipTest("PyMuPDF (fitz) không được cài đặt trong môi trường này")
         import time
 
         # Tạo file PDF đơn giản bằng PyMuPDF
@@ -276,7 +281,6 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(task_data["status"], "success")
         self.assertEqual(len(task_data["data"]), 2)
 
-
     def test_find_image_part_and_id_keyerror_o(self):
         """Test that find_image_part_and_id safely handles drawing nodes without KeyError 'o'."""
         from main import find_image_part_and_id
@@ -290,6 +294,66 @@ class TestBulletproofParsing(unittest.TestCase):
         doc = Document()
         rId, image_part = find_image_part_and_id(imagedata, doc)
         self.assertEqual(rId, "rId99")
+
+    def test_split_same_line_options_in_docx(self):
+        """Test that options glued on one line (Câu 3/4) are parsed into 4 distinct options."""
+        from main import split_merged_options
+        merged = ["A. 2-ethylpentane.B. 4-ethylpentane.C. 2-methylhexane.D. 3-methylhexane."]
+        split = split_merged_options(merged)
+        self.assertEqual(len(split), 4)
+        self.assertEqual(split[0], "A. 2-ethylpentane.")
+        self.assertEqual(split[1], "B. 4-ethylpentane.")
+        self.assertEqual(split[2], "C. 2-methylhexane.")
+        self.assertEqual(split[3], "D. 3-methylhexane.")
+
+    def test_docx_with_tabs_between_options(self):
+        """Test that docx using <w:tab/> between options correctly extracts 4 separate options."""
+        from docx.oxml import OxmlElement
+        doc = Document()
+        p = doc.add_paragraph()
+        p.add_run("Câu 3: Cho alkane X có CTCT: CH3CH(C2H5)CH2CH2CH3. Danh pháp thay thế của X là")
+        
+        p2 = doc.add_paragraph()
+        p2.add_run("A. 2-ethylpentane.")
+        r_tab1 = OxmlElement('w:r')
+        r_tab1.append(OxmlElement('w:tab'))
+        p2._element.append(r_tab1)
+        p2.add_run("B. 4-ethylpentane.")
+        r_tab2 = OxmlElement('w:r')
+        r_tab2.append(OxmlElement('w:tab'))
+        p2._element.append(r_tab2)
+        p2.add_run("C. 2-methylhexane.")
+        r_tab3 = OxmlElement('w:r')
+        r_tab3.append(OxmlElement('w:tab'))
+        p2._element.append(r_tab3)
+        p2.add_run("D. 3-methylhexane.")
+
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tf:
+            temp_path = tf.name
+        doc.save(temp_path)
+
+        try:
+            results = extract_formatting_from_docx(temp_path)
+            self.assertEqual(len(results), 1)
+            self.assertEqual(len(results[0]["options"]), 4)
+            self.assertTrue(results[0]["options"][0].startswith("A."))
+            self.assertTrue(results[0]["options"][1].startswith("B."))
+            self.assertTrue(results[0]["options"][2].startswith("C."))
+            self.assertTrue(results[0]["options"][3].startswith("D."))
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    def test_chemdraw_ole_object_rejected(self):
+        """Test that OLE compound document binaries (ChemDraw .bin) are rejected and never treated as images."""
+        # Header OLE2 CFBF signature of ChemDraw .bin
+        ole_binary = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 1000 + b"ChemDraw.Document.6.0"
+        processed, mime = process_image_blob(ole_binary, "application/vnd.openxmlformats-officedocument.oleObject")
+        self.assertIsNone(processed)
+        self.assertEqual(mime, "")
+
+        url = upload_image_to_r2(ole_binary, mime_type="application/vnd.openxmlformats-officedocument.oleObject")
+        self.assertIsNone(url)
 
 
 if __name__ == "__main__":

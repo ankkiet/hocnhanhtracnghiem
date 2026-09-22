@@ -27,8 +27,13 @@ def get_gemini_client(api_key: str) -> genai.Client:
     return _client_pool[key_clean]
 
 def fix_json_latex_escapes(json_str: str) -> str:
-    """Sửa lỗi LLM trả về các ký tự LaTeX (như \\frac, \\rightarrow) bị parser JSON hiểu nhầm thành ký tự escape."""
-    return re.sub(r'(?<!\\)\\(?!["\\/])', r'\\\\', json_str)
+    """
+    Sửa lỗi LLM trả về các ký tự LaTeX (như \\frac, \\rightarrow) bị parser JSON hiểu nhầm thành ký tự escape.
+    Chú ý: Chỉ fix dấu \\ đơn nằm ngoài các placeholder [IMG_X] và ngoài chuỗi JSON hợp lệ.
+    """
+    # Bảo vệ placeholder [IMG_X] trước khi sửa escape
+    protected = re.sub(r'(\[IMG_\d+\])', lambda m: m.group(0), json_str)
+    return re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r'\\\\', protected)
 
 def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -195,6 +200,34 @@ async def call_gemini_with_fallback(
                     
     raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
 
+def restore_image_placeholders(text: str) -> str:
+    """
+    Khôi phục lại các placeholder [IMG_X] mà AI có thể đã viết lại thành dạng khác.
+    Ví dụ: AI hay viết [Hình 1], [Image 1], [Ảnh 1], [IMG1], (IMG_1) → phục hồi về [IMG_1].
+    """
+    # Chuẩn hóa các biến thể phổ biến mà AI hay viết sai
+    # Mẫu: [Hình X], [Ảnh X], [Image X], [Pic X], [Hinh X], [IMG X], [IMG-X], [IMGX], (IMG_X), v.v.
+    patterns = [
+        # [IMG X], [IMG-X], [IMG_X], [IMGX] -> [IMG_X]
+        (r'\[\s*IMG[\s_\-]*(\d+)\s*\]', r'[IMG_\1]'),
+        # [Image X], [image X] -> [IMG_X]
+        (r'\[\s*[Ii]mage[\s_\-]*(\d+)\s*\]', r'[IMG_\1]'),
+        # [Hình X], [Hinh X] -> [IMG_X]
+        (r'\[\s*[Hh][iíì]nh[\s_\-]*(\d+)\s*\]', r'[IMG_\1]'),
+        # [Ảnh X], [Anh X] -> [IMG_X]
+        (r'\[\s*[Ảảaa][Nn][Hh][\s_\-]*(\d+)\s*\]', r'[IMG_\1]'),
+        # [Pic X], [Picture X] -> [IMG_X]
+        (r'\[\s*(?:[Pp]ic|[Pp]icture)[\s_\-]*(\d+)\s*\]', r'[IMG_\1]'),
+        # (IMG_X), (IMG X) -> [IMG_X]
+        (r'\(\s*IMG[\s_\-]*(\d+)\s*\)', r'[IMG_\1]'),
+        # IMG_X (không có ngoặc, đứng độc lập) -> [IMG_X]
+        (r'(?<![\[\(\w])IMG[_\-\s]+(\d+)(?![\]\)\w])', r'[IMG_\1]'),
+    ]
+    for pattern, replacement in patterns:
+        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    return text
+
+
 async def generate_mcq_with_gemini(
     marked_text: str,
     api_keys: List[str],
@@ -208,18 +241,36 @@ async def generate_mcq_with_gemini(
     # Giới hạn tối đa 2 tác vụ chạy đồng thời để chống chạm Rate Limit 429 trên Google Free Tier
     concurrency_limit = asyncio.Semaphore(2)
     
+    # Đếm tổng số placeholder ảnh trong toàn bộ tài liệu để nhắc AI
+    total_imgs = len(re.findall(r'\[IMG_\d+\]', marked_text))
+    img_reminder = (
+        f" Tài liệu chứa {total_imgs} ảnh được đánh dấu bằng [IMG_X] (X là số). "
+        "TUYỆT ĐỐI PHẢI GIỮ NGUYÊN 100% các placeholder [IMG_X] đúng như trong văn bản gốc. "
+        "KHÔNG được viết lại thành [Hình X], [Image X], [Ảnh X] hay bất kỳ dạng nào khác."
+    ) if total_imgs > 0 else ""
+    
     system_instruction = (
         "Bạn là một chuyên gia giáo dục và biên tập viên đề thi trắc nghiệm. "
         "Nhiệm vụ của bạn là bóc tách chuẩn xác toàn bộ câu hỏi và đáp án từ tài liệu được cung cấp. "
         "Quy tắc bất di bất dịch: Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) "
-        "và các thẻ giữ chỗ hình ảnh [IMG_X]. Giữ nguyên công thức toán LaTeX được bọc trong \\( và \\). "
+        "và các thẻ giữ chỗ hình ảnh [IMG_X] (KHÔNG ĐƯỢC sửa đổi, xóa bỏ hay đổi tên các thẻ [IMG_X]). "
+        "Giữ nguyên công thức toán LaTeX được bọc trong \\( và \\). "
         "Luôn kèm trường 'explain' giải thích ngắn gọn, súc tích lý do chọn đáp án đúng. "
-        "Trả về kết quả dưới dạng JSON array duy nhất."
+        f"Trả về kết quả dưới dạng JSON array duy nhất.{img_reminder}"
     )
     
     async def process_chunk(idx, chunk):
         if not chunk.strip():
             return None
+        
+        # Đếm placeholder ảnh trong chunk này
+        chunk_imgs = re.findall(r'\[IMG_\d+\]', chunk)
+        img_list_str = ", ".join(chunk_imgs) if chunk_imgs else ""
+        img_strict_rule = (
+            f"\n            QUAN TRỌNG: Chunk này chứa {len(chunk_imgs)} ảnh: {img_list_str}. "
+            "Bạn PHẢI sao chép nguyên xi các placeholder ảnh này (đúng chính xác từng ký tự kể cả dấu ngoặc vuông và dấu gạch dưới) "
+            "vào trường 'question' hoặc 'options' tương ứng. KHÔNG ĐƯỢC bỏ qua, viết lại hay sáng tác thêm placeholder ảnh mới."
+        ) if chunk_imgs else ""
             
         async with concurrency_limit:
             if active_tasks is not None and task_id and task_id in active_tasks:
@@ -230,17 +281,17 @@ async def generate_mcq_with_gemini(
             
             1. Bóc tách câu hỏi và đúng 4 đáp án (A, B, C, D). Loại bỏ chữ 'Câu X:', 'Bài X:' hoặc số thứ tự ở đầu.
             2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> hoặc có dấu * ở trước chữ cái. Loại bỏ <MARK> và dấu * khỏi kết quả.
-            3. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X]. Phải giữ nguyên chúng trong câu hỏi hoặc đáp án tương ứng.
+            3. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ hoặc thay đổi các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng. Ví dụ: [IMG_1] phải được viết là [IMG_1], không phải [Hình 1] hay [Image 1].
             4. Trả về mảng JSON theo mẫu:
                [
                  {{
                    "group_title": "",
-                   "question": "Nội dung câu hỏi [IMG_1]...",
-                   "options": ["A. Lựa chọn 1", "B. Lựa chọn 2", "C. Lựa chọn 3", "D. Lựa chọn 4"],
+                   "question": "Nội dung câu hỏi. Ví dụ có ảnh: Hãy quan sát hình sau [IMG_1] và trả lời câu hỏi...",
+                   "options": ["A. Lựa chọn 1", "B. Lựa chọn 2 [IMG_2]", "C. Lựa chọn 3", "D. Lựa chọn 4"],
                    "correct_answer": "A. Lựa chọn 1",
                    "explain": "Giải thích ngắn gọn lý do chọn đáp án này..."
                  }}
-               ]
+               ]{img_strict_rule}
                
             Văn bản:
             {chunk}
@@ -252,8 +303,12 @@ async def generate_mcq_with_gemini(
                     system_instruction=system_instruction,
                     thinking_budget=0
                 )
-                match = re.search(r'\[\s*\{.*\}\s*\]', response.text, re.DOTALL)
-                json_text = match.group(0) if match else response.text
+                raw_text = response.text
+                # Khôi phục lại placeholder ảnh mà AI có thể đã viết sai
+                raw_text = restore_image_placeholders(raw_text)
+                
+                match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
+                json_text = match.group(0) if match else raw_text
                 json_text = fix_json_latex_escapes(json_text)
                 
                 if json_repair is not None:
@@ -288,6 +343,7 @@ def apply_image_mapping_to_data(data, mapping):
     elif isinstance(data, list):
         return [apply_image_mapping_to_data(v, mapping) for v in data]
     elif isinstance(data, str):
+        data = restore_image_placeholders(data)
         for ph, img_tag in mapping.items():
             num_match = re.search(r'\d+', ph)
             if num_match:

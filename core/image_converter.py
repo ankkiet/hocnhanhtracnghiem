@@ -60,6 +60,8 @@ def detect_image_format(data: bytes) -> str:
         return "emf"
     if data[:4] in [b"\xd7\xcd\xc6\x9a", b"\x01\x00\x09\x00"]:
         return "wmf"
+    if b"<svg" in data[:250] or (b"<?xml" in data[:50] and b"<svg" in data[:500]):
+        return "svg"
     return "unknown"
 
 
@@ -186,25 +188,34 @@ def process_image_blob(blob: bytes, mime_type: str, max_width: int = 800) -> Tup
     - Không bao giờ ném Exception gây dừng tiến trình phân tích.
     """
     if not blob:
-        return blob, mime_type
+        return None, ""
 
+    detected_fmt = detect_image_format(blob)
     is_wmf_emf = (
         mime_type in ['image/x-emf', 'image/x-wmf', 'image/emf', 'image/wmf'] or
+        detected_fmt in ['emf', 'wmf'] or
         blob[:4] == b'\x01\x00\x00\x00' or  # EMF Header
         blob[:4] in [b'\xd7\xcd\xc6\x9a', b'\x01\x00\x09\x00']  # WMF Header
     )
+
+    # Từ chối các tệp nhị phân không phải ảnh (ví dụ OLEObject .bin, macro, XML rác)
+    if not is_wmf_emf and detected_fmt == "unknown" and not mime_type.startswith("image/"):
+        return None, ""
 
     if is_wmf_emf:
         converted = convert_vector_image_to_png(blob)
         if converted:
             return converted, "image/png"
-        # Nếu không chuyển đổi được thì giữ nguyên định dạng gốc
         return blob, mime_type
 
     # Xử lý tối ưu hóa kích thước ảnh raster bằng Pillow
-    if Image is not None and mime_type not in ['image/svg+xml']:
+    if Image is not None and mime_type not in ['image/svg+xml'] and detected_fmt != 'svg':
         try:
             with Image.open(io.BytesIO(blob)) as img:
+                # Bỏ qua các ảnh spacer siêu nhỏ (<= 2x2 px)
+                if img.width <= 2 and img.height <= 2:
+                    return None, ""
+
                 needs_resize = img.width > max_width
                 if needs_resize or mime_type in ['image/bmp', 'image/tiff']:
                     new_width = min(img.width, max_width)
@@ -213,7 +224,7 @@ def process_image_blob(blob: bytes, mime_type: str, max_width: int = 800) -> Tup
                     resized_img = img.resize((new_width, new_height), resample_filter) if needs_resize else img
 
                     out_io = io.BytesIO()
-                    if img.mode in ('RGBA', 'P') and ('png' in mime_type.lower() or 'webp' in mime_type.lower()):
+                    if img.mode in ('RGBA', 'P') and ('png' in mime_type.lower() or 'webp' in mime_type.lower() or detected_fmt == 'png'):
                         resized_img.save(out_io, format='PNG', optimize=True)
                         return out_io.getvalue(), 'image/png'
                     else:
@@ -222,6 +233,8 @@ def process_image_blob(blob: bytes, mime_type: str, max_width: int = 800) -> Tup
                         resized_img.save(out_io, format='JPEG', quality=85, optimize=True)
                         return out_io.getvalue(), 'image/jpeg'
         except Exception:
-            pass
+            # Nếu Pillow không đọc được mà cũng không phải format ảnh đã biết -> từ chối
+            if detected_fmt == "unknown":
+                return None, ""
 
     return blob, mime_type

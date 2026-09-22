@@ -53,7 +53,8 @@ from services.ai_service import (
     fix_json_latex_escapes,
     generate_mcq_with_gemini,
     generate_mcq_from_pdf,
-    normalize_question_data
+    normalize_question_data,
+    restore_image_placeholders
 )
 from services.r2_service import upload_image_to_r2, get_stored_image
 from core.image_converter import process_image_blob
@@ -277,18 +278,24 @@ def find_image_part_and_id(img_node, doc):
     return rId, image_part
 
 def replace_placeholders(data, mapping):
+    """
+    Thay thế các placeholder [IMG_X] thành thẻ img HTML.
+    Hỗ trợ cả các biến thể mà AI có thể viết sai (ví dụ: [Hình 1], [Image 1]).
+    """
     if isinstance(data, dict):
         return {k: replace_placeholders(v, mapping) for k, v in data.items()}
     elif isinstance(data, list):
         return [replace_placeholders(v, mapping) for v in data]
     elif isinstance(data, str):
+        # Trước tiên, chuẩn hóa các placeholder AI có thể viết sai
+        data = restore_image_placeholders(data)
         for ph, img_tag in mapping.items():
             num_match = re.search(r'\d+', ph)
             if num_match:
                 num = num_match.group(0)
                 pattern = re.compile(
-                    r'\\?\[\s*(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC|PICTURE)?[\s_#-]*' + re.escape(num) + r'\s*\\?\]'
-                    r'|\b(?:IMG|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC)[\s_-]+' + re.escape(num) + r'\b',
+                    r'\\?\[\s*(?:IMG|HÍNH|HÌNH|ẢNH|HINH|ANH|ảnh|IMAGE|PIC|PICTURE)?[\s_#-]*' + re.escape(num) + r'\s*\\?\]'
+                    r'|\b(?:IMG|HÍNH|HÌNH|ẢNH|HINH|ANH|IMAGE|PIC)[\s_-]+' + re.escape(num) + r'\b',
                     re.IGNORECASE
                 )
                 data = pattern.sub(lambda m: img_tag, data)
@@ -363,6 +370,43 @@ def split_option_and_leading_text(text: str) -> int:
         
     opt_str = '\n'.join(opt_lines)
     return min(len(opt_str), len(text))
+
+def split_merged_options(options: List[str]) -> List[str]:
+    """
+    Hàm cứu hộ: Nếu 1 phương án bị gộp nhiều đáp án (ví dụ A chứa cả B, C, D),
+    tự động bóc tách thành các phương án độc lập A, B, C, D.
+    """
+    if not options:
+        return options
+
+    # Kiểm tra xem có option nào chứa marker tiếp theo (B, C, D, E, F) không
+    has_merged = False
+    for opt in options:
+        if re.search(r'(?:[;\.\:\?!]\s*|\s+)[B-F][\.\:\)\/\-]\s*', opt):
+            has_merged = True
+            break
+    if not has_merged:
+        return options
+
+    new_options = []
+    opt_split_pattern = re.compile(
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s))(?:\(?\[?([A-F])(?:[\.\:\/\)\]\-]|\b))\s*',
+        re.IGNORECASE
+    )
+
+    for opt in options:
+        matches = list(opt_split_pattern.finditer(opt))
+        if len(matches) <= 1:
+            new_options.append(opt)
+        else:
+            for k, m in enumerate(matches):
+                char = m.group(1).upper()
+                c_start = m.end()
+                c_end = matches[k+1].start() if k+1 < len(matches) else len(opt)
+                content = opt[c_start:c_end].strip()
+                new_options.append(f"{char}. {content}")
+
+    return new_options
 
 def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights: List[int], char_html: List[str] = None) -> str:
     """
@@ -469,11 +513,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 format_weights.extend([0] * len(prefix))
                 char_html.extend(list(prefix))
                 
-        for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
+        for node in para._element.xpath('.//*[local-name()="t" or local-name()="tab" or local-name()="br" or local-name()="cr" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
             if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
                 continue
                 
-            if node.tag.endswith('}oMath'):
+            if node.tag.endswith('}tab'):
+                full_text_list.append("\t")
+                format_weights.append(0)
+                char_html.append("\t")
+            elif node.tag.endswith('}br') or node.tag.endswith('}cr'):
+                full_text_list.append("\n")
+                format_weights.append(0)
+                char_html.append("\n")
+            elif node.tag.endswith('}oMath'):
                 try:
                     math_latex = parse_omath(node)
                     if math_latex:
@@ -486,7 +538,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 except Exception:
                     pass
             elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
-                img_nodes = node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]')
+                # Tuyệt đối KHÔNG lấy OLEObject (vốn là file nhị phân đính kèm ChemDraw/MathType/Excel .bin, không phải ảnh)
+                img_nodes = node.xpath('.//*[local-name()="blip" or local-name()="imagedata" or local-name()="svgBlip"]')
                 if not img_nodes:
                     continue
                 extent = node.xpath('.//*[local-name()="extent"]')
@@ -496,29 +549,47 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                         cx = int(extent[0].get('cx', 0))
                         if cx > 0:
                             px_width = int(cx / 9525)  # Đổi từ chuẩn EMU của Word sang Pixels (96 DPI)
+                            if px_width <= 2:
+                                continue  # Bỏ qua ảnh spacer ẩn 1-2px
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
                         
+                processed_rids = set()
                 for img_node in img_nodes:
                     try:
+                        # Tránh bóc tách 2 lần nếu svgBlip nằm trong blip
+                        if img_node.tag.endswith('}svgBlip') and img_node.xpath('ancestor::*[local-name()="blip"]'):
+                            continue
+
                         rId, image_part = find_image_part_and_id(img_node, doc)
-                        if rId and image_part is not None:
+                        if rId and rId not in processed_rids and image_part is not None:
+                            processed_rids.add(rId)
                             mime_type = image_part.content_type
-                            img_counter += 1
-                            placeholder = f"[IMG_{img_counter}]"
-                            
-                            processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                            blob = image_part.blob
+                            if not blob or len(blob) < 50:
+                                continue
+
+                            processed_blob, processed_mime = process_image_blob(blob, mime_type)
+                            if not processed_blob:
+                                continue
+
                             img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                            img_tag = None
                             if img_url:
-                                image_mapping[placeholder] = f"<br><img src='{img_url}' class='quiz-image' style='{img_style}' /><br>"
-                            else:
+                                img_tag = f"<br><img src='{img_url}' class='quiz-image' style='{img_style}' /><br>"
+                            elif processed_mime and processed_mime.startswith("image/"):
                                 b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
-                                image_mapping[placeholder] = f"<br><img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
+                                img_tag = f"<br><img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' /><br>"
                             
-                            full_text_list.append(f" {placeholder} ")
-                            format_weights.extend([0] * len(f" {placeholder} "))
-                            char_html.extend(list(f" {placeholder} "))
+                            if img_tag:
+                                img_counter += 1
+                                placeholder = f"[IMG_{img_counter}]"
+                                image_mapping[placeholder] = img_tag
+                                # Chuẩn AZOTA: chèn \n hai phía để AI và Regex nhận biết đúng vị trí ảnh
+                                full_text_list.append(f"\n{placeholder}\n")
+                                format_weights.extend([0] * len(f"\n{placeholder}\n"))
+                                char_html.extend(list(f"\n{placeholder}\n"))
                     except Exception as img_err:
                         print(f"[CẢNH BÁO] Không thể xử lý ảnh: {img_err}")
             elif node.tag.endswith('}t'):
@@ -557,7 +628,9 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                     is_red_text = True
                 
                 full_text_list.append(run_text)
-                weight = 3 if (is_red_text or is_highlighted) else (2 if is_underline else (1 if is_bold else 0))
+                # Chuẩn AZOTA: Gạch chân đơn thuần = weight cao nhất (3), ngang bằng màu đỏ/highlight
+                # Vì giáo viên Việt Nam rất hay dùng gạch chân để đánh dấu đáp án đúng
+                weight = 3 if (is_red_text or is_highlighted or is_underline) else (1 if is_bold else 0)
                 format_weights.extend([weight] * len(run_text))
                 
                 for char in run_text:
@@ -585,7 +658,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     # Hỗ trợ: Câu 1, Câu 1:, Câu 1., Câu 1/, Câu 1-, [Câu 1], (Câu 1), Bài 1, Question 1, Q1, 1., 1/, 1:, 1)
     q_regex = r'(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])(?:\s+|$)'
     # Hỗ trợ: A., B., C., D., A:, A), A/, A -, (A), [A], *A., a., b.
-    opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!]\s)|(?<=\))\s*)(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
+    opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
     token_pattern = re.compile(f'({q_regex})|({opt_regex})', re.IGNORECASE)
     
     matches = list(token_pattern.finditer(full_text))
@@ -615,12 +688,22 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 lead_part_raw = text_between[opt_len:]
                 
                 correct_ans = evaluate_correct_answer(options, full_text, format_weights, char_html)
+                
+                q_text_html = get_html(current_q_start, current_q_end)
+                opts_html = [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options]
+                # Chuẩn AZOTA: Trích xuất lời giải từ nội dung câu hỏi hoặc đáp án cuối
+                q_text_clean, explain = extract_explain_from_block(q_text_html)
+                if not explain and opts_html:
+                    last_opt_clean, explain = extract_explain_from_block(opts_html[-1])
+                    if explain:
+                        opts_html[-1] = last_opt_clean
                     
                 extracted_data.append({
                     "group_title": shared_context,
-                    "question": get_html(current_q_start, current_q_end),
-                    "options": [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options],
-                    "correct_answer": correct_ans
+                    "question": q_text_clean,
+                    "options": opts_html,
+                    "correct_answer": correct_ans,
+                    "explain": explain
                 })
                 
                 if lead_part_raw.strip():
@@ -631,11 +714,13 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 # Câu hỏi trước đó không có lựa chọn A, B, C, D rõ ràng -> vẫn lưu lại
                 q_text = get_html(current_q_start, match_start)
                 if q_text.strip():
+                    q_text_clean, explain = extract_explain_from_block(q_text)
                     extracted_data.append({
                         "group_title": shared_context,
-                        "question": q_text,
+                        "question": q_text_clean,
                         "options": [],
-                        "correct_answer": ""
+                        "correct_answer": "",
+                        "explain": explain
                     })
                 current_q_start = match_end
                 current_q_end = match_end
@@ -685,20 +770,31 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         
         correct_ans = evaluate_correct_answer(options, full_text, format_weights, char_html)
             
+        q_text_html = get_html(current_q_start, current_q_end)
+        opts_html = [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options]
+        # Chuẩn AZOTA: Trích xuất lời giải
+        q_text_clean, explain = extract_explain_from_block(q_text_html)
+        if not explain and opts_html:
+            last_opt_clean, explain = extract_explain_from_block(opts_html[-1])
+            if explain:
+                opts_html[-1] = last_opt_clean
         extracted_data.append({
             "group_title": shared_context,
-            "question": get_html(current_q_start, current_q_end),
-            "options": [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options],
-            "correct_answer": correct_ans
+            "question": q_text_clean,
+            "options": opts_html,
+            "correct_answer": correct_ans,
+            "explain": explain
         })
     elif state == "IN_QUESTION":
         q_text = get_html(current_q_start, len(full_text))
         if q_text.strip():
+            q_text_clean, explain = extract_explain_from_block(q_text)
             extracted_data.append({
                 "group_title": shared_context,
-                "question": q_text,
+                "question": q_text_clean,
                 "options": [],
-                "correct_answer": ""
+                "correct_answer": "",
+                "explain": explain
             })
 
     # BƯỚC 3: Nếu có câu hỏi chưa tìm được đáp án đúng, dò tìm Bảng đáp án cuối tài liệu
@@ -715,10 +811,21 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"[CẢNH BÁO] Lỗi đọc bảng đáp án: {e}")
 
-    # Đảm bảo câu hỏi luôn có đáp án hợp lệ (ưu tiên A nếu không rõ)
+    # BƯỚC 4: Chuẩn hóa bóc tách các phương án bị dính liền (nếu có) và đảm bảo có đáp án đúng
     for q_item in extracted_data:
-        if not q_item.get("correct_answer") and q_item.get("options"):
-            q_item["correct_answer"] = q_item["options"][0]
+        if q_item.get("options"):
+            q_item["options"] = split_merged_options(q_item["options"])
+            if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
+                matched = False
+                if q_item.get("correct_answer"):
+                    ca_char = q_item["correct_answer"].strip()[:2].upper()
+                    for opt in q_item["options"]:
+                        if opt.upper().startswith(ca_char):
+                            q_item["correct_answer"] = opt
+                            matched = True
+                            break
+                if not matched and q_item["options"]:
+                    q_item["correct_answer"] = q_item["options"][0]
 
     if image_mapping:
         extracted_data = replace_placeholders(extracted_data, image_mapping)
@@ -726,13 +833,42 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     return extracted_data
 
 
+def extract_explain_from_block(text: str) -> tuple:
+    """
+    Trích xuất lời giải từ khối văn bản chứa câu hỏi (chuẩn AZOTA).
+    Hỗ trợ các từ khóa: 'Lời giải:', 'Giải thích:', 'Hướng dẫn:', 'ĐÁP ÁN:'...
+    Trả về: (text_không_có_lời_giải, lời_giải)
+    """
+    explain_pattern = re.compile(
+        r'(?:^|\n)\s*(?:Lời giải|Lời giải chi tiết|Hướng dẫn giải|Giải thích|Hướng dẫn|Phân tích|Giải|Lời giải chi tiết)\s*[:\-]\s*',
+        re.IGNORECASE
+    )
+    m = explain_pattern.search(text)
+    if m:
+        main_text = text[:m.start()].strip()
+        explain_text = text[m.end():].strip()
+        # Xóa các thẻ <MARK> khỏi lời giải
+        explain_text = explain_text.replace('<MARK>', '').replace('</MARK>', '').strip()
+        return main_text, explain_text
+    return text, ""
+
+
 def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict = None) -> List[Dict[str, Any]]:
     """
     Bộ bóc tách câu hỏi dự phòng siêu bền vững bằng Regex khối.
     Tự động chia tách văn bản thành từng câu hỏi và bóc tách các lựa chọn A, B, C, D.
+    Chuẩn AZOTA: Hỗ trợ đọc lời giải từ file và cắt tại từ khóa 'HẾT'.
     """
     if not raw_text or not raw_text.strip():
         return []
+
+    # Chuẩn AZOTA: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
+    end_markers = ['\nHẾT\n', '\nHET\n', '\n--- HẾT ---\n', '\n---HẾT---\n', '\nTHE END\n']
+    for marker in end_markers:
+        pos = raw_text.upper().find(marker.upper())
+        if pos != -1 and pos > len(raw_text) * 0.5:
+            raw_text = raw_text[:pos]
+            break
 
     q_split_pattern = re.compile(
         r'(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
@@ -745,7 +881,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         
     results = []
     opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!]\s)|(?<=\))\s*)(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*',
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*',
         re.IGNORECASE
     )
     
@@ -753,12 +889,16 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         q_start = m.end()
         q_end = matches[i+1].start() if i+1 < len(matches) else len(raw_text)
         block = raw_text[q_start:q_end].strip()
+        block = re.sub(r'(?<!\n)(?:(\s+)|(?<=[;\.\:\?!]))(\*?[A-D][\.\:\)]\s*)', r'\n\2', block)
         
         opt_matches = list(opt_pattern.finditer(block))
         if opt_matches:
-            q_text = block[:opt_matches[0].start()].strip()
+            q_text_raw = block[:opt_matches[0].start()].strip()
+            # Chuẩn AZOTA: Trích xuất lời giải từ nội dung câu hỏi (nếu có)
+            q_text, explain_from_question = extract_explain_from_block(q_text_raw)
             options = []
             correct_ans = None
+            explain = explain_from_question
             
             for j, opt_m in enumerate(opt_matches):
                 char_raw = opt_m.group(1).upper()
@@ -767,9 +907,14 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 
                 opt_start = opt_m.end()
                 opt_end = opt_matches[j+1].start() if j+1 < len(opt_matches) else len(block)
-                opt_content = block[opt_start:opt_end].strip()
+                opt_content_raw = block[opt_start:opt_end].strip()
                 
-                opt_content = re.sub(r'\s+', ' ', opt_content)
+                # Chuẩn AZOTA: Kiểm tra lời giải trong đáp án cuối cùng
+                opt_content_clean, explain_from_opt = extract_explain_from_block(opt_content_raw)
+                if explain_from_opt and not explain:
+                    explain = explain_from_opt
+                
+                opt_content = re.sub(r'\s+', ' ', opt_content_clean)
                 
                 if is_asterisk or '<MARK>' in opt_content or '[ĐÚNG]' in opt_content or '✓' in opt_content or '✔' in opt_content:
                     clean_opt = opt_content.replace('<MARK>', '').replace('</MARK>', '').strip()
@@ -785,16 +930,35 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 "group_title": "",
                 "question": q_text,
                 "options": options,
-                "correct_answer": correct_ans
+                "correct_answer": correct_ans,
+                "explain": explain
             })
         else:
+            # Khối chỉ có câu hỏi, không có đáp án — vẫn trích xuất lời giải nếu có
+            q_text, explain = extract_explain_from_block(block)
             results.append({
                 "group_title": "",
-                "question": block,
+                "question": q_text,
                 "options": [],
-                "correct_answer": ""
+                "correct_answer": "",
+                "explain": explain
             })
             
+    for q_item in results:
+        if q_item.get("options"):
+            q_item["options"] = split_merged_options(q_item["options"])
+            if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
+                matched = False
+                if q_item.get("correct_answer"):
+                    ca_char = q_item["correct_answer"].strip()[:2].upper()
+                    for opt in q_item["options"]:
+                        if opt.upper().startswith(ca_char):
+                            q_item["correct_answer"] = opt
+                            matched = True
+                            break
+                if not matched and q_item["options"]:
+                    q_item["correct_answer"] = q_item["options"][0]
+
     if image_mapping and results:
         results = replace_placeholders(results, image_mapping)
         
@@ -869,17 +1033,22 @@ def parse_docx_to_marked_text(file_path: str) -> str:
             if not is_numbering_text and not is_group_title:
                 para_text += prefix
                 
-        for node in para._element.xpath('.//*[local-name()="t" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
+        for node in para._element.xpath('.//*[local-name()="t" or local-name()="tab" or local-name()="br" or local-name()="cr" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
             if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
                 continue
 
-            if node.tag.endswith('}oMath'):
+            if node.tag.endswith('}tab'):
+                para_text += "\t"
+            elif node.tag.endswith('}br') or node.tag.endswith('}cr'):
+                para_text += "\n"
+            elif node.tag.endswith('}oMath'):
                 math_latex = parse_omath(node)
                 if math_latex:
                     encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
                     para_text += f" \\({encoded_math}\\) "
             elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
-                img_nodes = node.xpath('.//*[local-name()="blip"] | .//*[local-name()="imagedata"] | .//*[local-name()="OLEObject"] | .//*[local-name()="svgBlip"]')
+                # Tuyệt đối KHÔNG lấy OLEObject (vốn là file nhị phân đính kèm ChemDraw/MathType/Excel .bin, không phải ảnh)
+                img_nodes = node.xpath('.//*[local-name()="blip" or local-name()="imagedata" or local-name()="svgBlip"]')
                 if not img_nodes:
                     continue
                 extent = node.xpath('.//*[local-name()="extent"]')
@@ -889,27 +1058,44 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                         cx = int(extent[0].get('cx', 0))
                         if cx > 0:
                             px_width = int(cx / 9525)
+                            if px_width <= 2:
+                                continue
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
                     except:
                         pass
                         
+                processed_rids = set()
                 for img_node in img_nodes:
                     try:
+                        if img_node.tag.endswith('}svgBlip') and img_node.xpath('ancestor::*[local-name()="blip"]'):
+                            continue
+
                         rId, image_part = find_image_part_and_id(img_node, doc)
-                        if rId and image_part is not None:
+                        if rId and rId not in processed_rids and image_part is not None:
+                            processed_rids.add(rId)
                             mime_type = image_part.content_type
-                            img_counter += 1
-                            placeholder = f"[IMG_{img_counter}]"
-                            
-                            processed_blob, processed_mime = process_image_blob(image_part.blob, mime_type)
+                            blob = image_part.blob
+                            if not blob or len(blob) < 50:
+                                continue
+
+                            processed_blob, processed_mime = process_image_blob(blob, mime_type)
+                            if not processed_blob:
+                                continue
+
                             img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                            img_tag = None
                             if img_url:
-                                image_mapping[placeholder] = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
-                            else:
+                                img_tag = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
+                            elif processed_mime and processed_mime.startswith("image/"):
                                 b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
-                                image_mapping[placeholder] = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+                                img_tag = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
                             
-                            para_text += f" {placeholder} "
+                            if img_tag:
+                                img_counter += 1
+                                placeholder = f"[IMG_{img_counter}]"
+                                image_mapping[placeholder] = img_tag
+                                # Chuẩn AZOTA: chèn \n hai phía để AI nhận biết đúng vị trí ảnh
+                                para_text += f"\n{placeholder}\n"
                     except Exception as img_err:
                         print(f"[CẢNH BÁO] parse_docx_to_marked_text lỗi ảnh: {img_err}")
             elif node.tag.endswith('}t'):
@@ -951,7 +1137,8 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                 if is_underline and not is_red_text: formatted_text = f"<u>{formatted_text}</u>"
                 if is_bold and not is_red_text: formatted_text = f"<b>{formatted_text}</b>"
                 
-                if is_red_text or is_highlighted or (is_underline and is_bold): 
+                # Chuẩn AZOTA: Gạch chân đơn thuần = đáp án đúng (không cần kết hợp in đậm)
+                if is_red_text or is_highlighted or is_underline:
                     para_text += f"<MARK>{formatted_text}</MARK>"
                 else:
                     para_text += formatted_text
@@ -961,9 +1148,17 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     raw_output = "\n".join(full_text)
     for tag in ['b', 'i', 'u', 'sup', 'sub']:
         raw_output = raw_output.replace(f"</{tag}> <{tag}>", " ").replace(f"</{tag}><{tag}>", "")
+    
+    # Chuẩn AZOTA: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
+    end_markers = ['\nHẾT\n', '\nHET\n', '\n--- HẾT ---\n', '\n---HẾT---\n', '\nTHE END\n']
+    for marker in end_markers:
+        pos = raw_output.upper().find(marker.upper())
+        if pos != -1 and pos > len(raw_output) * 0.5:  # Chỉ cắt nếu nằm ở nửa sau tài liệu
+            raw_output = raw_output[:pos]
+            break
         
     # Đảm bảo có khoảng trắng xuống dòng trước các đáp án A, B, C, D (Sửa lỗi dính liền cực an toàn)
-    raw_output = re.sub(r'(?<!\n)(\s+)(\*?[A-D][\.\:\)]\s+)', r'\n\2', raw_output)
+    raw_output = re.sub(r'(?<!\n)(?:(\s+)|(?<=[;\.\:\?!]))(\*?[A-D][\.\:\)]\s*)', r'\n\2', raw_output)
     return raw_output, image_mapping
 
 # Các thuật toán xử lý AI đã được chuyển sang services/ai_service.py
@@ -1157,6 +1352,22 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                     print(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
 
         extracted_data = recursive_unescape(extracted_data)
+
+        if extracted_data and isinstance(extracted_data, list):
+            for q_item in extracted_data:
+                if isinstance(q_item, dict) and q_item.get("options"):
+                    q_item["options"] = split_merged_options(q_item["options"])
+                    if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
+                        matched = False
+                        if q_item.get("correct_answer"):
+                            ca_char = q_item["correct_answer"].strip()[:2].upper()
+                            for opt in q_item["options"]:
+                                if opt.upper().startswith(ca_char):
+                                    q_item["correct_answer"] = opt
+                                    matched = True
+                                    break
+                        if not matched and q_item["options"]:
+                            q_item["correct_answer"] = q_item["options"][0]
 
         if not extracted_data:
              active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi từ file. Vui lòng đảm bảo file có chứa câu hỏi dạng 'Câu 1:' hoặc '1.' và các phương án A, B, C, D."}
