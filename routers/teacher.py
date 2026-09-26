@@ -9,6 +9,7 @@ from services.firebase_service import get_db
 from core.security import get_user_from_token
 from core.docx_exporter import export_quiz_to_docx
 from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
+from services.r2_service import extract_image_keys_from_data, delete_images_from_r2, list_r2_objects
 
 try:
     import json_repair
@@ -89,6 +90,29 @@ async def quiz_action(req: QuizActionRequest):
     elif req.action == 'restore':
         doc_ref.update({'status': 'unpublished'})
     elif req.action == 'permanent':
+        # 1. Trích xuất toàn bộ ảnh có trong đề thi và xóa khỏi Cloudflare R2 + Local cache
+        quiz_data = doc.to_dict()
+        image_keys = extract_image_keys_from_data(quiz_data)
+        if image_keys:
+            delete_images_from_r2(image_keys)
+
+        # 2. Xóa toàn bộ tài liệu trong subcollection 'submissions'
+        try:
+            subs = doc_ref.collection('submissions').stream()
+            for sub in subs:
+                sub.reference.delete()
+        except Exception as sub_err:
+            print(f"[CẢNH BÁO] Lỗi khi dọn dẹp submissions: {sub_err}")
+
+        # 3. Xóa toàn bộ tài liệu trong subcollection 'active_sessions'
+        try:
+            sessions = doc_ref.collection('active_sessions').stream()
+            for s in sessions:
+                s.reference.delete()
+        except Exception as sess_err:
+            print(f"[CẢNH BÁO] Lỗi khi dọn dẹp active_sessions: {sess_err}")
+
+        # 4. Xóa chính document bài thi trong Firestore
         doc_ref.delete()
     return {"status": "success"}
 

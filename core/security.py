@@ -60,6 +60,17 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
+ADMIN_EMAILS = {"kiet0905478167@gmail.com", "admin"}
+
+def check_and_assign_admin(user_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Tự động cấp quyền Admin cao nhất cho tài khoản chỉ định."""
+    username = (user_data.get('username') or '').strip().lower()
+    email = (user_data.get('email') or '').strip().lower()
+    if username in ADMIN_EMAILS or email in ADMIN_EMAILS:
+        user_data['role'] = 'admin'
+        user_data['status'] = 'approved'
+    return user_data
+
 def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
     """
     Xác thực token người dùng:
@@ -77,14 +88,14 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
         if doc.exists:
             user_data = doc.to_dict()
             user_data['id'] = doc.id
-            return user_data
+            return check_and_assign_admin(user_data)
             
     try:
         doc = db.collection('users').document(token).get()
         if doc.exists:
             user_data = doc.to_dict()
             user_data['id'] = doc.id
-            return user_data
+            return check_and_assign_admin(user_data)
     except Exception:
         pass
         

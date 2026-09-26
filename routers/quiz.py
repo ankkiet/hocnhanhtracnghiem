@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from firebase_admin import firestore
 from services.firebase_service import get_db
 from core.security import get_user_from_token
+from services.r2_service import extract_image_keys_from_data, delete_images_from_r2
 
 router = APIRouter(prefix="/api", tags=["Quiz Management"])
 
@@ -18,6 +19,35 @@ class SaveQuizRequest(BaseModel):
     is_shuffle: bool = False
     creator_id: str = ""
     status: str = "published"
+
+class DiscardDraftRequest(BaseModel):
+    task_id: Optional[str] = None
+    images: Optional[List[str]] = None
+    quiz_data: Optional[Any] = None
+
+@router.post("/discard_draft", summary="Hủy bản nháp và xóa toàn bộ ảnh tạm thời trên Cloudflare R2")
+async def discard_draft(req: DiscardDraftRequest):
+    """
+    Xóa sạch mọi dấu vết của file tải lên khi người dùng không xuất bản mà thoát ra:
+    - Xóa các ảnh đã upload trong task khỏi Cloudflare R2 và local cache
+    - Xóa task khỏi active_tasks bộ nhớ đệm
+    """
+    from core.state import active_tasks
+    images_to_delete = set(req.images or [])
+    
+    if req.quiz_data:
+        extracted = extract_image_keys_from_data(req.quiz_data)
+        images_to_delete.update(extracted)
+        
+    if req.task_id and req.task_id in active_tasks:
+        task_info = active_tasks.pop(req.task_id, {})
+        task_data = task_info.get("data")
+        if task_data:
+            extracted = extract_image_keys_from_data(task_data)
+            images_to_delete.update(extracted)
+            
+    deleted_count = delete_images_from_r2(list(images_to_delete))
+    return {"status": "success", "deleted_images": deleted_count}
 
 @router.post("/save_quiz", summary="Lưu bài thi và lấy link")
 async def save_quiz(request: SaveQuizRequest):
@@ -36,6 +66,14 @@ async def save_quiz(request: SaveQuizRequest):
             stored_creator = doc.to_dict().get('creator_id')
             if stored_creator != creator_uid and stored_creator != request.creator_id:
                 raise HTTPException(status_code=403, detail="Không có quyền cập nhật đề thi này")
+                
+            # Dọn dẹp ảnh cũ trong R2 nếu giáo viên xóa hoặc thay thế ảnh khi chỉnh sửa đề
+            old_quiz_data = doc.to_dict()
+            old_imgs = set(extract_image_keys_from_data(old_quiz_data.get('data', [])))
+            new_imgs = set(extract_image_keys_from_data(request.data))
+            removed_imgs = old_imgs - new_imgs
+            if removed_imgs:
+                delete_images_from_r2(list(removed_imgs))
     else:
         # Tạo mã ngẫu nhiên dạng AAA-111
         while True:

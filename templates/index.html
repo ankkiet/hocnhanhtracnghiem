@@ -12,47 +12,437 @@
     
     <title>HocnhanhTN - Hệ thống Luyện thi Trắc nghiệm AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260927_hide_auth_v1">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style id="styled-wrapper-css">
+      #authContainer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 85vh;
+        padding: 20px 10px;
+        box-sizing: border-box;
+        width: 100%;
+      }
+
+      #authContainer[style*="display: none"],
+      #authContainer[style*="display:none"],
+      .styled-auth-wrapper[style*="display: none"],
+      .styled-auth-wrapper[style*="display:none"],
+      #authContainer.hidden {
+        display: none !important;
+      }
+
+      .styled-auth-wrapper .form {
+        display: flex;
+        flex-direction: column !important;
+        gap: 10px !important;
+        background-color: #ffffff !important;
+        padding: 30px !important;
+        width: 450px !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        border-radius: 20px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+        margin: auto !important;
+        border: 1px solid #ededef !important;
+      }
+
+      .styled-auth-wrapper .form[style*="display: none"],
+      .styled-auth-wrapper .form[style*="display:none"],
+      .styled-auth-wrapper .form.hidden {
+        display: none !important;
+      }
+
+      .styled-auth-wrapper ::placeholder {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+        color: #9ca3af !important;
+      }
+
+      .styled-auth-wrapper .form button {
+        align-self: flex-end;
+      }
+
+      .styled-auth-wrapper .flex-column {
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
+      .styled-auth-wrapper .flex-column > label {
+        color: #151717 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        display: block !important;
+        margin-bottom: 2px !important;
+      }
+
+      .styled-auth-wrapper .inputForm {
+        border: 1.5px solid #ecedec !important;
+        border-radius: 10px !important;
+        height: 50px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        transition: 0.2s ease-in-out !important;
+        background-color: #ffffff !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        margin: 0 !important;
+      }
+
+      .styled-auth-wrapper .inputForm svg {
+        flex-shrink: 0 !important;
+        fill: #71717a !important;
+        display: inline-block !important;
+        vertical-align: middle !important;
+      }
+
+      .styled-auth-wrapper .inputForm .input {
+        margin-left: 10px !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        margin-right: 0 !important;
+        padding: 0 !important;
+        border-radius: 10px !important;
+        border: none !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        font-size: 14px !important;
+        color: #151717 !important;
+        box-sizing: border-box !important;
+      }
+
+      .styled-auth-wrapper .inputForm .input:focus {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      .styled-auth-wrapper .inputForm:focus-within {
+        border: 1.5px solid #2d79f3 !important;
+      }
+
+      .styled-auth-wrapper .flex-row {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 10px !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        margin-top: 2px !important;
+        box-sizing: border-box !important;
+      }
+
+      .styled-auth-wrapper .flex-row > div {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+      }
+
+      .styled-auth-wrapper .flex-row > div > input[type="radio"],
+      .styled-auth-wrapper .flex-row > div > input[type="checkbox"] {
+        margin: 0 !important;
+        width: auto !important;
+        cursor: pointer !important;
+      }
+
+      .styled-auth-wrapper .flex-row > div > label {
+        font-size: 14px !important;
+        color: black !important;
+        font-weight: 400 !important;
+        cursor: pointer !important;
+        margin: 0 !important;
+      }
+
+      .styled-auth-wrapper .span {
+        font-size: 14px !important;
+        margin-left: 5px !important;
+        color: #2d79f3 !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        transition: color 0.2s ease !important;
+      }
+
+      .styled-auth-wrapper .span:hover {
+        color: #1a56db !important;
+        text-decoration: underline !important;
+      }
+
+      .styled-auth-wrapper .button-submit {
+        margin: 20px 0 10px 0 !important;
+        background-color: #151717 !important;
+        border: none !important;
+        color: white !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        border-radius: 10px !important;
+        height: 50px !important;
+        width: 100% !important;
+        cursor: pointer !important;
+        align-self: stretch !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: background-color 0.2s ease-in-out, transform 0.1s !important;
+        box-sizing: border-box !important;
+        padding: 0 !important;
+      }
+
+      .styled-auth-wrapper .button-submit:hover {
+        background-color: #26292b !important;
+        transform: translateY(-1px) !important;
+      }
+
+      .styled-auth-wrapper .button-submit:active {
+        transform: translateY(0) !important;
+      }
+
+      .styled-auth-wrapper .p {
+        text-align: center !important;
+        color: black !important;
+        font-size: 14px !important;
+        margin: 5px 0 !important;
+        width: 100% !important;
+      }
+
+      .styled-auth-wrapper .p.line {
+        position: relative !important;
+        color: #71717a !important;
+        font-size: 13px !important;
+        margin: 15px 0 10px 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+
+      .styled-auth-wrapper .p.line::before,
+      .styled-auth-wrapper .p.line::after {
+        content: "" !important;
+        flex: 1 !important;
+        height: 1px !important;
+        background: #ecedec !important;
+        margin: 0 10px !important;
+      }
+
+      .styled-auth-wrapper .btn {
+        margin-top: 10px !important;
+        width: 100% !important;
+        flex: 1 !important;
+        height: 50px !important;
+        border-radius: 10px !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        font-weight: 500 !important;
+        gap: 10px !important;
+        border: 1px solid #ededef !important;
+        background-color: white !important;
+        cursor: pointer !important;
+        transition: 0.2s ease-in-out !important;
+        box-sizing: border-box !important;
+        font-size: 14px !important;
+        color: #151717 !important;
+        padding: 0 !important;
+      }
+
+      .styled-auth-wrapper .btn:hover {
+        border: 1px solid #2d79f3 !important;
+        background-color: #f8faff !important;
+      }
+
+      .styled-auth-wrapper .btn svg {
+        flex-shrink: 0 !important;
+      }
+    </style>
     <script>
         window.MathJax = {
             tex: {
-                inlineMath: [['\\(', '\\)']],
-                displayMath: [['\\[', '\\]']]
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true,
+                processEnvironments: true,
+                packages: {'[+]': ['noerrors', 'noundefined', 'textmacros', 'mhchem']}
             },
-            svg: { fontCache: 'global' }
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            },
+            chtml: {
+                matchFontHeight: false
+            }
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Firebase SDK (v11) & Google Authentication -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyBNZKHspA74knftwTqM0DLgfsH1NCHHMSM",
+          authDomain: "hocnhanhtracnghiem.firebaseapp.com",
+          projectId: "hocnhanhtracnghiem",
+          storageBucket: "hocnhanhtracnghiem.firebasestorage.app",
+          messagingSenderId: "755742607876",
+          appId: "1:755742607876:web:cd7b533b54069b0fe40351",
+          measurementId: "G-ESF9PPYKBC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.googleProvider = googleProvider;
+        window.signInWithPopup = signInWithPopup;
+        console.log("🔥 Firebase Web App đã được khởi tạo thành công!");
+    </script>
 </head>
+
+
 <body>
 
 <!-- Màn hình Đăng nhập / Đăng ký -->
-<div id="authContainer" class="container" style="max-width: 450px; margin-top: 5vh; display: none;">
-    <div class="header">
-        <h1>HocnhanhTN</h1>
-        <p>Hệ thống Nội bộ - Vui lòng đăng nhập</p>
-    </div>
-    <div class="card" id="loginForm">
-        <h2 style="text-align:center; color: var(--primary); margin-top: 0;">Đăng nhập</h2>
-        <input type="text" id="loginUsername" placeholder="Tên đăng nhập">
-        <input type="password" id="loginPassword" placeholder="Mật khẩu">
-        <button class="btn-primary" style="width: 100%; margin-top: 20px;" onclick="handleLogin()">Đăng nhập</button>
-        <p style="text-align:center; margin-top: 15px;">Chưa có tài khoản? <a href="#" onclick="toggleAuth('register')" style="color: var(--primary); font-weight: bold; text-decoration: none;">Đăng ký ngay</a></p>
-    </div>
+<div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
+    <!-- Form Đăng nhập (Sign In) -->
+    <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+        <div class="flex-column">
+          <label>Email </label>
+        </div>
+        <div class="inputForm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
+            <g data-name="Layer 3" id="Layer_3">
+              <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
+            </g>
+          </svg>
+          <input placeholder="Enter your Email" class="input" type="text" id="email" required />
+        </div>
+        <div class="flex-column">
+          <label>Password </label>
+        </div>
+        <div class="inputForm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
+            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
+            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
+          </svg>        
+          <input placeholder="Enter your Password" class="input" type="password" id="password" required />
+        </div>
+        <div class="flex-row">
+          <div>
+            <input type="radio" id="rememberMe" checked />
+            <label for="rememberMe" style="cursor: pointer;">Remember me </label>
+          </div>
+          <span class="span" onclick="alert('Vui lòng liên hệ Quản trị viên (kiet0905478167@gmail.com) để được hỗ trợ cấp lại mật khẩu.')">Forgot password?</span>
+        </div>
+        <button class="button-submit" type="submit">Sign In</button>
+        <p class="p">Don't have an account? <span class="span" onclick="toggleAuth('register')">Sign Up</span></p>
+        <p class="p line">Or With</p>
+        <div class="flex-row">
+          <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
+            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" id="Layer_1" width="20" height="20" version="1.1">
+              <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256
+      	c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456
+      	C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
+              <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451
+      	c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535
+      	c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
+              <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512
+      	c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771
+      	c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
+              <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012
+      	c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0
+      	C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
+            </svg>
+            Google 
+          </button>
+          <button type="button" class="btn apple" onclick="alert('Tính năng đăng nhập với Apple ID đang được hoàn thiện.')">
+            <svg xmlSpace="preserve" style="enable-background:new 0 0 22.773 22.773;" viewBox="0 0 22.773 22.773" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" id="Capa_1" width="20" height="20" version="1.1">
+              <g> <g> <path fill="#151717" d="M15.769,0c0.053,0,0.106,0,0.162,0c0.13,1.606-0.483,2.806-1.228,3.675c-0.731,0.863-1.732,1.7-3.351,1.573 c-0.108-1.583,0.506-2.694,1.25-3.561C13.292,0.879,14.557,0.16,15.769,0z" /> <path fill="#151717" d="M20.67,16.716c0,0.016,0,0.03,0,0.045c-0.455,1.378-1.104,2.559-1.896,3.655c-0.723,0.995-1.609,2.334-3.191,2.334 c-1.367,0-2.275-0.879-3.676-0.903c-1.482-0.024-2.297,0.735-3.652,0.926c-0.155,0-0.31,0-0.462,0 c-0.995-0.144-1.798-0.932-2.383-1.642c-1.725-2.098-3.058-4.808-3.306-8.276c0-0.34,0-0.679,0-1.019 c0.105-2.482,1.311-4.5,2.914-5.478c0.846-0.52,2.009-0.963,3.304-0.765c0.555,0.086,1.122,0.276,1.619,0.464 c0.471,0.181,1.06,0.502,1.618,0.485c0.378-0.011,0.754-0.208,1.135-0.347c1.116-0.403,2.21-0.865,3.652-0.648 c1.733,0.262,2.963,1.032,3.723,2.22c-1.466,0.933-2.625,2.339-2.427,4.74C17.818,14.688,19.086,15.964,20.67,16.716z" /> </g></g>
+            </svg>
+            Apple 
+          </button>
+        </div>
+    </form>
 
-    <div class="card" id="registerForm" style="display:none;">
-        <h2 style="text-align:center; color: var(--success); margin-top: 0;">Đăng ký Tài khoản</h2>
-        <input type="text" id="regUsername" placeholder="Tên đăng nhập">
-        <input type="password" id="regPassword" placeholder="Mật khẩu">
-        <input type="text" id="regFullName" placeholder="Họ và Tên (VD: Nguyễn Văn A)">
-        <select id="regRole" style="width: 100%; padding: 12px; margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 1rem;">
-            <option value="student">👨‍🎓 Học sinh</option>
-            <option value="teacher">👨‍🏫 Giáo viên</option>
-        </select>
-        <button class="btn-success" style="width: 100%; margin-top: 20px;" onclick="handleRegister()">Gửi yêu cầu Đăng ký</button>
-        <p style="text-align:center; margin-top: 15px;">Đã có tài khoản? <a href="#" onclick="toggleAuth('login')" style="color: var(--primary); font-weight: bold; text-decoration: none;">Đăng nhập</a></p>
-    </div>
+    <!-- Form Đăng ký (Sign Up) -->
+    <form class="form" id="registerForm" style="display: none !important;" onsubmit="event.preventDefault(); handleRegister();">
+        <div class="flex-column">
+          <label>Tên đăng nhập (Username / Email) </label>
+        </div>
+        <div class="inputForm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
+            <g data-name="Layer 3" id="Layer_3_reg">
+              <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
+            </g>
+          </svg>
+          <input placeholder="Enter Username / Email" class="input" type="text" id="regUsername" required />
+        </div>
+
+        <div class="flex-column">
+          <label>Mật khẩu (Password) </label>
+        </div>
+        <div class="inputForm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
+            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
+            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
+          </svg>        
+          <input placeholder="Create a password" class="input" type="password" id="regPassword" required />
+        </div>
+
+        <div class="flex-column">
+          <label>Họ và Tên (Full Name) </label>
+        </div>
+        <div class="inputForm">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <input placeholder="Họ và Tên (VD: Nguyễn Văn A)" class="input" type="text" id="regFullName" required />
+        </div>
+
+        <div class="flex-column">
+          <label>Vai trò tham gia </label>
+        </div>
+        <div class="inputForm">
+          <select id="regRole" class="input" style="background: transparent; border: none; cursor: pointer;">
+              <option value="student">👨‍🎓 Học sinh (Student)</option>
+              <option value="teacher">👨‍🏫 Giáo viên (Teacher)</option>
+          </select>
+        </div>
+
+        <button class="button-submit" type="submit" style="background-color: #2563eb;">Sign Up</button>
+        <p class="p">Already have an account? <span class="span" onclick="toggleAuth('login')">Sign In</span></p>
+        <p class="p line">Or With</p>
+        <div class="flex-row">
+          <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
+            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" width="20" height="20" version="1.1">
+              <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256
+      	c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456
+      	C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
+              <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451
+      	c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535
+      	c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
+              <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512
+      	c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771
+      	c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
+              <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012
+      	c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0
+      	C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
+            </svg>
+            Google 
+          </button>
+        </div>
+    </form>
 </div>
+
+
 
 <!-- Màn hình Quản trị viên (Admin) -->
 <div id="adminContainer" class="container" style="display:none; max-width: 900px; margin-top: 5vh;">
@@ -69,6 +459,26 @@
         <div id="apiKeyList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 15px;">Hệ thống sẽ tự động dùng Key tiếp theo nếu Key trước đó bị lỗi hoặc quá tải (Lỗi 429/503).</p>
     </div>
+
+    <div class="card">
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Cấu hình Đăng nhập Google (OAuth 2.0 Client ID):
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+            <input type="text" id="adminGoogleClientId" placeholder="Nhập Google OAuth Client ID (.apps.googleusercontent.com)..." style="flex: 1; min-width: 250px;">
+            <button class="btn-primary" onclick="saveAdminGoogleClientId()">Lưu Client ID</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+            👑 Quản trị viên tối cao: <strong style="color: var(--danger);">kiet0905478167@gmail.com</strong> (Luôn có toàn quyền quản trị).
+        </p>
+    </div>
+
     
     <div class="card">
         <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Đổi mật khẩu Quản trị viên:</p>
@@ -88,7 +498,9 @@
 <div id="mainAppContainer" class="container" style="display:none;">
     <div class="navbar">
         <span id="currentUserDisplay" style="font-weight: bold; color: var(--primary); font-size: 1.1rem;"></span>
-        <button class="btn-outline" style="padding: 8px 16px; font-size: 0.9rem;" onclick="logout()">Đăng xuất</button>
+        <button class="btn-outline" style="padding: 8px 16px; font-size: 0.9rem;" onclick="logout()">
+            <i class="ri-logout-box-r-line"></i> Đăng xuất
+        </button>
     </div>
 
     <div class="header">
@@ -98,10 +510,12 @@
 
     <!-- Màn hình yêu cầu nhập tên & Lịch sử -->
     <div id="welcomeScreen" class="card" style="display:none; text-align: center; margin-bottom: 24px;">
-        <h2 style="color: var(--primary); margin-top:0;">👋 Chào mừng bạn đến với bài thi!</h2>
+        <h2 style="color: var(--primary); margin-top:0;"><i class="ri-user-smile-line"></i> Chào mừng bạn đến với bài thi!</h2>
         <p style="font-size: 1.1rem; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống đã nhận diện tài khoản của bạn. Nhấn Bắt đầu để làm bài.</p>
         <input type="text" id="studentNameInput" style="display: none;">
-        <button id="startBtn" class="btn-primary" style="font-size: 1.1rem; padding: 12px 30px;" onclick="startStudentQuiz()">🚀 Bắt đầu làm bài</button>
+        <button id="startBtn" class="btn-primary" style="font-size: 1.1rem; padding: 12px 30px;" onclick="startStudentQuiz()">
+            <i class="ri-rocket-line"></i> Bắt đầu làm bài
+        </button>
         
         <!-- Khung hiển thị Lịch sử -->
         <div id="historySection" style="display:none; margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border);"></div>
@@ -109,52 +523,56 @@
 
     <!-- Bảng xếp hạng -->
     <div id="leaderboard" class="card" style="display:none; margin-bottom: 24px;">
-        <h2 style="color: #ca8a04; text-align: center; margin-top:0;">🏆 BẢNG XẾP HẠNG THÀNH TÍCH</h2>
+        <h2 style="color: #ca8a04; text-align: center; margin-top:0;"><i class="ri-trophy-line"></i> BẢNG XẾP HẠNG THÀNH TÍCH</h2>
         <div id="leaderboardList" style="margin-top: 15px; overflow-x: auto;"></div>
     </div>
 
     <div id="studentHeader" style="display:none; text-align: center; margin-bottom: 24px; padding: 20px; background: white; border-radius: 12px; box-shadow: var(--shadow); position: relative;">
-        <button id="exitMinimalBtn" class="btn-outline" style="display: none; position: absolute; top: 20px; left: 20px; padding: 8px 15px; font-size: 0.95rem; font-weight: bold;" onclick="exitMinimalMode()">🚪 Thoát</button>
+        <button id="exitMinimalBtn" class="btn-outline" style="display: none; position: absolute; top: 20px; left: 20px; padding: 8px 15px; font-size: 0.95rem; font-weight: bold;" onclick="exitMinimalMode()">
+            <i class="ri-door-open-line"></i> Thoát
+        </button>
         <h2 id="studentQuizTitle" class="quiz-title-text" style="color: var(--primary); margin: 0 0 10px 0;"></h2>
         <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; color: var(--text-muted); font-weight: 600;">
             <span id="studentNameDisplay" style="color: var(--primary);"></span>
-            <span id="studentQCount">🏷 Số câu: 0</span>
-            <span id="studentTime">⏳ Thời gian: Không giới hạn</span>
+            <span id="studentQCount"><i class="ri-hashtag"></i> Số câu: 0</span>
+            <span id="studentTime"><i class="ri-time-line"></i> Thời gian: Không giới hạn</span>
         </div>
     </div>
 
     <div class="mode-switch" id="modeSwitch">
-        <button id="btnEdit" class="btn-outline active" onclick="switchMode('edit')">🛠 Chỉnh sửa</button>
-        <button id="btnPractice" class="btn-outline" onclick="switchMode('practice')">🎯 Luyện tập</button>
-        <button id="btnExam" class="btn-outline" onclick="switchMode('exam')">📝 Thi thử</button>
-        <button id="btnShuffle" class="btn-primary" onclick="shuffleQuiz()" style="display: none;">🔀 Trộn đề</button>
+        <button id="btnEdit" class="btn-outline active" onclick="switchMode('edit')"><i class="ri-tools-line"></i> Chỉnh sửa</button>
+        <button id="btnPractice" class="btn-outline" onclick="switchMode('practice')"><i class="ri-focus-3-line"></i> Luyện tập</button>
+        <button id="btnExam" class="btn-outline" onclick="switchMode('exam')"><i class="ri-file-list-3-line"></i> Thi thử</button>
+        <button id="btnShuffle" class="btn-primary" onclick="shuffleQuiz()" style="display: none;"><i class="ri-shuffle-line"></i> Trộn đề</button>
     </div>
 
     <!-- Bảng điều khiển Học sinh (Khi chưa có link) -->
     <div id="studentDashboard" class="card" style="display:none; text-align: center;">
-        <h2 style="color: var(--primary); margin-top: 0;">🎓 Khu vực Học tập</h2>
+        <h2 style="color: var(--primary); margin-top: 0;"><i class="ri-graduation-cap-line"></i> Khu vực Học tập</h2>
         <p style="color: var(--text-muted); margin-bottom: 20px;">Nhập mã đề thi do giáo viên cung cấp để bắt đầu làm bài.</p>
         <div style="display: flex; max-width: 500px; margin: 0 auto; gap: 10px;">
             <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: ABC-123) hoặc dán Link..." style="flex-grow: 1; margin: 0;">
-            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap;">Vào thi 🚀</button>
+            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap;"><i class="ri-arrow-right-line"></i> Vào thi</button>
         </div>
     </div>
 
     <div id="creationHub" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
         <div class="card upload-section" id="uploadBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
-            <h3 style="color: var(--primary); margin-top: 0;">📂 Bóc tách từ file Word / PDF</h3>
+            <h3 style="color: var(--primary); margin-top: 0;"><i class="ri-file-text-line"></i> Bóc tách từ file Word / PDF</h3>
             <p style="color: var(--text-muted); font-size: 0.95rem;">Tải lên tài liệu (.docx, .pdf) của bạn</p>
             <input type="file" id="fileInput" accept=".docx,.pdf" style="margin-bottom: 15px;">
             <label style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 0.9rem; cursor: pointer; color: var(--primary); font-weight: 600; background: #eff6ff; padding: 10px 20px; border-radius: 8px; border: 1px solid #bfdbfe; transition: all 0.2s; width: 100%; box-sizing: border-box;">
                 <input type="checkbox" id="useAIToggle" checked style="width: 20px; height: 20px; margin: 0 10px 0 0; cursor: pointer;">
-                🤖 Dùng AI bóc tách (Chính xác cao)
+                <i class="ri-sparkling-fill" style="color: var(--primary); margin-right: 6px;"></i> Dùng AI bóc tách (Chính xác cao)
             </label>
             <br>
-            <button class="btn-primary" style="width: 100%;" onclick="uploadFile()">Phân tích Tài liệu 🚀</button>
+            <button class="btn-primary" style="width: 100%;" onclick="uploadFile()">
+                <i class="ri-cpu-line"></i> Phân tích Tài liệu
+            </button>
         </div>
         
         <div class="card upload-section" id="aiGenerateBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
-            <h3 style="color: #9333ea; margin-top: 0;">✨ Sinh đề tự động bằng AI</h3>
+            <h3 style="color: #9333ea; margin-top: 0;"><i class="ri-sparkling-fill"></i> Sinh đề tự động bằng AI</h3>
             <p style="color: var(--text-muted); font-size: 0.95rem;">Nhập chủ đề hoặc đoạn văn bản bất kỳ</p>
             <textarea id="aiGenPrompt" placeholder="VD: Lịch sử Việt Nam thời Lý, hoặc dán một đoạn văn bản đọc hiểu vào đây..." style="min-height: 60px; margin-bottom: 10px; resize: vertical;"></textarea>
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -171,15 +589,30 @@
                     </select>
                 </div>
             </div>
-            <button class="btn-primary" style="background: #9333ea; width: 100%;" onclick="generateQuizWithAI()">Tạo đề bằng AI 🚀</button>
+            <button class="btn-primary" style="background: #9333ea; width: 100%;" onclick="generateQuizWithAI()">
+                <i class="ri-magic-line"></i> Tạo đề bằng AI
+            </button>
+        </div>
+
+        <div style="width: 100%; text-align: center; margin-top: -8px;">
+            <button class="btn-outline" onclick="openStudioNewQuiz()" style="font-weight: 600; padding: 10px 24px; border-color: var(--primary); color: var(--primary); background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;">
+                <i class="ri-edit-box-line"></i> Hoặc Tự Soạn Đề / Dán Đề vào Studio Riêng <i class="ri-arrow-right-line"></i>
+            </button>
         </div>
     </div>
 
     <!-- Bảng quản lý đề thi của Giáo viên -->
     <div id="teacherDashboard" class="card" style="display:none; margin-top: 24px;">
-        <h2 style="color: var(--primary); margin-top: 0; font-size: 1.5rem;">📚 Quản lý Đề thi của tôi</h2>
+        <h2 style="color: var(--primary); margin-top: 0; font-size: 1.5rem;"><i class="ri-book-read-line"></i> Quản lý Đề thi của tôi</h2>
         <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;">Danh sách các đề thi bạn đã tạo và xuất bản. Bạn có thể copy mã/link gửi cho học sinh hoặc ẩn đề đi.</p>
-        <button class="btn-outline" id="btnToggleTrash" onclick="toggleTrashView()" style="margin-bottom: 15px;">🗑️ Xem Thùng rác</button>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="openStudioNewQuiz()" style="margin-bottom: 0;">
+                <i class="ri-add-line"></i> Soạn Đề Mới trong Studio
+            </button>
+            <button class="btn-outline" id="btnToggleTrash" onclick="toggleTrashView()" style="margin-bottom: 0;">
+                <i class="ri-delete-bin-line"></i> Xem Thùng rác
+            </button>
+        </div>
         <div id="teacherQuizList" style="overflow-x: auto;"></div>
     </div>
 
@@ -187,11 +620,11 @@
     <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
             <h2 id="monitorQuizTitle" style="color: var(--primary); margin: 0; font-size: 1.3rem;">Đang giám sát...</h2>
-            <button class="btn-outline" onclick="stopMonitoring()">🔙 Quay lại</button>
+            <button class="btn-outline" onclick="stopMonitoring()"><i class="ri-arrow-left-line"></i> Quay lại</button>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
             <span id="monitorCount" style="font-weight: bold; color: var(--text-muted);">Tổng số: 0 học sinh</span>
-            <span style="font-size: 0.9rem; color: var(--success);">🟢 Tự động làm mới mỗi 5 giây</span>
+            <span style="font-size: 0.9rem; color: var(--success);"><i class="ri-refresh-line"></i> Tự động làm mới mỗi 5 giây</span>
         </div>
         <div style="overflow-x: auto;">
             <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 600px;">
@@ -213,12 +646,14 @@
         <div class="ai-dashboard-header">
             <div>
                 <h3 class="ai-dashboard-title">
-                    <span>🤖</span> BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI
+                    <i class="ri-sparkling-fill" style="color: #9333ea;"></i> BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI
                 </h3>
                 <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #6b7280;">Hệ thống AI đã quét toàn bộ câu hỏi, phân loại chi tiết lỗi và hỗ trợ sửa tự động.</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button id="btnApplyAllAI" class="btn-primary" style="background: #9333ea; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; display: none;" onclick="applyAllAISuggestions()">⚡ Sửa TẤT CẢ câu lỗi</button>
+                <button id="btnApplyAllAI" class="btn-primary" style="background: #9333ea; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; display: none;" onclick="applyAllAISuggestions()">
+                    <i class="ri-flashlight-line"></i> Sửa TẤT CẢ câu lỗi
+                </button>
                 <button class="btn-outline" style="border-color: #d8b4fe; color: #9333ea; font-size: 0.9rem; padding: 8px 14px;" onclick="document.getElementById('aiFeedbackBox').style.display='none'">✕ Đóng</button>
             </div>
         </div>
@@ -231,10 +666,18 @@
     <div id="quiz-container"></div>
     
     <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu kiểm tra tùy chọn cho AI (VD: Soát lỗi câu 1 và 2, Kiểm tra lỗi tính toán... Để trống nếu muốn AI tự soát lỗi tổng quát)"></textarea>
-    <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">🤖 AI Kiểm tra lỗi & Phân tích Đề thi</button>
-    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 15px; font-size: 1.1rem; padding: 15px;" onclick="openPublishModal()">⚙️ Tiếp tục & Cấu hình Xuất bản</button>
-    <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">🔙 Quản lý đề thi</button>
-    <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">✔️ Nộp bài & Xem điểm</button>
+    <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">
+        <i class="ri-search-eye-line"></i> AI Kiểm tra lỗi & Phân tích Đề thi
+    </button>
+    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 15px; font-size: 1.1rem; padding: 15px;" onclick="openPublishModal()">
+        <i class="ri-settings-3-line"></i> Tiếp tục & Cấu hình Xuất bản
+    </button>
+    <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">
+        <i class="ri-arrow-left-line"></i> Quản lý đề thi
+    </button>
+    <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">
+        <i class="ri-check-double-line"></i> Nộp bài & Xem điểm
+    </button>
 </div>
 
 <!-- Lớp phủ (Overlay) màn hình chờ Tải file -->
@@ -250,7 +693,7 @@
 <!-- Modal Cấu hình Xuất bản -->
 <div id="publishModal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
-        <h2 style="color: var(--primary); margin-top: 0;">⚙️ Cấu hình Xuất bản Đề thi</h2>
+        <h2 style="color: var(--primary); margin-top: 0;"><i class="ri-settings-3-line"></i> Cấu hình Xuất bản Đề thi</h2>
         <p style="color: var(--text-muted); margin-bottom: 20px;">Vui lòng thiết lập các thông số trước khi xuất bản cho học sinh.</p>
         
         <label style="font-weight: 600; display: block; margin-bottom: 5px;">Tên bài kiểm tra <span style="color: var(--danger);">*</span></label>
@@ -267,12 +710,14 @@
         
         <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 25px;">
             <input type="checkbox" id="modalQuizShuffle" style="width: 20px; height: 20px; margin-right: 10px;">
-            🔀 Tự động trộn ngẫu nhiên câu hỏi & đáp án
+            <i class="ri-shuffle-line" style="color: var(--primary); margin-right: 6px;"></i> Tự động trộn ngẫu nhiên câu hỏi & đáp án
         </label>
         
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <button class="btn-outline" style="margin: 0; width: auto;" onclick="closePublishModal()">Hủy</button>
-            <button id="btnConfirmPublish" class="btn-primary" style="margin: 0; width: auto;" onclick="confirmPublish()">🚀 Lưu & Xuất bản</button>
+            <button id="btnConfirmPublish" class="btn-primary" style="margin: 0; width: auto;" onclick="confirmPublish()">
+                <i class="ri-send-plane-fill"></i> Lưu & Xuất bản
+            </button>
         </div>
     </div>
 </div>
@@ -286,6 +731,6 @@
     </div>
 </div>
 
-<script src="script.js"></script>
+<script src="script.js?v=20260927_hide_auth_v1"></script>
 </body>
 </html>

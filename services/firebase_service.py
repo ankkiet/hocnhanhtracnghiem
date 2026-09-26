@@ -54,6 +54,33 @@ def init_firebase():
                 'status': 'approved'
             })
             print("Đã khởi tạo tài khoản Quản trị viên (Admin) mặc định.")
+
+        # Đảm bảo tài khoản Quản trị viên kiet0905478167@gmail.com luôn tồn tại và có quyền Admin cao nhất
+        admin_email = "kiet0905478167@gmail.com"
+        kiet_users = db.collection('users').where('username', '==', admin_email).get()
+        if not kiet_users:
+            kiet_by_email = db.collection('users').where('email', '==', admin_email).get()
+            if kiet_by_email:
+                db.collection('users').document(kiet_by_email[0].id).update({
+                    'role': 'admin',
+                    'status': 'approved'
+                })
+            else:
+                kiet_pwd = hash_password('kiet@123456')
+                db.collection('users').add({
+                    'username': admin_email,
+                    'email': admin_email,
+                    'password': kiet_pwd,
+                    'full_name': 'Admin Kiệt',
+                    'role': 'admin',
+                    'status': 'approved'
+                })
+                print(f"Đã khởi tạo tài khoản Quản trị viên {admin_email}.")
+        else:
+            db.collection('users').document(kiet_users[0].id).update({
+                'role': 'admin',
+                'status': 'approved'
+            })
             
         return db
         

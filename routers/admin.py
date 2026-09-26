@@ -1,3 +1,4 @@
+import os
 from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -9,6 +10,11 @@ router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 class SetApiKeyRequest(BaseModel):
     admin_token: str
     api_keys: List[str]
+
+class SetGoogleClientIdRequest(BaseModel):
+    admin_token: str
+    client_id: str
+
 
 class ApproveUserRequest(BaseModel):
     admin_token: str
@@ -120,3 +126,27 @@ async def get_api_key(admin_token: str):
     settings_doc = db.collection('settings').document('gemini').get()
     api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
     return {"status": "success", "api_keys": api_keys}
+
+@router.post("/set_google_client_id", summary="Cài đặt Google Client ID (Admin)")
+async def set_google_client_id(req: SetGoogleClientIdRequest):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Lỗi DB")
+        
+    verify_admin_access(req.admin_token, db)
+    db.collection('settings').document('google_auth').set({'client_id': req.client_id.strip()}, merge=True)
+    return {"status": "success", "message": "Đã lưu Google Client ID thành công"}
+
+@router.get("/get_google_client_id", summary="Lấy Google Client ID (Admin)")
+async def get_google_client_id(admin_token: str):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Lỗi DB")
+        
+    verify_admin_access(admin_token, db)
+    doc = db.collection('settings').document('google_auth').get()
+    client_id = doc.to_dict().get('client_id', '') if doc.exists else ''
+    if not client_id:
+        client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    return {"status": "success", "client_id": client_id}
+

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HocnhanhTN Studio - Biên tập & Soát lỗi Đề thi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="editor.css">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true,
+                processEnvironments: true,
+                packages: {'[+]': ['noerrors', 'noundefined', 'textmacros', 'mhchem']}
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+            },
+            chtml: {
+                matchFontHeight: false
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body class="studio-body">
+
+    <!-- TOP STUDIO NAVBAR -->
+    <header class="studio-navbar">
+        <div class="studio-nav-left">
+            <button class="studio-back-btn" onclick="handleBackToDashboard()">
+                <i class="ri-arrow-left-line"></i> Quay lại
+            </button>
+            <button id="btnDiscardOrDelete" class="studio-back-btn" style="color: #ef4444; border-color: #fecaca;" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
+                <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel">Hủy nháp</span>
+            </button>
+            <div class="studio-brand-badge">
+                <i class="ri-edit-circle-line" style="font-size: 1.25rem;"></i> HocnhanhTN Studio
+            </div>
+            <div class="studio-title-box">
+                <input type="text" id="studioQuizTitle" class="studio-title-input" placeholder="Nhập tên bài kiểm tra / đề thi..." title="Nhấn để đổi tên đề thi">
+                <span id="studioQCountBadge" class="studio-badge">0 câu hỏi</span>
+                <span id="autosaveIndicator" class="studio-autosave"><i class="ri-check-line"></i> Đã lưu nháp</span>
+            </div>
+        </div>
+
+        <div class="studio-nav-right">
+            <!-- Segmented Mode Switcher -->
+            <div class="studio-mode-pill-group">
+                <button id="pillModeEdit" class="studio-mode-pill active" onclick="switchStudioMode('edit')"><i class="ri-edit-2-line"></i> Biên tập</button>
+                <button id="pillModePractice" class="studio-mode-pill" onclick="switchStudioMode('practice')"><i class="ri-focus-3-line"></i> Làm thử</button>
+                <button id="pillModeExam" class="studio-mode-pill" onclick="switchStudioMode('exam')"><i class="ri-file-list-3-line"></i> Thi thử</button>
+            </div>
+
+            <!-- Action buttons -->
+            <button id="btnToggleAIPanel" class="btn-studio-ai" onclick="toggleAIPanel()">
+                <i class="ri-sparkling-fill"></i> AI Rà soát lỗi
+            </button>
+
+            <button id="btnExportWord" class="btn-studio-outline" onclick="exportWordDocument()">
+                <i class="ri-file-word-2-line"></i> Xuất Word
+            </button>
+
+            <button id="btnStudioCopyLink" class="btn-studio-outline" style="display: none; border-color: #0284c7; color: #0284c7; font-weight: 600;" onclick="copyCurrentStudioLink()" title="Sao chép link làm bài của học sinh">
+                <i class="ri-file-copy-line"></i> Copy Link
+            </button>
+
+            <button id="btnOpenPublish" class="btn-studio-primary" onclick="openPublishModal()">
+                <i class="ri-send-plane-fill"></i> Lưu & Xuất bản
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="studio-workspace">
+
+        <!-- BẢNG ĐIỀU KHIỂN AI RÀ SOÁT & THỐNG KÊ LỖI (COLLAPSIBLE) -->
+        <section id="aiFeedbackBox" class="studio-ai-panel">
+            <div class="ai-dashboard-header">
+                <div>
+                    <h3 class="ai-dashboard-title">
+                        <i class="ri-sparkling-fill" style="color: #9333ea;"></i> BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI
+                    </h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #6b7280;">
+                        AI kiểm tra kiến thức, phát hiện đáp án sai, soát lỗi chính tả và format theo chuẩn giáo dục.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <button id="btnApplyAllAI" class="btn-primary" style="background: #9333ea; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; display: none;" onclick="applyAllAISuggestions()">
+                        <i class="ri-flashlight-line"></i> Sửa TẤT CẢ câu lỗi
+                    </button>
+                    <button class="btn-outline" style="border-color: #d8b4fe; color: #9333ea; font-size: 0.9rem; padding: 8px 14px;" onclick="toggleAIPanel(false)">
+                        <i class="ri-arrow-up-s-line"></i> Thu gọn
+                    </button>
+                </div>
+            </div>
+
+            <!-- Khung nhập prompt tùy chọn kiểm tra AI -->
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu kiểm tra tùy chọn (VD: Soát kỹ câu 1 và câu 3, kiểm tra công thức... Để trống để kiểm tra toàn bộ)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
+                <button id="btnAICheck" class="btn-primary" style="background: #9333ea; white-space: nowrap; margin: 0; padding: 10px 20px;" onclick="runAICheck()">
+                    <i class="ri-search-eye-line"></i> Chạy AI Quét lỗi
+                </button>
+            </div>
+
+            <div id="aiFeedbackStats" style="margin-top: 15px;"></div>
+            <div id="aiFeedbackContent"></div>
+        </section>
+
+        <!-- VIEW 1: GIAO DIỆN BIÊN TẬP (SPLIT LAYOUT PREVIEW & CODE EDITOR) -->
+        <div id="splitEditorView" class="studio-split-layout">
+            <!-- Left Pane: Preview Học Sinh -->
+            <div class="studio-pane" id="previewPane">
+                <div class="studio-pane-header">
+                    <div class="studio-pane-title">
+                        <i class="ri-eye-line" style="color: var(--studio-primary);"></i> XEM TRƯỚC (GIAO DIỆN HỌC SINH)
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--studio-text-muted);">
+                        Click vào câu hỏi để cuộn đến Code tương ứng
+                    </div>
+                </div>
+                <div class="studio-pane-body" id="preview-content">
+                    <p style="text-align: center; color: var(--studio-text-muted); margin-top: 50px;">Đang tải dữ liệu đề thi...</p>
+                </div>
+            </div>
+
+            <!-- Right Pane: HocnhanhTN Code Editor -->
+            <div class="studio-pane" id="editorPane">
+                <div class="studio-pane-header">
+                    <div class="studio-pane-title">
+                        <i class="ri-code-s-slash-line" style="color: var(--studio-primary);"></i> HOCNHANHTN CODE EDITOR
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-studio-outline" style="padding: 5px 10px; font-size: 0.82rem;" onclick="formatEditorCode()">
+                            <i class="ri-magic-line"></i> Chuẩn hóa định dạng
+                        </button>
+                        <button class="btn-studio-primary" style="padding: 5px 12px; font-size: 0.82rem;" onclick="insertQuestionTemplate()">
+                            <i class="ri-add-line"></i> Thêm Câu hỏi
+                        </button>
+                    </div>
+                </div>
+                <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; gap: 8px;">
+                    <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Thêm dấu <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>). Gõ <code>câu</code> rồi nhấn <b>Tab</b> để tạo nhanh khung câu mới.</span>
+                </div>
+                <div class="studio-editor-wrapper">
+                    <div id="codeHighlight" class="studio-code-font"></div>
+                    <textarea id="codeEditor" class="studio-code-font" spellcheck="false" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: GIAO DIỆN LÀM THỬ NGHIỆM (PRACTICE / EXAM TEST) -->
+        <div id="interactiveTestView" class="studio-test-container" style="display: none;">
+            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">
+                <div>
+                    <h2 id="testViewTitle" style="margin: 0; color: var(--primary);">Kiểm tra đề thi</h2>
+                    <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">Bạn đang ở chế độ làm thử để trải nghiệm góc nhìn của học sinh trước khi xuất bản.</p>
+                </div>
+                <button class="btn-studio-primary" onclick="switchStudioMode('edit')">
+                    <i class="ri-arrow-left-line"></i> Quay lại Biên tập
+                </button>
+            </div>
+            
+            <div id="testQuizContainer"></div>
+            
+            <div id="testExamSubmitArea" style="text-align: center; margin-top: 25px; display: none;">
+                <button class="btn-primary" style="padding: 14px 40px; font-size: 1.1rem; border-radius: 10px;" onclick="handleTestExamSubmit()">
+                    <i class="ri-check-double-line"></i> Chấm điểm thử bài thi
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL CẤU HÌNH XUẤT BẢN -->
+    <div id="publishModal" class="studio-modal-overlay" style="display: none;">
+        <div class="studio-modal-box">
+            <h2 style="color: var(--studio-primary); margin-top: 0; font-size: 1.4rem;">
+                <i class="ri-settings-3-line"></i> Cấu hình Xuất bản Đề thi
+            </h2>
+            <p style="color: var(--studio-text-muted); margin-bottom: 20px; font-size: 0.92rem;">
+                Thiết lập các thông số trước khi lưu đề và gửi link cho học sinh làm bài.
+            </p>
+            
+            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">
+                Tên bài kiểm tra <span style="color: var(--studio-danger);">*</span>
+            </label>
+            <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 15 phút - Chương 1..." style="margin-bottom: 16px;">
+            
+            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">Chế độ hiển thị</label>
+            <select id="modalQuizMode" style="width: 100%; padding: 12px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.95rem;">
+                <option value="practice">🎯 Luyện tập (Học sinh biết ngay đúng/sai và giải thích từng câu)</option>
+                <option value="exam">📝 Thi thử (Làm xong toàn bộ đề mới nộp bài và tính điểm)</option>
+            </select>
+            
+            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">Thời gian làm bài (Phút)</label>
+            <input type="number" id="modalQuizTime" placeholder="Để trống hoặc 0 nếu không giới hạn thời gian" min="0" max="300" style="margin-bottom: 16px;">
+            
+            <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 24px;">
+                <input type="checkbox" id="modalQuizShuffle" style="width: 18px; height: 18px; margin-right: 10px;">
+                <i class="ri-shuffle-line" style="color: var(--studio-primary); margin-right: 6px;"></i> Tự động đảo ngẫu nhiên thứ tự câu hỏi & đáp án khi học sinh vào làm
+            </label>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-studio-outline" onclick="closePublishModal()">Hủy</button>
+                <button id="btnConfirmPublish" class="btn-studio-primary" onclick="confirmPublishQuiz()">
+                    <i class="ri-send-plane-fill"></i> Lưu & Xuất bản ngay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL THÔNG BÁO XUẤT BẢN THÀNH CÔNG KÈM LINK CHIA SẺ -->
+    <div id="successModal" class="studio-modal-overlay" style="display: none;">
+        <div class="studio-modal-box" style="text-align: center;">
+            <div style="font-size: 3.5rem; color: var(--studio-success); margin-bottom: 10px;">
+                <i class="ri-checkbox-circle-fill"></i>
+            </div>
+            <h2 style="color: var(--studio-success); margin-top: 0; font-size: 1.5rem;">Xuất bản Đề thi Thành công!</h2>
+            <p style="color: var(--studio-text-muted); font-size: 0.95rem; margin-bottom: 20px;">
+                Đề thi đã được lưu an toàn lên hệ thống đám mây. Bạn có thể sao chép link bên dưới để gửi cho học sinh làm bài ngay.
+            </p>
+
+            <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 20px; text-align: left;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: #475569;">MÃ ĐỀ THI:</span>
+                    <span id="successQuizCode" style="font-weight: 800; color: var(--studio-primary); font-size: 1.05rem;"></span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="successShareLink" readonly style="margin: 0; font-size: 0.9rem; background: white; padding: 10px; flex: 1;">
+                    <button id="btnCopyShareLink" class="btn-studio-primary" style="padding: 10px 16px; margin: 0;" onclick="copyShareLink()">
+                        <i class="ri-file-copy-line"></i> Copy Link
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn-studio-outline" onclick="closeSuccessModal()">
+                    <i class="ri-edit-line"></i> Tiếp tục chỉnh sửa
+                </button>
+                <button class="btn-studio-outline" onclick="openTestQuizLink()">
+                    <i class="ri-eye-line"></i> Xem với tư cách học sinh
+                </button>
+                <button class="btn-studio-primary" onclick="window.location.href = 'index.html'">
+                    <i class="ri-dashboard-line"></i> Về Quản lý Đề thi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="studioToast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #0f172a; color: white; padding: 12px 22px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); font-weight: 600; font-size: 0.92rem; z-index: 10001; animation: fadeInDown 0.3s ease;"></div>
+
+    <!-- MÀN HÌNH CHỜ PHÂN TÍCH ĐỀ TRỰC TIẾP TRONG STUDIO -->
+    <div id="studioLoadingOverlay" class="studio-loading-overlay" style="display: none;">
+        <div class="studio-loading-card">
+            <div class="studio-spinner-ring"></div>
+            <div id="studioProgressPercent" class="studio-progress-percent">0%</div>
+            <div class="studio-progress-bar-bg">
+                <div id="studioProgressBar" class="studio-progress-bar-fill"></div>
+            </div>
+            <h3 id="studioLoadingStatus" class="studio-loading-title">🤖 AI đang phân tích tài liệu...</h3>
+            <p id="studioLoadingSub" class="studio-loading-sub">Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh và công thức toán học.</p>
+        </div>
+    </div>
+
+    <script src="editor.js?v=2.1"></script>
+</body>
+</html>

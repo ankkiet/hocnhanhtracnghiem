@@ -29,21 +29,77 @@ def get_gemini_client(api_key: str) -> genai.Client:
 def fix_json_latex_escapes(json_str: str) -> str:
     """
     Sửa lỗi LLM trả về các ký tự LaTeX (như \\frac, \\rightarrow) bị parser JSON hiểu nhầm thành ký tự escape.
-    Chú ý: Chỉ fix dấu \\ đơn nằm ngoài các placeholder [IMG_X] và ngoài chuỗi JSON hợp lệ.
+    Bảo vệ các lệnh LaTeX nhạy cảm có ký tự đầu là escape char của JSON (b, f, n, r, t).
     """
-    # Bảo vệ placeholder [IMG_X] trước khi sửa escape
+    # 1. Bảo vệ placeholder [IMG_X] trước khi sửa escape
     protected = re.sub(r'(\[IMG_\d+\])', lambda m: m.group(0), json_str)
-    return re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r'\\\\', protected)
+    
+    # 2. Bảo vệ các lệnh LaTeX phổ biến bắt đầu bằng b, f, n, r, t, s, v.v. (tránh \\f bị hiểu thành formfeed, \\t thành tab)
+    latex_sensitive = (
+        r'frac|sqrt|text|textbf|textit|mathrm|times|tan|tau|theta|to|'
+        r'neq|nu|nabla|rho|right|rightarrow|rightleftharpoons|'
+        r'beta|bar|begin|binom|bf|sum|prod|int|lim|vec|hat|left'
+    )
+    protected = re.sub(rf'(?<!\\)\\(?={latex_sensitive}\b)', r'\\\\', protected)
+    # Bảo vệ dấu ngoặc LaTeX \\( \\) \\[ \\]
+    protected = re.sub(r'(?<!\\)\\([()\[\]])', r'\\\\\1', protected)
+    
+    # 3. Nhân đôi các dấu \\ đơn độc khác ngoại trừ các escape hợp lệ của JSON (\" \\ \/)
+    return re.sub(r'(?<!\\)\\(?!["\\/])', r'\\\\', protected)
+
+def clean_subscripts_and_formulas(text: str) -> str:
+    """
+    Tự động sửa lỗi AI xuất công thức hóa học/toán học có chỉ số dưới dạng gạch dưới (như CH_2, CO_2, H_2O, Fe_2O_3)
+    thành thẻ chuẩn <sub> để hiển thị đúng số nằm dưới chân chữ cái: CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O.
+    Đồng thời bảo vệ các placeholder ảnh [IMG_X], thẻ HTML và các khối LaTeX \\( ... \\), \\[ ... \\].
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    placeholders = []
+    def save_ph(m):
+        placeholders.append(m.group(0))
+        return f'XYZPH{len(placeholders)-1}XYZ'
+
+    # 1. Bảo vệ placeholder ảnh [IMG_X]
+    text = re.sub(r'(\[IMG_\d+\])', save_ph, text)
+    # 2. Bảo vệ các khối LaTeX math (inline và display)
+    text = re.sub(r'(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
+    # 3. Bảo vệ thẻ HTML (như <img ...>, <sub>, <sup>, <b>, <i>, ...)
+    text = re.sub(r'(<[^>]+>)', save_ph, text)
+
+    # 4. Sửa chỉ số dưới dạng _{...} thành <sub>...</sub> (vd: H_{2n+2} -> H<sub>2n+2</sub>)
+    text = re.sub(r'([A-Za-z0-9\)\>\]])_\{([^}]+)\}', r'\1<sub>\2</sub>', text)
+    # 5. Sửa chỉ số dưới số (vd: CH_2, H_2O, CO_2, Fe_2O_3, Ca(OH)_2) thành <sub>...</sub>
+    text = re.sub(r'([A-Za-z0-9\)\>\]])_([0-9]+)', r'\1<sub>\2</sub>', text)
+    # 6. Sửa chỉ số dưới chữ (vd: C_n, u_n, x_1, v_0, m_hh)
+    text = re.sub(r'([A-Z][a-z]?|\b[uvxyzmkn])_([a-z0-9]+)', r'\1<sub>\2</sub>', text)
+    # 7. Sửa chỉ số trên ^{...} và ^(số/dấu) (vd: cm^2, m^3, Fe^3+) thành <sup>...</sup>
+    text = re.sub(r'([A-Za-z0-9\)\>\]])\^\{([^}]+)\}', r'\1<sup>\2</sup>', text)
+    text = re.sub(r'([A-Za-z0-9\)\>\]])\^([0-9\+\-]+)', r'\1<sup>\2</sup>', text)
+
+    # 8. Khôi phục lại các nội dung được bảo vệ theo thứ tự ngược lại
+    for i in range(len(placeholders) - 1, -1, -1):
+        text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
+
+    return text
 
 def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Chuẩn hóa dữ liệu câu hỏi trắc nghiệm:
+    Chuẩn hóa toàn diện dữ liệu câu hỏi trắc nghiệm:
+    - Làm sạch chỉ số dưới hóa học/toán học (CH_2 -> CH<sub>2</sub>) trong câu hỏi, đáp án, lời giải
     - Đảm bảo các đáp án có tiền tố A., B., C., D. chuẩn mực, không bị trùng (vd: A. A. -> A.)
     - Đảm bảo correct_answer khớp chính xác với 1 trong các đáp án
     - Đảm bảo có trường explain (lời giải chi tiết)
     """
     if not isinstance(item, dict):
         return item
+        
+    # Chuẩn hóa question và group_title
+    if "question" in item:
+        item["question"] = clean_subscripts_and_formulas(str(item.get("question", ""))).strip()
+    if "group_title" in item:
+        item["group_title"] = clean_subscripts_and_formulas(str(item.get("group_title", ""))).strip()
         
     options = item.get("options", [])
     if not isinstance(options, list):
@@ -52,7 +108,7 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     prefixes = ["A. ", "B. ", "C. ", "D. "]
     normalized_options = []
     for idx, opt in enumerate(options[:4]):
-        opt_str = str(opt).strip()
+        opt_str = clean_subscripts_and_formulas(str(opt)).strip()
         # Xóa tiền tố lặp như A. A. hoặc A) A.
         opt_str = re.sub(r'^[A-D]\s*[\.\:\-\)]\s*([A-D]\s*[\.\:\-\)])', r'\1', opt_str)
         # Bổ sung tiền tố nếu thiếu
@@ -64,7 +120,7 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     item["options"] = normalized_options
     
     # Chuẩn hóa correct_answer
-    raw_ca = str(item.get("correct_answer", "")).strip()
+    raw_ca = clean_subscripts_and_formulas(str(item.get("correct_answer", ""))).strip()
     ca_match = re.match(r'^([A-D])(?:\s*[\.\:\-\)]|$)', raw_ca)
     if ca_match:
         letter = ca_match.group(1).upper()
@@ -83,7 +139,7 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
                 break
                 
     # Chuẩn hóa explain
-    item["explain"] = str(item.get("explain", "")).strip()
+    item["explain"] = clean_subscripts_and_formulas(str(item.get("explain", ""))).strip()
     return item
 
 def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[str]:
@@ -250,12 +306,15 @@ async def generate_mcq_with_gemini(
     ) if total_imgs > 0 else ""
     
     system_instruction = (
-        "Bạn là một chuyên gia giáo dục và biên tập viên đề thi trắc nghiệm. "
+        "Bạn là một chuyên gia giáo dục và biên tập viên đề thi trắc nghiệm chuẩn sư phạm. "
         "Nhiệm vụ của bạn là bóc tách chuẩn xác toàn bộ câu hỏi và đáp án từ tài liệu được cung cấp. "
-        "Quy tắc bất di bất dịch: Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) "
-        "và các thẻ giữ chỗ hình ảnh [IMG_X] (KHÔNG ĐƯỢC sửa đổi, xóa bỏ hay đổi tên các thẻ [IMG_X]). "
-        "Giữ nguyên công thức toán LaTeX được bọc trong \\( và \\). "
-        "Luôn kèm trường 'explain' giải thích ngắn gọn, súc tích lý do chọn đáp án đúng. "
+        "Quy tắc bất di bất dịch:\n"
+        "1. Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) và placeholder ảnh [IMG_X]. "
+        "2. CÔNG THỨC HÓA HỌC / CHỈ SỐ DƯỚI (SUBSCRIPT): Tuyệt đối KHÔNG viết chỉ số dưới thành dấu gạch dưới trần như CH_2, CO_2, H_2O, Fe_2O_3, C_2H_5OH, x_1. "
+        "BẮT BUỘC giữ nguyên thẻ HTML <sub> và <sup> (ví dụ: CH<sub>2</sub>, H<sub>2</sub>O, CO<sub>2</sub>, C<sub>2</sub>H<sub>5</sub>OH, cm<sup>2</sup>) "
+        "hoặc đặt trọn vẹn trong công thức LaTeX \\( ... \\) như \\(\\text{CH}_2\\). "
+        "3. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \\( và \\). Nếu có chữ tiếng Việt trong công thức, phải dùng \\text{...}. "
+        "4. Luôn kèm trường 'explain' giải thích ngắn gọn, súc tích lý do chọn đáp án đúng. "
         f"Trả về kết quả dưới dạng JSON array duy nhất.{img_reminder}"
     )
     
@@ -281,8 +340,9 @@ async def generate_mcq_with_gemini(
             
             1. Bóc tách câu hỏi và đúng 4 đáp án (A, B, C, D). Loại bỏ chữ 'Câu X:', 'Bài X:' hoặc số thứ tự ở đầu.
             2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> hoặc có dấu * ở trước chữ cái. Loại bỏ <MARK> và dấu * khỏi kết quả.
-            3. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ hoặc thay đổi các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng. Ví dụ: [IMG_1] phải được viết là [IMG_1], không phải [Hình 1] hay [Image 1].
-            4. Trả về mảng JSON theo mẫu:
+            3. CHỈ SỐ DƯỚI & CÔNG THỨC HÓA HỌC: Giữ nguyên thẻ <sub> và <sup>, TUYỆT ĐỐI KHÔNG viết thành CH_2, CO_2, H_2O. Phải viết là CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O hoặc \\(\\text{{CH}}_2\\).
+            4. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ hoặc thay đổi các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng. Ví dụ: [IMG_1] phải được viết là [IMG_1], không phải [Hình 1] hay [Image 1].
+            5. Trả về mảng JSON theo mẫu:
                [
                  {{
                    "group_title": "",

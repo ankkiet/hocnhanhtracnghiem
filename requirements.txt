@@ -9,3 +9,5 @@ pymupdf
 json-repair
 pillow
 boto3
+latex2mathml
+lxml

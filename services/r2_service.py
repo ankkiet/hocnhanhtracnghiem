@@ -1,7 +1,7 @@
 import os
 import uuid
 import mimetypes
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Any
 
 try:
     import boto3
@@ -185,3 +185,119 @@ def get_stored_image(image_path: str) -> Tuple[Optional[bytes], Optional[str]]:
                     pass
 
     return None, None
+
+def extract_image_keys_from_data(data: Any) -> List[str]:
+    """
+    Trích xuất toàn bộ các R2 keys của hình ảnh nằm trong đề thi (trong question, options, group_title, explain,...)
+    """
+    if not data:
+        return []
+    import json
+    import re
+    data_str = json.dumps(data, ensure_ascii=False) if not isinstance(data, str) else data
+    pattern = r'(?:quizzes|temp)/images/[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|webp|svg)'
+    matches = re.findall(pattern, data_str, re.IGNORECASE)
+    return list(set(matches))
+
+def delete_image_from_r2(image_path: str) -> bool:
+    """
+    Xóa triệt để một file ảnh khỏi cả Cloudflare R2 và thư mục cache cục bộ uploads/images/
+    """
+    if not image_path:
+        return False
+        
+    clean_path = image_path.lstrip("/").replace("\\", "/")
+    if clean_path.startswith("api/images/"):
+        clean_path = clean_path[len("api/images/"):]
+    elif "r2.dev/" in clean_path:
+        clean_path = clean_path.split("r2.dev/")[-1]
+        
+    filename = os.path.basename(clean_path)
+    r2_key = clean_path if "/" in clean_path else f"quizzes/images/{filename}"
+    
+    # 1. Xóa file cục bộ nếu tồn tại
+    local_path = os.path.join(UPLOAD_IMAGES_DIR, filename)
+    if os.path.exists(local_path):
+        try:
+            os.remove(local_path)
+        except Exception as e:
+            print(f"[CẢNH BÁO] Không thể xóa file cục bộ {local_path}: {e}")
+            
+    # 2. Xóa khỏi Cloudflare R2 qua S3 API
+    client = get_r2_client()
+    if client:
+        try:
+            client.delete_object(Bucket=R2_BUCKET_NAME, Key=r2_key)
+            return True
+        except Exception as e:
+            print(f"[CẢNH BÁO] Không thể xóa ảnh trên Cloudflare R2 ({r2_key}): {e}")
+            return False
+            
+    return True
+
+def delete_images_from_r2(image_paths: List[str]) -> int:
+    """
+    Xóa hàng loạt danh sách ảnh khỏi cả Cloudflare R2 và thư mục cache cục bộ.
+    """
+    if not image_paths:
+        return 0
+        
+    deleted_count = 0
+    client = get_r2_client()
+    r2_objects_to_delete = []
+    
+    for path in set(image_paths):
+        if not path or not isinstance(path, str):
+            continue
+        clean_path = path.lstrip("/").replace("\\", "/")
+        if clean_path.startswith("api/images/"):
+            clean_path = clean_path[len("api/images/"):]
+        elif "r2.dev/" in clean_path:
+            clean_path = clean_path.split("r2.dev/")[-1]
+            
+        filename = os.path.basename(clean_path)
+        r2_key = clean_path if "/" in clean_path else f"quizzes/images/{filename}"
+        
+        # 1. Xóa file cục bộ
+        local_path = os.path.join(UPLOAD_IMAGES_DIR, filename)
+        if os.path.exists(local_path):
+            try:
+                os.remove(local_path)
+            except Exception:
+                pass
+                
+        r2_objects_to_delete.append({"Key": r2_key})
+        deleted_count += 1
+        
+    # 2. Xóa hàng loạt trên R2 bằng batch delete (tối đa 1000 items / request)
+    if client and r2_objects_to_delete:
+        try:
+            for i in range(0, len(r2_objects_to_delete), 500):
+                chunk = r2_objects_to_delete[i:i+500]
+                client.delete_objects(
+                    Bucket=R2_BUCKET_NAME,
+                    Delete={"Objects": chunk, "Quiet": True}
+                )
+        except Exception as e:
+            print(f"[CẢNH BÁO] Lỗi khi xóa hàng loạt ảnh trên Cloudflare R2: {e}")
+            
+    return deleted_count
+
+def list_r2_objects(prefix: str = "quizzes/images/") -> List[str]:
+    """
+    Liệt kê toàn bộ các object key trên Cloudflare R2 có tiền tố chỉ định.
+    """
+    client = get_r2_client()
+    if not client:
+        return []
+        
+    keys = []
+    try:
+        paginator = client.get_paginator('list_objects_v2')
+        for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
+            for obj in page.get('Contents', []):
+                keys.append(obj['Key'])
+    except Exception as e:
+        print(f"[CẢNH BÁO] Lỗi khi liệt kê R2 objects: {e}")
+        
+    return keys

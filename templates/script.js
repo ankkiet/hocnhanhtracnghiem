@@ -44,6 +44,10 @@ if (!clientSessionId) {
 }
 let heartbeatInterval;
 
+// Biến quản lý xác thực Google Sign-In
+let googleClientId = '';
+let googleTokenClient = null;
+
 function renderMath() {
     if (currentMode === 'edit') return; // Không render MathJax trong chế độ sửa để bảo toàn mã LaTeX
     if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
@@ -55,8 +59,10 @@ function renderMath() {
 }
 
 window.onload = async function() {
+    initGoogleAuth();
     checkAuthState();
 };
+
 
 function escapeHtml(str) {
     if (typeof str !== 'string') return str;
@@ -67,19 +73,91 @@ function escapeHtml(str) {
               .replace(/'/g, '&#039;');
 }
 
+function initGoogleAuth() {
+    console.log("Firebase Authentication initialized.");
+}
+
+async function triggerGoogleSignIn() {
+    try {
+        if (!window.signInWithPopup || !window.firebaseAuth || !window.googleProvider) {
+            alert("Đang nạp thư viện Firebase Google Sign-In... Vui lòng thử lại sau giây lát.");
+            return;
+        }
+
+        // Mở popup đăng nhập bằng tài khoản Google chính chủ Firebase
+        const result = await window.signInWithPopup(window.firebaseAuth, window.googleProvider);
+        const user = result.user;
+        const idToken = await user.getIdToken();
+
+        // Gửi token về Backend để đồng bộ tài khoản và tạo JWT Token
+        const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: idToken })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('auth_role', data.role);
+            localStorage.setItem('auth_name', data.full_name);
+            authToken = data.token;
+            authRole = data.role;
+            authName = data.full_name;
+            checkAuthState();
+
+            const roleDesc = data.role === 'admin' ? '🛡️ Quản trị viên (Admin)' : (data.role === 'teacher' ? '👨‍🏫 Giáo viên' : '👨‍🎓 Học sinh');
+            alert(`🎉 Đăng nhập thành công với Google!\nXin chào: ${data.full_name}\nVai trò: ${roleDesc}`);
+        } else {
+            alert("Lỗi máy chủ xác thực: " + (data.detail || "Không thể xác minh tài khoản."));
+        }
+    } catch (err) {
+        console.error("Firebase Google Sign-In Error:", err);
+        if (err.code === 'auth/popup-closed-by-user') {
+            return; // Người dùng chủ động đóng popup
+        }
+        if (err.code === 'auth/unauthorized-domain') {
+            alert("⚠️ Tên miền hiện tại (" + window.location.hostname + ") chưa được cấp phép trong Firebase Auth.\n\n👉 Cách cấp phép:\n1. Mở Firebase Console > Authentication > Settings > Authorized domains\n2. Nhấn 'Add domain' và thêm: " + window.location.hostname);
+            return;
+        }
+        alert("Lỗi đăng nhập Google: " + (err.message || err));
+    }
+}
+window.triggerGoogleSignIn = triggerGoogleSignIn;
+
 function checkAuthState() {
+    const authBox = document.getElementById('authContainer');
     if (!authToken) {
-        document.getElementById('authContainer').style.display = 'block';
+        if (authBox) {
+            authBox.classList.remove('hidden');
+            authBox.style.setProperty('display', 'flex', 'important');
+            authBox.style.justifyContent = 'center';
+            authBox.style.alignItems = 'center';
+            authBox.style.minHeight = '85vh';
+            authBox.style.width = '100%';
+        }
         document.getElementById('mainAppContainer').style.display = 'none';
         document.getElementById('adminContainer').style.display = 'none';
+        
+        // Mặc định luôn chỉ hiển thị Form Đăng nhập, ẩn triệt để Form Đăng ký
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+        if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
     } else if (authRole === 'admin') {
-        document.getElementById('authContainer').style.display = 'none';
+        if (authBox) {
+            authBox.classList.add('hidden');
+            authBox.style.setProperty('display', 'none', 'important');
+        }
         document.getElementById('mainAppContainer').style.display = 'none';
         document.getElementById('adminContainer').style.display = 'block';
         loadAdminUsers();
         loadAdminSettings();
     } else {
-        document.getElementById('authContainer').style.display = 'none';
+        if (authBox) {
+            authBox.classList.add('hidden');
+            authBox.style.setProperty('display', 'none', 'important');
+        }
         document.getElementById('adminContainer').style.display = 'none';
         document.getElementById('mainAppContainer').style.display = 'block';
         
@@ -98,19 +176,26 @@ function checkAuthState() {
 }
 
 function toggleAuth(type) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    if (!loginForm || !registerForm) return;
+
     if(type === 'register') {
-        document.getElementById('loginForm').style.display = 'none';
-        document.getElementById('registerForm').style.display = 'block';
+        loginForm.style.setProperty('display', 'none', 'important');
+        registerForm.style.setProperty('display', 'flex', 'important');
     } else {
-        document.getElementById('loginForm').style.display = 'block';
-        document.getElementById('registerForm').style.display = 'none';
+        loginForm.style.setProperty('display', 'flex', 'important');
+        registerForm.style.setProperty('display', 'none', 'important');
     }
 }
 
+
 async function handleLogin() {
-    const u = document.getElementById('loginUsername').value.trim();
-    const p = document.getElementById('loginPassword').value.trim();
-    if(!u || !p) return alert("Vui lòng nhập đủ thông tin");
+    const uInput = document.getElementById('email') || document.getElementById('loginUsername');
+    const pInput = document.getElementById('password') || document.getElementById('loginPassword');
+    const u = uInput ? uInput.value.trim() : '';
+    const p = pInput ? pInput.value.trim() : '';
+    if(!u || !p) return alert("Vui lòng nhập đầy đủ email/tên đăng nhập và mật khẩu");
     
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -131,6 +216,7 @@ async function handleLogin() {
         alert(`Lỗi kết nối máy chủ! Backend đang trỏ tới: ${API_BASE_URL}\nHãy đảm bảo bạn đã chạy lệnh: uvicorn main:app --reload`); 
     }
 }
+
 
 async function handleRegister() {
     const u = document.getElementById('regUsername').value.trim();
@@ -157,6 +243,13 @@ function logout() {
     localStorage.clear();
     window.location.href = window.location.pathname; // Tải lại trang xóa query param
 }
+
+/* ========================================================
+   GOOGLE SIGN-IN CLIENT LOGIC (ĐÃ CHUYỂN SANG FIREBASE AUTH)
+   ======================================================== */
+
+
+
 
 async function initApp() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -496,32 +589,33 @@ async function loadTeacherQuizzes() {
                 if (!isShowingTrash && q.status === 'trashed') return;
                 
                 hasItems = true;
-                let modeStr = q.mode === 'exam' ? '📝 Thi thử' : '🎯 Luyện tập';
-                let statusBadge = q.status === 'published' ? '<span style="color:var(--success); font-weight:bold;">Đang mở</span>' : 
-                                  (q.status === 'trashed' ? '<span style="color:var(--text-muted); font-weight:bold;">Đã xóa</span>' : '<span style="color:var(--danger); font-weight:bold;">Đã khóa</span>');
+                let modeStr = q.mode === 'exam' ? '<span style="display:inline-flex; align-items:center; gap:4px;"><i class="ri-file-list-3-line" style="color:var(--primary);"></i> Thi thử</span>' : '<span style="display:inline-flex; align-items:center; gap:4px;"><i class="ri-focus-3-line" style="color:#059669;"></i> Luyện tập</span>';
+                let statusBadge = q.status === 'published' ? '<span style="color:var(--success); font-weight:bold; display:inline-flex; align-items:center; gap:4px;"><i class="ri-checkbox-circle-fill"></i> Đang mở</span>' : 
+                                  (q.status === 'trashed' ? '<span style="color:var(--text-muted); font-weight:bold; display:inline-flex; align-items:center; gap:4px;"><i class="ri-delete-bin-line"></i> Đã xóa</span>' : '<span style="color:var(--danger); font-weight:bold; display:inline-flex; align-items:center; gap:4px;"><i class="ri-lock-fill"></i> Đã khóa</span>');
                 let toggleAction = q.status === 'published' ? 'unpublished' : 'published';
-                let toggleText = q.status === 'published' ? 'Khóa đề' : 'Mở lại';
+                let toggleText = q.status === 'published' ? '<i class="ri-lock-line"></i> Khóa đề' : '<i class="ri-lock-unlock-line"></i> Mở lại';
                 
                 let actionButtons = "";
                 if (isShowingTrash) {
                     actionButtons = `
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--success); color: var(--success);" onclick="handleQuizAction('${q.id}', 'restore')">♻️ Khôi phục</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'permanent')">❌ Xóa vĩnh viễn</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: var(--success); color: var(--success);" onclick="handleQuizAction('${q.id}', 'restore')"><i class="ri-refresh-line"></i> Khôi phục</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'permanent')"><i class="ri-delete-bin-7-line"></i> Xóa vĩnh viễn</button>
                     `;
+                } else {
                     actionButtons = `
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${q.id}'); alert('Đã copy mã đề!');">Copy Mã</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="navigator.clipboard.writeText('${window.location.origin + window.location.pathname}?id=${q.id}'); alert('Đã copy Link!');">Copy Link</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #0284c7; color: #0284c7;" onclick="exportQuizDocx('${q.id}')">📥 Tải Word</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #059669; color: #059669;" onclick="showQuizAnalytics('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')">📈 Phổ điểm</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: #8b5cf6; color: #8b5cf6;" onclick="startMonitoring('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')">📊 Giám sát</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--primary); color: var(--primary);" onclick="editQuiz('${q.id}')">✏️ Sửa đề</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'trash')">🗑️ Xóa</button>
-                        <button class="btn-outline" style="padding: 4px 8px; font-size: 0.85rem;" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem;" onclick="copyQuizCode('${q.id}')"><i class="ri-barcode-line"></i> Mã đề</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: #0284c7; color: #0284c7; font-weight: 600;" onclick="copyQuizLink('${q.id}')"><i class="ri-file-copy-line"></i> Copy Link</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: #0284c7; color: #0284c7;" onclick="exportQuizDocx('${q.id}')"><i class="ri-file-word-2-line"></i> Tải Word</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: #0d9488; color: #0d9488;" onclick="showQuizAnalytics('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')"><i class="ri-bar-chart-grouped-line"></i> Phổ điểm</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: #8b5cf6; color: #8b5cf6;" onclick="startMonitoring('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')"><i class="ri-live-line"></i> Giám sát</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: var(--primary); color: var(--primary); font-weight: 600;" onclick="editQuiz('${q.id}')"><i class="ri-edit-line"></i> Sửa đề</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem; border-color: var(--danger); color: var(--danger);" onclick="handleQuizAction('${q.id}', 'trash')"><i class="ri-delete-bin-line"></i> Xóa</button>
+                        <button class="btn-outline" style="padding: 5px 10px; font-size: 0.85rem;" onclick="toggleQuizStatus('${q.id}', '${toggleAction}')">${toggleText}</button>
                     `;
                 }
                 
                 html += `<tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 12px 10px; font-weight: 600; color: var(--primary);">${q.title}</td>
+                    <td style="padding: 12px 10px; font-weight: 600; color: var(--primary);">${q.title || 'Đề thi chưa có tên'}</td>
                     <td style="padding: 12px 10px;">${modeStr}</td>
                     <td style="padding: 12px 10px;">${q.question_count}</td>
                     <td style="padding: 12px 10px;">${statusBadge}</td>
@@ -541,6 +635,28 @@ async function loadTeacherQuizzes() {
             document.getElementById('teacherQuizList').innerHTML = html;
         }
     } catch(e) { console.error("Lỗi tải danh sách đề", e); }
+}
+
+function copyQuizCode(quizId) {
+    if (!quizId) return;
+    navigator.clipboard.writeText(quizId).then(() => {
+        alert("Đã copy Mã đề: " + quizId);
+    }).catch(() => {
+        prompt("Mã đề thi:", quizId);
+    });
+}
+
+function copyQuizLink(quizId) {
+    if (!quizId) return;
+    const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
+    let path = window.location.pathname;
+    if (path.endsWith('editor.html')) path = path.replace('editor.html', 'index.html');
+    const fullUrl = `${origin}${path}?id=${quizId}`;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+        alert("Đã copy Link làm bài thi cho học sinh!");
+    }).catch(() => {
+        prompt("Copy Link làm bài thi:", fullUrl);
+    });
 }
 
 function exportQuizDocx(quizId) {
@@ -698,38 +814,16 @@ async function handleQuizAction(quizId, action) {
     }
 }
 
-async function editQuiz(quizId) {
-    document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Đang tải dữ liệu bài thi...</p>";
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
-        const result = await response.json();
-        if (result.status === 'success') {
-            currentData = normalizeImageUrls(result.data);
-            serverData = JSON.parse(JSON.stringify(currentData));
-            editingQuizId = quizId;
-            
-            // Lưu tạm cấu hình cũ để lát mở Modal sẽ tự động điền
-            window.tempQuizSettings = {
-                title: result.title,
-                mode: result.mode,
-                timeLimit: result.time_limit,
-                isShuffle: result.is_shuffle
-            };
-            
-            document.body.classList.add('editor-fullscreen');
-            document.getElementById('creationHub').style.display = 'none';
-            document.getElementById('teacherDashboard').style.display = 'none';
-            
-            switchMode('edit');
-            document.getElementById('saveBtn').style.display = 'block';
-            document.getElementById('saveBtn').innerText = "⚙️ Cập nhật & Cấu hình Xuất bản";
-            document.getElementById('backDashboardBtn').style.display = 'block';
-            document.getElementById('aiCustomPrompt').style.display = 'block';
-            document.getElementById('btnAICheck').style.display = 'block';
-            
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else { alert("Không tìm thấy đề thi."); }
-    } catch (e) { alert("Lỗi tải đề thi."); }
+function editQuiz(quizId) {
+    window.location.href = `editor.html?id=${encodeURIComponent(quizId)}`;
+}
+
+function openStudioNewQuiz() {
+    sessionStorage.removeItem('editor_quiz_id');
+    sessionStorage.removeItem('editor_quiz_data');
+    sessionStorage.removeItem('editor_quiz_title');
+    sessionStorage.removeItem('editor_quiz_settings');
+    window.location.href = 'editor.html';
 }
 
 async function toggleQuizStatus(quizId, newStatus) {
@@ -802,7 +896,43 @@ async function loadAdminSettings() {
             renderApiKeyList();
         }
     } catch(e) {}
+
+    // Tải cấu hình Google Client ID
+    try {
+        const resG = await fetch(`${API_BASE_URL}/api/admin/get_google_client_id?admin_token=${authToken}`);
+        const dataG = await resG.json();
+        if (resG.ok && dataG.status === 'success') {
+            const inputG = document.getElementById('adminGoogleClientId');
+            if (inputG) {
+                inputG.value = dataG.client_id || '';
+            }
+        }
+    } catch(e) {}
 }
+
+async function saveAdminGoogleClientId() {
+    const inputG = document.getElementById('adminGoogleClientId');
+    if (!inputG) return;
+    const cid = inputG.value.trim();
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/admin/set_google_client_id`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ admin_token: authToken, client_id: cid })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            googleClientId = cid;
+            setupGoogleSignInServices();
+            alert("Đã lưu Google Client ID thành công!");
+        } else {
+            alert("Lỗi: " + (data.detail || "Không thể lưu Client ID"));
+        }
+    } catch(e) {
+        alert("Lỗi kết nối máy chủ khi lưu Google Client ID");
+    }
+}
+
 
 function renderApiKeyList() {
     const list = document.getElementById('apiKeyList');
@@ -949,116 +1079,89 @@ async function uploadFile() {
     const fileInput = document.getElementById('fileInput');
     if (!fileInput.files[0]) { alert("Vui lòng chọn file .docx hoặc .pdf!"); return; }
     
+    const file = fileInput.files[0];
+    const selectedFileName = file.name || "";
+    let detectedTitle = selectedFileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").trim();
+    if (!detectedTitle) detectedTitle = "Đề thi mới";
+    
     const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    formData.append("file", file);
     
     const useAI = document.getElementById('useAIToggle') ? document.getElementById('useAIToggle').checked : true;
     formData.append("use_ai", useAI);
     
-    // Khởi tạo giao diện Progress Bar
+    // Hiển thị trạng thái khởi tạo nhanh
     const loadingOverlay = document.getElementById('loadingOverlay');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
     const statusText = document.getElementById('loadingStatusText');
     
-    loadingOverlay.style.display = 'flex';
-    progressBar.style.width = '0%';
-    progressText.innerText = '0%';
-    statusText.innerText = '⚙️ Đang tải file lên máy chủ...';
-
-    let progress = 0;
-    let progressInterval = setInterval(() => {
-        if (progress < 90) {
-            if (useAI) {
-                if (statusText.innerText === '⚙️ Đang tải file lên máy chủ...') statusText.innerText = '🤖 AI đang đọc và phân tích (có thể mất 1-2 phút)...';
-            } else {
-                statusText.innerText = '⚡ Đang bóc tách bằng thuật toán Python...';
-            }
-            progress += Math.random() * 0.5; // Tăng dần rất chậm để câu giờ chờ AI
-        }
-        progressBar.style.width = progress + '%';
-        progressText.innerText = Math.floor(progress) + '%';
-    }, 1000);
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        progressBar.style.width = '35%';
+        progressText.innerText = '35%';
+        statusText.innerText = '⚙️ Đang gửi file lên máy chủ và mở Studio...';
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
         const result = await response.json();
         
         if (result.status === "processing") {
-            const taskId = result.task_id;
-            
-            const pollTask = async () => {
-                try {
-                    const statusRes = await fetch(`${API_BASE_URL}/api/task_status/${taskId}`);
-                    const statusData = await statusRes.json();
-                    
-                    if (statusData.status === "success") {
-                        clearInterval(progressInterval);
-                        progressBar.style.width = '100%';
-                        progressText.innerText = '100%';
-                        statusText.innerText = '✅ Hoàn tất!';
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        
-                        applyUploadData(statusData.data);
-                    } else if (statusData.status === "error") {
-                        clearInterval(progressInterval);
-                        document.getElementById('loadingOverlay').style.display = 'none';
-                        alert("Lỗi: " + statusData.detail);
-                    } else if (statusRes.status === 404) {
-                        // Bắt lỗi Server Cloud khởi động lại làm mất task_id trên RAM
-                        clearInterval(progressInterval);
-                        document.getElementById('loadingOverlay').style.display = 'none';
-                        alert("Phiên phân tích bị gián đoạn do Máy chủ khởi động lại. Vui lòng tải lên lại file.");
-                    } else {
-                        // Vẫn đang xử lý, hỏi lại sau 3 giây
-                        if (statusData.message && statusData.message !== "Đang phân tích...") {
-                            statusText.innerText = "🤖 " + statusData.message;
-                        }
-                        setTimeout(pollTask, 3000);
-                    }
-                } catch (pollErr) {
-                    setTimeout(pollTask, 5000); // Lỗi mạng chập chờn tạm thời
-                }
-            };
-            pollTask();
+            // Chuyển hướng NGAY LẬP TỨC sang trang Studio riêng để phân tích!
+            sessionStorage.removeItem('editor_quiz_id');
+            sessionStorage.removeItem('editor_quiz_data');
+            sessionStorage.setItem('editor_quiz_title', detectedTitle);
+            sessionStorage.setItem('editor_pending_task_id', result.task_id);
+            sessionStorage.setItem('editor_pending_mode', useAI ? 'ai' : 'python');
+
+            window.location.href = `editor.html?task_id=${encodeURIComponent(result.task_id)}&title=${encodeURIComponent(detectedTitle)}&use_ai=${useAI}`;
         } else if (result.status === "success") {
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressText.innerText = '100%';
-            statusText.innerText = '✅ Hoàn tất!';
-            await new Promise(resolve => setTimeout(resolve, 500));
-            applyUploadData(result.data);
+            const normalizedData = normalizeImageUrls(result.data || []);
+            sessionStorage.removeItem('editor_quiz_id');
+            sessionStorage.removeItem('editor_pending_task_id');
+            sessionStorage.setItem('editor_quiz_data', JSON.stringify(normalizedData));
+            sessionStorage.setItem('editor_quiz_title', detectedTitle);
+            sessionStorage.setItem('editor_quiz_settings', JSON.stringify({
+                title: detectedTitle,
+                mode: 'practice',
+                timeLimit: 0,
+                isShuffle: false
+            }));
+            window.location.href = 'editor.html';
         } else { 
-            clearInterval(progressInterval);
-            document.getElementById('loadingOverlay').style.display = 'none';
-            alert("Lỗi: " + result.detail); 
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+            alert("Lỗi: " + (result.detail || "Không thể tải file lên")); 
         }
     } catch (e) { 
-        clearInterval(progressInterval);
-        document.getElementById('loadingOverlay').style.display = 'none';
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
         alert("Lỗi kết nối máy chủ! Có thể Server đang khởi động lại (Cold Start), hãy thử lại trong ít giây."); 
     }
 }
 
-function applyUploadData(dataArray) {
-    currentData = normalizeImageUrls(dataArray || []);
-    serverData = JSON.parse(JSON.stringify(currentData));
-    editingQuizId = null;
-    window.tempQuizSettings = null; // Xóa setting cũ
+function applyUploadData(dataArray, fileName = "") {
+    const normalizedData = normalizeImageUrls(dataArray || []);
     
-    document.body.classList.add('editor-fullscreen');
-    document.getElementById('teacherDashboard').style.display = 'none';
-    document.getElementById('creationHub').style.display = 'none';
+    let detectedTitle = "Đề thi mới";
+    if (fileName) {
+        detectedTitle = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").trim();
+    } else if (normalizedData.length > 0 && normalizedData[0].group_title) {
+        detectedTitle = normalizedData[0].group_title.replace(/<br>/gi, ' ').trim();
+    }
     
-    switchMode('edit');
-    document.getElementById('saveBtn').style.display = 'block';
-    document.getElementById('saveBtn').innerText = "⚙️ Tiếp tục & Cấu hình Xuất bản";
-    if (authRole === 'teacher') document.getElementById('backDashboardBtn').style.display = 'block';
-    document.getElementById('aiCustomPrompt').style.display = 'block';
-    document.getElementById('btnAICheck').style.display = 'block';
-    
-    document.getElementById('loadingOverlay').style.display = 'none';
-    window.scrollTo(0,0);
+    // Lưu dữ liệu vào Session Storage để trang Studio riêng tải lên
+    sessionStorage.setItem('editor_quiz_data', JSON.stringify(normalizedData));
+    sessionStorage.setItem('editor_quiz_title', detectedTitle);
+    sessionStorage.setItem('editor_quiz_settings', JSON.stringify({
+        title: detectedTitle,
+        mode: 'practice',
+        timeLimit: 0,
+        isShuffle: false
+    }));
+    sessionStorage.removeItem('editor_quiz_id');
+
+    // Chuyển hướng sang trang riêng (Studio Biên tập & Soát lỗi Đề thi)
+    window.location.href = 'editor.html';
 }
 
 async function generateQuizWithAI() {
@@ -1074,19 +1177,14 @@ async function generateQuizWithAI() {
     const progressText = document.getElementById('progressText');
     const statusText = document.getElementById('loadingStatusText');
     
-    loadingOverlay.style.display = 'flex';
-    progressBar.style.width = '0%';
-    progressText.innerText = '0%';
-    statusText.innerText = '🤖 AI đang suy nghĩ và sáng tạo câu hỏi...';
+    let detectedTitle = promptStr.length > 50 ? promptStr.substring(0, 50) + "..." : promptStr;
 
-    let progress = 0;
-    let progressInterval = setInterval(() => {
-        if (progress < 85) progress += Math.floor(Math.random() * 5) + 1;
-        else if (progress < 95) { statusText.innerText = '✨ Đang hoàn thiện định dạng...'; progress += 0.5; }
-        if (progress > 98) progress = 98;
-        progressBar.style.width = progress + '%';
-        progressText.innerText = Math.floor(progress) + '%';
-    }, 500);
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        progressBar.style.width = '35%';
+        progressText.innerText = '35%';
+        statusText.innerText = '🤖 Đang khởi tạo và chuyển sang Studio...';
+    }
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/generate_quiz_ai`, {
@@ -1096,33 +1194,37 @@ async function generateQuizWithAI() {
         });
         const result = await response.json();
         
-        clearInterval(progressInterval);
-        progressBar.style.width = '100%';
-        progressText.innerText = '100%';
-        statusText.innerText = '✅ Hoàn tất!';
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (response.ok && result.status === "success") {
-            currentData = normalizeImageUrls(result.data || []);
-            serverData = JSON.parse(JSON.stringify(currentData));
-            editingQuizId = null; window.tempQuizSettings = null;
-            
-            document.body.classList.add('editor-fullscreen');
-            document.getElementById('teacherDashboard').style.display = 'none';
-            document.getElementById('creationHub').style.display = 'none';
-            
-            switchMode('edit');
-            document.getElementById('saveBtn').style.display = 'block';
-            document.getElementById('saveBtn').innerText = "⚙️ Tiếp tục & Cấu hình Xuất bản";
-            if (authRole === 'teacher') document.getElementById('backDashboardBtn').style.display = 'block';
-            document.getElementById('aiCustomPrompt').style.display = 'block';
-            document.getElementById('btnAICheck').style.display = 'block';
-            window.scrollTo(0,0);
-        } else { alert("Lỗi AI: " + result.detail); }
+        if (response.ok && (result.status === "processing" || result.status === "success")) {
+            if (result.status === "processing") {
+                // Chuyển hướng NGAY LẬP TỨC sang Studio riêng để AI xử lý ngầm!
+                sessionStorage.removeItem('editor_quiz_id');
+                sessionStorage.removeItem('editor_quiz_data');
+                sessionStorage.setItem('editor_quiz_title', detectedTitle);
+                sessionStorage.setItem('editor_pending_task_id', result.task_id);
+                sessionStorage.setItem('editor_pending_mode', 'ai_generate');
+
+                window.location.href = `editor.html?task_id=${encodeURIComponent(result.task_id)}&title=${encodeURIComponent(detectedTitle)}&mode=ai_generate`;
+            } else {
+                const normalizedData = normalizeImageUrls(result.data || []);
+                sessionStorage.removeItem('editor_quiz_id');
+                sessionStorage.removeItem('editor_pending_task_id');
+                sessionStorage.setItem('editor_quiz_data', JSON.stringify(normalizedData));
+                sessionStorage.setItem('editor_quiz_title', detectedTitle);
+                sessionStorage.setItem('editor_quiz_settings', JSON.stringify({
+                    title: detectedTitle,
+                    mode: 'practice',
+                    timeLimit: 0,
+                    isShuffle: false
+                }));
+                window.location.href = 'editor.html';
+            }
+        } else {
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+            alert("Lỗi AI: " + (result.detail || "Không thể tạo đề"));
+        }
     } catch(e) {
-        clearInterval(progressInterval); alert("Lỗi kết nối máy chủ! " + e.message);
-    } finally {
-        clearInterval(progressInterval); document.getElementById('loadingOverlay').style.display = 'none';
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        alert("Lỗi kết nối máy chủ! " + e.message);
     }
 }
 

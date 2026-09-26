@@ -36,7 +36,7 @@ except ImportError:
     json_repair = None
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -56,7 +56,7 @@ from services.ai_service import (
     normalize_question_data,
     restore_image_placeholders
 )
-from services.r2_service import upload_image_to_r2, get_stored_image
+from services.r2_service import upload_image_to_r2, get_stored_image, extract_image_keys_from_data
 from core.image_converter import process_image_blob
 from core.mathml_parser import parse_omath, MATH_SYM_MAP
 from core.state import active_tasks
@@ -1199,7 +1199,8 @@ async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, ap
             "Bạn là một chuyên gia giáo dục và biên soạn đề thi trắc nghiệm xuất sắc. "
             "Nhiệm vụ của bạn là tạo ra các câu hỏi trắc nghiệm chất lượng cao, đúng chuẩn kiến thức, "
             "đúng 4 lựa chọn A, B, C, D rõ ràng, và luôn kèm lời giải chi tiết (explain). "
-            "Nếu có công thức toán/lý/hóa, dùng cú pháp LaTeX bọc trong \\( và \\). "
+            "Nếu có công thức toán/lý/hóa, dùng cú pháp LaTeX bọc trong \\( và \\) (ví dụ \\(\\text{CH}_2\\)) hoặc thẻ HTML <sub>/<sup> (ví dụ CH<sub>2</sub>, H<sub>2</sub>O). "
+            "TUYỆT ĐỐI KHÔNG viết dạng gạch dưới trần như CH_2, CO_2, H_2O. "
             "Định dạng trả về bắt buộc là một JSON array duy nhất."
         )
         
@@ -1354,6 +1355,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         extracted_data = recursive_unescape(extracted_data)
 
         if extracted_data and isinstance(extracted_data, list):
+            extracted_data = [normalize_question_data(q_item) for q_item in extracted_data if isinstance(q_item, dict)]
             for q_item in extracted_data:
                 if isinstance(q_item, dict) and q_item.get("options"):
                     q_item["options"] = split_merged_options(q_item["options"])
@@ -1373,10 +1375,12 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
              active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi từ file. Vui lòng đảm bảo file có chứa câu hỏi dạng 'Câu 1:' hoặc '1.' và các phương án A, B, C, D."}
              return
 
+        task_images = extract_image_keys_from_data(extracted_data)
         active_tasks[task_id] = {
             "status": "success",
             "data": extracted_data,
-            "filename": filename
+            "filename": filename,
+            "images": task_images
         }
         
     except Exception as e:
@@ -1448,6 +1452,14 @@ def get_task_status(task_id: str):
 # GẮN GIAO DIỆN WEB (STATIC FILES CHO FRONTEND)
 # ==========================================
 templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+
+@app.get("/editor", summary="Giao diện Studio Biên tập & Soát lỗi Đề thi")
+def get_editor_page():
+    editor_path = os.path.join(templates_dir, "editor.html")
+    if os.path.exists(editor_path):
+        return FileResponse(editor_path)
+    raise HTTPException(status_code=404, detail="Không tìm thấy trang editor.html")
+
 if os.path.exists(templates_dir):
     app.mount("/", StaticFiles(directory=templates_dir, html=True), name="static")
 
