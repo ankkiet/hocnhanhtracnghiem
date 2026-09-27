@@ -302,7 +302,19 @@ function normalizeImageUrls(data) {
     if (!data) return [];
     try {
         let jsonStr = JSON.stringify(data);
-        jsonStr = jsonStr.replace(/https:\/\/pub-4ca74ee0e22a46a39755d1a829865251\.r2\.dev\//g, '/api/images/');
+        // 1. Chuyển đổi link R2 public direct (thường bị Cloudflare chặn 403) sang endpoint an toàn của backend
+        jsonStr = jsonStr.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev\//g, `${API_BASE_URL}/api/images/`);
+        
+        // 2. Chuyển đường dẫn tương đối /api/images/... thành URL tuyệt đối ${API_BASE_URL}/api/images/...
+        // Đảm bảo hoạt động hoàn hảo trên Cloudflare Pages (tránh lỗi 404 do Cloudflare Pages không phục vụ ảnh)
+        jsonStr = jsonStr.replace(/(["'])\/api\/images\//g, `$1${API_BASE_URL}/api/images/`);
+        
+        // 3. Khử trùng lặp nếu API_BASE_URL bị nối lặp
+        if (API_BASE_URL) {
+            const escapedBase = API_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const dupRegex = new RegExp(`(?:${escapedBase})+/api/images/`, 'g');
+            jsonStr = jsonStr.replace(dupRegex, `${API_BASE_URL}/api/images/`);
+        }
         return JSON.parse(jsonStr);
     } catch(e) {
         return data;
