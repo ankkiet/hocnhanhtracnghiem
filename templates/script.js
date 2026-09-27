@@ -6,6 +6,9 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     API_BASE_URL = `http://${window.location.hostname}:8000`; // Hỗ trợ test qua mạng LAN (Live Server IP)
 }
 
+// Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở trang (Chống Sleep / Cold Start)
+fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+
 let currentData = [];
 let serverData = []; // Lưu trữ dữ liệu gốc mới nhất từ Server để phục hồi khi làm lại
 let currentMode = 'edit';

@@ -170,8 +170,8 @@ class PingSessionRequest(BaseModel):
 RE_NUMBERING = re.compile(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', re.IGNORECASE)
 RE_GROUP_TITLE = re.compile(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', re.IGNORECASE)
 
-# Khởi tạo bộ nhớ tạm để lưu trạng thái các Tác vụ chạy ngầm (Background Tasks)
-active_tasks = {}
+# Bộ nhớ tạm active_tasks đã được import dùng chung từ core.state
+
 def extract_answer_key(doc: Document, full_text: str) -> Dict[int, str]:
     """
     Tự động dò tìm và bóc tách Bảng đáp án ở cuối tài liệu Word (nếu có).
@@ -1436,15 +1436,32 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
         error_msg = str(e)
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {error_msg}")
 
+@app.get("/api/health", summary="Kiểm tra trạng thái máy chủ (Health Check & Keep-Alive)")
+@app.get("/ping", summary="Ping đánh thức máy chủ")
+def health_check():
+    """Endpoint siêu nhẹ để Frontend đánh thức máy chủ (chống ngủ đông) hoặc giám sát Uptime."""
+    return {"status": "ok", "message": "HocnhanhTN backend is awake and active"}
+
 @app.get("/api/task_status/{task_id}", summary="Kiểm tra trạng thái tiến trình AI")
 def get_task_status(task_id: str):
+    import time
+    now = time.time()
+    
+    # Tự động dọn dẹp các task cũ đã hoàn tất trên 15 phút (900 giây) để giải phóng RAM
+    expired_keys = [
+        k for k, v in active_tasks.items()
+        if isinstance(v, dict) and v.get("status") in ["success", "error"] and (now - v.get("completed_at", now)) > 900
+    ]
+    for k in expired_keys:
+        active_tasks.pop(k, None)
+
     if task_id not in active_tasks:
-        raise HTTPException(status_code=404, detail="Không tìm thấy tiến trình xử lý")
+        raise HTTPException(status_code=404, detail="Không tìm thấy tiến trình xử lý hoặc tiến trình đã quá hạn")
     
     task_info = active_tasks[task_id]
-    if task_info["status"] in ["success", "error"]:
-        # Xóa tiến trình khỏi bộ nhớ sau khi Frontend đã nhận được kết quả
-        return active_tasks.pop(task_id)
+    # Gắn mốc thời gian hoàn thành (không xóa ngay lập tức để tránh lỗi mất đề khi người dùng reload trang)
+    if task_info.get("status") in ["success", "error"] and "completed_at" not in task_info:
+        task_info["completed_at"] = now
         
     return task_info
 

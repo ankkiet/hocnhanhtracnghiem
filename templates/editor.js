@@ -10,6 +10,9 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
     API_BASE_URL = `http://${window.location.hostname}:8000`;
 }
 
+// Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở Studio (Chống Sleep / Cold Start)
+fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+
 // Global States
 let currentData = [];
 let editingQuizId = null;
@@ -94,28 +97,54 @@ async function pollStudioTask(taskId, initialTitle, mode) {
     }
 
     let progress = 15;
+    let elapsedSeconds = 0;
     const progressInterval = setInterval(() => {
+        elapsedSeconds++;
         if (progress < 90) {
             progress += Math.random() * 2;
             if (progressBar) progressBar.style.width = Math.min(progress, 90) + '%';
             if (progressPercent) progressPercent.innerText = Math.floor(Math.min(progress, 90)) + '%';
         }
-    }, 700);
+        if (statusSub) {
+            statusSub.innerText = `Đã xử lý ${elapsedSeconds}s (thường mất 15-30 giây đối với tài liệu dài, vui lòng không tải lại trang)...`;
+        }
+    }, 1000);
+
+    let consecutive404Count = 0;
 
     const poll = async () => {
         try {
             const statusRes = await fetch(`${API_BASE_URL}/api/task_status/${taskId}`);
+            
+            if (statusRes.status === 404) {
+                consecutive404Count++;
+                if (consecutive404Count < 5) {
+                    // Task có thể vừa được tạo hoặc máy chủ đang kích hoạt luồng ngầm, thử lại thêm
+                    setTimeout(poll, 3000);
+                    return;
+                }
+                clearInterval(progressInterval);
+                sessionStorage.removeItem('editor_pending_task_id');
+                sessionStorage.removeItem('editor_pending_mode');
+                if (overlay) overlay.style.display = 'none';
+                alert("Tiến trình phân tích không tìm thấy hoặc đã quá hạn. Đang mở bản lưu gần nhất.");
+                loadQuizFromSession();
+                return;
+            }
+
             const statusData = await statusRes.json();
+            consecutive404Count = 0; // Đã kết nối thành công, reset bộ đếm
 
             if (statusData.status === "success") {
                 clearInterval(progressInterval);
                 if (progressBar) progressBar.style.width = '100%';
                 if (progressPercent) progressPercent.innerText = '100%';
                 if (statusTitle) statusTitle.innerText = '✅ Phân tích hoàn tất!';
+                if (statusSub) statusSub.innerText = 'Đang hiển thị đề thi vào Studio...';
                 
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 400));
                 
-                // Xóa task ID đã xử lý
+                // Xóa task ID đã xử lý khỏi sessionStorage
                 sessionStorage.removeItem('editor_pending_task_id');
                 sessionStorage.removeItem('editor_pending_mode');
                 
@@ -143,12 +172,6 @@ async function pollStudioTask(taskId, initialTitle, mode) {
                 if (overlay) overlay.style.display = 'none';
                 alert("Lỗi khi phân tích: " + (statusData.detail || "Không rõ nguyên nhân"));
                 loadQuizFromSession();
-            } else if (statusRes.status === 404) {
-                clearInterval(progressInterval);
-                sessionStorage.removeItem('editor_pending_task_id');
-                sessionStorage.removeItem('editor_pending_mode');
-                if (overlay) overlay.style.display = 'none';
-                loadQuizFromSession();
             } else {
                 // Vẫn đang xử lý
                 if (statusData.message && statusTitle) {
@@ -157,8 +180,9 @@ async function pollStudioTask(taskId, initialTitle, mode) {
                 setTimeout(poll, 2500);
             }
         } catch(err) {
-            // Lỗi mạng tạm thời, thử lại sau 4s
-            setTimeout(poll, 4000);
+            // Lỗi mạng hoặc server đang thức giấc (Cold Start), tự động thử lại sau 3.5s
+            if (statusTitle) statusTitle.innerText = "⏳ Đang kết nối với máy chủ AI...";
+            setTimeout(poll, 3500);
         }
     };
 
