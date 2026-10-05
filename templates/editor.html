@@ -38,8 +38,8 @@
             <button id="btnDiscardOrDelete" class="studio-back-btn" style="color: #ef4444; border-color: #fecaca;" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
                 <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel">Hủy nháp</span>
             </button>
-            <div class="studio-brand-badge">
-                <i class="ri-edit-circle-line" style="font-size: 1.25rem;"></i> HocnhanhTN Studio
+            <div class="studio-brand-badge" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 6px 14px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <i class="ri-survey-line" style="font-size: 1.25rem;"></i> HocNhanhTN Studio
             </div>
             <div class="studio-title-box">
                 <input type="text" id="studioQuizTitle" class="studio-title-input" placeholder="Nhập tên bài kiểm tra / đề thi..." title="Nhấn để đổi tên đề thi">
@@ -101,7 +101,7 @@
 
             <!-- Khung nhập prompt tùy chọn kiểm tra AI -->
             <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu kiểm tra tùy chọn (VD: Soát kỹ câu 1 và câu 3, kiểm tra công thức... Để trống để kiểm tra toàn bộ)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
+                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu AI (VD: Xóa câu 2, chuyển câu 3 sang Đúng/Sai, sửa công thức hóa học... Để trống để rà soát tổng thể)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
                 <button id="btnAICheck" class="btn-primary" style="background: #9333ea; white-space: nowrap; margin: 0; padding: 10px 20px;" onclick="runAICheck()">
                     <i class="ri-search-eye-line"></i> Chạy AI Quét lỗi
                 </button>
@@ -268,6 +268,6 @@
         </div>
     </div>
 
-    <script src="editor.js?v=20260927_fast_v2"></script>
+    <script src="editor.js?v=20260930_ai_review_v2"></script>
 </body>
 </html>

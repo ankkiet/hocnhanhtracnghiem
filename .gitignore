@@ -3,7 +3,7 @@ quizzes.db
 
 # Environments
 .env
-.venv
+.venv*
 env/
 venv/
 
@@ -17,10 +17,18 @@ __pycache__/
 .idea/
 .DS_Store
 
+# Browser testing profiles
+.edge*
+
+# Temporary scratch & backup folders
+scratch/
+backup_bgd_feature/
+
 # Firebase configs
 firebase-adminsdk.json
 
 # Uploads
 uploads/*
 !uploads/.gitkeep
-!uploads/images/.gitkeep
+!uploads/images/.gitkeep
+

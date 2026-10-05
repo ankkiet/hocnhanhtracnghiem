@@ -247,9 +247,12 @@ class TestBulletproofParsing(unittest.TestCase):
     def test_upload_pdf_without_ai(self):
         """Test uploading a PDF file without AI (use_ai=False) parses locally instead of throwing 400 error."""
         try:
-            import fitz
+            import pymupdf as fitz
         except ImportError:
-            fitz = None
+            try:
+                import fitz
+            except ImportError:
+                fitz = None
         if fitz is None:
             self.skipTest("PyMuPDF (fitz) không được cài đặt trong môi trường này")
         import time
@@ -356,9 +359,90 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertIsNone(url)
 
 
+
+    def test_extract_true_false_questions_bulletproof(self):
+        """Kiểm tra bóc tách câu hỏi Đúng / Sai chuẩn Bộ GD&ĐT (GDPT 2018)."""
+        from main import extract_questions_from_text_bulletproof
+        
+        sample_tf = """
+        PHẦN II. Câu trắc nghiệm đúng sai.
+        Câu 1. Cho hàm số y = f(x) = x^3 - 3x + 1.
+        *a) Đồ thị hàm số đi qua điểm M(0; 1).
+        b) Hàm số đồng biến trên toàn bộ R. [SAI]
+        *c) Điểm cực đại của đồ thị hàm số là (-1; 3).
+        d) Giá trị nhỏ nhất của hàm số trên đoạn [0; 2] bằng 1. [SAI]
+        Hướng dẫn giải:
+        a) Với x=0 thì y=1 -> Đúng.
+        b) y' = 3x^2 - 3 có nghiệm x=±1 nên đổi dấu -> Sai.
+        """
+        
+        questions = extract_questions_from_text_bulletproof(sample_tf)
+        self.assertEqual(len(questions), 1)
+        q = questions[0]
+        self.assertEqual(q["type"], "true_false")
+        self.assertEqual(len(q["options"]), 4)
+        self.assertTrue(q["options"][0].startswith("a) "))
+        self.assertTrue(q["options"][1].startswith("b) "))
+        self.assertTrue(q["options"][2].startswith("c) "))
+        self.assertTrue(q["options"][3].startswith("d) "))
+        self.assertEqual(q["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
+        self.assertIn("Với x=0", q["explain"])
+
+    def test_extract_short_answer_questions_bulletproof(self):
+        """Kiểm tra bóc tách câu hỏi Trắc nghiệm trả lời ngắn chuẩn Bộ GD&ĐT (GDPT 2018)."""
+        from main import extract_questions_from_text_bulletproof
+        
+        sample_sa = """
+        PHẦN III. Câu trắc nghiệm trả lời ngắn.
+        Câu 1. Cho khối chóp có diện tích đáy bằng 12 và chiều cao bằng 5. Tính thể tích khối chóp.
+        Đáp án: 20
+        Lời giải: V = 1/3 * B * h = 1/3 * 12 * 5 = 20.
+        
+        Câu 2. Tìm giá trị lớn nhất của hàm số y = -x^2 + 4x + 1.
+        ĐS: 5
+        """
+        
+        questions = extract_questions_from_text_bulletproof(sample_sa)
+        self.assertEqual(len(questions), 2)
+        self.assertEqual(questions[0]["type"], "short_answer")
+        self.assertEqual(questions[0]["correct_answer"], "20")
+        self.assertEqual(questions[0]["options"], [])
+        self.assertIn("1/3 * 12 * 5", questions[0]["explain"])
+        
+        self.assertEqual(questions[1]["type"], "short_answer")
+        self.assertEqual(questions[1]["correct_answer"], "5")
+
+    def test_normalize_question_data_bgd_types(self):
+        """Kiểm tra normalize_question_data chuẩn hóa chính xác cả 3 dạng câu hỏi."""
+        from services.ai_service import normalize_question_data
+        
+        # 1. MCQ
+        mcq = normalize_question_data({
+            "question": "Câu 1: Hàm số nào đồng biến?",
+            "options": ["A. y = x^3", "B. y = x^4", "C. y = -x", "D. y = 1/x"],
+            "correct_answer": "A"
+        })
+        self.assertEqual(mcq["type"], "mcq")
+        self.assertEqual(mcq["correct_answer"], "A. y = x<sup>3</sup>")
+        
+        # 2. True / False
+        tf = normalize_question_data({
+            "question": "Câu 2: Cho hàm số f(x)...",
+            "options": ["*a) Ý một", "b) Ý hai", "*c) Ý ba", "d) Ý bốn"],
+            "correct_answer": "a: Đ, b: S, c: Đ, d: S"
+        })
+        self.assertEqual(tf["type"], "true_false")
+        self.assertEqual(tf["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
+        
+        # 3. Short Answer
+        sa = normalize_question_data({
+            "question": "Câu 3: Tính diện tích tam giác...",
+            "options": [],
+            "correct_answer": "Đáp án: 15.5"
+        })
+        self.assertEqual(sa["type"], "short_answer")
+        self.assertEqual(sa["correct_answer"], "15.5")
+
+
 if __name__ == "__main__":
     unittest.main()
-
-
-
-

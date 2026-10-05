@@ -42,8 +42,16 @@ def init_firebase():
             firebase_admin.initialize_app(cred)
         db = firestore.client()
         
+        try:
+            from google.cloud.firestore_v1.base_query import FieldFilter
+            def query_where(collection_ref, field, value):
+                return collection_ref.where(filter=FieldFilter(field, '==', value))
+        except ImportError:
+            def query_where(collection_ref, field, value):
+                return collection_ref.where(field, '==', value)
+
         # Khởi tạo Admin mặc định NẾU CHƯA TỒN TẠI (Không ghi đè khi đã có)
-        users = db.collection('users').where('username', '==', 'admin').get()
+        users = query_where(db.collection('users'), 'username', 'admin').get()
         if not users:
             admin_pwd_hash = hash_password('a@a@ankk')
             db.collection('users').add({
@@ -57,9 +65,9 @@ def init_firebase():
 
         # Đảm bảo tài khoản Quản trị viên kiet0905478167@gmail.com luôn tồn tại và có quyền Admin cao nhất
         admin_email = "kiet0905478167@gmail.com"
-        kiet_users = db.collection('users').where('username', '==', admin_email).get()
+        kiet_users = query_where(db.collection('users'), 'username', admin_email).get()
         if not kiet_users:
-            kiet_by_email = db.collection('users').where('email', '==', admin_email).get()
+            kiet_by_email = query_where(db.collection('users'), 'email', admin_email).get()
             if kiet_by_email:
                 db.collection('users').document(kiet_by_email[0].id).update({
                     'role': 'admin',

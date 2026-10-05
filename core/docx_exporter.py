@@ -397,25 +397,65 @@ def export_quiz_to_docx(title: str, questions: list, time_limit: int = 0) -> io.
         
         add_formatted_text(p_q, q_text, font_name='Times New Roman', font_size_pt=11)
         
-        # Các lựa chọn A, B, C, D
-        for opt in options:
-            p_opt = doc.add_paragraph()
-            p_opt.paragraph_format.left_indent = Inches(0.3)
-            p_opt.paragraph_format.space_after = Pt(2)
-            p_opt.paragraph_format.line_spacing = 1.15
-            
-            # Nhận diện tiền tố A. B. C. D. để in đậm
-            match_prefix = re.match(r'^([A-D][\.\:\)])\s*(.*)', str(opt).strip(), flags=re.IGNORECASE)
-            if match_prefix:
-                label = match_prefix.group(1) + " "
-                content = match_prefix.group(2)
-                run_label = p_opt.add_run(label)
-                run_label.bold = True
-                run_label.font.name = 'Times New Roman'
-                run_label.font.size = Pt(11)
-                add_formatted_text(p_opt, content, font_name='Times New Roman', font_size_pt=11)
-            else:
-                add_formatted_text(p_opt, str(opt), font_name='Times New Roman', font_size_pt=11)
+        q_type = q.get('type', 'mcq')
+        if q_type == 'short_answer':
+            p_ans = doc.add_paragraph()
+            p_ans.paragraph_format.left_indent = Inches(0.3)
+            p_ans.paragraph_format.space_before = Pt(3)
+            p_ans.paragraph_format.space_after = Pt(4)
+            run_prompt = p_ans.add_run("Đáp số: ")
+            run_prompt.bold = True
+            run_prompt.font.name = 'Times New Roman'
+            run_prompt.font.size = Pt(11)
+            run_dots = p_ans.add_run("...................................................................................")
+            run_dots.font.name = 'Times New Roman'
+            run_dots.font.size = Pt(11)
+        elif q_type == 'true_false' or isinstance(q.get('correct_answer'), dict):
+            # Các mệnh đề a), b), c), d) trong câu hỏi Đúng / Sai
+            for opt in options:
+                p_opt = doc.add_paragraph()
+                p_opt.paragraph_format.left_indent = Inches(0.3)
+                p_opt.paragraph_format.space_after = Pt(2)
+                p_opt.paragraph_format.line_spacing = 1.15
+                
+                match_prefix = re.match(r'^(\*?\s*[a-dA-D][\.\:\)])\s*(.*)', str(opt).strip())
+                if match_prefix:
+                    label = match_prefix.group(1) + " "
+                    content = match_prefix.group(2)
+                    run_label = p_opt.add_run(label)
+                    run_label.bold = True
+                    run_label.font.name = 'Times New Roman'
+                    run_label.font.size = Pt(11)
+                    add_formatted_text(p_opt, content, font_name='Times New Roman', font_size_pt=11)
+                else:
+                    add_formatted_text(p_opt, str(opt), font_name='Times New Roman', font_size_pt=11)
+                
+                run_tag = p_opt.add_run("   [ Đúng / Sai ]")
+                run_tag.italic = True
+                run_tag.bold = True
+                run_tag.font.name = 'Times New Roman'
+                run_tag.font.size = Pt(10)
+                run_tag.font.color.rgb = RGBColor(100, 116, 139)
+        else:
+            # Các lựa chọn A, B, C, D (MCQ chuẩn)
+            for opt in options:
+                p_opt = doc.add_paragraph()
+                p_opt.paragraph_format.left_indent = Inches(0.3)
+                p_opt.paragraph_format.space_after = Pt(2)
+                p_opt.paragraph_format.line_spacing = 1.15
+                
+                # Nhận diện tiền tố A. B. C. D. để in đậm
+                match_prefix = re.match(r'^(\*?\s*[A-Fa-f][\.\:\)])\s*(.*)', str(opt).strip())
+                if match_prefix:
+                    label = match_prefix.group(1) + " "
+                    content = match_prefix.group(2)
+                    run_label = p_opt.add_run(label)
+                    run_label.bold = True
+                    run_label.font.name = 'Times New Roman'
+                    run_label.font.size = Pt(11)
+                    add_formatted_text(p_opt, content, font_name='Times New Roman', font_size_pt=11)
+                else:
+                    add_formatted_text(p_opt, str(opt), font_name='Times New Roman', font_size_pt=11)
             
         doc.add_paragraph().paragraph_format.space_after = Pt(2)
         
@@ -453,18 +493,30 @@ def export_quiz_to_docx(title: str, questions: list, time_limit: int = 0) -> io.
             shading_q = parse_xml(r'<w:shd {} w:fill="F1F5F9"/>'.format(nsdecls('w')))
             cell_q._tc.get_or_add_tcPr().append(shading_q)
             
-            # Ô đáp án đúng (lấy chữ cái A, B, C, D)
-            correct = str(q.get('correct_answer', '')).strip()
-            correct_letter = ""
-            for c in ["A", "B", "C", "D"]:
-                if correct.startswith(f"{c}.") or correct.startswith(f"{c}:") or correct == c:
-                    correct_letter = c
-                    break
-            if not correct_letter and correct:
-                correct_letter = correct[:2]
-                
+            # Ô đáp án đúng (Hỗ trợ MCQ, Đúng/Sai, Trả lời ngắn theo Bộ GD&ĐT)
+            q_type = q.get('type', 'mcq')
+            raw_ca = q.get('correct_answer')
+            correct_display = ""
+            
+            if q_type == 'true_false' or isinstance(raw_ca, dict):
+                if isinstance(raw_ca, dict):
+                    parts = [f"{k}-{'Đ' if raw_ca.get(k) else 'S'}" for k in ['a', 'b', 'c', 'd'] if k in raw_ca]
+                    correct_display = ", ".join(parts) if parts else str(raw_ca)
+                else:
+                    correct_display = str(raw_ca)
+            elif q_type == 'short_answer':
+                correct_display = str(raw_ca or '')
+            else:
+                correct_str = str(raw_ca or '').strip()
+                for c in ["A", "B", "C", "D"]:
+                    if correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c:
+                        correct_display = c
+                        break
+                if not correct_display and correct_str:
+                    correct_display = correct_str[:2]
+                    
             cell_ans = table.cell(row_idx + 1, col_idx)
-            cell_ans.text = correct_letter or "-"
+            cell_ans.text = correct_display or "-"
             p_cell_ans = cell_ans.paragraphs[0]
             p_cell_ans.alignment = WD_ALIGN_PARAGRAPH.CENTER
             if p_cell_ans.runs:

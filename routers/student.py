@@ -61,17 +61,55 @@ async def submit_exam(req: SubmitExamRequest):
         if user_ans is None:
             user_ans = req.answers.get(idx)
             
+        q_type = q.get('type', 'mcq')
         correct_ans = q.get('correct_answer')
-        is_correct = (user_ans is not None and user_ans == correct_ans)
-        
-        if is_correct:
-            score += 1
+        is_correct = False
+        earned = 0.0
+
+        if q_type == 'true_false' or isinstance(correct_ans, dict):
+            # Quy chuẩn chấm trắc nghiệm Đúng/Sai của Bộ GD&ĐT:
+            # 1 ý đúng = 0.1đ | 2 ý đúng = 0.25đ | 3 ý đúng = 0.5đ | 4 ý đúng = 1.0đ
+            if isinstance(user_ans, dict) and isinstance(correct_ans, dict):
+                def norm_tf(d):
+                    res = {}
+                    for k, v in d.items():
+                        lk = str(k).lower().strip()
+                        if isinstance(v, bool):
+                            res[lk] = v
+                        elif isinstance(v, str):
+                            res[lk] = v.strip().lower() in ['true', 't', 'đúng', 'dung', 'd', '1']
+                        elif isinstance(v, (int, float)):
+                            res[lk] = bool(v)
+                        else:
+                            res[lk] = bool(v)
+                    return res
+
+                u_norm = norm_tf(user_ans)
+                c_norm = norm_tf(correct_ans)
+                matches = sum(1 for k in ['a', 'b', 'c', 'd'] if k in u_norm and k in c_norm and u_norm[k] == c_norm[k])
+                tf_scale = [0.0, 0.1, 0.25, 0.5, 1.0]
+                earned = tf_scale[matches] if matches < len(tf_scale) else 1.0
+                is_correct = (matches == 4)
+            score += earned
+        elif q_type == 'short_answer':
+            u_clean = str(user_ans or '').strip().lower().replace(',', '.').replace(' ', '')
+            c_clean = str(correct_ans or '').strip().lower().replace(',', '.').replace(' ', '')
+            is_correct = bool(u_clean and u_clean == c_clean)
+            earned = 1.0 if is_correct else 0.0
+            score += earned
+        else:
+            u_str = str(user_ans).strip().upper() if user_ans is not None else None
+            c_str = str(correct_ans).strip().upper() if correct_ans is not None else None
+            is_correct = bool(u_str is not None and c_str is not None and u_str == c_str)
+            earned = 1.0 if is_correct else 0.0
+            score += earned
             
         results.append({
             "question_index": idx,
             "user_answer": user_ans,
             "correct_answer": correct_ans,
             "is_correct": is_correct,
+            "earned": earned,
             "explain": q.get('explain', '')
         })
         
@@ -81,7 +119,7 @@ async def submit_exam(req: SubmitExamRequest):
     submission_ref = db.collection('quizzes').document(req.quiz_id).collection('submissions').document()
     submission_data = {
         'student_name': req.student_name.strip() or 'Ẩn danh',
-        'score': score,
+        'score': round(score, 2),
         'total_questions': total_questions,
         'time_elapsed': req.time_elapsed,
         'answers': req.answers,
@@ -97,7 +135,7 @@ async def submit_exam(req: SubmitExamRequest):
     
     return {
         "status": "success",
-        "score": score,
+        "score": round(score, 2),
         "total_questions": total_questions,
         "time_elapsed": req.time_elapsed,
         "results": results
@@ -125,8 +163,10 @@ async def save_student_progress(req: SaveProgressRequest):
     if db is None:
         return {"status": "error"}
         
-    user = get_user_from_token(req.student_token, db)
-    user_id = user['id'] if user else req.student_token
+    user = get_user_from_token(req.student_token, db) if req.student_token else None
+    user_id = user['id'] if user else (str(req.student_token).strip() if req.student_token else None)
+    if not user_id:
+        return {"status": "error", "message": "Thiếu mã định danh học sinh"}
     
     db.collection('users').document(user_id).collection('progress').document(req.quiz_id).set({
         'progress_data': req.progress_data,
@@ -140,8 +180,13 @@ async def get_student_progress(quiz_id: str, student_token: str):
     if db is None:
         return {"status": "error"}
         
+    if not student_token or not student_token.strip():
+        return {"status": "success", "data": None}
+        
     user = get_user_from_token(student_token, db)
-    user_id = user['id'] if user else student_token
+    user_id = user['id'] if user else student_token.strip()
+    if not user_id:
+        return {"status": "success", "data": None}
     
     prog_doc = db.collection('users').document(user_id).collection('progress').document(quiz_id).get()
     if prog_doc.exists:

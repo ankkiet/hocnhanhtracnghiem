@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     
     <!-- CẤU HÌNH THẺ OPEN GRAPH (Hiển thị ảnh bìa, tiêu đề khi gửi link qua Zalo, Facebook) -->
     <meta property="og:title" content="📝 Bài thi Trắc nghiệm - HocnhanhTN">
@@ -10,9 +10,11 @@
     <meta property="og:image" content="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80">
     <meta property="og:type" content="website">
     
-    <title>HocnhanhTN - Hệ thống Luyện thi Trắc nghiệm AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260927_hide_auth_v1">
+    <title>HocNhanhTN - Hệ thống Khảo sát & Thi Trắc nghiệm Thông minh</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20260930_mobile_v4">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <style id="styled-wrapper-css">
       #authContainer {
@@ -494,27 +496,64 @@
     </div>
 </div>
 
+<!-- TOP BRAND NAVBAR -->
+<header id="azotaNavbar" class="azota-navbar" style="display:none;">
+    <div class="azota-navbar-inner" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 16px;">
+        <a href="/" class="azota-nav-brand" style="text-decoration: none;">
+            <div class="azota-brand-logo">
+                <i class="ri-flashlight-fill"></i>
+            </div>
+            <div>
+                <div class="azota-brand-title">HocNhanh<span>TN</span></div>
+                <div class="azota-brand-sub">Hệ thống Khảo sát & Thi trực tuyến</div>
+            </div>
+        </a>
+
+        <div class="azota-nav-links" id="azotaNavLinks">
+            <button class="azota-nav-tab active" id="navTabDashboard" onclick="showDashboardView()">
+                <i class="ri-dashboard-3-line"></i> Đề thi của tôi
+            </button>
+            <button class="azota-nav-tab" id="navTabCreate" onclick="showCreateView()">
+                <i class="ri-add-circle-line"></i> Tạo đề mới
+            </button>
+            <button class="azota-nav-tab" onclick="openStudioNewQuiz()">
+                <i class="ri-code-box-line"></i> Studio Soạn thảo
+            </button>
+            <button class="azota-nav-tab" id="navTabAdmin" style="display:none;" onclick="showAdminView()">
+                <i class="ri-shield-user-line"></i> Quản trị
+            </button>
+        </div>
+
+        <div class="azota-user-badge" id="azotaUserBadge">
+            <div class="user-avatar" id="navUserAvatar">G</div>
+            <div class="user-info">
+                <span class="user-name" id="navUserName">Tài khoản</span>
+                <span class="azota-role-pill" id="navUserRole">Giáo viên</span>
+            </div>
+            <button class="btn-azota-sub" style="padding: 6px 12px; margin-left: 8px;" onclick="logout()" title="Đăng xuất khỏi hệ thống">
+                <i class="ri-logout-box-r-line"></i> Đăng xuất
+            </button>
+        </div>
+    </div>
+</header>
+
 <!-- Màn hình Chính (Giáo viên / Học sinh) -->
 <div id="mainAppContainer" class="container" style="display:none;">
-    <div class="navbar">
-        <span id="currentUserDisplay" style="font-weight: bold; color: var(--primary); font-size: 1.1rem;"></span>
-        <button class="btn-outline" style="padding: 8px 16px; font-size: 0.9rem;" onclick="logout()">
-            <i class="ri-logout-box-r-line"></i> Đăng xuất
-        </button>
-    </div>
 
-    <div class="header">
-        <h1>Hệ thống Trắc nghiệm Thông minh</h1>
-        <p>Bóc tách đề thi siêu tốc với chuẩn định dạng giáo dục</p>
-    </div>
+    <!-- Màn hình yêu cầu nhập tên & Lịch sử thi (Dành cho Học sinh) -->
+    <div id="welcomeScreen" class="card azota-result-card" style="display:none; text-align: center; margin-bottom: 24px;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: #eff6ff; color: #1976d2; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px auto;">
+            <i class="ri-user-smile-line"></i>
+        </div>
+        <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với phòng thi!</h2>
+        <p style="font-size: 1.05rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống đã nhận diện bài kiểm tra. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
+        
+        <div style="max-width: 420px; margin: 0 auto 20px auto;">
+            <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên của bạn (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+        </div>
 
-    <!-- Màn hình yêu cầu nhập tên & Lịch sử -->
-    <div id="welcomeScreen" class="card" style="display:none; text-align: center; margin-bottom: 24px;">
-        <h2 style="color: var(--primary); margin-top:0;"><i class="ri-user-smile-line"></i> Chào mừng bạn đến với bài thi!</h2>
-        <p style="font-size: 1.1rem; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống đã nhận diện tài khoản của bạn. Nhấn Bắt đầu để làm bài.</p>
-        <input type="text" id="studentNameInput" style="display: none;">
-        <button id="startBtn" class="btn-primary" style="font-size: 1.1rem; padding: 12px 30px;" onclick="startStudentQuiz()">
-            <i class="ri-rocket-line"></i> Bắt đầu làm bài
+        <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="startStudentQuiz()">
+            <i class="ri-rocket-line"></i> Bắt đầu làm bài thi
         </button>
         
         <!-- Khung hiển thị Lịch sử -->
@@ -527,19 +566,36 @@
         <div id="leaderboardList" style="margin-top: 15px; overflow-x: auto;"></div>
     </div>
 
-    <div id="studentHeader" style="display:none; text-align: center; margin-bottom: 24px; padding: 20px; background: white; border-radius: 12px; box-shadow: var(--shadow); position: relative;">
-        <button id="exitMinimalBtn" class="btn-outline" style="display: none; position: absolute; top: 20px; left: 20px; padding: 8px 15px; font-size: 0.95rem; font-weight: bold;" onclick="exitMinimalMode()">
-            <i class="ri-door-open-line"></i> Thoát
-        </button>
-        <h2 id="studentQuizTitle" class="quiz-title-text" style="color: var(--primary); margin: 0 0 10px 0;"></h2>
-        <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 20px; color: var(--text-muted); font-weight: 600;">
-            <span id="studentNameDisplay" style="color: var(--primary);"></span>
-            <span id="studentQCount"><i class="ri-hashtag"></i> Số câu: 0</span>
-            <span id="studentTime"><i class="ri-time-line"></i> Thời gian: Không giới hạn</span>
+    <!-- Sticky Exam Header (Dành cho Học sinh khi làm bài) -->
+    <div id="studentHeader" class="azota-student-header" style="display:none;">
+        <div class="azota-student-header-inner">
+            <div class="azota-student-header-left">
+                <button id="exitMinimalBtn" class="btn-exit-minimal" onclick="exitMinimalMode()" title="Thoát phòng thi">
+                    <i class="ri-arrow-left-line"></i> <span class="exit-text">Thoát</span>
+                </button>
+                <div class="azota-student-title-wrap">
+                    <h2 id="studentQuizTitle" class="quiz-title-text" title="Tên đề thi">Đề thi</h2>
+                    <div class="azota-student-meta-strip">
+                        <span id="studentNameDisplay" class="meta-item"><i class="ri-user-line"></i> Thí sinh</span>
+                        <span id="studentQCount" class="meta-item"><i class="ri-hashtag"></i> 0 câu</span>
+                        <span id="studentTime" class="meta-item"><i class="ri-time-line"></i> Tự do</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="azota-student-header-right">
+                <div id="examStickyTimer" class="exam-sticky-timer">
+                    <i class="ri-timer-line"></i> <span id="examTimerVal">--:--</span>
+                </div>
+                <button id="stickySubmitBtn" class="btn-azota-submit-big desktop-only-submit" style="width: auto; padding: 10px 22px; margin: 0; font-size: 0.95rem;" onclick="submitExam()">
+                    <i class="ri-send-plane-fill"></i> Nộp bài
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="mode-switch" id="modeSwitch">
+    <!-- Mode Switcher (Cho chế độ Biên tập / Thử nghiệm) -->
+    <div class="mode-switch" id="modeSwitch" style="display:none;">
         <button id="btnEdit" class="btn-outline active" onclick="switchMode('edit')"><i class="ri-tools-line"></i> Chỉnh sửa</button>
         <button id="btnPractice" class="btn-outline" onclick="switchMode('practice')"><i class="ri-focus-3-line"></i> Luyện tập</button>
         <button id="btnExam" class="btn-outline" onclick="switchMode('exam')"><i class="ri-file-list-3-line"></i> Thi thử</button>
@@ -547,79 +603,168 @@
     </div>
 
     <!-- Bảng điều khiển Học sinh (Khi chưa có link) -->
-    <div id="studentDashboard" class="card" style="display:none; text-align: center;">
-        <h2 style="color: var(--primary); margin-top: 0;"><i class="ri-graduation-cap-line"></i> Khu vực Học tập</h2>
-        <p style="color: var(--text-muted); margin-bottom: 20px;">Nhập mã đề thi do giáo viên cung cấp để bắt đầu làm bài.</p>
-        <div style="display: flex; max-width: 500px; margin: 0 auto; gap: 10px;">
-            <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: ABC-123) hoặc dán Link..." style="flex-grow: 1; margin: 0;">
-            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap;"><i class="ri-arrow-right-line"></i> Vào thi</button>
+    <div id="studentDashboard" class="card azota-result-card" style="display:none; text-align: center; max-width: 650px; margin: 20px auto;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: #eff6ff; color: #1976d2; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px auto;">
+            <i class="ri-graduation-cap-line"></i>
+        </div>
+        <h2 style="color: var(--azota-primary); margin-top: 0; font-size: 1.6rem;">Khu vực Làm bài Thi</h2>
+        <p style="color: #64748b; font-size: 1rem; margin-bottom: 24px;">Nhập mã đề thi hoặc dán đường link do thầy cô cung cấp để tham gia phòng thi.</p>
+        <div style="display: flex; max-width: 480px; margin: 0 auto; gap: 10px;">
+            <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: c8ecabf5...) hoặc dán Link" style="flex-grow: 1; margin: 0; border-radius: 10px; border: 1.5px solid #cbd5e1; padding: 12px 16px; font-size: 1rem;">
+            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap; border-radius: 10px; padding: 12px 22px; font-weight: 700; background: #1976d2;">
+                <i class="ri-arrow-right-line"></i> Vào thi
+            </button>
         </div>
     </div>
 
-    <div id="creationHub" style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
-        <div class="card upload-section" id="uploadBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
-            <h3 style="color: var(--primary); margin-top: 0;"><i class="ri-file-text-line"></i> Bóc tách từ file Word / PDF</h3>
-            <p style="color: var(--text-muted); font-size: 0.95rem;">Tải lên tài liệu (.docx, .pdf) của bạn</p>
-            <input type="file" id="fileInput" accept=".docx,.pdf" style="margin-bottom: 15px;">
-            <label style="display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 0.9rem; cursor: pointer; color: var(--primary); font-weight: 600; background: #eff6ff; padding: 10px 20px; border-radius: 8px; border: 1px solid #bfdbfe; transition: all 0.2s; width: 100%; box-sizing: border-box;">
-                <input type="checkbox" id="useAIToggle" checked style="width: 20px; height: 20px; margin: 0 10px 0 0; cursor: pointer;">
-                <i class="ri-sparkling-fill" style="color: var(--primary); margin-right: 6px;"></i> Dùng AI bóc tách (Chính xác cao)
+    <!-- CREATION HUB (3 BENTO CARDS) -->
+    <div id="creationHub" class="azota-creation-grid" style="display:none;">
+        <!-- Card 1: Upload Word / PDF -->
+        <div class="azota-create-card" id="uploadBox">
+            <div class="card-icon-wrap blue">
+                <i class="ri-file-word-2-line"></i>
+            </div>
+            <div class="card-title">Tải lên file Word / PDF</div>
+            <div class="card-desc">Bóc tách tự động từ tài liệu (.docx, .pdf) theo đúng chuẩn đề thi của Bộ GD&ĐT.</div>
+            
+            <input type="file" id="fileInput" accept=".docx,.pdf" style="margin-bottom: 14px; width: 100%;">
+            
+            <label style="display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 0.9rem; cursor: pointer; color: #1e40af; font-weight: 600; background: #eff6ff; padding: 10px 14px; border-radius: 8px; border: 1px solid #bfdbfe; width: 100%; box-sizing: border-box;">
+                <input type="checkbox" id="useAIToggle" checked style="width: 18px; height: 18px; margin: 0 8px 0 0; cursor: pointer;">
+                <i class="ri-sparkling-fill" style="color: #2563eb; margin-right: 6px;"></i> Dùng AI bóc tách siêu chuẩn
             </label>
-            <br>
-            <button class="btn-primary" style="width: 100%;" onclick="uploadFile()">
-                <i class="ri-cpu-line"></i> Phân tích Tài liệu
-            </button>
+            
+            <div class="card-footer">
+                <button class="btn-primary" style="width: 100%; border-radius: 8px; font-weight: 700; padding: 12px; background: #1976d2;" onclick="uploadFile()">
+                    <i class="ri-cpu-line"></i> Bóc tách tài liệu
+                </button>
+            </div>
         </div>
-        
-        <div class="card upload-section" id="aiGenerateBox" style="flex: 1; min-width: 300px; margin-bottom: 0;">
-            <h3 style="color: #9333ea; margin-top: 0;"><i class="ri-sparkling-fill"></i> Sinh đề tự động bằng AI</h3>
-            <p style="color: var(--text-muted); font-size: 0.95rem;">Nhập chủ đề hoặc đoạn văn bản bất kỳ</p>
-            <textarea id="aiGenPrompt" placeholder="VD: Lịch sử Việt Nam thời Lý, hoặc dán một đoạn văn bản đọc hiểu vào đây..." style="min-height: 60px; margin-bottom: 10px; resize: vertical;"></textarea>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+
+        <!-- Card 2: Sinh đề AI -->
+        <div class="azota-create-card" id="aiGenerateBox">
+            <div class="card-icon-wrap purple">
+                <i class="ri-sparkling-fill"></i>
+            </div>
+            <div class="card-title">Sinh đề thông minh AI</div>
+            <div class="card-desc">Nhập chủ đề hoặc dán văn bản bài học, AI sẽ tự động tạo bộ câu hỏi trắc nghiệm chất lượng.</div>
+            
+            <textarea id="aiGenPrompt" placeholder="VD: Lịch sử Việt Nam thời Lý, hoặc dán đoạn văn đọc hiểu..." style="min-height: 60px; margin-bottom: 10px; resize: vertical; border-radius: 8px; border: 1.5px solid #cbd5e1; padding: 10px; width: 100%; box-sizing: border-box; font-family: inherit;"></textarea>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 14px;">
                 <div style="flex: 1; text-align: left;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Số câu:</label>
-                    <input type="number" id="aiGenCount" value="5" min="1" max="50" style="margin-top: 4px; padding: 10px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Số câu:</label>
+                    <input type="number" id="aiGenCount" value="5" min="1" max="50" style="margin-top: 3px; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; width: 100%; box-sizing: border-box;">
                 </div>
                 <div style="flex: 1; text-align: left;">
-                    <label style="font-size: 0.85rem; font-weight: 600;">Độ khó:</label>
-                    <select id="aiGenDiff" style="width: 100%; padding: 10px; margin-top: 4px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Độ khó:</label>
+                    <select id="aiGenDiff" style="width: 100%; padding: 8px; margin-top: 3px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; box-sizing: border-box;">
                         <option value="Dễ">Dễ</option>
                         <option value="Trung bình" selected>Trung bình</option>
                         <option value="Khó">Khó</option>
                     </select>
                 </div>
             </div>
-            <button class="btn-primary" style="background: #9333ea; width: 100%;" onclick="generateQuizWithAI()">
-                <i class="ri-magic-line"></i> Tạo đề bằng AI
-            </button>
+            
+            <div class="card-footer">
+                <button class="btn-primary" style="background: #9333ea; width: 100%; border-radius: 8px; font-weight: 700; padding: 12px;" onclick="generateQuizWithAI()">
+                    <i class="ri-magic-line"></i> Tạo đề bằng AI
+                </button>
+            </div>
         </div>
 
-        <div style="width: 100%; text-align: center; margin-top: -8px;">
-            <button class="btn-outline" onclick="openStudioNewQuiz()" style="font-weight: 600; padding: 10px 24px; border-color: var(--primary); color: var(--primary); background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;">
-                <i class="ri-edit-box-line"></i> Hoặc Tự Soạn Đề / Dán Đề vào Studio Riêng <i class="ri-arrow-right-line"></i>
-            </button>
+        <!-- Card 3: Studio Soạn thảo độc lập -->
+        <div class="azota-create-card" id="studioQuickBox" style="background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+            <div class="card-icon-wrap emerald">
+                <i class="ri-edit-2-line"></i>
+            </div>
+            <div class="card-title">Studio Soạn thảo 2 Màn hình</div>
+            <div class="card-desc">Gõ hoặc dán đề trực tiếp, tự động tô màu cú pháp, xem trước giao diện học sinh thời gian thực.</div>
+            
+            <div style="background: #ecfdf5; border: 1px dashed #6ee7b7; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 0.85rem; color: #065f46; text-align: left;">
+                <i class="ri-lightbulb-line" style="color: #059669; font-weight: bold;"></i> <b>Tính năng Studio:</b> Hỗ trợ công thức Toán LaTeX, chèn hình ảnh, tự động sửa lỗi và đổi đáp án 1-click.
+            </div>
+
+            <div class="card-footer">
+                <button class="btn-outline" onclick="openStudioNewQuiz()" style="width: 100%; border-radius: 8px; font-weight: 700; padding: 12px; border-color: #059669; color: #059669; background: white;">
+                    <i class="ri-external-link-line"></i> Mở Studio Soạn thảo
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Bảng quản lý đề thi của Giáo viên -->
-    <div id="teacherDashboard" class="card" style="display:none; margin-top: 24px;">
-        <h2 style="color: var(--primary); margin-top: 0; font-size: 1.5rem;"><i class="ri-book-read-line"></i> Quản lý Đề thi của tôi</h2>
-        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px;">Danh sách các đề thi bạn đã tạo và xuất bản. Bạn có thể copy mã/link gửi cho học sinh hoặc ẩn đề đi.</p>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-            <button class="btn-primary" onclick="openStudioNewQuiz()" style="margin-bottom: 0;">
-                <i class="ri-add-line"></i> Soạn Đề Mới trong Studio
-            </button>
-            <button class="btn-outline" id="btnToggleTrash" onclick="toggleTrashView()" style="margin-bottom: 0;">
-                <i class="ri-delete-bin-line"></i> Xem Thùng rác
-            </button>
+    <!-- TEACHER DASHBOARD -->
+    <div id="teacherDashboard" class="card" style="display:none; margin-top: 10px; padding: 24px; border-radius: 14px; border: 1px solid var(--azota-border); box-shadow: var(--azota-shadow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
+            <div>
+                <h2 style="color: var(--azota-primary); margin: 0; font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <i class="ri-book-read-line"></i> Danh sách Đề thi của tôi
+                </h2>
+                <p style="color: #64748b; font-size: 0.92rem; margin: 4px 0 0 0;">Quản lý, chia sẻ link làm bài, theo dõi tiến độ thi và xuất bản đề kiểm tra.</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-primary" onclick="showCreateView()" style="border-radius: 8px; padding: 10px 18px; font-weight: 700; background: #1976d2; margin: 0;">
+                    <i class="ri-add-line"></i> Tạo đề mới
+                </button>
+                <button class="btn-outline" onclick="openStudioNewQuiz()" style="border-radius: 8px; padding: 10px 18px; font-weight: 700; margin: 0;">
+                    <i class="ri-code-box-line"></i> Soạn trong Studio
+                </button>
+            </div>
         </div>
-        <div id="teacherQuizList" style="overflow-x: auto;"></div>
+
+        <!-- Stats Strip -->
+        <div class="azota-stats-strip">
+            <div class="azota-stat-box">
+                <div class="val" id="statTotalQuizzes">0</div>
+                <div class="lbl">Tổng số đề thi</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statOpenQuizzes" style="color: #10b981;">0</div>
+                <div class="lbl">Đang mở cho học sinh</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statLockedQuizzes" style="color: #ef4444;">0</div>
+                <div class="lbl">Đang tạm khóa</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statTotalQuestions" style="color: #8b5cf6;">0</div>
+                <div class="lbl">Tổng số câu hỏi</div>
+            </div>
+        </div>
+
+        <!-- Toolbar: Search + Filter Tabs -->
+        <div class="azota-toolbar">
+            <div class="azota-search-box">
+                <i class="ri-search-line"></i>
+                <input type="text" id="quizSearchInput" class="azota-search-input" placeholder="Tìm kiếm đề thi theo tên hoặc mã đề..." oninput="filterTeacherQuizzes()">
+            </div>
+            <div class="azota-filter-tabs">
+                <button class="azota-tab-btn active" data-filter="all" onclick="setQuizFilter('all')">
+                    Tất cả (<span id="filterCountAll">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="published" onclick="setQuizFilter('published')">
+                    Đang mở (<span id="filterCountPublished">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="unpublished" onclick="setQuizFilter('unpublished')">
+                    Đã khóa (<span id="filterCountLocked">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="trashed" onclick="setQuizFilter('trashed')">
+                    Thùng rác (<span id="filterCountTrash">0</span>)
+                </button>
+            </div>
+        </div>
+
+        <!-- Quiz Cards Grid -->
+        <div id="teacherQuizGrid" class="azota-quiz-grid"></div>
+
+        <!-- Fallback List View -->
+        <div id="teacherQuizList" style="display:none; overflow-x: auto; margin-top: 15px;"></div>
     </div>
 
     <!-- Bảng Giám sát thi của Giáo viên -->
-    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px;">
+    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px; border-radius: 14px; border: 1px solid var(--azota-border);">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
-            <h2 id="monitorQuizTitle" style="color: var(--primary); margin: 0; font-size: 1.3rem;">Đang giám sát...</h2>
+            <h2 id="monitorQuizTitle" style="color: var(--azota-primary); margin: 0; font-size: 1.3rem; font-weight: 800;">Đang giám sát...</h2>
             <button class="btn-outline" onclick="stopMonitoring()"><i class="ri-arrow-left-line"></i> Quay lại</button>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
@@ -663,22 +808,109 @@
     </div>
     
     <div id="score-board"></div>
-    <div id="quiz-container"></div>
-    
-    <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu kiểm tra tùy chọn cho AI (VD: Soát lỗi câu 1 và 2, Kiểm tra lỗi tính toán... Để trống nếu muốn AI tự soát lỗi tổng quát)"></textarea>
-    <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">
-        <i class="ri-search-eye-line"></i> AI Kiểm tra lỗi & Phân tích Đề thi
-    </button>
-    <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 15px; font-size: 1.1rem; padding: 15px;" onclick="openPublishModal()">
-        <i class="ri-settings-3-line"></i> Tiếp tục & Cấu hình Xuất bản
-    </button>
-    <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">
-        <i class="ri-arrow-left-line"></i> Quản lý đề thi
-    </button>
-    <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">
-        <i class="ri-check-double-line"></i> Nộp bài & Xem điểm
-    </button>
+
+    <!-- STUDENT EXAM 2-COLUMN LAYOUT -->
+    <div id="azotaExamLayout" class="azota-exam-layout">
+        <!-- Main Column: Questions -->
+        <div class="azota-exam-col-main" id="azotaMainExamCol">
+            <div id="quiz-container"></div>
+            
+            <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu cho AI (VD: Xóa câu 2, đổi câu 3 sang dạng Đúng/Sai, sửa công thức... Để trống để rà soát tự động)"></textarea>
+            <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">
+                <i class="ri-search-eye-line"></i> AI Kiểm tra lỗi & Phân tích Đề thi
+            </button>
+            <button id="saveBtn" class="btn-primary" style="display:none; width: 100%; margin-top: 15px; font-size: 1.1rem; padding: 15px;" onclick="openPublishModal()">
+                <i class="ri-settings-3-line"></i> Tiếp tục & Cấu hình Xuất bản
+            </button>
+            <button id="backDashboardBtn" class="btn-outline" style="display:none; width: 100%; margin-top: 10px;" onclick="backToDashboard()">
+                <i class="ri-arrow-left-line"></i> Quản lý đề thi
+            </button>
+            <button id="submitBtn" class="btn-success" style="display:none;" onclick="submitExam()">
+                <i class="ri-check-double-line"></i> Nộp bài & Xem điểm
+            </button>
+        </div>
+
+        <!-- Side Column: Sticky Question Navigator Palette -->
+        <div class="azota-exam-col-side" id="azotaSideExamCol" style="display:none;">
+            <div class="azota-navigator-card" id="azotaNavigatorCard">
+                <div class="azota-nav-title">
+                    <span><i class="ri-grid-fill" style="color: #1976d2;"></i> Bảng câu hỏi</span>
+                    <span id="navProgressBadge" style="font-size: 0.82rem; background: #eff6ff; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-weight: 700;">0/0</span>
+                </div>
+                
+                <div class="azota-nav-legend">
+                    <div class="azota-legend-item">
+                        <span class="legend-dot green"></span> Đã chọn
+                    </div>
+                    <div class="azota-legend-item">
+                        <span class="legend-dot gray"></span> Chưa làm
+                    </div>
+                    <div class="azota-legend-item">
+                        <span class="legend-dot red"></span> Phân vân
+                    </div>
+                </div>
+
+                <div class="azota-nav-grid" id="azotaNavGrid">
+                    <!-- Các số câu 1, 2, 3... sẽ được render động ở đây -->
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn-azota-submit-big" onclick="submitExam()">
+                        <i class="ri-check-double-line"></i> NỘP BÀI THI
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE EXAM BOTTOM ACTION BAR (Cố định phía dưới trên điện thoại) -->
+    <div id="azotaMobileExamBar" class="azota-mobile-exam-bar" style="display:none;">
+        <button type="button" class="btn-mobile-nav-toggle" onclick="toggleMobileNavSheet(true)">
+            <i class="ri-grid-fill"></i>
+            <div class="mobile-nav-text-group">
+                <span class="mobile-nav-label">Bảng câu hỏi</span>
+                <span id="mobileNavBadge" class="mobile-nav-sub">0/0 đã làm</span>
+            </div>
+        </button>
+        <button type="button" class="btn-mobile-submit" onclick="submitExam()">
+            <i class="ri-send-plane-fill"></i> Nộp bài
+        </button>
+    </div>
+
+    <!-- MOBILE QUESTION NAVIGATOR BOTTOM SHEET DRAWER -->
+    <div id="azotaMobileNavOverlay" class="azota-mobile-nav-overlay" onclick="toggleMobileNavSheet(false)"></div>
+    <div id="azotaMobileNavSheet" class="azota-mobile-nav-sheet">
+        <div class="mobile-sheet-drag-handle" onclick="toggleMobileNavSheet(false)">
+            <div class="sheet-pill"></div>
+        </div>
+        <div class="mobile-sheet-header">
+            <div class="mobile-sheet-title">
+                <i class="ri-grid-fill" style="color: #4f46e5;"></i>
+                <span>Bảng điều hướng câu hỏi</span>
+                <span id="mobileSheetProgressBadge" class="mobile-nav-badge-pill">0/0</span>
+            </div>
+            <button type="button" class="btn-sheet-close" onclick="toggleMobileNavSheet(false)" aria-label="Đóng">
+                <i class="ri-close-line"></i>
+            </button>
+        </div>
+        <div class="azota-nav-legend mobile-sheet-legend">
+            <div class="azota-legend-item"><span class="legend-dot green"></span> Đã chọn</div>
+            <div class="azota-legend-item"><span class="legend-dot gray"></span> Chưa làm</div>
+            <div class="azota-legend-item"><span class="legend-dot red"></span> Phân vân</div>
+        </div>
+        <div class="azota-nav-grid mobile-sheet-grid" id="azotaMobileNavGrid">
+            <!-- Render động danh sách số câu hỏi -->
+        </div>
+        <div class="mobile-sheet-footer">
+            <button type="button" class="btn-azota-submit-big" onclick="toggleMobileNavSheet(false); submitExam();">
+                <i class="ri-send-plane-fill"></i> NỘP BÀI THI NGAY
+            </button>
+        </div>
+    </div>
 </div>
+
+<!-- FLOATING TOAST CONTAINER -->
+<div id="azotaToastContainer" class="azota-toast-container"></div>
 
 <!-- Lớp phủ (Overlay) màn hình chờ Tải file -->
 <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: white; backdrop-filter: blur(5px);">
@@ -731,6 +963,6 @@
     </div>
 </div>
 
-<script src="script.js?v=20260927_fast_v2"></script>
+<script src="script.js?v=20260930_ai_review_v2"></script>
 </body>
 </html>

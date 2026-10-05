@@ -136,10 +136,18 @@ async def google_login(req: GoogleAuthRequest):
     picture = google_user.get("picture", "")
     google_sub = google_user.get("sub", "")
 
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        def _query_where(coll, field, value):
+            return coll.where(filter=FieldFilter(field, '==', value))
+    except ImportError:
+        def _query_where(coll, field, value):
+            return coll.where(field, '==', value)
+
     # Kiểm tra xem user đã có trong hệ thống chưa (tìm theo email hoặc username)
-    users = db.collection('users').where('email', '==', email).get()
+    users = _query_where(db.collection('users'), 'email', email).get()
     if not users:
-        users = db.collection('users').where('username', '==', email).get()
+        users = _query_where(db.collection('users'), 'username', email).get()
 
     now_iso = datetime.now(timezone.utc).isoformat()
     is_super_admin = (email in ADMIN_EMAILS)
@@ -215,16 +223,28 @@ async def register(req: RegisterRequest):
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
         
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        def _query_where(coll, field, value):
+            return coll.where(filter=FieldFilter(field, '==', value))
+    except ImportError:
+        def _query_where(coll, field, value):
+            return coll.where(field, '==', value)
+
     username = req.username.strip().lower()
-    existing = db.collection('users').where('username', '==', username).get()
+    existing = _query_where(db.collection('users'), 'username', username).get()
     if existing:
         raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
         
     salted_pwd = hash_password(req.password)
     
     is_super_admin = (username in ADMIN_EMAILS)
-    role = 'admin' if is_super_admin else req.role
-    status = 'approved' if is_super_admin else 'pending'
+    if is_super_admin:
+        role = 'admin'
+    else:
+        role = 'student' if req.role == 'student' else 'teacher'
+    # Tự động kích hoạt tài khoản để người dùng vào trải nghiệm ngay lập tức
+    status = 'approved'
 
     db.collection('users').add({
         'username': username,
@@ -236,8 +256,7 @@ async def register(req: RegisterRequest):
         'created_at': datetime.now(timezone.utc).isoformat()
     })
     
-    msg = "Đăng ký thành công!" if is_super_admin else "Đăng ký thành công, vui lòng chờ Admin duyệt tài khoản."
-    return {"status": "success", "message": msg}
+    return {"status": "success", "message": "Đăng ký thành công! Bạn có thể đăng nhập ngay."}
 
 @router.post("/login", summary="Đăng nhập và nhận JWT Token")
 async def login(req: LoginRequest):
@@ -245,11 +264,19 @@ async def login(req: LoginRequest):
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
         
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        def _query_where(coll, field, value):
+            return coll.where(filter=FieldFilter(field, '==', value))
+    except ImportError:
+        def _query_where(coll, field, value):
+            return coll.where(field, '==', value)
+
     username = req.username.strip().lower()
-    users = db.collection('users').where('username', '==', username).get()
+    users = _query_where(db.collection('users'), 'username', username).get()
     if not users:
         # Thử tìm theo email nếu người dùng nhập email
-        users = db.collection('users').where('email', '==', username).get()
+        users = _query_where(db.collection('users'), 'email', username).get()
         
     if not users:
         raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")

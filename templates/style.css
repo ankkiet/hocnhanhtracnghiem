@@ -14,17 +14,20 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--background);
-    color: var(--text-main);
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
     margin: 0;
-    padding: 40px 20px;
+    padding: 0;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
 }
 
 .container {
-    max-width: 900px;
-    margin: auto;
+    max-width: 1360px;
+    margin: 28px auto;
+    padding: 0 20px;
+    box-sizing: border-box;
 }
 
 .header {
@@ -330,189 +333,402 @@ body.editor-fullscreen {
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* --- CHẾ ĐỘ TỐI GIẢN (MINIMAL MODE) --- */
+/* ========================================================
+   CHẾ ĐỘ THI TỐI GIẢN & PHÒNG THI HỌC SINH (STUDENT EXAM)
+   ======================================================== */
+body.minimal-mode {
+    padding: 0;
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #f8fafc;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+body.minimal-mode #azotaNavbar,
+body.minimal-mode .azota-navbar,
 body.minimal-mode .header,
 body.minimal-mode .navbar,
 body.minimal-mode #studentDashboard,
 body.minimal-mode #creationHub,
-body.minimal-mode #teacherDashboard {
+body.minimal-mode #teacherDashboard,
+body.minimal-mode #leaderboard {
     display: none !important;
 }
 
-body.minimal-mode #exitMinimalBtn {
-    display: inline-block !important;
-}
-
-body.minimal-mode {
-    padding: 10px;
-    height: 100dvh;
-    overflow: hidden; /* Cấm cuộn toàn trang */
-    display: flex;
-    flex-direction: column;
+body.minimal-mode #mainAppContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 12px 20px 40px 20px;
     box-sizing: border-box;
 }
 
-body.minimal-mode #mainAppContainer {
+@media (max-width: 960px) {
+    body.minimal-mode #mainAppContainer {
+        padding: 0 10px 95px 10px;
+    }
+}
+
+/* --- STICKY EXAM HEADER CHO HỌC SINH --- */
+.azota-student-header, #studentHeader {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--azota-border);
+    border-radius: 16px;
+    padding: 12px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 10px;
+    z-index: 1000;
+    transition: all 0.2s ease;
+}
+
+.azota-student-header-inner {
     display: flex;
-    flex-direction: column;
-    flex-grow: 1;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.azota-student-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+}
+
+.btn-exit-minimal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1.5px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+
+.btn-exit-minimal:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.azota-student-title-wrap {
+    min-width: 0;
+    flex: 1;
+}
+
+.azota-student-title-wrap .quiz-title-text {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.azota-student-meta-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 3px;
+    font-size: 0.84rem;
+    color: #64748b;
+    font-weight: 600;
+    white-space: nowrap;
     overflow: hidden;
 }
 
-body.minimal-mode #quiz-container {
-    flex-grow: 1;
-    overflow-y: auto; /* Chỉ cuộn vùng nội dung câu hỏi nếu quá dài */
-    -webkit-overflow-scrolling: touch; /* Sửa lỗi không cuộn được trên một số trình duyệt mobile */
-    height: 100%; /* Đảm bảo container có chiều cao xác định để tính toán overflow */
-    padding: 5px;
-    padding-bottom: 60px; /* Tăng khoảng đệm để nút không sát mép màn hình */
-    scrollbar-width: thin;
-    scroll-margin-top: 100px; /* Chống lỗi cuộn trang bị lấp dưới Sticky Header */
+.azota-student-meta-strip .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
-/* Thu gọn Header để tiết kiệm diện tích */
-body.minimal-mode #studentHeader {
-    padding: 10px 15px;
-    margin-bottom: 10px;
+.azota-student-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     flex-shrink: 0;
 }
 
-body.minimal-mode .quiz-title-text {
+.exam-sticky-timer {
+    background: #fff1f2;
+    border: 1.5px solid #fecdd3;
+    color: #e11d48;
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-weight: 800;
     font-size: 1.1rem;
-    margin-bottom: 5px;
-    padding: 0 70px; /* Tránh đè nút thoát */
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
-body.minimal-mode #studentHeader div {
-    font-size: 0.85rem;
-    gap: 12px !important;
-}
-
-body.minimal-mode #exitMinimalBtn {
-    padding: 6px 12px;
-    font-size: 0.85rem;
-    top: 10px;
-    left: 10px;
-}
-
-body.minimal-mode .question-box {
-    padding: 20px 25px;
-    font-size: 1.1rem;
-    border-left: 5px solid var(--primary);
-    margin-bottom: 15px;
-}
-
-body.minimal-mode .question-title {
-    font-size: 1.15rem;
-    margin-bottom: 15px;
-    line-height: 1.5;
-}
-
-body.minimal-mode .option-practice {
-    padding: 10px 15px;
-    font-size: 1rem;
-    margin-bottom: 10px;
-}
-
-body.minimal-mode .opt-badge {
-    width: 30px;
-    height: 30px;
-    font-size: 1rem;
-    margin-right: 12px;
-}
-
-body.minimal-mode #submitBtn {
-    flex-shrink: 0;
-    margin: 10px 0 0 0;
-    border-radius: 12px;
-    padding: 15px;
-    font-size: 1.1rem;
-    z-index: 10;
-}
-
-.quiz-title-text { font-size: 1.8rem; }
-
-/* Responsive cho điện thoại */
-@media (max-width: 600px) {
-    body { padding: 10px 5px; }
-    .header h1 { font-size: 1.6rem; }
-    .header p { font-size: 0.95rem; }
-    .mode-switch { flex-wrap: wrap; gap: 8px; }
-    .mode-switch button { flex: 1 1 calc(50% - 8px); padding: 10px; font-size: 0.9rem; }
-    #btnShuffle { flex: 1 1 100%; }
-    .card { padding: 15px; margin-bottom: 15px; border-radius: 10px; }
-    .option-wrapper { align-items: center; }
-    .option-wrapper input[type="radio"] { flex-shrink: 0; }
-    .option-wrapper input[type="text"] { flex-grow: 1; margin-left: 8px; }
-    
-    .option-practice { padding: 12px; font-size: 1rem; border-radius: 10px; margin-bottom: 10px; min-height: 48px; }
-    .opt-badge { width: 28px; height: 28px; font-size: 0.9rem; margin-right: 10px; }
-    
-    /* Giao diện tối giản (Làm đề) thiết kế chuẩn App Mobile */
-    body.minimal-mode { padding: 0; background: #f9fafb; } 
-    body.minimal-mode #studentHeader { 
-        border-radius: 0 0 15px 15px; 
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-        padding: 15px 10px;
-        position: sticky;
+@media (max-width: 960px) {
+    .azota-student-header, #studentHeader {
         top: 0;
-        z-index: 100;
-        background: rgba(255,255,255,0.95);
-        backdrop-filter: blur(8px);
-        margin-bottom: 15px;
+        left: 0;
+        right: 0;
+        border-radius: 0 0 16px 16px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        border-top: none;
+        border-left: none;
+        border-right: none;
     }
-    body.minimal-mode #quiz-container { padding: 5px 10px 160px 10px; } /* Tăng đệm dưới để né đồng hồ & nút nộp bài */
-    body.minimal-mode .question-box { 
-        padding: 15px; 
-        border-radius: 12px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        border: 1px solid var(--border);
-        border-left: 4px solid var(--primary);
-        background: #ffffff;
-        margin-bottom: 20px;
-    }
-    body.minimal-mode .question-title { font-size: 1.1rem; line-height: 1.5; margin-bottom: 15px; }
     
-    body.minimal-mode #exitMinimalBtn { 
-        position: absolute !important; 
-        top: 10px !important; 
-        left: 10px !important; 
-        margin: 0; 
-        width: auto;
-        padding: 6px 12px;
-        border-radius: 20px;
+    .desktop-only-submit {
+        display: none !important;
+    }
+    
+    .azota-student-title-wrap .quiz-title-text {
+        font-size: 0.96rem;
+        max-width: 170px;
+    }
+    
+    .exam-sticky-timer {
+        padding: 6px 10px;
+        font-size: 0.95rem;
+    }
+    
+    .btn-exit-minimal {
+        padding: 6px 10px;
+        font-size: 0.84rem;
+    }
+    .btn-exit-minimal .exit-text {
+        display: none;
+    }
+    
+    .azota-student-meta-strip {
+        gap: 8px;
+        font-size: 0.76rem;
+    }
+}
+
+/* ========================================================
+   MOBILE EXAM BOTTOM BAR & DRAWER (BẢNG CÂU HỎI DI ĐỘNG)
+   ======================================================== */
+.azota-mobile-exam-bar {
+    display: none;
+}
+
+@media (max-width: 960px) {
+    body.minimal-mode .azota-mobile-exam-bar {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 62px;
+        background: rgba(255, 255, 255, 0.97);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+        padding: 0 14px;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 1200;
+        box-sizing: border-box;
+    }
+    
+    .btn-mobile-nav-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         background: #f1f5f9;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 8px 14px;
+        cursor: pointer;
+        color: #1e293b;
+        font-size: 1.15rem;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+    }
+    
+    .btn-mobile-nav-toggle:active {
+        background: #e2e8f0;
+        transform: scale(0.98);
+    }
+    
+    .mobile-nav-text-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .mobile-nav-label {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+    
+    .mobile-nav-sub {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #4f46e5;
+        line-height: 1.2;
+    }
+    
+    .btn-mobile-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
         border: none;
-    }
-    body.minimal-mode .quiz-title-text { font-size: 1.15rem; padding: 0 10px; text-align: center; margin-top: 30px; line-height: 1.4; }
-    body.minimal-mode #studentHeader div { justify-content: space-around; gap: 8px !important; flex-wrap: wrap; }
-    
-    /* Nút nộp bài / Câu tiếp dưới đáy màn hình */
-    body.minimal-mode #submitBtn, #nextBtn {
-        position: fixed !important;
-        bottom: 15px !important;
-        left: 15px !important;
-        right: 15px !important;
-        width: calc(100% - 30px) !important;
-        margin: 0 !important;
-        border-radius: 12px !important;
-        padding: 14px !important;
-        font-size: 1.1rem !important;
-        box-shadow: 0 -4px 15px rgba(0,100,255,0.2) !important;
-        z-index: 101;
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 0.95rem;
+        cursor: pointer;
+        box-shadow: 0 3px 12px rgba(16, 185, 129, 0.35);
+        touch-action: manipulation;
+        transition: transform 0.15s ease;
     }
     
-    /* Đồng hồ nổi */
-    #timerDisplay {
-        top: auto !important;
-        bottom: 75px !important; /* Ngay trên nút nộp bài */
-        right: 15px !important;
-        left: auto !important;
-        padding: 8px 15px !important;
-        font-size: 1rem !important;
-        border-radius: 20px !important;
-        box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3) !important;
+    .btn-mobile-submit:active {
+        transform: scale(0.96);
     }
+}
+
+/* Bottom Sheet Overlay & Drawer */
+.azota-mobile-nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.azota-mobile-nav-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.azota-mobile-nav-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    padding: 12px 18px 24px 18px;
+    max-height: 78vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+.azota-mobile-nav-sheet.open {
+    transform: translateY(0);
+}
+
+.mobile-sheet-drag-handle {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0 10px 0;
+    cursor: pointer;
+}
+
+.sheet-pill {
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: #cbd5e1;
+}
+
+.mobile-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.mobile-sheet-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.mobile-nav-badge-pill {
+    font-size: 0.8rem;
+    background: #eff6ff;
+    color: #4f46e5;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.btn-sheet-close {
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.mobile-sheet-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 14px 0;
+    max-height: 48vh;
+    overflow-y: auto;
+}
+
+@media (max-width: 400px) {
+    .mobile-sheet-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.mobile-sheet-footer {
+    margin-top: 14px;
+    padding-bottom: 8px;
 }
 
 /* Khi hoàn thành bài, cho phép cuộn toàn trang */
@@ -528,7 +744,7 @@ body.minimal-mode.quiz-completed #mainAppContainer {
 
 body.minimal-mode.quiz-completed #quiz-container {
     overflow-y: visible;
-    padding-bottom: 20px;
+    padding-bottom: 30px;
 }
 
 /* --- THANH TIẾN TRÌNH (PROGRESS BAR) --- */
@@ -643,10 +859,73 @@ body.minimal-mode.quiz-completed #quiz-container {
     color: #334155;
 }
 
+.ai-summary-banner {
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border: 1.5px solid #c084fc;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(147, 51, 234, 0.06);
+}
+.ai-summary-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    color: #6b21a8;
+}
+.ai-summary-text {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #3b0764;
+}
+
 .ai-cat-knowledge { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
 .ai-cat-answer { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
 .ai-cat-grammar { background: #fefce8; border-color: #fde047; color: #854d0e; }
 .ai-cat-format { background: #f8fafc; border-color: #cbd5e1; color: #475569; }
+.ai-cat-delete { background: #fef2f2; border-color: #f87171; color: #b91c1c; font-weight: 700; }
+.ai-cat-restructure { background: #faf5ff; border-color: #c084fc; color: #7e22ce; font-weight: 700; }
+
+.btn-ai-delete {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.btn-ai-delete:hover {
+    background: #dc2626 !important;
+    transform: translateY(-1px);
+}
+
+.btn-ai-restructure {
+    background: #8b5cf6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.btn-ai-restructure:hover {
+    background: #7c3aed !important;
+    transform: translateY(-1px);
+}
 
 .ai-error-list-container {
     max-height: 380px;
@@ -1000,6 +1279,1275 @@ body.minimal-mode.quiz-completed #quiz-container {
   flex-shrink: 0 !important;
 }
 
+/* ========================================================
+   HOCNHANHTN MODERN PRO THEME & DESIGN SYSTEM
+   ======================================================== */
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-light: #eef2ff;
+  --primary-soft: #f5f3ff;
+  --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  
+  --azota-primary: #4f46e5;
+  --azota-primary-hover: #4338ca;
+  --azota-primary-light: #eef2ff;
+  --azota-primary-soft: #f5f3ff;
+  
+  --accent-cyan: #06b6d4;
+  --accent-purple: #7c3aed;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+  --accent-amber: #f59e0b;
+  
+  --azota-accent: #06b6d4;
+  --azota-success: #10b981;
+  --azota-danger: #f43f5e;
+  --azota-warning: #f59e0b;
+  --azota-purple: #7c3aed;
+  
+  --azota-bg: #f8fafc;
+  --azota-surface: #ffffff;
+  --azota-text: #0f172a;
+  --azota-text-muted: #64748b;
+  --azota-border: #e2e8f0;
+  --azota-radius: 16px;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --azota-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --azota-shadow-hover: 0 14px 28px -4px rgba(79, 70, 229, 0.14), 0 6px 12px -2px rgba(15, 23, 42, 0.04);
+}
+
+/* ========================================================
+   TOP BRAND NAVBAR (CLEAN WHITE PRO SAAS STYLE)
+   ======================================================== */
+.azota-navbar {
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  padding: 0 28px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.03);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.azota-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.azota-brand, .azota-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #0f172a;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.azota-brand-logo {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.35rem;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.azota-brand:hover .azota-brand-logo,
+.azota-nav-brand:hover .azota-brand-logo {
+  transform: rotate(-6deg) scale(1.05);
+}
+
+.azota-brand-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.azota-brand-title span {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+}
+
+.azota-brand-sub {
+  font-size: 0.76rem;
+  color: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+}
+
+.azota-nav-tabs, .azota-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.azota-nav-tab {
+  background: transparent;
+  color: #64748b;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 8px 16px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.azota-nav-tab:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.azota-nav-tab.active {
+  background: #ffffff;
+  color: #4f46e5;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.azota-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.azota-user-pill, .azota-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  padding: 5px 12px 5px 6px;
+  border-radius: 30px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.azota-avatar-circle, .user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4f46e5;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  border: 1.5px solid #c7d2fe;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.azota-role-tag, .azota-role-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4338ca;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.azota-btn-nav-logout, .azota-user-badge .btn-azota-sub {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.azota-btn-nav-logout:hover, .azota-user-badge .btn-azota-sub:hover {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+/* ========================================================
+   CREATION HUB (3 BENTO CARDS)
+   ======================================================== */
+.azota-creation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.azota-create-card {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  box-shadow: var(--azota-shadow);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.azota-create-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--azota-shadow-hover);
+  border-color: #c7d2fe;
+}
+
+.azota-create-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4f46e5, #6366f1);
+}
+
+.azota-create-card#uploadBox::before {
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
+}
+
+.azota-create-card#aiGenerateBox::before {
+  background: linear-gradient(90deg, #7c3aed, #a855f7);
+}
+
+.azota-create-card#studioQuickBox::before {
+  background: linear-gradient(90deg, #059669, #34d399);
+}
+
+.card-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin-bottom: 16px;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.azota-create-card:hover .card-icon-wrap {
+  transform: scale(1.1);
+}
+
+.card-icon-wrap.blue { background: #eff6ff; color: #0284c7; }
+.card-icon-wrap.purple { background: #f5f3ff; color: #7c3aed; }
+.card-icon-wrap.emerald { background: #ecfdf5; color: #059669; }
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.3px;
+}
+
+.card-desc {
+  font-size: 0.92rem;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+/* ========================================================
+   TEACHER MANAGEMENT DASHBOARD
+   ======================================================== */
+#teacherDashboard {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: var(--azota-shadow);
+}
+
+.azota-stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 860px) {
+  .azota-stats-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.azota-stats-strip .azota-stat-box {
+  background: #f8fafc;
+  border: 1px solid var(--azota-border);
+  border-radius: 14px;
+  padding: 18px 16px;
+  text-align: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.azota-stats-strip .azota-stat-box:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.azota-stats-strip .azota-stat-box .val {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #4f46e5;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.azota-stats-strip .azota-stat-box .lbl {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Toolbar (Search + Filter Tabs) */
+.azota-toolbar {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: var(--azota-shadow);
+}
+
+.azota-search-box {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+}
+
+.azota-search-box i {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 1.15rem;
+  pointer-events: none;
+}
+
+.azota-search-input,
+.azota-search-box input {
+  width: 100% !important;
+  padding: 12px 18px 12px 46px !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  font-size: 0.94rem !important;
+  margin: 0 !important;
+  background: #f8fafc !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+  font-family: inherit !important;
+  color: #0f172a !important;
+}
+
+.azota-search-input:focus,
+.azota-search-box input:focus {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
+
+.azota-filter-tabs {
+  display: flex;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.azota-tab-btn {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.azota-tab-btn:hover {
+  color: #0f172a;
+}
+
+.azota-tab-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.azota-tab-count,
+.azota-tab-btn span {
+  font-size: 0.76rem;
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.azota-tab-btn.active span {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* Quiz Cards Grid */
+.azota-quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.azota-quiz-card {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--azota-shadow);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.azota-quiz-card:hover {
+  border-color: #c7d2fe;
+  transform: translateY(-3px);
+  box-shadow: var(--azota-shadow-hover);
+}
+
+.quiz-card-head, .azota-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.quiz-card-title, .azota-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: -0.2px;
+}
+
+.quiz-status-pill, .azota-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.quiz-status-pill.open, .azota-badge-open {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.quiz-status-pill.closed, .azota-badge-locked {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.quiz-card-meta, .azota-card-meta {
+  display: flex;
+  gap: 14px;
+  color: #64748b;
+  font-size: 0.86rem;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.quiz-meta-item, .azota-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+/* Card Action Buttons */
+.btn-azota-copy {
+  width: 100%;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+  margin-bottom: 10px;
+}
+
+.btn-azota-copy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+}
+
+.azota-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.azota-btn-row .btn-azota-sub {
+  flex: 1 1 auto;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 7px 11px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.azota-btn-row .btn-azota-sub:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+/* ========================================================
+   STUDENT EXAM ROOM (SPLIT LAYOUT & QUESTION NAVIGATOR)
+   ======================================================== */
+.azota-exam-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 15px;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .azota-exam-layout {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 0;
+  }
+  .azota-exam-col-main {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .azota-exam-col-side {
+    display: none !important;
+  }
+}
+
+#examStickyTimer {
+  background: #fff1f2;
+  border: 1.5px solid #fecdd3;
+  color: #e11d48;
+  padding: 8px 18px;
+  border-radius: 30px;
+  font-weight: 800;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.5px;
+}
+
+.btn-azota-submit-big {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  width: 100%;
+}
+
+.btn-azota-submit-big:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+/* Question Cards */
+.azota-q-card, .azota-question-card, .question-box {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 18px;
+  padding: 26px;
+  margin-bottom: 20px;
+  box-shadow: var(--azota-shadow);
+  transition: border-color 0.2s ease;
+  position: relative;
+}
+
+.azota-q-card:hover, .azota-question-card:hover {
+  border-color: #c7d2fe;
+}
+
+.azota-q-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.azota-q-num, .azota-q-num-badge {
+  font-weight: 800;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  letter-spacing: -0.2px;
+}
+
+.azota-btn-flag {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.azota-btn-flag:hover, .azota-btn-flag.active {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
+}
+
+.question-title, .azota-q-text {
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.65;
+  margin-bottom: 18px;
+}
+
+/* Option List */
+.azota-opt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.azota-opt-item, .option-practice {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 0.98rem;
+  color: #1e293b;
+}
+
+.azota-opt-item:hover, .option-practice:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.azota-opt-item.selected, .option-practice.selected {
+  background: #eef2ff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 1px #4f46e5 !important;
+  color: #312e81 !important;
+  font-weight: 600 !important;
+}
+
+.azota-opt-badge, .opt-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 14px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.azota-opt-item.selected .azota-opt-badge,
+.option-practice.selected .opt-badge {
+  background: #4f46e5;
+  color: white;
+}
+
+.azota-opt-item.correct, .option-practice.correct {
+  background: #ecfdf5 !important;
+  border-color: #10b981 !important;
+  color: #065f46 !important;
+}
+
+.azota-opt-item.correct .azota-opt-badge,
+.option-practice.correct .opt-badge {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+.azota-opt-item.incorrect, .option-practice.incorrect {
+  background: #fff1f2 !important;
+  border-color: #f43f5e !important;
+  color: #881337 !important;
+}
+
+.azota-opt-item.incorrect .azota-opt-badge,
+.option-practice.incorrect .opt-badge {
+  background: #f43f5e !important;
+  color: white !important;
+}
+
+/* Responsive polish cho Question Cards & Options trên điện thoại */
+@media (max-width: 768px) {
+  .azota-q-card, .azota-question-card, .question-box {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+    margin-bottom: 14px !important;
+  }
+  
+  .azota-q-header {
+    margin-bottom: 12px !important;
+  }
+  
+  .azota-q-num, .azota-q-num-badge {
+    font-size: 0.88rem !important;
+    padding: 3px 10px !important;
+  }
+  
+  .btn-flag-q, .azota-btn-flag {
+    padding: 5px 10px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+  }
+  
+  .question-title, .azota-q-text {
+    font-size: 1.02rem !important;
+    line-height: 1.55 !important;
+    margin-bottom: 14px !important;
+  }
+  
+  .azota-opt-item, .option-practice {
+    padding: 11px 14px !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    touch-action: manipulation;
+  }
+  
+  .azota-opt-badge, .opt-badge {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 0.92rem !important;
+    margin-right: 12px !important;
+  }
+  
+  .opt-text {
+    font-size: 0.96rem !important;
+    line-height: 1.45 !important;
+  }
+  
+  /* Giới hạn công thức MathJax không tràn màn hình */
+  mjx-container, .MathJax {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+  }
+  
+  /* Ảnh trong câu hỏi */
+  .azota-q-text img, .question-title img, .question-box img {
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 8px !important;
+    display: block !important;
+    margin: 8px auto !important;
+    object-fit: contain !important;
+  }
+}
+
+/* Question Navigator Palette */
+.azota-navigator-card {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--azota-shadow);
+  position: sticky;
+  top: 84px;
+}
+
+.azota-nav-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 12px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.azota-nav-legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 600;
+  border: 1px solid #f1f5f9;
+}
+
+.azota-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot, .azota-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.green, .azota-legend-dot.green { background: #4f46e5; }
+.legend-dot.gray, .azota-legend-dot.gray { background: #cbd5e1; }
+.legend-dot.red, .azota-legend-dot.red, .legend-dot.amber { background: #f59e0b; }
+
+.azota-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.azota-nav-num {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.92rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.azota-nav-num:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.azota-nav-num.answered {
+  background: #4f46e5 !important;
+  color: white !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+}
+
+.azota-nav-num.flagged {
+  background: #f59e0b !important;
+  color: white !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+}
+
+/* ========================================================
+   RESULT & SCORE SCREEN
+   ======================================================== */
+.azota-result-card {
+  background: #ffffff;
+  border: 1px solid var(--azota-border);
+  border-radius: 20px;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: var(--azota-shadow-hover);
+  margin-bottom: 28px;
+}
+
+.azota-score-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border: 6px solid #4f46e5;
+  color: #4f46e5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.22);
+}
+
+.azota-score-circle .big-num {
+  font-size: 2.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.azota-score-circle .scale {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.azota-result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 28px 0;
+}
+
+@media (max-width: 768px) {
+  .azota-result-card {
+    padding: 24px 16px !important;
+    border-radius: 18px !important;
+    margin-bottom: 20px !important;
+  }
+  .azota-score-circle {
+    width: 110px !important;
+    height: 110px !important;
+    margin: 0 auto 16px auto !important;
+    border-width: 5px !important;
+  }
+  .azota-score-circle .big-num {
+    font-size: 2.2rem !important;
+  }
+  .azota-result-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px !important;
+    margin: 20px 0 !important;
+  }
+  .azota-res-tile {
+    padding: 12px 8px !important;
+  }
+  .azota-res-tile .val {
+    font-size: 1.4rem !important;
+  }
+  .azota-res-tile .desc {
+    font-size: 0.74rem !important;
+  }
+}
+
+.azota-res-tile {
+  background: #f8fafc;
+  border: 1px solid var(--azota-border);
+  border-radius: 14px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.azota-res-tile.green { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.azota-res-tile.red { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
+.azota-res-tile.gray { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+.azota-res-tile.blue { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+
+.azota-res-tile .val {
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.azota-res-tile .desc {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ========================================================
+   FLOATING TOAST NOTIFICATIONS
+   ======================================================== */
+.azota-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+.azota-toast {
+  pointer-events: auto;
+  background: #0f172a;
+  color: white;
+  padding: 14px 20px;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: toastSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 380px;
+}
+
+.azota-toast.toast-success { background: #064e3b; border-left: 5px solid #10b981; }
+.azota-toast.toast-error { background: #881337; border-left: 5px solid #f43f5e; }
+.azota-toast.toast-info { background: #1e1b4b; border-left: 5px solid #6366f1; }
+.azota-toast.toast-warning { background: #78350f; border-left: 5px solid #f59e0b; }
+
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 
-
+/* ========================================================
+   CẤU TRÚC ĐỀ THI MỚI BỘ GD&ĐT: ĐÚNG / SAI & TRẢ LỜI NGẮN
+   ======================================================== */
+.azota-tf-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+.azota-tf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--azota-bg, #f8fafc);
+  border: 1.5px solid var(--azota-border, #e2e8f0);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+.azota-tf-row:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+.azota-tf-statement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.98rem;
+  color: var(--azota-text, #0f172a);
+  line-height: 1.5;
+  flex: 1;
+}
+.azota-tf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  font-size: 0.88rem;
+  flex-shrink: 0;
+}
+.azota-tf-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.azota-tf-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+.azota-tf-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+.azota-tf-btn.selected-true {
+  background: #10b981 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+.azota-tf-btn.selected-false {
+  background: #f43f5e !important;
+  border-color: #e11d48 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.3);
+}
+.azota-tf-btn.correct-state {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border-color: #059669 !important;
+}
+.azota-tf-btn.wrong-state {
+  background: #f43f5e !important;
+  color: #ffffff !important;
+  border-color: #e11d48 !important;
+}
+
+/* Dạng trả lời ngắn */
+.azota-sa-box {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--azota-bg, #f8fafc);
+  border: 1.5px dashed var(--azota-border, #cbd5e1);
+  border-radius: 12px;
+}
+.azota-sa-input {
+  width: 100%;
+  max-width: 320px;
+  padding: 10px 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--azota-text, #0f172a);
+  background: #ffffff;
+  border: 2px solid var(--azota-border, #e2e8f0);
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.azota-sa-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+.azota-sa-input.correct {
+  border-color: #10b981 !important;
+  background: #f0fdf4 !important;
+  color: #15803d !important;
+}
+.azota-sa-input.incorrect {
+  border-color: #f43f5e !important;
+  background: #fff1f2 !important;
+  color: #be123c !important;
+}

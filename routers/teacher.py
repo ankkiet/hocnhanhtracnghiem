@@ -51,10 +51,20 @@ async def get_teacher_quizzes(teacher_token: str):
         
     user, user_uid = verify_teacher_access(teacher_token, db)
     
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        def _q_where(coll, field, value):
+            return coll.where(filter=FieldFilter(field, '==', value))
+    except ImportError:
+        def _q_where(coll, field, value):
+            return coll.where(field, '==', value)
+
     # Hỗ trợ tìm kiếm theo cả ID người dùng mới và token cũ
-    docs = db.collection('quizzes').where('creator_id', '==', user_uid).get()
+    docs = _q_where(db.collection('quizzes'), 'creator_id', user_uid).get()
     if not docs and teacher_token != user_uid:
-        docs = db.collection('quizzes').where('creator_id', '==', teacher_token).get()
+        docs = _q_where(db.collection('quizzes'), 'creator_id', teacher_token).get()
+    if not docs and user.get('role') == 'admin':
+        docs = db.collection('quizzes').limit(50).get()
         
     results = []
     for doc in docs:
@@ -183,34 +193,65 @@ async def check_quiz_ai(req: CheckQuizRequest):
     api_keys = settings_doc.to_dict().get('api_keys')
     
     try:
-        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI DÙNG:**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
+        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
         
         system_instruction = (
-            "Bạn là một chuyên gia giáo dục và biên tập viên kiểm định chất lượng đề thi trắc nghiệm. "
-            "Nhiệm vụ của bạn là rà soát tỉ mỉ đề thi, phát hiện mọi lỗi sai về: "
-            "1. 'knowledge': Sai kiến thức khoa học, nhầm lẫn khái niệm. "
-            "2. 'answer': Đáp án sai, không có đáp án đúng, hoặc có nhiều hơn 1 đáp án đúng. "
-            "3. 'grammar_typo': Lỗi chính tả, câu chữ lủng củng, diễn đạt khó hiểu. "
-            "4. 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn. "
-            "Chỉ báo cáo các câu có lỗi. Trả về kết quả dưới dạng JSON array duy nhất."
+            "Bạn là Trợ lý AI Chuyên gia Giáo dục & Biên tập viên Đề thi cao cấp.\n"
+            "Nhiệm vụ của bạn gồm 2 phần quan trọng:\n"
+            "1. THỰC THI TRIỆT ĐỂ MỌI YÊU CẦU CỦA NGƯỜI LÀM ĐỀ (NẾU CÓ TRONG YÊU CẦU ĐẶC BIỆT):\n"
+            "   - XÓA CÂU: Nếu người dùng yêu cầu xóa câu hỏi (ví dụ: 'xóa câu 3', 'xóa câu trùng lặp', 'bỏ các câu về este', 'bỏ câu 1 và 4'), "
+            "hãy đánh dấu câu đó với action='delete', category='delete', category_name='Yêu cầu xóa câu', "
+            "corrected_data=null, và BẮT BUỘC LOẠI BỎ câu đó ra khỏi 'new_quiz_data'.\n"
+            "   - THAY ĐỔI KẾT CẤU: Nếu người dùng yêu cầu đổi dạng/kết cấu câu hỏi (ví dụ: chuyển sang Đúng/Sai theo chuẩn Bộ GD&ĐT, "
+            "chuyển sang Trả lời ngắn, chia nhóm group_title, đảo câu...), hãy đánh dấu action='restructure', category='restructure', "
+            "category_name='Thay đổi kết cấu', và tạo 'corrected_data' hoàn chỉnh theo định dạng chuẩn mới.\n"
+            "   - SỬA / TINH CHỈNH NỘI DUNG THEO YÊU CẦU: Viết lại câu hỏi rõ ràng, bổ sung lời giải chi tiết ('explain').\n"
+            "2. RÀ SOÁT & PHÁT HIỆN LỖI (NẾU ĐỀ THI CÓ LỖI HOẶC KHÔNG CÓ YÊU CẦU RIÊNG):\n"
+            "   - QUY TẮC BẢO TOÀN ĐÁP ÁN: Mọi đáp án hiện tại trong đề là đáp án chuẩn của Giáo viên/Đề gốc từ Bảng đáp án. "
+            "TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý THAY ĐỔI ĐÁP ÁN nếu người dùng không yêu cầu sửa đáp án câu đó. "
+            "Không tự giải lại để áp đặt đáp án khác lên đề thi của giáo viên!\n"
+            "   - QUY TẮC BẢO TOÀN NỘI DUNG: TUYỆT ĐỐI KHÔNG TỰ Ý THÊM BỚT CÂU HỎI, KHÔNG SÁNG TÁC THÊM PHƯƠNG ÁN LỰA CHỌN hoặc cắt xén câu hỏi trừ khi có yêu cầu xóa rõ ràng từ người làm đề.\n"
+            "   - Với câu Đúng / Sai (true_false): BẮT BUỘC giữ nguyên đủ 4 ý a), b), c), d), không được tự thêm hay bớt ý.\n"
+            "   - 'knowledge': Sai sót kiến thức khoa học hiển nhiên, nhầm lẫn khái niệm cơ bản.\n"
+            "   - 'grammar_typo': Lỗi chính tả, câu chữ lủng củng, thiếu dấu câu, lỗi công thức LaTeX.\n"
+            "   - 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn.\n"
+            "Trả về DUY NHẤT một JSON Object hợp lệ (không kèm markdown ngoài khối JSON)."
         )
         
         prompt = f"""
-        Hãy rà soát kỹ lưỡng danh sách câu hỏi trắc nghiệm dưới đây:
+        Dữ liệu danh sách câu hỏi trắc nghiệm hiện tại:
+        {json.dumps(req.quiz_data, ensure_ascii=False)}
+
         {custom_instructions}
 
-        QUY TẮC ĐỊNH DẠNG JSON BẮT BUỘC:
-        1. CHỈ phân tích những câu hỏi có lỗi hoặc cần cải thiện. BỎ QUA HOÀN TOÀN những câu đã đúng và chuẩn.
-        2. Mỗi câu lỗi là một đối tượng JSON gồm:
-           * question_index: (Number) Chỉ số của câu hỏi trong mảng (bắt đầu từ 0).
-           * category: (String) Chọn đúng 1 trong 4 loại: 'knowledge', 'answer', 'grammar_typo', 'format'.
-           * category_name: (String) Tên loại lỗi tiếng Việt (vd: 'Sai kiến thức', 'Sai đáp án', 'Lỗi chính tả/diễn đạt', 'Lỗi định dạng').
-           * reason: (String) Giải thích ngắn gọn, rõ ràng nguyên nhân lỗi và tại sao cần sửa.
-           * corrected_data: (Object) Chứa toàn bộ dữ liệu chuẩn sau khi đã sửa (gồm question, options, correct_answer, explain, group_title).
-        3. BẮT BUỘC chỉ trả về JSON array. Nếu toàn bộ đề thi không có lỗi nào, trả về: []
-        
-        Dữ liệu đề thi:
-        {json.dumps(req.quiz_data, ensure_ascii=False)}
+        QUY TẮC ĐỊNH DẠNG JSON ĐẦU RA BẮT BUỘC:
+        Trả về 1 JSON Object duy nhất theo cấu trúc sau:
+        {{
+            "summary": "Tóm tắt ngắn gọn các thao tác đã thực hiện hoặc kết quả rà soát (tiếng Việt).",
+            "feedback": [
+                {{
+                    "question_index": 0,
+                    "action": "delete",
+                    "category": "delete",
+                    "category_name": "Yêu cầu xóa câu",
+                    "reason": "Giải thích rõ lý do xóa hoặc nguyên nhân cần sửa/thay đổi kết cấu.",
+                    "corrected_data": null
+                }}
+            ],
+            "new_quiz_data": [
+                // Toàn bộ mảng câu hỏi của đề thi sau khi áp dụng TẤT CẢ các yêu cầu:
+                // - Các câu bị xóa (action='delete') KHÔNG được xuất hiện ở đây.
+                // - Các câu được đổi kết cấu hoặc sửa lỗi sẽ được cập nhật dữ liệu mới.
+                // - Các câu không bị sửa sẽ giữ nguyên vẹn 100% nội dung và đáp án ban đầu.
+            ]
+        }}
+        LƯU Ý CỐT LÕI:
+        - BẢO TOÀN ĐÁP ÁN: Giữ nguyên vẹn 100% đáp án ('correct_answer') của giáo viên trừ khi người dùng yêu cầu sửa đáp án câu đó trong yêu cầu đặc biệt.
+        - BẢO TOÀN CÂU HỎI: Không tự ý thêm câu hỏi mới, không tự ý xóa bớt câu hỏi (chỉ xóa khi có yêu cầu cụ thể từ người dùng).
+        - ĐỐI VỚI CÂU HỎI ĐÚNG / SAI: Giữ đủ 4 ý a), b), c), d), không thêm bớt ý.
+        - Nếu người dùng yêu cầu XÓA CÂU: BẮT BUỘC ghi rõ action='delete', category='delete', corrected_data=null, và trong 'new_quiz_data' KHÔNG được chứa các câu đó.
+        - Nếu người dùng yêu cầu ĐỔI KẾT CẤU: ghi action='restructure', category='restructure', corrected_data mang định dạng mới chuẩn xác.
+        - Nếu đề thi hoàn hảo và không có yêu cầu đặc biệt nào từ người dùng, 'feedback' là [] và 'new_quiz_data' giữ nguyên toàn bộ đề thi ban đầu.
         """
         
         response = await call_gemini_with_fallback(
@@ -219,21 +260,46 @@ async def check_quiz_ai(req: CheckQuizRequest):
             system_instruction=system_instruction,
             thinking_budget=0
         )
-        match = re.search(r'\[.*\]', response.text, re.DOTALL)
-        raw_feedback = []
-        if match:
-            json_text = match.group(0)
-            json_text = fix_json_latex_escapes(json_text)
-            if json_repair is not None:
-                raw_feedback = json_repair.loads(json_text)
-            else:
-                raw_feedback = json.loads(json_text, strict=False)
-        elif "không có lỗi" in response.text.lower() or "hoàn hảo" in response.text.lower():
-            raw_feedback = []
+        
+        parsed_data = None
+        # Thử tìm Object {...} trước
+        obj_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+        if obj_match:
+            try:
+                json_text = fix_json_latex_escapes(obj_match.group(0))
+                if json_repair is not None:
+                    parsed_data = json_repair.loads(json_text)
+                else:
+                    parsed_data = json.loads(json_text, strict=False)
+            except Exception:
+                pass
+                
+        if not isinstance(parsed_data, dict):
+            # Fallback tìm array [...]
+            arr_match = re.search(r'\[.*\]', response.text, re.DOTALL)
+            if arr_match:
+                try:
+                    json_text = fix_json_latex_escapes(arr_match.group(0))
+                    if json_repair is not None:
+                        arr_data = json_repair.loads(json_text)
+                    else:
+                        arr_data = json.loads(json_text, strict=False)
+                    parsed_data = {"summary": "Đã rà soát đề thi", "feedback": arr_data, "new_quiz_data": None}
+                except Exception:
+                    pass
+                    
+        if not isinstance(parsed_data, dict):
+            parsed_data = {"summary": "Không phát hiện lỗi", "feedback": [], "new_quiz_data": req.quiz_data}
 
         total_q = len(req.quiz_data)
-        feedback_list = []
+        raw_feedback = parsed_data.get("feedback", [])
+        raw_new_data = parsed_data.get("new_quiz_data", None)
+        summary_text = parsed_data.get("summary", "")
+        
         from services.ai_service import normalize_question_data
+        
+        feedback_list = []
+        deleted_indices = set()
 
         if isinstance(raw_feedback, list):
             for item in raw_feedback:
@@ -244,33 +310,73 @@ async def check_quiz_ai(req: CheckQuizRequest):
                             item["question_index"] = q_idx
                             item["original_data"] = req.quiz_data[q_idx]
                             
-                            # Chuẩn hóa dữ liệu đã sửa
-                            if "corrected_data" in item and isinstance(item["corrected_data"], dict):
-                                item["corrected_data"] = normalize_question_data(item["corrected_data"])
-                                
-                            # Chuẩn hóa category
-                            cat = str(item.get("category", "knowledge")).lower()
-                            if cat not in ["knowledge", "answer", "grammar_typo", "format"]:
-                                cat = "knowledge"
-                            item["category"] = cat
+                            action = str(item.get("action", "modify")).lower()
+                            cat = str(item.get("category", "")).lower()
                             
-                            cat_names = {
-                                "knowledge": "Sai kiến thức",
-                                "answer": "Sai đáp án",
-                                "grammar_typo": "Chính tả & Diễn đạt",
-                                "format": "Lỗi định dạng"
-                            }
-                            item["category_name"] = cat_names.get(cat, "Cần cải thiện")
+                            if action == "delete" or cat == "delete" or "xóa" in str(item.get("category_name", "")).lower() or "xóa" in str(item.get("reason", "")).lower()[:15]:
+                                action = "delete"
+                                cat = "delete"
+                                item["action"] = "delete"
+                                item["category"] = "delete"
+                                item["category_name"] = item.get("category_name") or "Yêu cầu xóa câu"
+                                item["corrected_data"] = None
+                                deleted_indices.add(q_idx)
+                            elif action == "restructure" or cat == "restructure" or "kết cấu" in str(item.get("category_name", "")).lower():
+                                action = "restructure"
+                                cat = "restructure"
+                                item["action"] = "restructure"
+                                item["category"] = "restructure"
+                                item["category_name"] = item.get("category_name") or "Thay đổi kết cấu"
+                                if "corrected_data" in item and isinstance(item["corrected_data"], dict):
+                                    item["corrected_data"] = normalize_question_data(item["corrected_data"])
+                            else:
+                                item["action"] = action
+                                if cat not in ["knowledge", "answer", "grammar_typo", "format", "restructure", "delete"]:
+                                    cat = "knowledge"
+                                item["category"] = cat
+                                cat_names = {
+                                    "knowledge": "Sai kiến thức",
+                                    "answer": "Sai đáp án",
+                                    "grammar_typo": "Chính tả & Diễn đạt",
+                                    "format": "Lỗi định dạng",
+                                    "restructure": "Thay đổi kết cấu",
+                                    "delete": "Yêu cầu xóa câu"
+                                }
+                                item["category_name"] = item.get("category_name") or cat_names.get(cat, "Cần sửa")
+                                if "corrected_data" in item and isinstance(item["corrected_data"], dict):
+                                    item["corrected_data"] = normalize_question_data(item["corrected_data"])
+                                    
                             feedback_list.append(item)
                     except Exception:
                         pass
 
+        # Xây dựng hoặc chuẩn hóa new_quiz_data
+        final_new_quiz_data = []
+        if isinstance(raw_new_data, list) and len(raw_new_data) > 0:
+            for q in raw_new_data:
+                if isinstance(q, dict):
+                    final_new_quiz_data.append(normalize_question_data(q))
+        else:
+            # Tự động kiến tạo new_quiz_data từ req.quiz_data + feedback nếu AI không trả đủ
+            mod_map = {f["question_index"]: f.get("corrected_data") for f in feedback_list if f["action"] != "delete" and f.get("corrected_data")}
+            for idx, orig_q in enumerate(req.quiz_data):
+                if idx in deleted_indices:
+                    continue # Bỏ qua câu bị xóa
+                if idx in mod_map:
+                    final_new_quiz_data.append(mod_map[idx])
+                else:
+                    final_new_quiz_data.append(orig_q)
+
         # Tính toán thống kê chuyên sâu
+        deleted_count = sum(1 for f in feedback_list if f.get("action") == "delete")
+        restructure_count = sum(1 for f in feedback_list if f.get("action") == "restructure")
         error_count = len(feedback_list)
         valid_count = max(0, total_q - error_count)
         accuracy_rate = round((valid_count / total_q * 100) if total_q > 0 else 100, 1)
 
         category_counts = {
+            "delete": deleted_count,
+            "restructure": restructure_count,
             "knowledge": sum(1 for f in feedback_list if f.get("category") == "knowledge"),
             "answer": sum(1 for f in feedback_list if f.get("category") == "answer"),
             "grammar_typo": sum(1 for f in feedback_list if f.get("category") == "grammar_typo"),
@@ -279,6 +385,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
 
         stats = {
             "total_questions": total_q,
+            "new_total_questions": len(final_new_quiz_data),
             "valid_questions": valid_count,
             "error_count": error_count,
             "accuracy_rate": accuracy_rate,
@@ -287,8 +394,10 @@ async def check_quiz_ai(req: CheckQuizRequest):
 
         return {
             "status": "success",
+            "summary": summary_text,
             "stats": stats,
-            "feedback": feedback_list
+            "feedback": feedback_list,
+            "new_quiz_data": final_new_quiz_data
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
@@ -370,11 +479,43 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
         for idx in range(total_q):
             u_ans = user_answers.get(str(idx)) or user_answers.get(idx)
             correct_ans = questions[idx].get('correct_answer')
-            if u_ans and correct_ans and u_ans == correct_ans:
-                q_stats[idx]["correct"] += 1
-            if u_ans:
-                first_char = u_ans.strip()[:1].upper()
-                q_stats[idx]["picks"][first_char] = q_stats[idx]["picks"].get(first_char, 0) + 1
+            q_type = questions[idx].get('type', 'mcq')
+            
+            # Kiểm tra câu trả lời đúng
+            if u_ans is not None and correct_ans is not None:
+                if q_type == 'true_false' or isinstance(correct_ans, dict):
+                    if isinstance(u_ans, dict) and isinstance(correct_ans, dict):
+                        # Khớp tất cả 4 ý a, b, c, d
+                        matches = sum(1 for k in ['a', 'b', 'c', 'd'] 
+                                      if k in u_ans and k in correct_ans and bool(u_ans[k]) == bool(correct_ans[k]))
+                        if matches == 4:
+                            q_stats[idx]["correct"] += 1
+                elif q_type == 'short_answer':
+                    u_clean = str(u_ans).strip().lower().replace(',', '.').replace(' ', '')
+                    c_clean = str(correct_ans).strip().lower().replace(',', '.').replace(' ', '')
+                    if u_clean and u_clean == c_clean:
+                        q_stats[idx]["correct"] += 1
+                else:
+                    # MCQ
+                    u_char = str(u_ans).strip()[:1].upper()
+                    c_char = str(correct_ans).strip()[:1].upper()
+                    if u_char and u_char == c_char:
+                        q_stats[idx]["correct"] += 1
+
+            # Thống kê phân bố lựa chọn của học sinh an toàn theo từng loại câu
+            if u_ans is not None:
+                if isinstance(u_ans, dict):
+                    for sub_k, sub_v in u_ans.items():
+                        lbl = f"{str(sub_k).upper()}:{'Đ' if sub_v is True or str(sub_v).lower() in ['true', 'đúng', 'dung', '1'] else 'S'}"
+                        q_stats[idx]["picks"][lbl] = q_stats[idx]["picks"].get(lbl, 0) + 1
+                elif isinstance(u_ans, str):
+                    pick_char = u_ans.strip()[:1].upper()
+                    if pick_char:
+                        q_stats[idx]["picks"][pick_char] = q_stats[idx]["picks"].get(pick_char, 0) + 1
+                else:
+                    pick_str = str(u_ans).strip()[:10]
+                    if pick_str:
+                        q_stats[idx]["picks"][pick_str] = q_stats[idx]["picks"].get(pick_str, 0) + 1
 
     # Phân bố điểm
     score_bands = {"0-2": 0, "2-4": 0, "4-6": 0, "6-8": 0, "8-10": 0}

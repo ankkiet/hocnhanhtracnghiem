@@ -26,9 +26,12 @@ except ImportError:
     Image = None
 
 try:
-    import fitz  # PyMuPDF: Thư viện đọc PDF siêu tốc và chính xác
+    import pymupdf as fitz  # PyMuPDF: Thư viện đọc PDF siêu tốc và chính xác
 except ImportError:
-    fitz = None
+    try:
+        import fitz
+    except ImportError:
+        fitz = None
 
 try:
     import json_repair  # Thư viện tự động sửa lỗi JSON của AI
@@ -60,6 +63,12 @@ from services.r2_service import upload_image_to_r2, get_stored_image, extract_im
 from core.image_converter import process_image_blob
 from core.mathml_parser import parse_omath, MATH_SYM_MAP
 from core.state import active_tasks
+from core.answer_key_extractor import (
+    extract_answer_key_from_doc,
+    reconcile_quiz_with_answer_key,
+    separate_answer_key_from_text,
+    AnswerKeyMap
+)
 
 # ==========================================
 # PHẦN 1: CẤU HÌNH & QUẢN LÝ DATABASE
@@ -172,57 +181,14 @@ RE_GROUP_TITLE = re.compile(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE
 
 # Bộ nhớ tạm active_tasks đã được import dùng chung từ core.state
 
-def extract_answer_key(doc: Document, full_text: str) -> Dict[int, str]:
+def extract_answer_key(doc: Any, full_text: str = "") -> AnswerKeyMap:
     """
-    Tự động dò tìm và bóc tách Bảng đáp án ở cuối tài liệu Word (nếu có).
-    Hỗ trợ:
-    1. Bảng biểu 2 hàng: Hàng trên là số câu (1, 2, 3...), Hàng dưới là chữ cái A, B, C, D.
-    2. Khối văn bản sau tiêu đề BẢNG ĐÁP ÁN / ĐÁP ÁN / ANSWER KEY (vd: 1.A 2.B 3.C...).
+    Tự động dò tìm và bóc tách Bảng đáp án ở cuối tài liệu Word theo chuẩn Bộ GD&ĐT:
+    1. Trắc nghiệm nhiều lựa chọn: 1.A, 2.B...
+    2. Trắc nghiệm Đúng / Sai: 1: a-Đ, b-S, c-Đ, d-S (hoặc table có cột Đ/S)
+    3. Trắc nghiệm Trả lời ngắn: 1: 12.5, Câu 1: -3
     """
-    answer_map = {}
-    
-    # 1. Quét các bảng trong tài liệu
-    if hasattr(doc, 'tables') and doc.tables:
-        for table in doc.tables:
-            if len(table.rows) >= 2:
-                for r_idx in range(len(table.rows) - 1):
-                    row_top = [c.text.strip() for c in table.rows[r_idx].cells]
-                    row_bot = [c.text.strip() for c in table.rows[r_idx + 1].cells]
-                    
-                    matches_in_table = 0
-                    temp_table_map = {}
-                    for c_top, c_bot in zip(row_top, row_bot):
-                        num_m = re.search(r'\b(\d+)\b', c_top)
-                        ans_m = re.search(r'\b([A-F])\b', c_bot, re.IGNORECASE)
-                        if num_m and ans_m:
-                            q_num = int(num_m.group(1))
-                            temp_table_map[q_num] = ans_m.group(1).upper()
-                            matches_in_table += 1
-                    
-                    if matches_in_table >= 1:
-                        answer_map.update(temp_table_map)
-                        
-    if answer_map:
-        return answer_map
-
-    # 2. Quét trong khối văn bản cuối tài liệu sau tiêu đề BẢNG ĐÁP ÁN
-    key_headers = ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ĐÁP ÁN", "DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM"]
-    ans_section = ""
-    for header in key_headers:
-        pos = full_text.upper().rfind(header)
-        if pos != -1 and (len(full_text) - pos) < 8000:
-            ans_section = full_text[pos:]
-            break
-            
-    if ans_section:
-        pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)\/]?\s*([A-F])\b', re.IGNORECASE)
-        for m in pattern.finditer(ans_section):
-            q_num = int(m.group(1))
-            ans_char = m.group(2).upper()
-            answer_map[q_num] = ans_char
-            
-    return answer_map
-
+    return extract_answer_key_from_doc(doc, full_text)
 
 def find_image_part_and_id(img_node, doc):
     """Tìm mã quan hệ rId và image_part của ảnh trong tài liệu Word một cách toàn diện nhất"""
@@ -586,7 +552,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                                 img_counter += 1
                                 placeholder = f"[IMG_{img_counter}]"
                                 image_mapping[placeholder] = img_tag
-                                # Chuẩn AZOTA: chèn \n hai phía để AI và Regex nhận biết đúng vị trí ảnh
+                                # Chuẩn Bộ GD&ĐT: chèn \n hai phía để AI và Regex nhận biết đúng vị trí ảnh
                                 full_text_list.append(f"\n{placeholder}\n")
                                 format_weights.extend([0] * len(f"\n{placeholder}\n"))
                                 char_html.extend(list(f"\n{placeholder}\n"))
@@ -628,7 +594,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                     is_red_text = True
                 
                 full_text_list.append(run_text)
-                # Chuẩn AZOTA: Gạch chân đơn thuần = weight cao nhất (3), ngang bằng màu đỏ/highlight
+                # Chuẩn Bộ GD&ĐT: Gạch chân đơn thuần = weight cao nhất (3), ngang bằng màu đỏ/highlight
                 # Vì giáo viên Việt Nam rất hay dùng gạch chân để đánh dấu đáp án đúng
                 weight = 3 if (is_red_text or is_highlighted or is_underline) else (1 if is_bold else 0)
                 format_weights.extend([weight] * len(run_text))
@@ -691,7 +657,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 
                 q_text_html = get_html(current_q_start, current_q_end)
                 opts_html = [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options]
-                # Chuẩn AZOTA: Trích xuất lời giải từ nội dung câu hỏi hoặc đáp án cuối
+                # Chuẩn Bộ GD&ĐT: Trích xuất lời giải từ nội dung câu hỏi hoặc đáp án cuối
                 q_text_clean, explain = extract_explain_from_block(q_text_html)
                 if not explain and opts_html:
                     last_opt_clean, explain = extract_explain_from_block(opts_html[-1])
@@ -772,7 +738,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
             
         q_text_html = get_html(current_q_start, current_q_end)
         opts_html = [f"{opt['char']}. {get_html(opt['content_start'], opt['end_idx'])}" for opt in options]
-        # Chuẩn AZOTA: Trích xuất lời giải
+        # Chuẩn Bộ GD&ĐT: Trích xuất lời giải
         q_text_clean, explain = extract_explain_from_block(q_text_html)
         if not explain and opts_html:
             last_opt_clean, explain = extract_explain_from_block(opts_html[-1])
@@ -797,35 +763,24 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 "explain": explain
             })
 
-    # BƯỚC 3: Nếu có câu hỏi chưa tìm được đáp án đúng, dò tìm Bảng đáp án cuối tài liệu
+    # BƯỚC 3: Đối chiếu với Bảng đáp án cuối tài liệu
     try:
-        answer_key = extract_answer_key(doc, full_text)
-        for idx, q_item in enumerate(extracted_data):
-            q_num = idx + 1
-            if not q_item.get("correct_answer") and q_num in answer_key:
-                target_char = answer_key[q_num]
-                for opt in q_item.get("options", []):
-                    if opt.strip().upper().startswith(f"{target_char}."):
-                        q_item["correct_answer"] = opt
-                        break
+        answer_key = extract_answer_key_from_doc(doc, full_text)
+        if answer_key:
+            extracted_data = reconcile_quiz_with_answer_key(extracted_data, answer_key)
     except Exception as e:
         print(f"[CẢNH BÁO] Lỗi đọc bảng đáp án: {e}")
 
-    # BƯỚC 4: Chuẩn hóa bóc tách các phương án bị dính liền (nếu có) và đảm bảo có đáp án đúng
+    # BƯỚC 4: Chuẩn hóa bóc tách các phương án bị dính liền (chỉ áp dụng cho MCQ)
     for q_item in extracted_data:
-        if q_item.get("options"):
+        if q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
             q_item["options"] = split_merged_options(q_item["options"])
-            if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
-                matched = False
-                if q_item.get("correct_answer"):
-                    ca_char = q_item["correct_answer"].strip()[:2].upper()
-                    for opt in q_item["options"]:
-                        if opt.upper().startswith(ca_char):
-                            q_item["correct_answer"] = opt
-                            matched = True
-                            break
-                if not matched and q_item["options"]:
-                    q_item["correct_answer"] = q_item["options"][0]
+            if q_item.get("correct_answer"):
+                ca_char = q_item["correct_answer"].strip()[:2].upper()
+                for opt in q_item["options"]:
+                    if opt.upper().startswith(ca_char):
+                        q_item["correct_answer"] = opt
+                        break
 
     if image_mapping:
         extracted_data = replace_placeholders(extracted_data, image_mapping)
@@ -835,7 +790,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
 def extract_explain_from_block(text: str) -> tuple:
     """
-    Trích xuất lời giải từ khối văn bản chứa câu hỏi (chuẩn AZOTA).
+    Trích xuất lời giải từ khối văn bản chứa câu hỏi (chuẩn Bộ GD&ĐT).
     Hỗ trợ các từ khóa: 'Lời giải:', 'Giải thích:', 'Hướng dẫn:', 'ĐÁP ÁN:'...
     Trả về: (text_không_có_lời_giải, lời_giải)
     """
@@ -855,14 +810,19 @@ def extract_explain_from_block(text: str) -> tuple:
 
 def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict = None) -> List[Dict[str, Any]]:
     """
-    Bộ bóc tách câu hỏi dự phòng siêu bền vững bằng Regex khối.
-    Tự động chia tách văn bản thành từng câu hỏi và bóc tách các lựa chọn A, B, C, D.
-    Chuẩn AZOTA: Hỗ trợ đọc lời giải từ file và cắt tại từ khóa 'HẾT'.
+    Bộ bóc tách câu hỏi dự phòng siêu bền vững bằng Regex khối chuẩn Bộ GD&ĐT (GDPT 2018):
+    1. PHẦN I: Trắc nghiệm 4 lựa chọn (A, B, C, D).
+    2. PHẦN II: Trắc nghiệm Đúng / Sai (ý a, b, c, d độc lập, hỗ trợ dấu *, [ĐÚNG]/[SAI]).
+    3. PHẦN III: Trắc nghiệm Trả lời ngắn (điền kết quả ngắn, bóc tách 'Đáp án: ...', 'ĐS: ...').
     """
     if not raw_text or not raw_text.strip():
         return []
 
-    # Chuẩn AZOTA: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
+    # Tách Bảng đáp án trước khi cắt bỏ các từ khóa kết thúc đề (tránh làm mất bảng đáp án ở cuối tài liệu)
+    raw_text_questions, ak_raw, detected_ak = separate_answer_key_from_text(raw_text)
+    raw_text = raw_text_questions
+
+    # Chuẩn Bộ GD&ĐT: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
     end_markers = ['\nHẾT\n', '\nHET\n', '\n--- HẾT ---\n', '\n---HẾT---\n', '\nTHE END\n']
     for marker in end_markers:
         pos = raw_text.upper().find(marker.upper())
@@ -880,90 +840,137 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         return []
         
     results = []
-    opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*',
-        re.IGNORECASE
+    
+    # Pattern nhận diện các phương án A-F (chữ hoa) cho MCQ
+    mcq_opt_pattern = re.compile(
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*'
+    )
+    
+    # Pattern nhận diện các ý con a-d (chữ thường) cho Đúng/Sai
+    sub_opt_pattern = re.compile(
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))(?:\(?\[?(\*?[a-d])(?:[\.\:\/\)\]\-]|\b))\s*'
     )
     
     for i, m in enumerate(matches):
         q_start = m.end()
         q_end = matches[i+1].start() if i+1 < len(matches) else len(raw_text)
-        block = raw_text[q_start:q_end].strip()
-        block = re.sub(r'(?<!\n)(?:(\s+)|(?<=[;\.\:\?!]))(\*?[A-D][\.\:\)]\s*)', r'\n\2', block)
+        raw_block = raw_text[q_start:q_end].strip()
         
-        opt_matches = list(opt_pattern.finditer(block))
-        if opt_matches:
-            q_text_raw = block[:opt_matches[0].start()].strip()
-            # Chuẩn AZOTA: Trích xuất lời giải từ nội dung câu hỏi (nếu có)
-            q_text, explain_from_question = extract_explain_from_block(q_text_raw)
+        # Tách phần lời giải trước để tránh nhầm a), b) trong lời giải thành phương án
+        block, explain = extract_explain_from_block(raw_block)
+        
+        sub_matches = list(sub_opt_pattern.finditer(block))
+        mcq_matches = list(mcq_opt_pattern.finditer(block))
+        
+        if len(sub_matches) >= 2:
+            # 1. DẠNG TRẮC NGHIỆM ĐÚNG / SAI (PHẦN II)
+            q_text = block[:sub_matches[0].start()].strip()
             options = []
-            correct_ans = None
-            explain = explain_from_question
+            tf_dict = {"a": True, "b": False, "c": True, "d": False}
             
-            for j, opt_m in enumerate(opt_matches):
+            for j, opt_m in enumerate(sub_matches[:4]):
+                char_raw = opt_m.group(1).lower()
+                is_asterisk = '*' in char_raw
+                char = char_raw.replace('*', '').strip()
+                
+                opt_start = opt_m.end()
+                opt_end = sub_matches[j+1].start() if j+1 < len(sub_matches) else len(block)
+                opt_content_raw = block[opt_start:opt_end].strip()
+                
+                is_true = is_asterisk
+                if any(k in opt_content_raw for k in ['[ĐÚNG]', '[Đ]', '(Đúng)', '(Đ)', '<MARK>', '✓', '✔']):
+                    is_true = True
+                elif any(k in opt_content_raw for k in ['[SAI]', '[S]', '(Sai)', '(S)', '✗', '✘']):
+                    is_true = False
+                    
+                clean_text = opt_content_raw.replace('<MARK>', '').replace('</MARK>', '').strip()
+                clean_text = re.sub(r'\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)', '', clean_text, flags=re.IGNORECASE).strip()
+                
+                options.append(f"{char}) {clean_text}")
+                tf_dict[char] = is_true
+                
+            results.append({
+                "type": "true_false",
+                "group_title": "",
+                "question": q_text,
+                "options": options,
+                "correct_answer": tf_dict,
+                "explain": explain
+            })
+            
+        elif len(mcq_matches) >= 2:
+            # 2. DẠNG TRẮC NGHIỆM NHIỀU LỰA CHỌN (PHẦN I)
+            q_text = block[:mcq_matches[0].start()].strip()
+            options = []
+            correct_ans = ""
+            
+            for j, opt_m in enumerate(mcq_matches[:4]):
                 char_raw = opt_m.group(1).upper()
                 is_asterisk = '*' in char_raw
                 char = char_raw.replace('*', '').strip()
                 
                 opt_start = opt_m.end()
-                opt_end = opt_matches[j+1].start() if j+1 < len(opt_matches) else len(block)
+                opt_end = mcq_matches[j+1].start() if j+1 < len(mcq_matches) else len(block)
                 opt_content_raw = block[opt_start:opt_end].strip()
                 
-                # Chuẩn AZOTA: Kiểm tra lời giải trong đáp án cuối cùng
-                opt_content_clean, explain_from_opt = extract_explain_from_block(opt_content_raw)
-                if explain_from_opt and not explain:
-                    explain = explain_from_opt
-                
-                opt_content = re.sub(r'\s+', ' ', opt_content_clean)
-                
-                if is_asterisk or '<MARK>' in opt_content or '[ĐÚNG]' in opt_content or '✓' in opt_content or '✔' in opt_content:
+                opt_content = re.sub(r'\s+', ' ', opt_content_raw)
+                if is_asterisk or '<MARK>' in opt_content or '[ĐÚNG]' in opt_content or '✓' in opt_content:
                     clean_opt = opt_content.replace('<MARK>', '').replace('</MARK>', '').strip()
                     correct_ans = f"{char}. {clean_opt}"
                     
                 clean_opt_for_list = opt_content.replace('<MARK>', '').replace('</MARK>', '').strip()
                 options.append(f"{char}. {clean_opt_for_list}")
                 
-            if not correct_ans and options:
-                correct_ans = options[0]
-                
             results.append({
+                "type": "mcq",
                 "group_title": "",
                 "question": q_text,
                 "options": options,
                 "correct_answer": correct_ans,
                 "explain": explain
             })
+            
         else:
-            # Khối chỉ có câu hỏi, không có đáp án — vẫn trích xuất lời giải nếu có
-            q_text, explain = extract_explain_from_block(block)
+            # 3. DẠNG TRẮC NGHIỆM TRẢ LỜI NGẮN (PHẦN III)
+            q_text = block
+            ans_val = ""
+            ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*([^\n\r\;]+)', q_text, re.IGNORECASE)
+            if ans_match:
+                ans_val = ans_match.group(1).strip()
+                q_text = q_text[:ans_match.start()].strip() + " " + q_text[ans_match.end():].strip()
+                q_text = q_text.strip()
+            elif explain:
+                ans_match_exp = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả)\s*[\:\-\=]?\s*([^\n\r\;]+)', explain, re.IGNORECASE)
+                if ans_match_exp:
+                    ans_val = ans_match_exp.group(1).strip()
+                    
             results.append({
+                "type": "short_answer",
                 "group_title": "",
                 "question": q_text,
                 "options": [],
-                "correct_answer": "",
+                "correct_answer": ans_val,
                 "explain": explain
             })
             
+    # Đối chiếu toàn diện với Bảng đáp án bóc tách được từ văn bản
+    if detected_ak:
+        results = reconcile_quiz_with_answer_key(results, detected_ak)
+
     for q_item in results:
-        if q_item.get("options"):
+        if q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
             q_item["options"] = split_merged_options(q_item["options"])
-            if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
-                matched = False
-                if q_item.get("correct_answer"):
-                    ca_char = q_item["correct_answer"].strip()[:2].upper()
-                    for opt in q_item["options"]:
-                        if opt.upper().startswith(ca_char):
-                            q_item["correct_answer"] = opt
-                            matched = True
-                            break
-                if not matched and q_item["options"]:
-                    q_item["correct_answer"] = q_item["options"][0]
+            if q_item.get("correct_answer"):
+                ca_char = q_item["correct_answer"].strip()[:2].upper()
+                for opt in q_item["options"]:
+                    if opt.upper().startswith(ca_char):
+                        q_item["correct_answer"] = opt
+                        break
 
     if image_mapping and results:
         results = replace_placeholders(results, image_mapping)
         
     return results
-
 
 def extract_questions_from_pdf_locally(pdf_path: str) -> List[Dict[str, Any]]:
     """Bóc tách câu hỏi và hình ảnh từ tệp PDF hoàn toàn cục bộ (không cần AI)."""
@@ -1094,7 +1101,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                                 img_counter += 1
                                 placeholder = f"[IMG_{img_counter}]"
                                 image_mapping[placeholder] = img_tag
-                                # Chuẩn AZOTA: chèn \n hai phía để AI nhận biết đúng vị trí ảnh
+                                # Chuẩn Bộ GD&ĐT: chèn \n hai phía để AI nhận biết đúng vị trí ảnh
                                 para_text += f"\n{placeholder}\n"
                     except Exception as img_err:
                         print(f"[CẢNH BÁO] parse_docx_to_marked_text lỗi ảnh: {img_err}")
@@ -1137,7 +1144,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
                 if is_underline and not is_red_text: formatted_text = f"<u>{formatted_text}</u>"
                 if is_bold and not is_red_text: formatted_text = f"<b>{formatted_text}</b>"
                 
-                # Chuẩn AZOTA: Gạch chân đơn thuần = đáp án đúng (không cần kết hợp in đậm)
+                # Chuẩn Bộ GD&ĐT: Gạch chân đơn thuần = đáp án đúng (không cần kết hợp in đậm)
                 if is_red_text or is_highlighted or is_underline:
                     para_text += f"<MARK>{formatted_text}</MARK>"
                 else:
@@ -1149,7 +1156,7 @@ def parse_docx_to_marked_text(file_path: str) -> str:
     for tag in ['b', 'i', 'u', 'sup', 'sub']:
         raw_output = raw_output.replace(f"</{tag}> <{tag}>", " ").replace(f"</{tag}><{tag}>", "")
     
-    # Chuẩn AZOTA: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
+    # Chuẩn Bộ GD&ĐT: Cắt bỏ nội dung sau từ khóa kết thúc đề "HẾT"
     end_markers = ['\nHẾT\n', '\nHET\n', '\n--- HẾT ---\n', '\n---HẾT---\n', '\nTHE END\n']
     for marker in end_markers:
         pos = raw_output.upper().find(marker.upper())
@@ -1283,6 +1290,13 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
     try:
         active_tasks[task_id] = {"status": "processing", "message": "Đang phân tích..."}
         
+        file_ak = None
+        if ext != ".pdf":
+            try:
+                file_ak = extract_answer_key_from_doc(temp_file_path)
+            except Exception as ak_err:
+                print(f"[CẢNH BÁO] Lỗi trích xuất bảng đáp án từ DOCX: {ak_err}")
+
         extracted_data = None
         if ext == ".pdf":
             if use_ai and api_keys:
@@ -1308,9 +1322,11 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             try:
                 active_tasks[task_id]["message"] = "AI đang phân tích tài liệu Word..."
                 marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-                extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
+                extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id, answer_key=file_ak))
                 if image_mapping and extracted_data:
                     extracted_data = replace_placeholders(extracted_data, image_mapping)
+                if file_ak and extracted_data:
+                    extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
             except Exception as ai_err:
                 print(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
                 active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
@@ -1346,30 +1362,29 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
                 try:
                     marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-                    extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id))
+                    extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id, answer_key=file_ak))
                     if image_mapping and extracted_data:
                         extracted_data = replace_placeholders(extracted_data, image_mapping)
+                    if file_ak and extracted_data:
+                        extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
                 except Exception as rescue_err:
                     print(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
 
         extracted_data = recursive_unescape(extracted_data)
 
         if extracted_data and isinstance(extracted_data, list):
+            if file_ak:
+                extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
             extracted_data = [normalize_question_data(q_item) for q_item in extracted_data if isinstance(q_item, dict)]
             for q_item in extracted_data:
-                if isinstance(q_item, dict) and q_item.get("options"):
+                if isinstance(q_item, dict) and q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
                     q_item["options"] = split_merged_options(q_item["options"])
-                    if not q_item.get("correct_answer") or q_item.get("correct_answer") not in q_item["options"]:
-                        matched = False
-                        if q_item.get("correct_answer"):
-                            ca_char = q_item["correct_answer"].strip()[:2].upper()
-                            for opt in q_item["options"]:
-                                if opt.upper().startswith(ca_char):
-                                    q_item["correct_answer"] = opt
-                                    matched = True
-                                    break
-                        if not matched and q_item["options"]:
-                            q_item["correct_answer"] = q_item["options"][0]
+                    if q_item.get("correct_answer"):
+                        ca_char = q_item["correct_answer"].strip()[:2].upper()
+                        for opt in q_item["options"]:
+                            if opt.upper().startswith(ca_char):
+                                q_item["correct_answer"] = opt
+                                break
 
         if not extracted_data:
              active_tasks[task_id] = {"status": "error", "detail": "Không thể trích xuất câu hỏi từ file. Vui lòng đảm bảo file có chứa câu hỏi dạng 'Câu 1:' hoặc '1.' và các phương án A, B, C, D."}

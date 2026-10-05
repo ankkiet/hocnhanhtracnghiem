@@ -6,9 +6,12 @@ from google import genai
 from google.genai import types
 
 try:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz  # PyMuPDF
 except ImportError:
-    fitz = None
+    try:
+        import fitz
+    except ImportError:
+        fitz = None
 
 try:
     import json_repair
@@ -86,61 +89,152 @@ def clean_subscripts_and_formulas(text: str) -> str:
 
 def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Chuẩn hóa toàn diện dữ liệu câu hỏi trắc nghiệm:
-    - Làm sạch chỉ số dưới hóa học/toán học (CH_2 -> CH<sub>2</sub>) trong câu hỏi, đáp án, lời giải
-    - Đảm bảo các đáp án có tiền tố A., B., C., D. chuẩn mực, không bị trùng (vd: A. A. -> A.)
-    - Đảm bảo correct_answer khớp chính xác với 1 trong các đáp án
-    - Đảm bảo có trường explain (lời giải chi tiết)
+    Chuẩn hóa toàn diện dữ liệu câu hỏi theo chuẩn Bộ GD&ĐT (GDPT 2018):
+    1. Trắc nghiệm nhiều lựa chọn (mcq): 4 lựa chọn A, B, C, D, đáp án A-D.
+    2. Trắc nghiệm Đúng / Sai (true_false): 4 ý a), b), c), d), đáp án dict {"a": bool, "b": bool, "c": bool, "d": bool}.
+    3. Trắc nghiệm Trả lời ngắn (short_answer): options=[], đáp án chuỗi ngắn.
+    Làm sạch chỉ số dưới hóa học/toán học (CH_2 -> CH<sub>2</sub>), giữ nguyên ảnh [IMG_X] và thẻ HTML.
     """
     if not isinstance(item, dict):
         return item
         
-    # Chuẩn hóa question và group_title
+    # Chuẩn hóa question, group_title, explain
     if "question" in item:
         item["question"] = clean_subscripts_and_formulas(str(item.get("question", ""))).strip()
     if "group_title" in item:
         item["group_title"] = clean_subscripts_and_formulas(str(item.get("group_title", ""))).strip()
-        
+    item["explain"] = clean_subscripts_and_formulas(str(item.get("explain", ""))).strip()
+
+    raw_type = str(item.get("type", "")).lower().strip()
     options = item.get("options", [])
     if not isinstance(options, list):
         options = []
-        
-    prefixes = ["A. ", "B. ", "C. ", "D. "]
-    normalized_options = []
-    for idx, opt in enumerate(options[:4]):
-        opt_str = clean_subscripts_and_formulas(str(opt)).strip()
-        # Xóa tiền tố lặp như A. A. hoặc A) A.
-        opt_str = re.sub(r'^[A-D]\s*[\.\:\-\)]\s*([A-D]\s*[\.\:\-\)])', r'\1', opt_str)
-        # Bổ sung tiền tố nếu thiếu
-        if not re.match(r'^[A-D]\s*[\.\:\-\)]', opt_str):
-            pref = prefixes[idx] if idx < len(prefixes) else ""
-            opt_str = f"{pref}{opt_str}"
-        normalized_options.append(opt_str)
-        
-    item["options"] = normalized_options
-    
-    # Chuẩn hóa correct_answer
-    raw_ca = clean_subscripts_and_formulas(str(item.get("correct_answer", ""))).strip()
-    ca_match = re.match(r'^([A-D])(?:\s*[\.\:\-\)]|$)', raw_ca)
-    if ca_match:
-        letter = ca_match.group(1).upper()
-        matched = False
-        for opt in normalized_options:
-            if opt.startswith(f"{letter}.") or opt.startswith(f"{letter} ") or opt.startswith(f"{letter}:"):
-                item["correct_answer"] = opt
-                matched = True
-                break
-        if not matched and normalized_options:
-            item["correct_answer"] = raw_ca
+
+    # Nhận diện tự động loại câu hỏi nếu chưa chỉ định rõ type
+    is_true_false = False
+    is_short_answer = False
+
+    if raw_type in ["true_false", "tf", "dung_sai", "dung-sai"]:
+        is_true_false = True
+    elif raw_type in ["short_answer", "sa", "tra_loi_ngan", "tra-loi-ngan"]:
+        is_short_answer = True
     else:
-        for opt in normalized_options:
-            if raw_ca.lower() in opt.lower() or opt.lower() in raw_ca.lower():
-                item["correct_answer"] = opt
-                break
-                
-    # Chuẩn hóa explain
-    item["explain"] = clean_subscripts_and_formulas(str(item.get("explain", ""))).strip()
-    return item
+        # Sub-options của Đúng/Sai là chữ thường a), b), c), d) hoặc a., b., c., d.
+        has_sub_options = any(re.match(r'^\s*(?:\*?\s*)?[\(\[]?[a-d][\)\.\:\-\]]', str(opt).strip()) for opt in options)
+        raw_ca = item.get("correct_answer")
+        has_tf_dict = isinstance(raw_ca, dict) and any(str(k).lower() in ['a', 'b', 'c', 'd'] for k in raw_ca.keys())
+        has_tf_str = isinstance(raw_ca, str) and bool(re.search(r'[a-d]\s*[\:\-\=]?\s*(?:Đ|S|Đúng|Sai|True|False)', raw_ca, re.IGNORECASE))
+        
+        header_text = (str(item.get("group_title", "")) + " " + str(item.get("question", ""))).lower()
+        if "đúng sai" in header_text or "đúng - sai" in header_text:
+            is_true_false = True
+        elif has_sub_options or has_tf_dict or has_tf_str:
+            is_true_false = True
+        elif "trả lời ngắn" in header_text or len(options) == 0:
+            is_short_answer = True
+
+    if is_true_false:
+        item["type"] = "true_false"
+        statements = item.get("statements", [])
+        if isinstance(statements, list) and len(statements) > 0 and len(options) == 0:
+            for s in statements:
+                if isinstance(s, dict):
+                    sid = str(s.get("id", "")).lower().strip() or "a"
+                    scontent = str(s.get("content", "")).strip()
+                    options.append(f"{sid}) {scontent}")
+                    if "is_correct" in s and s.get("is_correct") is not None:
+                        raw_ca_dict = item.get("correct_answer")
+                        if not isinstance(raw_ca_dict, dict):
+                            raw_ca_dict = {}
+                            item["correct_answer"] = raw_ca_dict
+                        raw_ca_dict[sid] = bool(s.get("is_correct"))
+
+        sub_prefixes = ["a) ", "b) ", "c) ", "d) "]
+        normalized_options = []
+        for idx, opt in enumerate(options[:4]):
+            opt_str = clean_subscripts_and_formulas(str(opt)).strip()
+            opt_str = re.sub(r'^\*?\s*[\(\[]?[a-d][\)\.\:\-\]]\s*[\(\[]?([a-d])[\)\.\:\-\]]', r'\1) ', opt_str, flags=re.IGNORECASE)
+            if not re.match(r'^\*?\s*[\(\[]?[a-d][\)\.\:\-\]]', opt_str, re.IGNORECASE):
+                pref = sub_prefixes[idx] if idx < len(sub_prefixes) else ""
+                opt_str = f"{pref}{opt_str}"
+            else:
+                m = re.match(r'^(\*?\s*)[\(\[]?([a-d])[\)\.\:\-\]]\s*(.*)', opt_str, re.IGNORECASE)
+                if m:
+                    asterisk = "*" if "*" in m.group(1) else ""
+                    opt_str = f"{asterisk}{m.group(2).lower()}) {m.group(3)}"
+            normalized_options.append(opt_str)
+        item["options"] = normalized_options
+
+        # Chuẩn hóa correct_answer thành dict {"a": bool, "b": bool, "c": bool, "d": bool}
+        raw_ca = item.get("correct_answer")
+        tf_dict = {"a": True, "b": False, "c": True, "d": False}
+        if isinstance(raw_ca, dict):
+            for k, v in raw_ca.items():
+                k_clean = str(k).lower().strip().replace(')', '').replace('.', '')
+                if k_clean in ['a', 'b', 'c', 'd']:
+                    if isinstance(v, bool):
+                        tf_dict[k_clean] = v
+                    elif isinstance(v, str):
+                        tf_dict[k_clean] = v.strip().lower() in ['đ', 'đúng', 'true', 't', '1', 'yes']
+        elif isinstance(raw_ca, str):
+            for k in ['a', 'b', 'c', 'd']:
+                m = re.search(rf'\b{k}\s*[\:\-\.\)]?\s*(đúng|sai|đ|s|true|false)\b', raw_ca, re.IGNORECASE)
+                if m:
+                    val_str = m.group(1).lower()
+                    tf_dict[k] = val_str in ['đ', 'đúng', 'true']
+        
+        # Kiểm tra đánh dấu trực tiếp trong từng option
+        for idx, opt in enumerate(normalized_options):
+            char = ['a', 'b', 'c', 'd'][idx] if idx < 4 else None
+            if not char: continue
+            if any(mark in opt for mark in ['*', '[ĐÚNG]', '[Đ]', '(Đúng)', '(Đ)', '✓', '✔']):
+                tf_dict[char] = True
+            elif any(mark in opt for mark in ['[SAI]', '[S]', '(Sai)', '(S)', '✗', '✘']):
+                tf_dict[char] = False
+
+        item["correct_answer"] = tf_dict
+        return item
+
+    elif is_short_answer:
+        item["type"] = "short_answer"
+        item["options"] = []
+        raw_ca = str(item.get("correct_answer", "")).strip()
+        raw_ca = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*', '', raw_ca, flags=re.IGNORECASE).strip()
+        item["correct_answer"] = clean_subscripts_and_formulas(raw_ca)
+        return item
+
+    else:
+        item["type"] = "mcq"
+        prefixes = ["A. ", "B. ", "C. ", "D. "]
+        normalized_options = []
+        for idx, opt in enumerate(options[:4]):
+            opt_str = clean_subscripts_and_formulas(str(opt)).strip()
+            opt_str = re.sub(r'^[A-D]\s*[\.\:\-\)]\s*([A-D]\s*[\.\:\-\)])', r'\1', opt_str)
+            if not re.match(r'^[A-D]\s*[\.\:\-\)]', opt_str):
+                pref = prefixes[idx] if idx < len(prefixes) else ""
+                opt_str = f"{pref}{opt_str}"
+            normalized_options.append(opt_str)
+            
+        item["options"] = normalized_options
+        
+        raw_ca = clean_subscripts_and_formulas(str(item.get("correct_answer", ""))).strip()
+        ca_match = re.match(r'^([A-D])(?:\s*[\.\:\-\)]|$)', raw_ca)
+        if ca_match:
+            letter = ca_match.group(1).upper()
+            matched = False
+            for opt in normalized_options:
+                if opt.startswith(f"{letter}.") or opt.startswith(f"{letter} ") or opt.startswith(f"{letter}:"):
+                    item["correct_answer"] = opt
+                    matched = True
+                    break
+            if not matched and normalized_options:
+                item["correct_answer"] = raw_ca
+        else:
+            for opt in normalized_options:
+                if raw_ca.lower() in opt.lower() or opt.lower() in raw_ca.lower():
+                    item["correct_answer"] = opt
+                    break
+        return item
 
 def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[str]:
     """Chia nhỏ văn bản dựa trên các mốc câu hỏi để chống quá tải RAM và giới hạn token AI."""
@@ -288,9 +382,50 @@ async def generate_mcq_with_gemini(
     marked_text: str,
     api_keys: List[str],
     task_id: str = None,
-    active_tasks: dict = None
+    active_tasks: dict = None,
+    answer_key: Any = None
 ) -> List[Dict[str, Any]]:
-    """Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK> với Semaphore kiểm soát lưu lượng."""
+    """
+    Dùng Gemini AI để bóc tách câu hỏi dựa trên văn bản đã gắn thẻ <MARK>.
+    Tự động nhận diện và bảo toàn tuyệt đối 100% BẢNG ĐÁP ÁN ở cuối tài liệu (không để AI tự sửa đáp án hoặc tự thêm bớt câu hỏi).
+    """
+    if active_tasks is None:
+        try:
+            from core.state import active_tasks as global_active_tasks
+            active_tasks = global_active_tasks
+        except ImportError:
+            pass
+
+    from core.answer_key_extractor import separate_answer_key_from_text, AnswerKeyMap, reconcile_quiz_with_answer_key
+
+    # Tách và phát hiện BẢNG ĐÁP ÁN ở cuối tài liệu
+    if answer_key is None or not (getattr(answer_key, 'part1', None) or getattr(answer_key, 'part2', None) or getattr(answer_key, 'part3', None) or answer_key):
+        text_without_ak, ak_raw, detected_ak = separate_answer_key_from_text(marked_text)
+        marked_text = text_without_ak
+        if detected_ak and (detected_ak.part1 or detected_ak.part2 or detected_ak.part3 or detected_ak):
+            answer_key = detected_ak
+    else:
+        # Nếu đã có answer_key truyền vào từ file docx, cắt bỏ phần BẢNG ĐÁP ÁN khỏi text để tránh AI hiểu nhầm thành câu hỏi
+        text_without_ak, _, _ = separate_answer_key_from_text(marked_text)
+        marked_text = text_without_ak
+
+    ak_prompt_section = ""
+    if answer_key and hasattr(answer_key, 'to_summary_text'):
+        ak_summary = answer_key.to_summary_text()
+        if ak_summary:
+            ak_prompt_section = f"""
+            ========================================================================
+            BẢNG ĐÁP ÁN CHÍNH THỨC CỦA ĐỀ THI (BẮT BUỘC TUÂN THỦ 100%):
+            {ak_summary}
+            ========================================================================
+            QUY TẮC BẢO TOÀN ĐÁP ÁN & NỘI DUNG GỐC:
+            1. TUYỆT ĐỐI TUÂN THỦ BẢNG ĐÁP ÁN TRÊN: Đối với mỗi câu hỏi, PHẢI gán đúng đáp án từ Bảng Đáp Án chính thức trên (hoặc từ ký hiệu Đ/S, dấu *, thẻ <MARK>). TUYỆT ĐỐI KHÔNG TỰ GIẢI ĐỂ THAY ĐỔI ĐÁP ÁN CỦA ĐỀ GỐC!
+            2. NGUYÊN VĂN NỘI DUNG 100%: Sao chép trung thực nguyên văn nội dung câu hỏi và các phương án từ văn bản gốc. KHÔNG TỰ Ý THÊM BỚT từ ngữ, KHÔNG SÁNG TÁC THÊM PHƯƠNG ÁN HAY BỎ BỚT PHƯƠNG ÁN!
+            3. ĐỐI VỚI CÂU HỎI ĐÚNG / SAI (true_false): Bắt buộc giữ đủ 4 ý a), b), c), d) nguyên bản, đáp án đúng format {{"a": bool, "b": bool, "c": bool, "d": bool}} theo đúng Bảng Đáp Án.
+            4. ĐỐI VỚI CÂU HỎI TRẢ LỜI NGẮN (short_answer): options là [], correct_answer lấy chuẩn từ Bảng Đáp Án.
+            5. TUYỆT ĐỐI KHÔNG TẠO CÂU HỎI MỚI ngoài các câu có trong văn bản đề thi.
+            """
+
     chunks = chunk_marked_text(marked_text, questions_per_chunk=15)
     all_extracted_data = []
     
@@ -314,7 +449,7 @@ async def generate_mcq_with_gemini(
         "BẮT BUỘC giữ nguyên thẻ HTML <sub> và <sup> (ví dụ: CH<sub>2</sub>, H<sub>2</sub>O, CO<sub>2</sub>, C<sub>2</sub>H<sub>5</sub>OH, cm<sup>2</sup>) "
         "hoặc đặt trọn vẹn trong công thức LaTeX \\( ... \\) như \\(\\text{CH}_2\\). "
         "3. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \\( và \\). Nếu có chữ tiếng Việt trong công thức, phải dùng \\text{...}. "
-        "4. Luôn kèm trường 'explain' giải thích ngắn gọn, súc tích lý do chọn đáp án đúng. "
+        "4. BẢO TOÀN ĐÁP ÁN: Tuyệt đối tuân thủ Bảng Đáp Án đi kèm, không tự ý sửa đáp án hay thêm bớt câu hỏi. "
         f"Trả về kết quả dưới dạng JSON array duy nhất.{img_reminder}"
     )
     
@@ -336,23 +471,67 @@ async def generate_mcq_with_gemini(
                 active_tasks[task_id]["message"] = f"AI đang bóc tách phần {idx + 1}/{len(chunks)}..."
                 
             prompt = f"""
-            Trích xuất danh sách câu hỏi trắc nghiệm từ phần văn bản {idx + 1}/{len(chunks)} sau:
+            Bạn là trợ lý AI chuyên gia phân tích và bóc tách đề thi theo CHUẨN CẤU TRÚC MỚI CỦA BỘ GIÁO DỤC VÀ ĐÀO TẠO (Chương trình GDPT 2018).
+            Nhiệm vụ: Trích xuất CHÍNH XÁC toàn bộ các câu hỏi từ phần văn bản {idx + 1}/{len(chunks)} sau thành danh sách JSON chuẩn.
+            {ak_prompt_section}
+            ĐỀ THI GỒM 3 DẠNG CÂU HỎI THEO QUY CHUẨN BỘ GD&ĐT:
             
-            1. Bóc tách câu hỏi và đúng 4 đáp án (A, B, C, D). Loại bỏ chữ 'Câu X:', 'Bài X:' hoặc số thứ tự ở đầu.
-            2. Đáp án đúng là đáp án chứa nội dung nằm trong thẻ <MARK> hoặc có dấu * ở trước chữ cái. Loại bỏ <MARK> và dấu * khỏi kết quả.
-            3. CHỈ SỐ DƯỚI & CÔNG THỨC HÓA HỌC: Giữ nguyên thẻ <sub> và <sup>, TUYỆT ĐỐI KHÔNG viết thành CH_2, CO_2, H_2O. Phải viết là CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O hoặc \\(\\text{{CH}}_2\\).
-            4. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ hoặc thay đổi các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng. Ví dụ: [IMG_1] phải được viết là [IMG_1], không phải [Hình 1] hay [Image 1].
-            5. Trả về mảng JSON theo mẫu:
-               [
+            1. PHẦN I: TRẮC NGHIỆM NHIỀU LỰA CHỌN (type: "mcq")
+               - 4 lựa chọn A, B, C, D (bắt buộc tiền tố 'A. ', 'B. ', 'C. ', 'D. ').
+               - correct_answer: Chuỗi đáp án đúng (ví dụ: 'A. Lựa chọn 1').
+               - explain: Lời giải chi tiết lý do chọn đáp án này.
+               - Mẫu JSON:
                  {{
+                   "type": "mcq",
                    "group_title": "",
-                   "question": "Nội dung câu hỏi. Ví dụ có ảnh: Hãy quan sát hình sau [IMG_1] và trả lời câu hỏi...",
-                   "options": ["A. Lựa chọn 1", "B. Lựa chọn 2 [IMG_2]", "C. Lựa chọn 3", "D. Lựa chọn 4"],
+                   "question": "Nội dung câu hỏi...",
+                   "options": ["A. Lựa chọn 1", "B. Lựa chọn 2", "C. Lựa chọn 3", "D. Lựa chọn 4"],
                    "correct_answer": "A. Lựa chọn 1",
-                   "explain": "Giải thích ngắn gọn lý do chọn đáp án này..."
+                   "explain": "Lời giải chi tiết..."
                  }}
-               ]{img_strict_rule}
-               
+
+            2. PHẦN II: TRẮC NGHIỆM ĐÚNG / SAI (type: "true_false")
+               - Mỗi câu gồm 4 ý/mệnh đề độc lập: a), b), c), d) (tiền tố 'a) ', 'b) ', 'c) ', 'd) ').
+               - correct_answer: Đối tượng quy định Đúng (true) hoặc Sai (false) cho từng ý:
+                 {{"a": true, "b": false, "c": true, "d": false}}
+                 (Căn cứ vào bảng đáp án, ký hiệu Đ/S, dấu *, thẻ <MARK>, [ĐÚNG]/[SAI] nếu có; hoặc tự giải và xác định chuẩn xác).
+               - explain: Lời giải chi tiết giải thích rõ lý do vì sao từng ý a, b, c, d là Đúng hoặc Sai.
+               - Mẫu JSON:
+                 {{
+                   "type": "true_false",
+                   "group_title": "PHẦN II. Câu trắc nghiệm đúng sai...",
+                   "question": "Nội dung câu hỏi hoặc thông tin dữ liệu...",
+                   "options": [
+                     "a) Mệnh đề a",
+                     "b) Mệnh đề b",
+                     "c) Mệnh đề c",
+                     "d) Mệnh đề d"
+                   ],
+                   "correct_answer": {{"a": true, "b": false, "c": true, "d": false}},
+                   "explain": "Giải thích vì sao a đúng, b sai, c đúng, d sai..."
+                 }}
+
+            3. PHẦN III: TRẮC NGHIỆM TRẢ LỜI NGẮN (type: "short_answer")
+               - Câu hỏi tự luận điền kết quả / đáp số ngắn (số nguyên, số thập phân, phân số, tọa độ hoặc từ ngắn).
+               - options: BẮT BUỘC là mảng rỗng [].
+               - correct_answer: Chuỗi chứa đáp số ngắn chuẩn xác (ví dụ: "12", "-3.5", "1/2", "0.25").
+               - explain: Lời giải chi tiết cách tính ra đáp số đó.
+               - Mẫu JSON:
+                 {{
+                   "type": "short_answer",
+                   "group_title": "PHẦN III. Câu trắc nghiệm trả lời ngắn...",
+                   "question": "Nội dung câu hỏi tính toán...",
+                   "options": [],
+                   "correct_answer": "12.5",
+                   "explain": "Lời giải từng bước tính..."
+                 }}
+
+            QUY TẮC BẮT BUỘC VỀ ĐỊNH DẠNG:
+            1. CHỈ SỐ DƯỚI & CÔNG THỨC HÓA HỌC: Giữ nguyên thẻ <sub> và <sup>, TUYỆT ĐỐI KHÔNG viết thành CH_2, CO_2, H_2O. Phải viết là CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O hoặc \(\text{{CH}}_2\).
+            2. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \( và \).
+            3. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng.
+            4. Chỉ trả về duy nhất mảng JSON [...] không có văn bản giải thích nào khác ngoài JSON.{img_strict_rule}
+            
             Văn bản:
             {chunk}
             """
@@ -393,6 +572,11 @@ async def generate_mcq_with_gemini(
 
     if not all_extracted_data and any(c.strip() for c in chunks):
         raise Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu.")
+
+    # Áp đặt lại Bảng đáp án chuẩn (Source of Truth) lên toàn bộ dữ liệu bóc tách
+    if answer_key and hasattr(answer_key, 'get_answer'):
+        from core.answer_key_extractor import reconcile_quiz_with_answer_key
+        all_extracted_data = reconcile_quiz_with_answer_key(all_extracted_data, answer_key)
 
     return all_extracted_data
 

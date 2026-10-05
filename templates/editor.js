@@ -42,9 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initStudio() {
     if (!authToken) {
-        alert("Vui lòng đăng nhập để sử dụng Studio Biên tập Đề thi!");
-        window.location.href = "index.html";
-        return;
+        console.log("Khách trải nghiệm Studio chưa đăng nhập. Sẽ yêu cầu đăng nhập khi Lưu & Xuất bản.");
     }
 
     setupEditorEvents();
@@ -439,14 +437,38 @@ function dataToEditorText(data) {
         let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '').replace(/<br>/gi, '\n');
         text += `Câu ${i + 1}: ${qClean}\n`;
         
-        q.options.forEach((opt) => {
-            let isCorrect = (q.correct_answer === opt);
-            let optText = opt.replace(/<br>/gi, '\n');
-            if (isCorrect) {
-                optText = optText.replace(/^([A-F])([\.\:\)])/i, '*$1$2');
+        let qType = q.type || 'mcq';
+        if (qType === 'true_false') {
+            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
+            (q.options || []).forEach((opt) => {
+                let optText = opt.replace(/<br>/gi, '\n');
+                let charMatch = optText.match(/^[a-d]/i);
+                let char = charMatch ? charMatch[0].toLowerCase() : '';
+                let isTrue = (char && tfMap[char] === true) || /^\*[a-d]/i.test(optText) || /\[ĐÚNG\]|\(Đúng\)/i.test(optText);
+                let cleanOpt = optText.replace(/^\*?[a-d][\)\.\:\-]\s*/i, '');
+                cleanOpt = cleanOpt.replace(/\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)/gi, '').trim();
+                let prefix = isTrue ? `*${char || 'a'}) ` : `${char || 'a'}) `;
+                text += `${prefix}${cleanOpt}\n`;
+            });
+        } else if (qType === 'short_answer') {
+            let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
+            if (ca) {
+                text += `Đáp án: ${ca}\n`;
             }
-            text += `${optText}\n`;
-        });
+        } else {
+            // MCQ (4 lựa chọn)
+            (q.options || []).forEach((opt) => {
+                let isCorrect = (q.correct_answer === opt);
+                let optText = opt.replace(/<br>/gi, '\n');
+                if (isCorrect) {
+                    optText = optText.replace(/^([A-F])([\.\:\)])/i, '*$1$2');
+                }
+                text += `${optText}\n`;
+            });
+        }
+        if (q.explain && q.explain.trim()) {
+            text += `Lời giải: ${q.explain.replace(/<br>/gi, '\n')}\n`;
+        }
         text += "\n";
     });
     
@@ -482,7 +504,10 @@ function parseEditorText(text) {
     let sharedContext = "";
 
     const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
-    const optRegex = /^\s*(\*?\s*[A-F])[\.\:\)]/i;
+    const mcqOptRegex = /^\s*(\*?\s*[A-F])[\.\:\)]/i;
+    const tfOptRegex = /^\s*(\*?\s*[a-d])[\.\:\)]/i;
+    const shortAnsRegex = /^\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]\s*(.*)$/i;
+    const explainRegex = /^\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]\s*(.*)$/i;
     const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
 
     for (let i = 0; i < lines.length; i++) {
@@ -494,24 +519,66 @@ function parseEditorText(text) {
         if (qRegex.test(line)) {
             if (currentQ) data.push(currentQ);
             let qText = line.replace(qRegex, '').trim();
-            currentQ = { group_title: sharedContext.trim(), question: qText, options: [], correct_answer: null };
+            currentQ = {
+                type: 'mcq',
+                group_title: sharedContext.trim(),
+                question: qText,
+                options: [],
+                correct_answer: null,
+                explain: ''
+            };
             sharedContext = ""; 
-        } else if (optRegex.test(line)) {
-            const match = line.match(optRegex);
+        } else if (tfOptRegex.test(line)) {
+            if (!currentQ) {
+                currentQ = { type: 'true_false', group_title: sharedContext.trim(), question: '', options: [], correct_answer: {}, explain: '' };
+                sharedContext = "";
+            }
+            currentQ.type = 'true_false';
+            if (typeof currentQ.correct_answer !== 'object' || currentQ.correct_answer === null) {
+                currentQ.correct_answer = {};
+            }
+            const match = line.match(tfOptRegex);
+            const charRaw = match[1].trim().toLowerCase();
+            const isTrue = charRaw.includes('*');
+            const char = charRaw.replace('*', '').trim();
+            let optContent = line.replace(tfOptRegex, '').trim();
+            
+            const fullOpt = `${char}) ${optContent}`;
+            currentQ.options.push(fullOpt);
+            currentQ.correct_answer[char] = isTrue;
+        } else if (mcqOptRegex.test(line)) {
+            if (!currentQ) {
+                currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
+                sharedContext = "";
+            }
+            currentQ.type = 'mcq';
+            const match = line.match(mcqOptRegex);
             const charRaw = match[1].trim().toUpperCase();
             const isCorrect = charRaw.includes('*');
             const char = charRaw.replace('*', '').trim();
-            let optContent = line.replace(optRegex, '').trim();
+            let optContent = line.replace(mcqOptRegex, '').trim();
             
             const fullOpt = `${char}. ${optContent}`;
+            currentQ.options.push(fullOpt);
+            if (isCorrect) currentQ.correct_answer = fullOpt;
+        } else if (shortAnsRegex.test(line)) {
             if (currentQ) {
-                currentQ.options.push(fullOpt);
-                if (isCorrect) currentQ.correct_answer = fullOpt;
+                const ansMatch = line.match(shortAnsRegex);
+                currentQ.type = 'short_answer';
+                currentQ.options = [];
+                currentQ.correct_answer = ansMatch[1].trim();
+            }
+        } else if (explainRegex.test(line)) {
+            if (currentQ) {
+                const expMatch = line.match(explainRegex);
+                currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expMatch[1].trim();
             }
         } else if (groupRegex.test(line)) {
             sharedContext += (sharedContext ? "<br>" : "") + line;
         } else {
-            if (currentQ && currentQ.options.length > 0) {
+            if (currentQ && currentQ.explain) {
+                currentQ.explain += "<br>" + line;
+            } else if (currentQ && currentQ.options.length > 0) {
                 currentQ.options[currentQ.options.length - 1] += "<br>" + line;
             } else if (currentQ) {
                 currentQ.question += (currentQ.question ? "<br>" : "") + line;
@@ -522,18 +589,24 @@ function parseEditorText(text) {
     }
     if (currentQ) data.push(currentQ);
     
-    // Nếu chưa đánh dấu đáp án đúng, mặc định lấy đáp án A
+    // Chuẩn hóa đáp án mặc định
     data.forEach(q => {
-        if (!q.correct_answer && q.options.length > 0) {
-            q.correct_answer = q.options[0];
+        if (q.type === 'mcq') {
+            if (!q.correct_answer && q.options.length > 0) {
+                q.correct_answer = q.options[0];
+            }
+        } else if (q.type === 'true_false') {
+            if (typeof q.correct_answer !== 'object' || !q.correct_answer) {
+                q.correct_answer = { a: true, b: false, c: true, d: false };
+            }
+        } else if (q.type === 'short_answer') {
+            q.options = [];
+            if (!q.correct_answer) q.correct_answer = "";
         }
     });
     return data;
 }
 
-// ----------------------------------------------------
-// SYNTAX HIGHLIGHTING (MÀU SẮC CHUẨN VS CODE)
-// ----------------------------------------------------
 function updateSyntaxHighlight() {
     const codeEditor = document.getElementById('codeEditor');
     const codeHighlight = document.getElementById('codeHighlight');
@@ -547,6 +620,10 @@ function updateSyntaxHighlight() {
     escaped = escaped.replace(/^(\s*)(Câu|Bài|Question|Q)(\s*\d+[\.\:\-\)])/gim, '$1<span class="hl-question">$2$3</span>');
     escaped = escaped.replace(/^(\s*)(\*\s*[A-F][\.\:\)])/gim, '$1<span class="hl-correct">$2</span>');
     escaped = escaped.replace(/^(\s*)([A-F][\.\:\)])/gim, '$1<span class="hl-option">$2</span>');
+    escaped = escaped.replace(/^(\s*)(\*\s*[a-d][\.\:\)])/gim, '$1<span class="hl-correct">$2</span>');
+    escaped = escaped.replace(/^(\s*)([a-d][\.\:\)])/gim, '$1<span class="hl-option" style="color:#0ea5e9;">$2</span>');
+    escaped = escaped.replace(/^(\s*)(Đáp án|Đáp số|ĐS|Kết quả)(\s*[\:\-\=].*)$/gim, '$1<span class="hl-correct" style="font-weight:700;">$2$3</span>');
+    escaped = escaped.replace(/^(\s*)(Lời giải|Hướng dẫn giải|Giải thích|HDG)(\s*[\:\-\=].*)$/gim, '$1<span class="hl-math" style="font-style:italic;">$2$3</span>');
     escaped = escaped.replace(/^(\s*)(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)(.*)$/gim, '$1<span class="hl-group">$2$3</span>');
     escaped = escaped.replace(/(&lt;\/?(b|i|u|sub|sup|MARK)&gt;)/gi, '<span class="hl-html">$1</span>');
     
@@ -554,9 +631,6 @@ function updateSyntaxHighlight() {
     codeHighlight.innerHTML = escaped;
 }
 
-// ----------------------------------------------------
-// BỘ CHUẨN HÓA CHỈ SỐ DƯỚI (HÓA HỌC / TOÁN HỌC) CHO GIAO DIỆN
-// ----------------------------------------------------
 function formatSubscriptsAndFormulas(text) {
     if (!text || typeof text !== 'string') return text;
     const placeholders = [];
@@ -616,67 +690,195 @@ function renderPreviewAll() {
 
         let html = "";
         let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
-        let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
+        let qClean = (q.question || '').replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
         let formattedQ = formatSubscriptsAndFormulas(qClean).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
         
-        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Câu ${qIndex + 1}: ${formattedQ}</div>`;
-        
-        q.options.forEach((opt, oIndex) => {
-            let isCorrect = q.correct_answer === opt;
-            let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
-            html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: default; padding: 10px 14px; margin-bottom: 8px;">
-                        <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
-                        <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
-                        <span class="opt-text">${optClean}</span>
-                    </label>`;
-        });
-        prevBox.innerHTML = html;
-        
-        // Chèn thẻ AI gợi ý sửa lỗi nếu có
-        if (hasError) {
-            const aiData = window.activeAIFeedbacks[qIndex];
-            const catClass = aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
-                             (aiData.category === 'answer' ? 'ai-cat-answer' :
-                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'));
+        let qType = q.type || 'mcq';
+        let typeBadge = '';
+        if (qType === 'true_false') {
+            typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
+        } else if (qType === 'short_answer') {
+            typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
+        }
 
-            const aiDiv = document.createElement('div');
-            aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
-            aiDiv.onclick = (e) => e.stopPropagation();
-            
-            let corrected = aiData.corrected_data || {};
-            let correctedAnswerText = corrected.correct_answer || '';
-            let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${corrected.explain}</div>` : '';
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge}</div>`;
+        
+        if (qType === 'true_false') {
+            // Giao diện xem trước cho câu hỏi Đúng / Sai
+            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
+            html += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">`;
+            (q.options || []).forEach((opt, oIndex) => {
+                let charMatch = opt.match(/^[a-d]/i);
+                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+                let isTrue = tfMap[char] === true;
+                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/i, ''));
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <div style="display: flex; align-items: flex-start; gap: 8px; flex: 1;">
+                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #e2e8f0; color: #334155; font-weight: 700; border-radius: 6px; font-size: 0.85rem; flex-shrink: 0;">${char}</span>
+                            <span style="font-size: 0.95rem; color: #1e293b;">${optClean}</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'};">Đúng</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'};">Sai</span>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>`;
+        } else if (qType === 'short_answer') {
+            // Giao diện xem trước cho câu hỏi Trả lời ngắn
+            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer) : 'Chưa nhập đáp án';
+            html += `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
+                    <span style="font-weight: 700; color: #0284c7; font-size: 0.95rem;">✍️ Đáp án ngắn:</span>
+                    <span style="font-weight: 700; font-size: 1.05rem; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 6px; border: 1px solid #86efac;">${escapeHtml(caVal)}</span>
+                </div>`;
+        } else {
+            // MCQ (4 lựa chọn)
+            (q.options || []).forEach((opt, oIndex) => {
+                let isCorrect = q.correct_answer === opt;
+                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
+                html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: default; padding: 10px 14px; margin-bottom: 8px;">
+                            <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
+                            <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
+                            <span class="opt-text">${optClean}</span>
+                        </label>`;
+            });
+        }
 
-            aiDiv.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <i class="ri-sparkling-fill" style="color: #9333ea; font-size: 1.15rem;"></i>
-                        <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
-                        <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
-                    </div>
-                </div>
-                <div style="color: #dc2626; font-size: 0.92rem; font-weight: 600; margin-bottom: 8px;">
-                    ${aiData.reason}
-                </div>
-                ${correctedAnswerText ? `<div style="font-size: 0.88rem; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #bbf7d0; color: #166534; margin-bottom: 8px;">
-                    <i class="ri-checkbox-circle-line" style="vertical-align: middle;"></i> <b>Đề xuất đáp án đúng:</b> ${escapeHtml(correctedAnswerText)}
-                </div>` : ''}
-                ${explainText}
-                <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem; background: #9333ea; border: none; border-radius: 6px;" onclick="applyAISuggestion(${qIndex})">
-                        <i class="ri-magic-line"></i> Tự động sửa câu này
-                    </button>
-                    <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; border-color: #d8b4fe; color: #9333ea; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
-                        <i class="ri-close-line"></i> Bỏ qua
-                    </button>
-                </div>
-            `;
-            prevBox.appendChild(aiDiv);
+        // Lời giải chi tiết
+        if (q.explain && q.explain.trim()) {
+            html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
+                <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+            </div>`;
         }
         
+        prevBox.innerHTML = html;
+        
+        // Chèn thẻ AI gợi ý sửa lỗi / xóa câu / đổi kết cấu nếu có
+        if (hasError) {
+            const aiData = window.activeAIFeedbacks[qIndex];
+            const isDelete = aiData.action === 'delete' || aiData.category === 'delete';
+            const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
+
+            const catClass = isDelete ? 'ai-cat-delete' :
+                             (isRestructure ? 'ai-cat-restructure' :
+                             (aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
+                             (aiData.category === 'answer' ? 'ai-cat-answer' :
+                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+
+            const aiDiv = document.createElement('div');
+            aiDiv.onclick = (e) => e.stopPropagation();
+
+            if (isDelete) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; cursor: default;';
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-delete-bin-line" style="color: #dc2626; font-size: 1.15rem;"></i>
+                            <strong style="color: #dc2626;">Yêu cầu xóa câu hỏi:</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Yêu cầu xóa câu'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #991b1b; font-size: 0.92rem; font-weight: 500; margin-bottom: 10px; line-height: 1.5;">
+                        ${escapeHtml(aiData.reason || 'Người làm đề yêu cầu loại bỏ câu hỏi này.')}
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-delete" onclick="applyAIDelete(${qIndex})">
+                            <i class="ri-delete-bin-line"></i> Xác nhận xóa câu này
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else if (isRestructure) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let targetType = corrected.type || 'true_false';
+                let targetTypeName = targetType === 'true_false' ? 'Đúng / Sai' : (targetType === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm 4 lựa chọn');
+
+                let previewRestructure = '';
+                if (targetType === 'true_false' && Array.isArray(corrected.options)) {
+                    let tfMap = typeof corrected.correct_answer === 'object' && corrected.correct_answer ? corrected.correct_answer : {};
+                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff; margin-bottom: 8px;">
+                        <div style="font-weight: 700; color: #7e22ce; margin-bottom: 6px;"><i class="ri-checkbox-multiple-line"></i> Kết cấu Đúng/Sai mới:</div>`;
+                    corrected.options.forEach((opt, oIdx) => {
+                        let ch = ['a', 'b', 'c', 'd'][oIdx] || 'a';
+                        let isT = tfMap[ch] === true;
+                        previewRestructure += `<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #f3e8ff;">
+                            <span>${escapeHtml(opt)}</span>
+                            <span style="font-weight: 700; color: ${isT ? '#16a34a' : '#dc2626'};">${isT ? 'Đúng' : 'Sai'}</span>
+                        </div>`;
+                    });
+                    previewRestructure += `</div>`;
+                } else if (targetType === 'short_answer') {
+                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e9d5ff; color: #7e22ce; margin-bottom: 8px;">
+                        <b>✍️ Đáp án ngắn mới:</b> <span style="font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">${escapeHtml(String(corrected.correct_answer || ''))}</span>
+                    </div>`;
+                }
+
+                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-swap-line" style="color: #7e22ce; font-size: 1.15rem;"></i>
+                            <strong style="color: #7e22ce;">Thay đổi kết cấu (${targetTypeName}):</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Thay đổi kết cấu'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #6b21a8; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${previewRestructure}
+                    ${explainText}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-restructure" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-check-line"></i> Áp dụng đổi kết cấu
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let correctedAnswerText = typeof corrected.correct_answer === 'object' ? JSON.stringify(corrected.correct_answer) : (corrected.correct_answer || '');
+                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-sparkling-fill" style="color: #9333ea; font-size: 1.15rem;"></i>
+                            <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #dc2626; font-size: 0.92rem; font-weight: 600; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${correctedAnswerText ? `<div style="font-size: 0.88rem; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #bbf7d0; color: #166534; margin-bottom: 8px;">
+                        <i class="ri-checkbox-circle-line" style="vertical-align: middle;"></i> <b>Đề xuất đáp án đúng:</b> ${escapeHtml(correctedAnswerText)}
+                    </div>` : ''}
+                    ${explainText}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem; background: #9333ea; border: none; border-radius: 6px;" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-magic-line"></i> Tự động sửa câu này
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            }
+            prevBox.appendChild(aiDiv);
+        }
+
         previewContent.appendChild(prevBox);
     });
-
+    
     renderMathJax(previewContent);
 }
 
@@ -776,10 +978,11 @@ async function runAICheck() {
         if (res.ok && data.status === 'success') {
             document.getElementById('aiFeedbackBox').style.display = 'block';
             const statsContainer = document.getElementById('aiFeedbackStats');
-            const contentContainer = document.getElementById('aiFeedbackContent');
             const btnApplyAll = document.getElementById('btnApplyAllAI');
 
             window.activeAIFeedbacks = {};
+            window.activeAINewQuizData = (Array.isArray(data.new_quiz_data) && data.new_quiz_data.length > 0) ? data.new_quiz_data : null;
+            window.activeAISummary = data.summary || "";
 
             if (Array.isArray(data.feedback) && data.feedback.length > 0) {
                 data.feedback.forEach(item => {
@@ -788,24 +991,46 @@ async function runAICheck() {
 
                 const stats = data.stats || {
                     total_questions: currentData.length,
-                    valid_questions: currentData.length - data.feedback.length,
+                    valid_questions: Math.max(0, currentData.length - data.feedback.length),
                     error_count: data.feedback.length,
                     accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
-                    category_counts: { knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
+                    category_counts: { delete: 0, restructure: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
                 };
 
+                let summaryHtml = data.summary ? `
+                    <div class="ai-summary-banner">
+                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
+                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
+                    </div>
+                ` : '';
+
+                let catChipsHtml = '<div class="ai-cat-chips">';
+                if (stats.category_counts?.delete > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-delete"><i class="ri-delete-bin-line"></i> Yêu cầu xóa: <b>${stats.category_counts.delete}</b></span>`;
+                }
+                if (stats.category_counts?.restructure > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-restructure"><i class="ri-swap-line"></i> Đổi kết cấu: <b>${stats.category_counts.restructure}</b></span>`;
+                }
+                catChipsHtml += `
+                    <span class="ai-cat-chip ai-cat-knowledge"><i class="ri-brain-line"></i> Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-answer"><i class="ri-close-circle-line"></i> Đáp án: <b>${stats.category_counts?.answer || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-grammar"><i class="ri-spell-check-line"></i> Chính tả / Diễn đạt: <b>${stats.category_counts?.grammar_typo || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-format"><i class="ri-ruler-line"></i> Định dạng: <b>${stats.category_counts?.format || 0}</b></span>
+                </div>`;
+
                 let statsHtml = `
+                    ${summaryHtml}
                     <div class="ai-stat-grid">
                         <div class="ai-stat-card">
-                            <span class="ai-stat-label">Tổng số câu hỏi</span>
+                            <span class="ai-stat-label">Số câu ban đầu</span>
                             <span class="ai-stat-val" style="color: #2563eb;">${stats.total_questions}</span>
                         </div>
                         <div class="ai-stat-card">
-                            <span class="ai-stat-label">Câu đạt chuẩn 100%</span>
+                            <span class="ai-stat-label">Số câu đạt chuẩn</span>
                             <span class="ai-stat-val" style="color: #10b981;">${stats.valid_questions}</span>
                         </div>
                         <div class="ai-stat-card">
-                            <span class="ai-stat-label">Phát hiện cần sửa</span>
+                            <span class="ai-stat-label">Yêu cầu / Cần sửa</span>
                             <span class="ai-stat-val" style="color: #ef4444;">${stats.error_count}</span>
                         </div>
                         <div class="ai-stat-card">
@@ -813,59 +1038,34 @@ async function runAICheck() {
                             <span class="ai-stat-val" style="color: #9333ea;">${stats.accuracy_rate}%</span>
                         </div>
                     </div>
-
-                    <div class="ai-cat-chips">
-                        <span class="ai-cat-chip ai-cat-knowledge"><i class="ri-brain-line"></i> Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
-                        <span class="ai-cat-chip ai-cat-answer"><i class="ri-close-circle-line"></i> Đáp án: <b>${stats.category_counts?.answer || 0}</b></span>
-                        <span class="ai-cat-chip ai-cat-grammar"><i class="ri-spell-check-line"></i> Chính tả / Diễn đạt: <b>${stats.category_counts?.grammar_typo || 0}</b></span>
-                        <span class="ai-cat-chip ai-cat-format"><i class="ri-ruler-line"></i> Định dạng: <b>${stats.category_counts?.format || 0}</b></span>
-                    </div>
+                    ${catChipsHtml}
                 `;
                 statsContainer.innerHTML = statsHtml;
 
-                let errorListHtml = `
-                    <h4 style="margin: 15px 0 10px 0; color: #475569; font-size: 0.95rem; text-transform: uppercase;">
-                        <i class="ri-list-check-2" style="color: #9333ea;"></i> Danh sách các câu phát hiện vấn đề:
-                    </h4>
-                    <div class="ai-error-list-container">
-                `;
+                renderAIFeedbackList();
 
-                data.feedback.forEach(item => {
-                    const qIdx = item.question_index;
-                    const catClass = item.category === 'knowledge' ? 'ai-cat-knowledge' :
-                                     (item.category === 'answer' ? 'ai-cat-answer' :
-                                     (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'));
-
-                    errorListHtml += `
-                        <div class="ai-error-item" id="ai_summary_item_${qIdx}">
-                            <div style="flex: 1; min-width: 260px;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                    <span style="font-weight: 800; color: #6b21a8; font-size: 1rem;">Câu ${qIdx + 1}</span>
-                                    <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${item.category_name || 'Lỗi'}</span>
-                                </div>
-                                <div style="font-size: 0.9rem; color: #475569;">${item.reason}</div>
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem;" onclick="jumpToQuestionCard(${qIdx})"><i class="ri-focus-2-line"></i> Tới Câu ${qIdx + 1}</button>
-                                <button class="btn-studio-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})"><i class="ri-magic-line"></i> Sửa câu này</button>
-                            </div>
-                        </div>
-                    `;
-                });
-                errorListHtml += `</div>`;
-                contentContainer.innerHTML = errorListHtml;
-
-                if (btnApplyAll) btnApplyAll.style.display = 'inline-block';
+                if (btnApplyAll) {
+                    btnApplyAll.style.display = 'inline-block';
+                    btnApplyAll.innerHTML = '<i class="ri-flashlight-line"></i> Áp dụng TẤT CẢ thay đổi';
+                }
                 renderPreviewAll();
             } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
+                let summaryHtml = data.summary ? `
+                    <div class="ai-summary-banner" style="margin-bottom: 20px;">
+                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
+                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
+                    </div>
+                ` : '';
+
                 statsContainer.innerHTML = `
+                    ${summaryHtml}
                     <div style="text-align: center; padding: 25px 10px;">
                         <div style="font-size: 3rem; color: #10b981; margin-bottom: 10px;"><i class="ri-checkbox-circle-fill"></i></div>
                         <h3 style="margin: 0; color: #059669;">Tuyệt vời! Đề thi đạt chuẩn 100% không phát hiện lỗi!</h3>
                         <p style="margin: 6px 0 0 0; color: #64748b;">Toàn bộ câu hỏi, đáp án và định dạng đều hoàn hảo và sẵn sàng xuất bản.</p>
                     </div>
                 `;
-                contentContainer.innerHTML = '';
+                document.getElementById('aiFeedbackContent').innerHTML = '';
                 if (btnApplyAll) btnApplyAll.style.display = 'none';
             }
         } else {
@@ -877,6 +1077,77 @@ async function runAICheck() {
         btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
         btn.disabled = false;
     }
+}
+
+function renderAIFeedbackList() {
+    const contentContainer = document.getElementById('aiFeedbackContent');
+    const btnApplyAll = document.getElementById('btnApplyAllAI');
+    if (!contentContainer) return;
+
+    const remainingKeys = Object.keys(window.activeAIFeedbacks || {});
+    if (remainingKeys.length === 0) {
+        contentContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px 10px;">
+                <div style="font-size: 2.2rem; color: #10b981; margin-bottom: 6px;"><i class="ri-checkbox-circle-fill"></i></div>
+                <h3 style="margin: 0; color: #059669;">Tất cả yêu cầu và lỗi đã được xử lý hoàn tất!</h3>
+                <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi đã được cập nhật và đồng bộ toàn diện.</p>
+            </div>
+        `;
+        if (btnApplyAll) btnApplyAll.style.display = 'none';
+        return;
+    }
+
+    let errorListHtml = `
+        <h4 style="margin: 15px 0 10px 0; color: #475569; font-size: 0.95rem; text-transform: uppercase;">
+            <i class="ri-list-check-2" style="color: #9333ea;"></i> Danh sách các câu cần xử lý (${remainingKeys.length} câu):
+        </h4>
+        <div class="ai-error-list-container">
+    `;
+
+    // Sắp xếp danh sách câu tăng dần theo question_index
+    const sortedIndices = remainingKeys.map(Number).sort((a, b) => a - b);
+    sortedIndices.forEach(qIdx => {
+        const item = window.activeAIFeedbacks[qIdx];
+        if (!item) return;
+
+        const isDelete = item.action === 'delete' || item.category === 'delete';
+        const isRestructure = item.action === 'restructure' || item.category === 'restructure';
+
+        const catClass = isDelete ? 'ai-cat-delete' :
+                         (isRestructure ? 'ai-cat-restructure' :
+                         (item.category === 'knowledge' ? 'ai-cat-knowledge' :
+                         (item.category === 'answer' ? 'ai-cat-answer' :
+                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+
+        let actionBtnHtml = '';
+        if (isDelete) {
+            actionBtnHtml = `<button class="btn-ai-delete" onclick="applyAIDelete(${qIdx})"><i class="ri-delete-bin-line"></i> Xóa câu này</button>`;
+        } else if (isRestructure) {
+            actionBtnHtml = `<button class="btn-ai-restructure" onclick="applyAISuggestion(${qIdx})"><i class="ri-swap-line"></i> Đổi kết cấu</button>`;
+        } else {
+            actionBtnHtml = `<button class="btn-studio-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})"><i class="ri-magic-line"></i> Sửa câu này</button>`;
+        }
+
+        errorListHtml += `
+            <div class="ai-error-item" id="ai_summary_item_${qIdx}">
+                <div style="flex: 1; min-width: 260px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-weight: 800; color: #6b21a8; font-size: 1rem;">Câu ${qIdx + 1}</span>
+                        <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${item.category_name || (isDelete ? 'Yêu cầu xóa câu' : 'Lỗi')}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: ${isDelete ? '#dc2626; font-weight: 500;' : '#475569;'}">${escapeHtml(item.reason)}</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem;" onclick="jumpToQuestionCard(${qIdx})"><i class="ri-focus-2-line"></i> Tới Câu ${qIdx + 1}</button>
+                    ${actionBtnHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    errorListHtml += `</div>`;
+    contentContainer.innerHTML = errorListHtml;
+    if (btnApplyAll) btnApplyAll.style.display = 'inline-block';
 }
 
 function jumpToQuestionCard(qIndex) {
@@ -896,25 +1167,35 @@ function jumpToQuestionCard(qIndex) {
 function applyAllAISuggestions() {
     if (!window.activeAIFeedbacks || Object.keys(window.activeAIFeedbacks).length === 0) return;
     const count = Object.keys(window.activeAIFeedbacks).length;
-    if (!confirm(`Bạn có chắc muốn tự động sửa toàn bộ ${count} câu lỗi theo đề xuất của AI?`)) return;
+    if (!confirm(`Bạn có chắc muốn áp dụng TẤT CẢ ${count} thay đổi từ AI (xóa câu, đổi kết cấu, sửa nội dung)?`)) return;
 
-    for (let qIndexStr in window.activeAIFeedbacks) {
-        const qIndex = parseInt(qIndexStr);
-        const aiData = window.activeAIFeedbacks[qIndex];
-        if (aiData && currentData[qIndex]) {
-            const corrected = aiData.corrected_data;
-            const origGroup = currentData[qIndex].group_title;
-            currentData[qIndex] = {
-                ...corrected,
-                group_title: corrected.group_title !== undefined ? corrected.group_title : origGroup
-            };
+    if (Array.isArray(window.activeAINewQuizData) && window.activeAINewQuizData.length > 0) {
+        currentData = JSON.parse(JSON.stringify(window.activeAINewQuizData));
+    } else {
+        // Áp dụng từ dưới lên (chỉ số cao xuống thấp) để tránh lệch index khi xóa câu
+        const sortedIndices = Object.keys(window.activeAIFeedbacks).map(Number).sort((a, b) => b - a);
+        for (const qIdx of sortedIndices) {
+            const fb = window.activeAIFeedbacks[qIdx];
+            if (!fb) continue;
+            if (fb.action === 'delete' || fb.category === 'delete') {
+                currentData.splice(qIdx, 1);
+            } else if (fb.corrected_data && currentData[qIdx]) {
+                const origGroup = currentData[qIdx].group_title;
+                currentData[qIdx] = {
+                    ...fb.corrected_data,
+                    group_title: fb.corrected_data.group_title !== undefined ? fb.corrected_data.group_title : origGroup
+                };
+            }
         }
     }
 
     window.activeAIFeedbacks = {};
+    window.activeAINewQuizData = null;
+
     syncDataToEditor();
     renderPreviewAll();
     saveDraftToSession();
+    renderAIFeedbackList();
 
     const btnApplyAll = document.getElementById('btnApplyAllAI');
     if (btnApplyAll) btnApplyAll.style.display = 'none';
@@ -922,19 +1203,53 @@ function applyAllAISuggestions() {
     document.getElementById('aiFeedbackStats').innerHTML = `
         <div style="text-align: center; padding: 20px 10px;">
             <div style="font-size: 2.5rem; color: #9333ea; margin-bottom: 8px;"><i class="ri-sparkling-fill"></i></div>
-            <h3 style="margin: 0; color: #9333ea;">Đã tự động sửa thành công tất cả ${count} câu hỏi!</h3>
+            <h3 style="margin: 0; color: #9333ea;">Đã áp dụng thành công tất cả thay đổi!</h3>
             <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo Code đã được cập nhật hoàn tất.</p>
         </div>
     `;
-    document.getElementById('aiFeedbackContent').innerHTML = '';
-    showToast(`Đã sửa tự động ${count} câu!`);
+    showToast(`Đã áp dụng tất cả thay đổi thành công!`);
+}
+
+function applyAIDelete(question_index) {
+    if (!confirm(`Bạn có chắc chắn muốn XÓA Câu ${question_index + 1}? Câu hỏi này sẽ bị loại bỏ khỏi đề thi.`)) return;
+
+    currentData.splice(question_index, 1);
+
+    // Cập nhật lại chỉ số các câu hỏi còn lại trong activeAIFeedbacks
+    delete window.activeAIFeedbacks[question_index];
+    const newFeedbacks = {};
+    for (const key in window.activeAIFeedbacks) {
+        const k = parseInt(key);
+        if (k > question_index) {
+            const item = window.activeAIFeedbacks[k];
+            item.question_index = k - 1;
+            newFeedbacks[k - 1] = item;
+        } else {
+            newFeedbacks[k] = window.activeAIFeedbacks[k];
+        }
+    }
+    window.activeAIFeedbacks = newFeedbacks;
+    window.activeAINewQuizData = null; // Huỷ bỏ snapshot hàng loạt vì dữ liệu đã thay đổi cục bộ
+
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    renderAIFeedbackList();
+
+    showToast(`Đã xóa Câu ${question_index + 1}!`);
 }
 
 function applyAISuggestion(question_index) {
     const aiData = window.activeAIFeedbacks[question_index];
     if (!aiData) return;
 
+    if (aiData.action === 'delete' || aiData.category === 'delete') {
+        return applyAIDelete(question_index);
+    }
+
     const corrected = aiData.corrected_data;
+    if (!corrected) return;
+
     const origGroup = currentData[question_index] ? currentData[question_index].group_title : "";
     
     currentData[question_index] = {
@@ -943,22 +1258,22 @@ function applyAISuggestion(question_index) {
     };
 
     delete window.activeAIFeedbacks[question_index];
+    window.activeAINewQuizData = null;
 
     syncDataToEditor();
     renderPreviewAll();
     saveDraftToSession();
+    renderAIFeedbackList();
 
-    const summaryItem = document.getElementById(`ai_summary_item_${question_index}`);
-    if (summaryItem) summaryItem.remove();
-
-    showToast(`Đã sửa xong Câu ${question_index + 1}!`);
+    const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
+    showToast(`Đã ${isRestructure ? 'đổi kết cấu' : 'sửa'} xong Câu ${question_index + 1}!`);
 }
 
 function dismissAISuggestion(question_index) {
     delete window.activeAIFeedbacks[question_index];
+    window.activeAINewQuizData = null;
     renderPreviewAll();
-    const summaryItem = document.getElementById(`ai_summary_item_${question_index}`);
-    if (summaryItem) summaryItem.remove();
+    renderAIFeedbackList();
 }
 
 // ----------------------------------------------------
@@ -1012,27 +1327,51 @@ function renderInteractiveTest(mode) {
                 <div class="options-container">
         `;
 
-        q.options.forEach((opt, oIndex) => {
-            const optChar = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
-            const optContent = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
+        const qType = q.type || 'mcq';
+        if (qType === 'true_false' || typeof q.correct_answer === 'object') {
+            (q.options || []).forEach((opt, oIndex) => {
+                const charMatch = opt.match(/^[a-d]/i);
+                const char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/i, ''));
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;">
+                        <div style="flex: 1; margin-right: 12px; font-size: 0.95rem;"><b>${char})</b> ${optContent}</div>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_t" onclick="handleTestTFSelect(${qIndex}, '${char}', true, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Đúng</button>
+                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_f" onclick="handleTestTFSelect(${qIndex}, '${char}', false, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Sai</button>
+                        </div>
+                    </div>`;
+            });
+        } else if (qType === 'short_answer') {
+            html += `
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <input type="text" id="test_sa_${qIndex}" placeholder="Nhập câu trả lời..." style="flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;" onchange="handleTestSAChange(${qIndex}, this.value)">
+                    ${mode === 'practice' ? `<button class="btn-primary" style="margin: 0; padding: 8px 16px;" onclick="handleTestSAPracticeCheck(${qIndex})">Kiểm tra</button>` : ''}
+                </div>
+                <div id="test_sa_feedback_${qIndex}" style="margin-top: 6px; font-weight: 600;"></div>`;
+        } else {
+            (q.options || []).forEach((opt, oIndex) => {
+                const optChar = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
+                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
 
-            if (mode === 'practice') {
-                html += `
-                    <div class="option-practice" id="test_opt_${qIndex}_${oIndex}" onclick="handleTestPracticeSelect(${qIndex}, ${oIndex})">
-                        <span class="opt-badge">${optChar}</span>
-                        <span class="opt-text">${optContent}</span>
-                    </div>
-                `;
-            } else {
-                html += `
-                    <label class="option-wrapper" style="display: flex; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;" id="test_exam_opt_${qIndex}_${oIndex}">
-                        <input type="radio" name="test_exam_radio_${qIndex}" style="width: 20px; height: 20px; margin-right: 12px;" onchange="handleTestExamSelect(${qIndex}, ${oIndex})">
-                        <span style="font-weight: 700; margin-right: 8px; color: var(--primary);">${optChar}.</span>
-                        <span>${optContent}</span>
-                    </label>
-                `;
-            }
-        });
+                if (mode === 'practice') {
+                    html += `
+                        <div class="option-practice" id="test_opt_${qIndex}_${oIndex}" onclick="handleTestPracticeSelect(${qIndex}, ${oIndex})">
+                            <span class="opt-badge">${optChar}</span>
+                            <span class="opt-text">${optContent}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <label class="option-wrapper" style="display: flex; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;" id="test_exam_opt_${qIndex}_${oIndex}">
+                            <input type="radio" name="test_exam_radio_${qIndex}" style="width: 20px; height: 20px; margin-right: 12px;" onchange="handleTestExamSelect(${qIndex}, ${oIndex})">
+                            <span style="font-weight: 700; margin-right: 8px; color: var(--primary);">${optChar}.</span>
+                            <span>${optContent}</span>
+                        </label>
+                    `;
+                }
+            });
+        }
 
         html += `</div></div>`;
     });
@@ -1042,26 +1381,75 @@ function renderInteractiveTest(mode) {
     renderMathJax(container);
 }
 
+function handleTestTFSelect(qIndex, char, isTrue, mode) {
+    if (mode === 'practice') {
+        const q = currentData[qIndex];
+        const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
+        const isMatched = (Boolean(correctMap[char]) === isTrue);
+        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
+        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
+        if (btnT && btnF) {
+            btnT.style.background = (isTrue && isMatched) ? '#dcfce7' : (isTrue && !isMatched ? '#fee2e2' : 'white');
+            btnF.style.background = (!isTrue && isMatched) ? '#dcfce7' : (!isTrue && !isMatched ? '#fee2e2' : 'white');
+        }
+    } else {
+        if (!testExamAnswers[qIndex] || typeof testExamAnswers[qIndex] !== 'object') {
+            testExamAnswers[qIndex] = {};
+        }
+        testExamAnswers[qIndex][char] = isTrue;
+        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
+        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
+        if (btnT && btnF) {
+            btnT.style.background = isTrue ? '#dbeafe' : 'white';
+            btnT.style.borderColor = isTrue ? '#3b82f6' : '#cbd5e1';
+            btnF.style.background = !isTrue ? '#dbeafe' : 'white';
+            btnF.style.borderColor = !isTrue ? '#3b82f6' : '#cbd5e1';
+        }
+    }
+}
+
+function handleTestSAChange(qIndex, val) {
+    testExamAnswers[qIndex] = val;
+}
+
+function handleTestSAPracticeCheck(qIndex) {
+    const q = currentData[qIndex];
+    const inputEl = document.getElementById(`test_sa_${qIndex}`);
+    const feedbackEl = document.getElementById(`test_sa_feedback_${qIndex}`);
+    const uStr = inputEl ? inputEl.value.trim().toLowerCase().replace(',', '.').replace(/\s+/g, '') : '';
+    const cStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+    const isCorrect = Boolean(uStr && uStr === cStr);
+    
+    if (feedbackEl) {
+        feedbackEl.innerHTML = isCorrect ? 
+            `<span style="color: #16a34a;">✅ Chính xác!</span>` : 
+            `<span style="color: #dc2626;">❌ Sai rồi. Đáp án đúng là: ${escapeHtml(String(q.correct_answer || ''))}</span>`;
+    }
+}
+
 function handleTestPracticeSelect(qIndex, oIndex) {
     if (testPracticeAnswers[qIndex] !== undefined) return;
     testPracticeAnswers[qIndex] = oIndex;
 
     const q = currentData[qIndex];
+    if (!q || !q.options) return;
     const selectedOpt = q.options[oIndex];
     const isCorrect = (selectedOpt === q.correct_answer);
 
     const clickedEl = document.getElementById(`test_opt_${qIndex}_${oIndex}`);
-    if (isCorrect) {
-        clickedEl.classList.add('correct');
-    } else {
-        clickedEl.classList.add('incorrect');
-        // Tìm và highlight đáp án đúng
-        q.options.forEach((opt, idx) => {
-            if (opt === q.correct_answer) {
-                const corrEl = document.getElementById(`test_opt_${qIndex}_${idx}`);
-                if (corrEl) corrEl.classList.add('correct');
-            }
-        });
+    if (clickedEl) {
+        if (isCorrect) {
+            clickedEl.classList.add('correct');
+        } else {
+            clickedEl.classList.add('incorrect');
+            // Tìm và highlight đáp án đúng
+            q.options.forEach((opt, idx) => {
+                if (opt === q.correct_answer) {
+                    const corrEl = document.getElementById(`test_opt_${qIndex}_${idx}`);
+                    if (corrEl) corrEl.classList.add('correct');
+                }
+            });
+        }
     }
 }
 
@@ -1070,16 +1458,32 @@ function handleTestExamSelect(qIndex, oIndex) {
 }
 
 function handleTestExamSubmit() {
-    let correctCount = 0;
+    let earnedTotal = 0;
     currentData.forEach((q, qIndex) => {
-        const chosenIdx = testExamAnswers[qIndex];
-        if (chosenIdx !== undefined && q.options[chosenIdx] === q.correct_answer) {
-            correctCount++;
+        const qType = q.type || 'mcq';
+        if (qType === 'true_false' || typeof q.correct_answer === 'object') {
+            const chosen = testExamAnswers[qIndex] || {};
+            const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
+            let matches = 0;
+            ['a', 'b', 'c', 'd'].forEach(char => {
+                if (chosen[char] !== undefined && Boolean(chosen[char]) === Boolean(correctMap[char])) matches++;
+            });
+            const tfScale = [0.0, 0.1, 0.25, 0.5, 1.0];
+            earnedTotal += (tfScale[matches] !== undefined ? tfScale[matches] : 0.0);
+        } else if (qType === 'short_answer') {
+            const userStr = String(testExamAnswers[qIndex] || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+            const corrStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+            if (userStr && userStr === corrStr) earnedTotal += 1;
+        } else {
+            const chosenIdx = testExamAnswers[qIndex];
+            if (chosenIdx !== undefined && q.options && q.options[chosenIdx] === q.correct_answer) {
+                earnedTotal += 1;
+            }
         }
     });
 
-    const score = ((correctCount / currentData.length) * 10).toFixed(1);
-    alert(`🎉 KẾT QUẢ THI THỬ:\n\n- Đúng: ${correctCount} / ${currentData.length} câu\n- Điểm số: ${score} / 10`);
+    const score = currentData.length > 0 ? ((earnedTotal / currentData.length) * 10).toFixed(1) : "0.0";
+    alert(`🎉 KẾT QUẢ THI THỬ:\n\n- Điểm đạt được: ${earnedTotal.toFixed(2)} / ${currentData.length}\n- Điểm quy đổi: ${score} / 10`);
 }
 
 // ----------------------------------------------------
@@ -1136,6 +1540,12 @@ function closePublishModal() {
 async function confirmPublishQuiz() {
     const title = document.getElementById('modalQuizTitle').value.trim();
     if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
+
+    if (!authToken) {
+        alert("Vui lòng đăng nhập tài khoản Giáo viên để lưu và xuất bản đề thi!");
+        window.location.href = "index.html";
+        return;
+    }
 
     const mode = document.getElementById('modalQuizMode').value;
     const timeLimit = parseInt(document.getElementById('modalQuizTime').value) || 0;
