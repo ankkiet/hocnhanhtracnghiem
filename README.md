@@ -194,4 +194,4 @@ Kiểm thử bao gồm:
 
 Dự án được phát hành theo giấy phép [MIT License](LICENSE).
 Mọi đóng góp, báo lỗi hoặc yêu cầu tính năng xin vui lòng mở Issue hoặc Pull Request trên kho mã nguồn.
-Link công khai: hocnhanhtn.pages.dev
+Link công khai: [hocnhanhtn.pages.dev](https://hocnhanhtn.pages.dev/) 
