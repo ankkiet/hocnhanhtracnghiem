@@ -1,5 +1,12 @@
 # Database
 quizzes.db
+*.db
+*.sqlite3
+
+# Archives and build artifacts
+*.zip
+*.tar.gz
+*.rar
 
 # Environments
 .env

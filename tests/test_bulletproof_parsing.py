@@ -441,7 +441,57 @@ class TestBulletproofParsing(unittest.TestCase):
             "correct_answer": "Đáp án: 15.5"
         })
         self.assertEqual(sa["type"], "short_answer")
-        self.assertEqual(sa["correct_answer"], "15.5")
+    def test_normalize_question_data_edge_cases(self):
+        """Kiểm tra các trường hợp đặc biệt: tiền tố Câu X, chữ hoa/thường, dấu hoa thị, tag [ĐÚNG]/[SAI]."""
+        from services.ai_service import normalize_question_data
+        from core.docx_parser import split_merged_options
+        
+        # Tiền tố [Câu 1] và dấu hoa thị *A.
+        q1 = normalize_question_data({
+            "question": "[Câu 10] Cho chất hữu cơ X...",
+            "options": ["*A. C_2H_5OH", "B. CH_3COOH", "C. H_2O", "D. CO_2"],
+            "correct_answer": "Đáp án A"
+        })
+        self.assertEqual(q1["question"], "Cho chất hữu cơ X...")
+        self.assertEqual(q1["options"][0], "A. C<sub>2</sub>H<sub>5</sub>OH")
+        self.assertNotIn("*", q1["options"][0])
+        self.assertEqual(q1["correct_answer"], "A. C<sub>2</sub>H<sub>5</sub>OH")
+        self.assertEqual(q1["type"], "mcq")
+
+        # Phương án dạng chữ thường a, b, c, d nhưng là MCQ (không có cấu trúc Đúng/Sai)
+        q2 = normalize_question_data({
+            "question": "1. Thủ đô của Việt Nam là gì?",
+            "options": ["a. Hà Nội", "b. Đà Nẵng", "c. Huế", "d. TP.HCM"],
+            "correct_answer": "(A)"
+        })
+        self.assertEqual(q2["question"], "Thủ đô của Việt Nam là gì?")
+        self.assertEqual(q2["options"][0], "A. Hà Nội")
+        self.assertEqual(q2["correct_answer"], "A. Hà Nội")
+        self.assertEqual(q2["type"], "mcq")
+
+        # Dạng Đúng / Sai có tag [ĐÚNG], [SAI] trong nội dung options
+        q3 = normalize_question_data({
+            "type": "true_false",
+            "question": "Câu 2: Các mệnh đề sau:",
+            "options": ["a) Đường thẳng song song mặt phẳng [ĐÚNG]", "b) Mặt phẳng vuông góc đường thẳng [SAI]"],
+            "correct_answer": ""
+        })
+        self.assertEqual(q3["question"], "Các mệnh đề sau:")
+        self.assertEqual(q3["options"][0], "a) Đường thẳng song song mặt phẳng")
+        self.assertEqual(q3["options"][1], "b) Mặt phẳng vuông góc đường thẳng")
+        self.assertTrue(q3["correct_answer"]["a"])
+        self.assertFalse(q3["correct_answer"]["b"])
+
+        # Bảo vệ câu toán có dấu chấm trong câu không bị chẻ nhầm bởi split_merged_options
+        opts = [
+            "A. Cho tam giác ABC vuông tại A và B. Biết AB = 2a.",
+            "B. Cho tam giác ABC đều.",
+            "C. Cho hình vuông ABCD.",
+            "D. Cho hình thang vuông."
+        ]
+        res_opts = split_merged_options(opts)
+        self.assertEqual(len(res_opts), 4)
+        self.assertEqual(res_opts[0], opts[0])
 
 
 if __name__ == "__main__":

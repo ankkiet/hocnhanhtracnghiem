@@ -434,7 +434,7 @@ function dataToEditorText(data) {
         if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
             text += `${q.group_title.replace(/<br>/gi, '\n')}\n`;
         }
-        let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '').replace(/<br>/gi, '\n');
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '').replace(/<br>/gi, '\n');
         text += `Câu ${i + 1}: ${qClean}\n`;
         
         let qType = q.type || 'mcq';
@@ -459,6 +459,13 @@ function dataToEditorText(data) {
             // MCQ (4 lựa chọn)
             (q.options || []).forEach((opt) => {
                 let isCorrect = (q.correct_answer === opt);
+                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
+                    let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
+                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
+                        isCorrect = true;
+                    }
+                }
                 let optText = opt.replace(/<br>/gi, '\n');
                 if (isCorrect) {
                     optText = optText.replace(/^([A-F])([\.\:\)])/i, '*$1$2');
@@ -690,7 +697,7 @@ function renderPreviewAll() {
 
         let html = "";
         let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
-        let qClean = (q.question || '').replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
         let formattedQ = formatSubscriptsAndFormulas(qClean).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
         
         let qType = q.type || 'mcq';
@@ -733,10 +740,16 @@ function renderPreviewAll() {
                     <span style="font-weight: 700; color: #0284c7; font-size: 0.95rem;">✍️ Đáp án ngắn:</span>
                     <span style="font-weight: 700; font-size: 1.05rem; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 6px; border: 1px solid #86efac;">${escapeHtml(caVal)}</span>
                 </div>`;
-        } else {
             // MCQ (4 lựa chọn)
             (q.options || []).forEach((opt, oIndex) => {
                 let isCorrect = q.correct_answer === opt;
+                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
+                    let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
+                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
+                        isCorrect = true;
+                    }
+                }
                 let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
                 html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: default; padding: 10px 14px; margin-bottom: 8px;">
                             <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
@@ -1315,7 +1328,7 @@ function renderInteractiveTest(mode) {
     let html = "";
     currentData.forEach((q, qIndex) => {
         let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
-        let qClean = q.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
         let formattedQ = formatSubscriptsAndFormulas(qClean).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
 
         html += `

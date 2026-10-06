@@ -111,12 +111,16 @@ async def get_auth_config():
         "google_client_id": client_id
     }
 
+class SelectRoleRequest(BaseModel):
+    user_id: str
+    role: str
+
 @router.post("/google", summary="Đăng nhập hoặc đăng ký nhanh bằng Google")
 async def google_login(req: GoogleAuthRequest):
     """
     Xác thực qua tài khoản Google.
-    - Tài khoản kiet0905478167@gmail.com luôn được cấp quyền Admin cao nhất.
-    - Tự động đồng bộ thông tin và cấp JWT Token an toàn.
+    - Tài khoản Admin chỉ định luôn được cấp quyền Admin cao nhất.
+    - Người dùng mới đăng nhập lần đầu sẽ phải chọn vai trò: Học sinh (dùng ngay) hoặc Giáo viên (chờ Admin duyệt).
     """
     db = get_db()
     if db is None:
@@ -173,31 +177,85 @@ async def google_login(req: GoogleAuthRequest):
 
         db.collection('users').document(user_id).update(update_fields)
 
-        if user_data.get('status') != 'approved':
-            raise HTTPException(status_code=403, detail="Tài khoản của bạn đang chờ Quản trị viên phê duyệt.")
+        if is_super_admin:
+            final_role = 'admin'
+            final_name = user_data.get('full_name') or name
+        else:
+            current_role = user_data.get('role')
+            current_status = user_data.get('status')
+            has_selected_role = bool(user_data.get('role_selected_at'))
 
-        final_role = user_data.get('role', 'student')
-        final_name = user_data.get('full_name') or name
+            # QUAN TRỌNG: Tuyệt đối không mặc định tài khoản Google là giáo viên.
+            # Bắt buộc chuyển sang trang chọn vai trò nếu chưa từng xác nhận chọn vai trò.
+            if not has_selected_role or not current_role or current_role == 'pending_selection' or current_status == 'needs_role':
+                return {
+                    "status": "needs_role_selection",
+                    "user_id": user_id,
+                    "email": email,
+                    "full_name": user_data.get('full_name') or name,
+                    "avatar": picture or user_data.get('avatar', ''),
+                    "message": "Vui lòng chọn bạn là Học sinh hay Giáo viên để tiếp tục."
+                }
+
+            # Nếu là Giáo viên nhưng chưa được Admin duyệt
+            if current_role == 'teacher' and current_status != 'approved':
+                return {
+                    "status": "pending_approval",
+                    "user_id": user_id,
+                    "email": email,
+                    "full_name": user_data.get('full_name') or name,
+                    "role": "teacher",
+                    "avatar": picture or user_data.get('avatar', ''),
+                    "message": "Tài khoản Giáo viên của bạn đang chờ Quản trị viên phê duyệt."
+                }
+
+            final_role = current_role or 'student'
+            final_name = user_data.get('full_name') or name
     else:
-        # Tạo người dùng mới
-        final_role = 'admin' if is_super_admin else 'teacher'
-        final_status = 'approved' # Người dùng qua Google đã xác thực email
-        final_name = name
-
-        new_user_data = {
-            'username': email,
-            'email': email,
-            'full_name': final_name,
-            'role': final_role,
-            'status': final_status,
-            'auth_provider': 'google',
-            'avatar': picture,
-            'google_id': google_sub,
-            'created_at': now_iso,
-            'last_login': now_iso
-        }
-        _, new_doc = db.collection('users').add(new_user_data)
-        user_id = new_doc.id
+        # Người dùng Google lần đầu tiên
+        if is_super_admin:
+            final_role = 'admin'
+            final_status = 'approved'
+            final_name = name
+            new_user_data = {
+                'username': email,
+                'email': email,
+                'full_name': final_name,
+                'role': final_role,
+                'status': final_status,
+                'auth_provider': 'google',
+                'avatar': picture,
+                'google_id': google_sub,
+                'created_at': now_iso,
+                'last_login': now_iso
+            }
+            _, new_doc = db.collection('users').add(new_user_data)
+            user_id = new_doc.id
+        else:
+            # Người dùng mới: BẮT BUỘC lưu ở trạng thái cần chọn vai trò, KHÔNG BAO GIỜ mặc định giáo viên!
+            new_user_data = {
+                'username': email,
+                'email': email,
+                'full_name': name,
+                'role': 'pending_selection',
+                'status': 'needs_role',
+                'role_selected_at': None,
+                'auth_provider': 'google',
+                'avatar': picture,
+                'google_id': google_sub,
+                'created_at': now_iso,
+                'last_login': now_iso
+            }
+            _, new_doc = db.collection('users').add(new_user_data)
+            user_id = new_doc.id
+            return {
+                "status": "needs_role_selection",
+                "user_id": user_id,
+                "email": email,
+                "full_name": name,
+                "avatar": picture,
+                "message": "Đăng nhập Google thành công! Vui lòng chọn bạn là Học sinh hay Giáo viên."
+            }
 
     # Tạo JWT Token bảo mật 7 ngày
     token_payload = {
@@ -215,6 +273,164 @@ async def google_login(req: GoogleAuthRequest):
         "full_name": final_name,
         "email": email,
         "avatar": picture
+    }
+
+@router.post("/select_role", summary="Chọn vai trò sau khi đăng nhập lần đầu")
+async def select_role(req: SelectRoleRequest):
+    """
+    Xử lý chọn vai trò sau khi đăng nhập Google lần đầu:
+    - Học sinh: Cấp quyền ngay (status=approved), trả về JWT Token.
+    - Giáo viên: Đặt status=pending (Chờ Admin duyệt), không cấp quyền truy cập ngay.
+    """
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
+
+    user_doc = db.collection('users').document(req.user_id).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người dùng")
+
+    user_data = user_doc.to_dict()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    selected_role = req.role.strip().lower()
+
+    if selected_role not in ['student', 'teacher']:
+        raise HTTPException(status_code=400, detail="Vai trò không hợp lệ. Vui lòng chọn 'student' hoặc 'teacher'.")
+
+    email = user_data.get('email') or user_data.get('username', '')
+    full_name = user_data.get('full_name', '') or email.split('@')[0]
+
+    if selected_role == 'teacher':
+        # Giáo viên: BẮT BUỘC chờ Quản trị viên duyệt
+        db.collection('users').document(req.user_id).update({
+            'role': 'teacher',
+            'status': 'pending',
+            'role_selected_at': now_iso
+        })
+        return {
+            "status": "pending_approval",
+            "user_id": req.user_id,
+            "role": "teacher",
+            "email": email,
+            "full_name": full_name,
+            "message": "Đã ghi nhận vai trò Giáo viên! Tài khoản của bạn đang chờ Quản trị viên xét duyệt."
+        }
+    else:
+        # Học sinh: Kích hoạt ngay lập tức
+        db.collection('users').document(req.user_id).update({
+            'role': 'student',
+            'status': 'approved',
+            'role_selected_at': now_iso
+        })
+        token_payload = {
+            "sub": req.user_id,
+            "username": email,
+            "role": "student",
+            "full_name": full_name
+        }
+        jwt_token = create_access_token(token_payload)
+        return {
+            "status": "success",
+            "token": jwt_token,
+            "role": "student",
+            "full_name": full_name,
+            "email": email,
+            "message": "Đăng ký vai trò Học sinh thành công! Chúc bạn học tập hiệu quả."
+        }
+
+@router.get("/check_approval_status", summary="Kiểm tra trạng thái duyệt tài khoản")
+async def check_approval_status(user_id: str):
+    """Kiểm tra tài khoản giáo viên đã được Admin duyệt hay chưa để kích hoạt ngay mà không cần đăng nhập lại."""
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
+
+    user_doc = db.collection('users').document(user_id).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người dùng")
+
+    user_data = user_doc.to_dict()
+    status = user_data.get('status', 'pending')
+    role = user_data.get('role', 'student')
+    full_name = user_data.get('full_name', '')
+    email = user_data.get('email') or user_data.get('username', '')
+
+    if status == 'approved':
+        token_payload = {
+            "sub": user_id,
+            "username": email,
+            "role": role,
+            "full_name": full_name
+        }
+        jwt_token = create_access_token(token_payload)
+        return {
+            "status": "approved",
+            "token": jwt_token,
+            "role": role,
+            "full_name": full_name,
+            "email": email,
+            "message": "Tài khoản của bạn đã được Quản trị viên phê duyệt thành công!"
+        }
+    return {
+        "status": "pending",
+        "role": role,
+        "full_name": full_name,
+        "email": email,
+        "message": "Tài khoản vẫn đang trong danh sách chờ Quản trị viên xét duyệt."
+    }
+
+@router.get("/me", summary="Lấy thông tin tài khoản hiện tại từ Token")
+async def get_current_user_profile(token: Optional[str] = None):
+    """
+    Xác thực token người dùng, đảm bảo vai trò và trạng thái chính xác.
+    Nếu tài khoản chưa hoàn tất chọn vai trò hoặc đang chờ duyệt, trả về trạng thái tương ứng.
+    """
+    db = get_db()
+    if not token or db is None:
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập hoặc phiên làm việc hết hạn")
+
+    from core.security import get_user_from_token
+    user = get_user_from_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
+
+    username = (user.get('username') or '').strip().lower()
+    email = (user.get('email') or '').strip().lower()
+    is_super_admin = (username in ADMIN_EMAILS or email in ADMIN_EMAILS)
+
+    if not is_super_admin:
+        has_selected_role = bool(user.get('role_selected_at'))
+        role = user.get('role')
+        status = user.get('status')
+
+        # Nếu tài khoản Google hoặc tài khoản mới chưa từng xác nhận vai trò
+        if not has_selected_role or not role or role == 'pending_selection' or status == 'needs_role':
+            return {
+                "status": "needs_role_selection",
+                "user_id": user.get('id'),
+                "email": email or username,
+                "full_name": user.get('full_name', ''),
+                "avatar": user.get('avatar', '')
+            }
+
+        if role == 'teacher' and status != 'approved':
+            return {
+                "status": "pending_approval",
+                "user_id": user.get('id'),
+                "email": email or username,
+                "full_name": user.get('full_name', ''),
+                "role": "teacher",
+                "avatar": user.get('avatar', '')
+            }
+
+    return {
+        "status": "success",
+        "user_id": user.get('id'),
+        "role": user.get('role', 'student'),
+        "full_name": user.get('full_name', ''),
+        "email": email or username,
+        "avatar": user.get('avatar', ''),
+        "status_code": user.get('status', 'approved')
     }
 
 @router.post("/register", summary="Đăng ký tài khoản mới")
@@ -241,10 +457,13 @@ async def register(req: RegisterRequest):
     is_super_admin = (username in ADMIN_EMAILS)
     if is_super_admin:
         role = 'admin'
+        status = 'approved'
+    elif req.role == 'student':
+        role = 'student'
+        status = 'approved' # Học sinh vào học ngay
     else:
-        role = 'student' if req.role == 'student' else 'teacher'
-    # Tự động kích hoạt tài khoản để người dùng vào trải nghiệm ngay lập tức
-    status = 'approved'
+        role = 'teacher'
+        status = 'pending' # Giáo viên (hoặc giá trị khác) phải chờ admin duyệt
 
     db.collection('users').add({
         'username': username,
@@ -256,6 +475,8 @@ async def register(req: RegisterRequest):
         'created_at': datetime.now(timezone.utc).isoformat()
     })
     
+    if role == 'teacher':
+        return {"status": "success", "message": "Đăng ký thành công! Tài khoản Giáo viên của bạn đang chờ Quản trị viên duyệt trước khi có thể đăng nhập."}
     return {"status": "success", "message": "Đăng ký thành công! Bạn có thể đăng nhập ngay."}
 
 @router.post("/login", summary="Đăng nhập và nhận JWT Token")

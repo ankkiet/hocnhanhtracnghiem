@@ -365,7 +365,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
                 if idx in mod_map:
                     final_new_quiz_data.append(mod_map[idx])
                 else:
-                    final_new_quiz_data.append(orig_q)
+                    final_new_quiz_data.append(normalize_question_data(orig_q))
 
         # Tính toán thống kê chuyên sâu
         deleted_count = sum(1 for f in feedback_list if f.get("action") == "delete")

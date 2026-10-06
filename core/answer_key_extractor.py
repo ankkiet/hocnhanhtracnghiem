@@ -129,6 +129,10 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                 full_text = doc
             doc = None
 
+    # Tự động trích xuất toàn bộ văn bản từ doc.paragraphs nếu chưa có full_text
+    if doc is not None and hasattr(doc, 'paragraphs') and not full_text:
+        full_text = "\n".join(p.text for p in doc.paragraphs if p.text)
+
     # 1. Quét các bảng trong tài liệu
     if doc is not None and hasattr(doc, 'tables') and doc.tables:
         for table in doc.tables:
@@ -158,7 +162,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                         for char, c_idx in [('a', col_a), ('b', col_b), ('c', col_c), ('d', col_d)]:
                             if c_idx is not None and c_idx < len(row):
                                 val_text = row[c_idx].text.strip().lower()
-                                tf_dict[char] = any(k in val_text for k in ['đ', 'đúng', 'true', 't', '✓', '✔', 'x']) and not any(k in val_text for k in ['s', 'sai', 'false', 'f'])
+                                tf_dict[char] = any(k in val_text for k in ['đ', 'đúng', 'true', 't', '✓', '✔', 'x', '1']) and not any(k in val_text for k in ['s', 'sai', 'false', 'f', '0'])
                         if tf_dict:
                             ak.set_answer(2, q_num, tf_dict)
                     continue
@@ -175,7 +179,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             continue
                         q_num = int(num_m.group(1))
 
-                        # 1. Đúng/Sai: a-Đ, b-S, c-Đ, d-S
+                        # 1. Đúng/Sai: a-Đ, b-S, c-Đ, d-S hoặc aĐ bS cĐ dS
                         tf_m = re.search(r'\b[a-d]\s*[\:\-\.]?\s*(?:Đ|S|Đúng|Sai)\b', c_bot, re.IGNORECASE)
                         if tf_m:
                             tf_dict = {}
@@ -187,15 +191,31 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                                 ak.set_answer(2, q_num, tf_dict)
                                 continue
 
+                        # Chuỗi 4 chữ Đ/S liên tục (ví dụ: Đ S Đ S hoặc Đ-S-Đ-S)
+                        seq_tf = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c_bot, re.IGNORECASE)
+                        if len(seq_tf) == 4:
+                            ak.set_answer(2, q_num, {
+                                'a': seq_tf[0].lower() in ['đ', 'đúng'],
+                                'b': seq_tf[1].lower() in ['đ', 'đúng'],
+                                'c': seq_tf[2].lower() in ['đ', 'đúng'],
+                                'd': seq_tf[3].lower() in ['đ', 'đúng']
+                            })
+                            continue
+
                         # 2. MCQ: A, B, C, D
                         ans_m = re.match(r'^\s*([A-F])\b', c_bot, re.IGNORECASE)
                         if ans_m and len(c_bot.strip()) <= 3:
                             ak.set_answer(1, q_num, ans_m.group(1).upper())
                             continue
 
-                        # 3. Trả lời ngắn: 12.5, -3, v.v.
-                        if len(c_bot) <= 25 and not re.search(r'[A-F]\.', c_bot):
-                            ak.set_answer(3, q_num, c_bot.strip())
+                        # 3. Trả lời ngắn: 12.5, 12,5, -3, 1/2 v.v.
+                        if len(c_bot) <= 35 and not re.search(r'^[A-F]\.', c_bot.strip()):
+                            clean_sa = c_bot.strip()
+                            clean_sa = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', clean_sa, flags=re.IGNORECASE).strip()
+                            # Chuẩn hóa dấu phẩy thập phân kiểu Việt Nam: 12,5 -> 12.5
+                            if re.match(r'^-?\d+,\d+$', clean_sa):
+                                clean_sa = clean_sa.replace(',', '.')
+                            ak.set_answer(3, q_num, clean_sa)
 
             # Dạng C: Bảng 2 cột (Cột 0: Câu, Cột 1: Đáp án)
             if num_cols == 2 and num_rows >= 3:
@@ -218,24 +238,38 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             ak.set_answer(2, q_num, tf_dict)
                             continue
 
+                    seq_tf = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)
+                    if len(seq_tf) == 4:
+                        ak.set_answer(2, q_num, {
+                            'a': seq_tf[0].lower() in ['đ', 'đúng'],
+                            'b': seq_tf[1].lower() in ['đ', 'đúng'],
+                            'c': seq_tf[2].lower() in ['đ', 'đúng'],
+                            'd': seq_tf[3].lower() in ['đ', 'đúng']
+                        })
+                        continue
+
                     ans_m = re.match(r'^\s*([A-F])\b', c1, re.IGNORECASE)
                     if ans_m and len(c1.strip()) <= 3:
                         ak.set_answer(1, q_num, ans_m.group(1).upper())
                         continue
 
-                    if len(c1) <= 25:
-                        ak.set_answer(3, q_num, c1.strip())
+                    if len(c1) <= 35:
+                        clean_sa = c1.strip()
+                        clean_sa = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', clean_sa, flags=re.IGNORECASE).strip()
+                        if re.match(r'^-?\d+,\d+$', clean_sa):
+                            clean_sa = clean_sa.replace(',', '.')
+                        ak.set_answer(3, q_num, clean_sa)
 
     # 2. Quét trong khối văn bản cuối tài liệu sau tiêu đề BẢNG ĐÁP ÁN (bổ sung/kết hợp thêm)
     key_headers = [
         "BẢNG ĐÁP ÁN", "BANG DAP AN", "BẢNG ĐÁP SỐ", "ĐÁP ÁN CHI TIẾT",
         "ĐÁP ÁN VÀ HƯỚNG DẪN GIẢI", "ĐÁP ÁN", "DAP AN", "ANSWER KEY",
-        "HƯỚNG DẪN CHẤM", "HƯỚNG DẪN GIẢI"
+        "HƯỚNG DẪN CHẤM", "HƯỚNG DẪN GIẢI", "THANG ĐIỂM", "BẢNG ĐÁP ÁN VÀ THANG ĐIỂM"
     ]
     ans_section = ""
     for header in key_headers:
         pos = full_text.upper().rfind(header)
-        if pos != -1 and (len(full_text) - pos) < 15000:
+        if pos != -1 and (len(full_text) - pos) < 20000:
             ans_section = full_text[pos:]
             break
 
@@ -255,9 +289,9 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                 current_part = 1
                 continue
 
-            # 1. Dò đúng sai dạng: 1: a-Đ, b-S, c-Đ, d-S hoặc 1. aĐ bS cĐ dS
+            # 1. Dò đúng sai dạng: 1: a-Đ, b-S, c-Đ, d-S hoặc 1. aĐ bS cĐ dS hoặc 1. a. Đúng b. Sai
             tf_pattern = re.compile(
-                r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*([a-d]\s*[\-\:\.]?\s*[ĐSđsĐúngSai].*?)(?=(?:Câu\s*)?\d+[\.\:\-\)]|\bPHẦN|$|\n\n)',
+                r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*([a-d]\s*[\-\:\.]?\s*(?:Đ|S|Đúng|Sai|True|False).*?)(?=(?:Câu\s*)?\d+[\.\:\-\)]|\bPHẦN|$|\n\n)',
                 re.IGNORECASE
             )
             for m in tf_pattern.finditer(chunk):
@@ -265,11 +299,26 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                 tf_str = m.group(2)
                 tf_dict = {}
                 for k in ['a', 'b', 'c', 'd']:
-                    km = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s)\b', tf_str, re.IGNORECASE)
+                    km = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s|true|false)\b', tf_str, re.IGNORECASE)
                     if km:
-                        tf_dict[k] = km.group(1).lower() in ['đ', 'đúng']
+                        tf_dict[k] = km.group(1).lower() in ['đ', 'đúng', 'true']
                 if tf_dict:
                     ak.set_answer(2, q_num, tf_dict)
+
+            # Chuỗi 4 chữ Đ/S theo sau số câu trong phần II (ví dụ: Câu 1: Đ S Đ S hoặc 1. Đ, S, Đ, S)
+            if current_part == 2 or "ĐÚNG" in chunk_upper or "Đ/S" in chunk_upper:
+                seq_pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*([ĐSđsĐúngSai\s\-\,\;]{4,20})', re.IGNORECASE)
+                for sm in seq_pattern.finditer(chunk):
+                    q_num = int(sm.group(1))
+                    raw_seq = sm.group(2)
+                    found_letters = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', raw_seq, re.IGNORECASE)
+                    if len(found_letters) == 4 and q_num not in ak.part2:
+                        ak.set_answer(2, q_num, {
+                            'a': found_letters[0].lower() in ['đ', 'đúng'],
+                            'b': found_letters[1].lower() in ['đ', 'đúng'],
+                            'c': found_letters[2].lower() in ['đ', 'đúng'],
+                            'd': found_letters[3].lower() in ['đ', 'đúng']
+                        })
 
             # 2. Dò trả lời ngắn nếu current_part == 3 hoặc có từ khóa
             if current_part == 3 or "TRẢ LỜI NGẮN" in chunk_upper:
@@ -277,7 +326,10 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                 for m in sa_pattern.finditer(chunk):
                     q_num = int(m.group(1))
                     val_str = m.group(2).strip()
-                    if val_str and len(val_str) <= 25 and not re.match(r'^[A-F]$', val_str, re.IGNORECASE):
+                    val_str = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', val_str, flags=re.IGNORECASE).strip()
+                    if val_str and len(val_str) <= 35 and not re.match(r'^[A-F]$', val_str, re.IGNORECASE):
+                        if re.match(r'^-?\d+,\d+$', val_str):
+                            val_str = val_str.replace(',', '.')
                         ak.set_answer(3, q_num, val_str)
 
             # 3. Dò MCQ dạng: 1.A 2.B hoặc Câu 1: A
@@ -287,6 +339,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                     q_num = int(m.group(1))
                     ans_char = m.group(2).upper()
                     ak.set_answer(1, q_num, ans_char)
+
 
     return ak
 

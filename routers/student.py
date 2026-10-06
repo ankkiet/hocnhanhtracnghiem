@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from firebase_admin import firestore
@@ -98,9 +99,35 @@ async def submit_exam(req: SubmitExamRequest):
             earned = 1.0 if is_correct else 0.0
             score += earned
         else:
-            u_str = str(user_ans).strip().upper() if user_ans is not None else None
-            c_str = str(correct_ans).strip().upper() if correct_ans is not None else None
-            is_correct = bool(u_str is not None and c_str is not None and u_str == c_str)
+            # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt (hỗ trợ cả chữ cái A,B,C,D và văn bản option)
+            is_correct = False
+            if user_ans is not None and correct_ans is not None:
+                u_str = str(user_ans).strip()
+                c_str = str(correct_ans).strip()
+                if u_str.upper() == c_str.upper():
+                    is_correct = True
+                else:
+                    u_m = re.match(r'^([A-Da-d])[\.\:\)\s]?', u_str)
+                    c_m = re.match(r'^([A-Da-d])[\.\:\)\s]?', c_str)
+                    u_char = u_m.group(1).upper() if u_m else None
+                    c_char = c_m.group(1).upper() if c_m else None
+                    if u_char and c_char and u_char == c_char:
+                        is_correct = True
+                    else:
+                        u_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', u_str).strip().lower()
+                        c_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', c_str).strip().lower()
+                        if u_clean and c_clean and u_clean == c_clean:
+                            is_correct = True
+                        elif c_char and q.get('options') and isinstance(q.get('options'), list):
+                            idx_opt = ord(c_char) - ord('A')
+                            if 0 <= idx_opt < len(q['options']):
+                                opt_str = str(q['options'][idx_opt]).strip()
+                                if u_str.upper() == opt_str.upper():
+                                    is_correct = True
+                                else:
+                                    opt_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', opt_str).strip().lower()
+                                    if u_clean and opt_clean and u_clean == opt_clean:
+                                        is_correct = True
             earned = 1.0 if is_correct else 0.0
             score += earned
             

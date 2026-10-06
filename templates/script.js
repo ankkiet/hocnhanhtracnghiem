@@ -1,13 +1,18 @@
 // Tự động nhận diện môi trường (Localhost vs Production)
-let API_BASE_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app"; // QUAN TRỌNG: Link Koyeb thật của bạn
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+let API_BASE_URL = "";
+if (window.location.protocol === 'file:') {
     API_BASE_URL = "http://127.0.0.1:8000";
-} else if (window.location.hostname.startsWith('192.168.')) {
-    API_BASE_URL = `http://${window.location.hostname}:8000`; // Hỗ trợ test qua mạng LAN (Live Server IP)
+} else if (window.location.origin && window.location.origin !== "null") {
+    API_BASE_URL = window.location.origin;
+} else {
+    API_BASE_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
 }
 
 // Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở trang (Chống Sleep / Cold Start)
 fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+
+// Cờ tính năng WebLLM (mặc định tắt theo yêu cầu, bật lại bằng cách đặt ENABLE_WEBLLM = true)
+window.ENABLE_WEBLLM = (typeof window.ENABLE_WEBLLM !== 'undefined') ? window.ENABLE_WEBLLM : false;
 
 let currentData = [];
 let serverData = []; // Lưu trữ dữ liệu gốc mới nhất từ Server để phục hồi khi làm lại
@@ -106,6 +111,204 @@ function initGoogleAuth() {
     console.log("Firebase Authentication initialized.");
 }
 
+let currentPendingUserId = null;
+
+function showRoleSelection(userId, fullName, email, avatar) {
+    currentPendingUserId = userId;
+
+    const authBox = document.getElementById('authContainer');
+    const mainApp = document.getElementById('mainAppContainer');
+    const adminBox = document.getElementById('adminContainer');
+    const azotaNav = document.getElementById('azotaNavbar');
+    if (mainApp) mainApp.style.display = 'none';
+    if (adminBox) adminBox.style.display = 'none';
+    if (azotaNav) azotaNav.style.display = 'none';
+    if (authBox) {
+        authBox.classList.remove('hidden');
+        authBox.style.setProperty('display', 'flex', 'important');
+        authBox.style.justifyContent = 'center';
+        authBox.style.alignItems = 'center';
+        authBox.style.minHeight = '85vh';
+        authBox.style.width = '100%';
+    }
+
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const roleCard = document.getElementById('roleSelectionCard');
+    const pendingCard = document.getElementById('pendingApprovalCard');
+    
+    if (loginForm) loginForm.style.setProperty('display', 'none', 'important');
+    if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+    if (pendingCard) pendingCard.style.setProperty('display', 'none', 'important');
+    
+    if (roleCard) {
+        roleCard.style.setProperty('display', 'flex', 'important');
+        roleCard.classList.remove('hidden');
+    }
+    
+    const nameElem = document.getElementById('roleUserFullName');
+    const emailElem = document.getElementById('roleUserEmail');
+    if (nameElem) nameElem.innerText = fullName || 'Bạn';
+    if (emailElem) emailElem.innerText = email || '';
+    
+    const initials = (fullName || 'U').charAt(0).toUpperCase();
+    const initElem = document.getElementById('roleUserInitials');
+    const imgElem = document.getElementById('roleUserImg');
+    if (avatar && imgElem) {
+        imgElem.src = avatar;
+        imgElem.style.display = 'block';
+        if (initElem) initElem.style.display = 'none';
+    } else {
+        if (initElem) {
+            initElem.innerText = initials;
+            initElem.style.display = 'inline';
+        }
+        if (imgElem) imgElem.style.display = 'none';
+    }
+}
+window.showRoleSelection = showRoleSelection;
+
+function showPendingApproval(userId, fullName, email) {
+    if (userId) currentPendingUserId = userId;
+
+    const authBox = document.getElementById('authContainer');
+    const mainApp = document.getElementById('mainAppContainer');
+    const adminBox = document.getElementById('adminContainer');
+    const azotaNav = document.getElementById('azotaNavbar');
+    if (mainApp) mainApp.style.display = 'none';
+    if (adminBox) adminBox.style.display = 'none';
+    if (azotaNav) azotaNav.style.display = 'none';
+    if (authBox) {
+        authBox.classList.remove('hidden');
+        authBox.style.setProperty('display', 'flex', 'important');
+        authBox.style.justifyContent = 'center';
+        authBox.style.alignItems = 'center';
+        authBox.style.minHeight = '85vh';
+        authBox.style.width = '100%';
+    }
+
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const roleCard = document.getElementById('roleSelectionCard');
+    const pendingCard = document.getElementById('pendingApprovalCard');
+    
+    if (loginForm) loginForm.style.setProperty('display', 'none', 'important');
+    if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+    if (roleCard) roleCard.style.setProperty('display', 'none', 'important');
+    
+    if (pendingCard) {
+        pendingCard.style.setProperty('display', 'flex', 'important');
+        pendingCard.classList.remove('hidden');
+    }
+    
+    const nameElem = document.getElementById('pendingTeacherName');
+    const emailElem = document.getElementById('pendingTeacherEmail');
+    if (nameElem) nameElem.innerText = fullName || 'Thầy/Cô';
+    if (emailElem) emailElem.innerText = email || '';
+}
+window.showPendingApproval = showPendingApproval;
+
+function hideRoleScreens() {
+    const roleCard = document.getElementById('roleSelectionCard');
+    const pendingCard = document.getElementById('pendingApprovalCard');
+    if (roleCard) roleCard.style.setProperty('display', 'none', 'important');
+    if (pendingCard) pendingCard.style.setProperty('display', 'none', 'important');
+}
+window.hideRoleScreens = hideRoleScreens;
+
+async function submitRoleChoice(role) {
+    if (!currentPendingUserId) {
+        alert("Lỗi phiên chọn vai trò. Vui lòng thử đăng nhập lại với Google.");
+        cancelRoleSelection();
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/select_role`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: currentPendingUserId, role: role })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            if (data.status === 'success') {
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('auth_role', data.role);
+                localStorage.setItem('auth_name', data.full_name);
+                authToken = data.token;
+                authRole = data.role;
+                authName = data.full_name;
+                hideRoleScreens();
+                checkAuthState();
+                alert(`🎉 Chào mừng bạn tham gia với vai trò Học sinh!\nHọ và tên: ${data.full_name}`);
+            } else if (data.status === 'pending_approval') {
+                showPendingApproval(currentPendingUserId, data.full_name, data.email);
+            }
+        } else {
+            alert("Lỗi: " + (data.detail || "Không thể lưu vai trò"));
+        }
+    } catch(err) {
+        console.error(err);
+        alert("Lỗi kết nối khi chọn vai trò");
+    }
+}
+window.submitRoleChoice = submitRoleChoice;
+
+async function checkCurrentApprovalStatus() {
+    if (!currentPendingUserId) {
+        alert("Không tìm thấy mã tài khoản. Vui lòng thử đăng nhập lại.");
+        cancelRoleSelection();
+        return;
+    }
+    
+    const btn = document.getElementById('btnCheckApproval');
+    if (btn) {
+        btn.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Đang kiểm tra...`;
+        btn.disabled = true;
+    }
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/check_approval_status?user_id=${currentPendingUserId}`);
+        const data = await res.json();
+        if (res.ok) {
+            if (data.status === 'approved') {
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('auth_role', data.role);
+                localStorage.setItem('auth_name', data.full_name);
+                authToken = data.token;
+                authRole = data.role;
+                authName = data.full_name;
+                hideRoleScreens();
+                checkAuthState();
+                alert(`🎉 Chúc mừng! Tài khoản Giáo viên của bạn đã được Quản trị viên phê duyệt thành công.`);
+            } else {
+                alert("⏳ Tài khoản của bạn vẫn đang chờ Quản trị viên xét duyệt. Vui lòng liên hệ Admin (kiet0905478167@gmail.com) nếu cần hỗ trợ gấp.");
+            }
+        } else {
+            alert("Lỗi kiểm tra trạng thái: " + (data.detail || "Không rõ nguyên nhân"));
+        }
+    } catch(err) {
+        alert("Lỗi kết nối máy chủ khi kiểm tra trạng thái");
+    } finally {
+        if (btn) {
+            btn.innerHTML = `<i class="ri-refresh-line"></i> Kiểm tra trạng thái duyệt`;
+            btn.disabled = false;
+        }
+    }
+}
+window.checkCurrentApprovalStatus = checkCurrentApprovalStatus;
+
+function cancelRoleSelection() {
+    currentPendingUserId = null;
+    hideRoleScreens();
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+    if (window.firebaseAuth && typeof window.firebaseAuth.signOut === 'function') {
+        window.firebaseAuth.signOut().catch(() => {});
+    }
+}
+window.cancelRoleSelection = cancelRoleSelection;
+
 async function triggerGoogleSignIn() {
     try {
         if (!window.signInWithPopup || !window.firebaseAuth || !window.googleProvider) {
@@ -126,17 +329,28 @@ async function triggerGoogleSignIn() {
         });
 
         const data = await res.json();
-        if (res.ok && data.status === 'success') {
-            localStorage.setItem('auth_token', data.token);
-            localStorage.setItem('auth_role', data.role);
-            localStorage.setItem('auth_name', data.full_name);
-            authToken = data.token;
-            authRole = data.role;
-            authName = data.full_name;
-            checkAuthState();
+        if (res.ok) {
+            if (data.status === 'success') {
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('auth_role', data.role);
+                localStorage.setItem('auth_name', data.full_name);
+                authToken = data.token;
+                authRole = data.role;
+                authName = data.full_name;
+                hideRoleScreens();
+                checkAuthState();
 
-            const roleDesc = data.role === 'admin' ? '🛡️ Quản trị viên (Admin)' : (data.role === 'teacher' ? '👨‍🏫 Giáo viên' : '👨‍🎓 Học sinh');
-            alert(`🎉 Đăng nhập thành công với Google!\nXin chào: ${data.full_name}\nVai trò: ${roleDesc}`);
+                const roleDesc = data.role === 'admin' ? '🛡️ Quản trị viên (Admin)' : (data.role === 'teacher' ? '👨‍🏫 Giáo viên' : '👨‍🎓 Học sinh');
+                alert(`🎉 Đăng nhập thành công với Google!\nXin chào: ${data.full_name}\nVai trò: ${roleDesc}`);
+            } else if (data.status === 'needs_role_selection') {
+                // Hiển thị giao diện chọn vai trò lần đầu
+                showRoleSelection(data.user_id, data.full_name, data.email, data.avatar);
+            } else if (data.status === 'pending_approval') {
+                // Hiển thị màn hình chờ Quản trị viên duyệt
+                showPendingApproval(data.user_id, data.full_name, data.email);
+            } else {
+                alert("Lỗi: " + (data.message || data.detail || "Không thể xác minh tài khoản."));
+            }
         } else {
             alert("Lỗi máy chủ xác thực: " + (data.detail || "Không thể xác minh tài khoản."));
         }
@@ -207,6 +421,7 @@ function checkAuthState() {
         
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
+        hideRoleScreens();
         if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
         if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
     } else if (authRole === 'admin') {
@@ -310,6 +525,7 @@ function showAdminView() {
 }
 
 function toggleAuth(type) {
+    hideRoleScreens();
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
     if (!loginForm || !registerForm) return;
@@ -322,7 +538,6 @@ function toggleAuth(type) {
         registerForm.style.setProperty('display', 'none', 'important');
     }
 }
-
 
 async function handleLogin() {
     const uInput = document.getElementById('email') || document.getElementById('loginUsername');
@@ -343,14 +558,20 @@ async function handleLogin() {
             localStorage.setItem('auth_role', data.role);
             localStorage.setItem('auth_name', data.full_name);
             authToken = data.token; authRole = data.role; authName = data.full_name;
+            hideRoleScreens();
             checkAuthState();
-        } else { alert("Lỗi: " + data.detail); }
+        } else {
+            if ((res.status === 403 || data.status === 'pending_approval') && (data.detail || '').includes("chờ Quản trị viên")) {
+                showPendingApproval(null, u, u);
+            } else {
+                alert("Lỗi: " + (data.detail || data.message || "Đăng nhập thất bại."));
+            }
+        }
     } catch(e) { 
         console.error(e);
         alert(`Lỗi kết nối máy chủ! Backend đang trỏ tới: ${API_BASE_URL}\nHãy đảm bảo bạn đã chạy lệnh: uvicorn main:app --reload`); 
     }
 }
-
 
 async function handleRegister() {
     const u = document.getElementById('regUsername').value.trim();
@@ -367,9 +588,13 @@ async function handleRegister() {
         });
         const data = await res.json();
         if(res.ok && data.status === 'success') {
-            alert("Đăng ký thành công! Vui lòng chờ Quản trị viên duyệt tài khoản.");
-            toggleAuth('login');
-        } else { alert("Lỗi: " + data.detail); }
+            alert(data.message || "Đăng ký thành công!");
+            if (r === 'teacher') {
+                showPendingApproval(null, fn, u);
+            } else {
+                toggleAuth('login');
+            }
+        } else { alert("Lỗi: " + (data.detail || "Đăng ký thất bại.")); }
     } catch(e) { alert("Lỗi kết nối máy chủ"); }
 }
 
@@ -509,6 +734,11 @@ async function initApp() {
                 isStudentMode = true;
                 currentDataMode = result.mode || 'practice';
                 document.getElementById('welcomeScreen').style.display = 'block'; // Hiển thị khung nhập tên
+
+                // Kích hoạt nạp ngầm mô hình WebLLM qua Web Worker ngay khi học sinh vào phòng thi (nếu bật tính năng)
+                if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
+                    window.WebLLMTutor.preload();
+                }
             } else { document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; }
         } catch (e) {
             document.getElementById('quiz-container').innerHTML = `<p style='text-align:center; color: var(--danger);'><b>Không thể truy cập:</b> ${e.message || "Lỗi máy chủ"}</p>`;
@@ -598,6 +828,11 @@ async function startStudentQuiz() {
     
     switchMode(currentDataMode); 
     if (currentDataMode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    
+    // Đảm bảo WebLLM được nạp ngầm qua Web Worker (nếu bật tính năng)
+    if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
+        window.WebLLMTutor.preload();
+    }
     
     const quizContainer = document.getElementById('quiz-container');
     if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2131,6 +2366,7 @@ function renderData() {
                 typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
             }
 
+            let cleanQText = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
             let boxHtml = `
                 <div class="card question-box azota-question-card" id="question_box_${qIndex}">
                     ${groupTitleHtml}
@@ -2140,7 +2376,7 @@ function renderData() {
                             <i class="ri-flag-${isFlagged ? 'fill' : 'line'}"></i> ${isFlagged ? 'Đang phân vân' : 'Đánh dấu xem lại'}
                         </button>
                     </div>
-                    <div class="question-title azota-q-text">${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+                    <div class="question-title azota-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
             `;
 
             if (qType === 'true_false') {
@@ -2218,29 +2454,7 @@ function renderPracticeQuestion() {
     container.innerHTML = '';
     
     if (currentQuestionIndex >= currentData.length) {
-        document.body.classList.add('quiz-completed'); // Mở khóa thanh cuộn toàn trang
-        document.getElementById('score-board').style.display = 'block';
-        document.getElementById('score-board').innerHTML = `Tiến trình hoàn tất! Bạn đúng <span style="color: var(--primary); font-size: 1.8rem;">${practiceScore}</span> / ${currentData.length} câu. 🎉<br>
-            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
-                <button class="btn-outline" onclick="showPracticeReview()" style="background: white; margin: 0;">🔍 Xem chi tiết bài làm</button>
-                <button class="btn-primary" onclick="restartPractice()" style="margin: 0;">🔄 Luyện tập lại vòng mới</button>
-            </div>`;
-        
-        if (isStudentMode && studentName && !quizProgress.completed) {
-            let timeElapsed = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
-            
-            quizProgress.completed = true;
-            if (!quizProgress.history) quizProgress.history = [];
-            quizProgress.history.push({
-                score: practiceScore,
-                total: currentData.length,
-                timeElapsed: timeElapsed,
-                date: new Date().toLocaleString('vi-VN'),
-                mode: 'Luyện tập'
-            });
-            saveProgressToLocal();
-            submitScoreToServer(practiceScore, currentData.length, timeElapsed);
-        }
+        submitExam();
         return;
     }
 
@@ -2259,7 +2473,8 @@ function renderPracticeQuestion() {
         typeBadge = ' <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:0.8rem; font-weight:700;">Trả lời ngắn</span>';
     }
 
-    box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${currentQuestionIndex + 1} / ${currentData.length}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}${typeBadge}</div>`;
+    let cleanQText = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+    box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${currentQuestionIndex + 1} / ${currentData.length}: ${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}${typeBadge}</div>`;
     
     if (qType === 'true_false' || typeof q.correct_answer === 'object') {
         box.innerHTML += `<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">`;
@@ -2430,6 +2645,27 @@ function toggleMobileNavSheet(isOpen) {
     }
 }
 
+function attachWebLLMTutorToFeedback(containerEl, q, userAnswer, isMistake) {
+    if (!window.ENABLE_WEBLLM || !window.WebLLMTutor || !containerEl) return;
+    
+    const aiBox = document.createElement('div');
+    aiBox.className = 'webllm-feedback-container';
+    containerEl.appendChild(aiBox);
+    
+    const explainBtn = window.WebLLMTutor.createExplainButton(() => {
+        window.WebLLMTutor.renderExplainCard(aiBox, q, userAnswer, isMistake);
+        explainBtn.style.display = 'none';
+    }, isMistake);
+    
+    containerEl.appendChild(explainBtn);
+    
+    // Tự động giải thích khi học sinh làm sai nếu bật cấu hình
+    if (isMistake && window.WebLLMTutor.autoExplainOnMistake) {
+        window.WebLLMTutor.renderExplainCard(aiBox, q, userAnswer, true);
+        explainBtn.style.display = 'none';
+    }
+}
+
 function checkPracticeAnswer(oIndex) {
     if (practiceAnswered) return;
     practiceAnswered = true;
@@ -2453,6 +2689,13 @@ function checkPracticeAnswer(oIndex) {
     const feedback = document.getElementById('pract_feedback');
     let correctAnswerDisplay = q.correct_answer ? q.correct_answer.replace(/^[A-D][\.\:\)]\s*/i, '') : "Chưa xác định";
     feedback.innerHTML = isCorrect ? `<span style="color:var(--success);">✅ Trả lời chính xác!</span>` : `<span style="color:var(--danger);">❌ Sai rồi! Đáp án đúng là: ${correctAnswerDisplay}</span>`;
+    
+    if (q.explain) {
+        feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
+    }
+    
+    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
+    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
     
     document.getElementById('nextBtn').style.display = 'inline-block';
     if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
@@ -2518,6 +2761,9 @@ function checkPracticeTF() {
         feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
     }
     
+    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
+    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, matchCount < 4);
+    
     document.getElementById('nextBtn').style.display = 'inline-block';
     if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
     setTimeout(() => {
@@ -2555,6 +2801,9 @@ function checkPracticeShortAnswer() {
         feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
     }
     
+    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
+    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
+    
     document.getElementById('nextBtn').style.display = 'inline-block';
     if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
     setTimeout(() => {
@@ -2568,81 +2817,7 @@ function nextPracticeQuestion() {
 }
 
 function showPracticeReview() {
-    const container = document.getElementById('quiz-container');
-    container.innerHTML = '';
-    
-    currentData.forEach((q, qIndex) => {
-        const box = document.createElement('div');
-        box.className = 'card question-box';
-        const qType = q.type || 'mcq';
-        
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
-        let typeBadge = '';
-        if (qType === 'true_false' || typeof q.correct_answer === 'object') {
-            typeBadge = ' <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:0.8rem; font-weight:700;">Đúng / Sai</span>';
-        } else if (qType === 'short_answer') {
-            typeBadge = ' <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:0.8rem; font-weight:700;">Trả lời ngắn</span>';
-        }
-
-        box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${qIndex + 1}: ${q.question.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}${typeBadge}</div>`;
-        
-        if (qType === 'true_false' || typeof q.correct_answer === 'object') {
-            const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
-            const userMap = (typeof q.user_answer_practice === 'object' && q.user_answer_practice) ? q.user_answer_practice : {};
-            box.innerHTML += `<div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">`;
-            (q.options || []).forEach((opt, oIndex) => {
-                let charMatch = opt.match(/^[a-d]/i);
-                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
-                let isCorrectVal = correctMap[char];
-                let userVal = userMap[char];
-                let isMatch = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
-                let optClean = opt.replace(/^[a-d][\.\:\)]\s*/i, '');
-                box.innerHTML += `
-                    <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
-                        <div style="flex:1;"><b>${char})</b> ${optClean}</div>
-                        <div style="display:flex; gap:6px;">
-                            <span class="azota-tf-btn ${isCorrectVal === true ? 'correct-state' : (userVal === true && !isMatch ? 'wrong-state' : '')}" style="cursor:default;">Đúng</span>
-                            <span class="azota-tf-btn ${isCorrectVal === false ? 'correct-state' : (userVal === false && !isMatch ? 'wrong-state' : '')}" style="cursor:default;">Sai</span>
-                        </div>
-                    </div>`;
-            });
-            box.innerHTML += `</div>`;
-        } else if (qType === 'short_answer') {
-            const uStr = String(q.user_answer_practice || '').trim();
-            const cStr = String(q.correct_answer || '').trim();
-            const isMatch = Boolean(uStr && uStr.toLowerCase().replace(',', '.').replace(/\s+/g, '') === cStr.toLowerCase().replace(',', '.').replace(/\s+/g, ''));
-            box.innerHTML += `
-                <div style="margin-top:12px; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
-                    <div><b>Câu trả lời của bạn:</b> <span style="font-weight:700; color:${isMatch ? 'var(--success)' : 'var(--danger)'}">${escapeHtml(uStr) || '(Chưa trả lời)'}</span></div>
-                    <div style="margin-top:6px; color:#166534;"><b>Đáp án đúng:</b> <u>${escapeHtml(cStr)}</u></div>
-                </div>`;
-        } else {
-            (q.options || []).forEach((opt, oIndex) => {
-                let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
-                let extraClass = '';
-                let isSelected = opt === q.user_answer_practice;
-                if (isSelected) extraClass += ' selected ';
-                if (opt === q.correct_answer) {
-                    extraClass += ' correct ';
-                } else if (isSelected && opt !== q.correct_answer) {
-                    extraClass += ' incorrect ';
-                }
-                
-                box.innerHTML += `
-                    <label class="option-practice ${extraClass.trim()}" style="cursor: default;">
-                        <input type="radio" disabled ${isSelected ? 'checked' : ''}>
-                        <span class="opt-badge">${char}</span>
-                        <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
-                    </label>`;
-            });
-        }
-
-        if (q.explain) {
-            box.innerHTML += `<div style="margin-top:10px; padding:8px 12px; background:#f0fdf4; border-left:3px solid #22c55e; border-radius:6px; font-size:0.9rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
-        }
-        container.appendChild(box);
-    });
-    renderMath();
+    submitExam(true);
 }
 
 function shuffleQuiz(noRender = false) {
@@ -2699,6 +2874,9 @@ function switchMode(mode) {
     }
     currentQuestionIndex = 0;
     practiceScore = 0;
+    if (window.ENABLE_WEBLLM && mode === 'practice' && window.WebLLMTutor) {
+        window.WebLLMTutor.preload();
+    }
     renderData();
 }
 
@@ -3168,41 +3346,678 @@ async function submitScoreToServer(score, total, time) {
     } catch(e) { console.log(e); }
 }
 
-async function fetchLeaderboard(quizId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/leaderboard/${quizId}`);
-        const result = await response.json();
-        if (result.status === 'success') {
-            const lb = document.getElementById('leaderboard');
-            const lbList = document.getElementById('leaderboardList');
-            lb.style.display = 'block';
-            
-            let html = `<table style="width:100%; border-collapse: collapse; text-align:left; min-width: 500px;">
-                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
-                    <th style="padding: 12px 10px;">Hạng</th>
-                    <th style="padding: 12px 10px;">Họ Tên</th>
-                    <th style="padding: 12px 10px;">Điểm</th>
-                    <th style="padding: 12px 10px;">Thời gian</th>
-                </tr>`;
-            
-            result.data.forEach((item, index) => {
-                let rank = index + 1;
-                let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-                let isMe = item.student_name === studentName;
-                html += `
-                    <tr style="border-bottom: 1px solid var(--border); ${isMe ? 'background-color: #fef9c3; font-weight:bold;' : ''}">
-                        <td style="padding: 12px 10px; font-size: 1.2rem;">${medal}</td>
-                        <td style="padding: 12px 10px;">${item.student_name} ${isMe ? '<span style="color:var(--success); font-size:0.8rem;">(Bạn)</span>' : ''}</td>
-                        <td style="padding: 12px 10px; color: var(--primary); font-weight: bold; font-size: 1.1rem;">${item.score} / ${currentData.length}</td>
-                        <td style="padding: 12px 10px; color: var(--text-muted);">${formatTime(item.time_elapsed)}</td>
-                    </tr>`;
-            });
-            html += `</table>`;
-            lbList.innerHTML = html;
+// --- BỘ LỌC CÂU HỎI SAU KHI NỘP BÀI (TẤT CẢ / CÂU SAI / CÂU ĐÚNG / CHƯA LÀM) ---
+function filterReviewQuestions(filterType) {
+    document.querySelectorAll('.azota-filter-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.filter === filterType);
+    });
+    const cards = document.querySelectorAll('.review-question-card');
+    cards.forEach(card => {
+        const status = card.dataset.resultStatus;
+        if (filterType === 'all') {
+            card.style.display = 'block';
+        } else if (filterType === 'wrong') {
+            card.style.display = (status === 'wrong') ? 'block' : 'none';
+        } else if (filterType === 'correct') {
+            card.style.display = (status === 'correct') ? 'block' : 'none';
+        } else if (filterType === 'skipped') {
+            card.style.display = (status === 'skipped') ? 'block' : 'none';
         }
-    } catch(e) { console.log(e); }
+    });
 }
 
+// --- HÀM SO KHỚP CHÍNH XÁC ĐÁP ÁN (HỖ TRỢ CẢ KÝ TỰ A,B,C,D VÀ NỘI DUNG OPTION) ---
+function matchOptionToTarget(opt, oIndex, target) {
+    if (target === null || target === undefined || target === '') return false;
+    const optStr = String(opt || '').trim();
+    const tgtStr = String(target).trim();
+    if (!optStr || !tgtStr) return false;
+
+    // 1. So khớp chuỗi trực tiếp
+    if (optStr.toLowerCase() === tgtStr.toLowerCase()) return true;
+
+    // 2. Chữ cái đại diện của Option ('A', 'B', 'C', 'D'...)
+    let optChar = null;
+    const optMatch = optStr.match(/^([A-Fa-f0-9])[\.\:\)]/i);
+    if (optMatch) {
+        optChar = optMatch[1].toUpperCase();
+    } else {
+        optChar = String.fromCharCode(65 + oIndex);
+    }
+
+    // 3. Chữ cái đại diện của Target
+    let tgtChar = null;
+    const tgtMatch = tgtStr.match(/^([A-Fa-f0-9])[\.\:\)]?/i);
+    if (tgtMatch && (tgtStr.length === 1 || /^([A-Fa-f0-9])[\.\:\)]\s*/i.test(tgtStr))) {
+        tgtChar = tgtMatch[1].toUpperCase();
+    }
+
+    // Nếu target là chữ cái đơn (ví dụ 'A', 'B', 'A.')
+    if (tgtChar && optChar && tgtChar === optChar) {
+        return true;
+    }
+
+    // 4. So sánh sau khi loại bỏ prefix A. B. C. D.
+    const cleanOpt = optStr.replace(/^[A-Fa-f0-9][\.\:\)]\s*/i, '').trim().toLowerCase();
+    const cleanTgt = tgtStr.replace(/^[A-Fa-f0-9][\.\:\)]\s*/i, '').trim().toLowerCase();
+    if (cleanOpt && cleanTgt && cleanOpt === cleanTgt) {
+        return true;
+    }
+
+    return false;
+}
+
+// Biến lưu trạng thái tab kết quả hiện tại ('review' hoặc 'leaderboard')
+window.currentResultView = 'review';
+
+// --- HÀM CHUYỂN ĐỔI TAB SAU KHI NỘP BÀI: XEM LỜI GIẢI <-> BẢNG XẾP HẠNG ---
+function switchResultView(viewType) {
+    window.currentResultView = viewType;
+    const tabNav = document.getElementById('resultNavTabs');
+    const tabReview = document.getElementById('tabBtnReview');
+    const tabLb = document.getElementById('tabBtnLeaderboard');
+    const lb = document.getElementById('leaderboard');
+    const filterContainer = document.getElementById('reviewFilterBarContainer');
+    const examLayout = document.getElementById('azotaExamLayout');
+    const quizContainer = document.getElementById('quiz-container');
+
+    if (tabNav) tabNav.style.display = 'flex';
+
+    if (viewType === 'leaderboard') {
+        if (tabReview) tabReview.classList.remove('active');
+        if (tabLb) tabLb.classList.add('active');
+        if (filterContainer) filterContainer.style.display = 'none';
+        if (quizContainer) quizContainer.style.display = 'none';
+        if (examLayout) examLayout.style.display = 'none';
+        if (lb) {
+            lb.style.display = 'block';
+            setTimeout(() => {
+                const headerOffset = 90;
+                const elementPosition = lb.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+            }, 60);
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+        fetchLeaderboard(quizId);
+    } else {
+        // 'review' view
+        if (tabReview) tabReview.classList.add('active');
+        if (tabLb) tabLb.classList.remove('active');
+        if (lb) lb.style.display = 'none';
+        if (filterContainer) filterContainer.style.display = 'block';
+        if (examLayout) examLayout.style.display = 'block';
+        if (quizContainer) quizContainer.style.display = 'block';
+        setTimeout(() => {
+            if (filterContainer) {
+                const headerOffset = 90;
+                const elementPosition = filterContainer.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+            }
+        }, 60);
+    }
+}
+
+// --- HÀM TẢI LẠI BẢNG XẾP HẠNG KHI BẤM NÚT REFRESH ---
+async function refreshLeaderboardBtn() {
+    const btn = document.getElementById('lbRefreshBtn');
+    if (btn) btn.classList.add('rotating');
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    await fetchLeaderboard(quizId);
+    setTimeout(() => {
+        if (btn) btn.classList.remove('rotating');
+    }, 600);
+}
+
+// --- HÀM TẢI VÀ RENDER BẢNG XẾP HẠNG THÀNH TÍCH PHÒNG THI ---
+async function fetchLeaderboard(quizId) {
+    const lb = document.getElementById('leaderboard');
+    const lbList = document.getElementById('leaderboardList');
+    const podiumEl = document.getElementById('leaderboardPodium');
+    const badgeEl = document.getElementById('lbTotalParticipants');
+    const tabLbBadge = document.getElementById('tabLbCount');
+    if (!lb || !lbList) return;
+
+    try {
+        let listData = [];
+        if (quizId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/leaderboard/${quizId}`);
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.status === 'success' && Array.isArray(result.data)) {
+                        listData = result.data;
+                    }
+                }
+            } catch(e) {
+                console.warn("Không kết nối được server leaderboard, dùng dữ liệu cục bộ:", e);
+            }
+        }
+
+        // Tên học sinh hiện tại và kết quả
+        const currentStudent = (studentName && studentName.trim()) || 'Học sinh';
+        const myScore = (quizProgress && quizProgress.score !== undefined) ? quizProgress.score : (practiceScore || 0);
+        const myTime = (quizProgress && quizProgress.timeElapsed) ? quizProgress.timeElapsed : (startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 45);
+
+        // Nếu danh sách từ server rỗng, tạo bản ghi của chính học sinh để luôn hiển thị
+        if (listData.length === 0) {
+            listData = [{
+                student_name: currentStudent,
+                score: myScore,
+                time_elapsed: myTime
+            }];
+        } else {
+            // Kiểm tra xem học sinh hiện tại đã có trong danh sách chưa
+            const found = listData.some(item => item.student_name && item.student_name.trim().toLowerCase() === currentStudent.toLowerCase());
+            if (!found) {
+                listData.push({
+                    student_name: currentStudent,
+                    score: myScore,
+                    time_elapsed: myTime
+                });
+                listData.sort((a, b) => b.score - a.score || a.time_elapsed - b.time_elapsed);
+            }
+        }
+
+        // Cập nhật số lượng thí sinh
+        if (badgeEl) badgeEl.innerText = `${listData.length} thí sinh tham gia`;
+        if (tabLbBadge) tabLbBadge.innerText = `${listData.length} thí sinh`;
+
+        // Render Podium Top 1-3
+        if (podiumEl) {
+            if (listData.length >= 2) {
+                podiumEl.style.display = 'flex';
+                const rank1 = listData[0];
+                const rank2 = listData[1];
+                const rank3 = listData.length >= 3 ? listData[2] : null;
+
+                let podiumHtml = `
+                    <div class="azota-podium-slot rank-2">
+                        <div class="azota-podium-avatar">🥈</div>
+                        <div class="azota-podium-name" title="${escapeHtml(rank2.student_name)}">${escapeHtml(rank2.student_name)}</div>
+                        <div class="azota-podium-score">${rank2.score}đ</div>
+                        <div class="azota-podium-time">${formatTime(rank2.time_elapsed)}</div>
+                        <div class="azota-podium-bar">2</div>
+                    </div>
+                    <div class="azota-podium-slot rank-1">
+                        <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
+                        <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
+                        <div class="azota-podium-score">${rank1.score}đ</div>
+                        <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
+                        <div class="azota-podium-bar">1</div>
+                    </div>
+                `;
+                if (rank3) {
+                    podiumHtml += `
+                        <div class="azota-podium-slot rank-3">
+                            <div class="azota-podium-avatar">🥉</div>
+                            <div class="azota-podium-name" title="${escapeHtml(rank3.student_name)}">${escapeHtml(rank3.student_name)}</div>
+                            <div class="azota-podium-score">${rank3.score}đ</div>
+                            <div class="azota-podium-time">${formatTime(rank3.time_elapsed)}</div>
+                            <div class="azota-podium-bar">3</div>
+                        </div>
+                    `;
+                }
+                podiumEl.innerHTML = podiumHtml;
+            } else if (listData.length === 1) {
+                podiumEl.style.display = 'flex';
+                const rank1 = listData[0];
+                podiumEl.innerHTML = `
+                    <div class="azota-podium-slot rank-1" style="margin: 0 auto; min-width: 220px;">
+                        <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
+                        <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
+                        <div class="azota-podium-score">${rank1.score}đ</div>
+                        <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
+                        <div class="azota-podium-bar">Quán quân</div>
+                    </div>
+                `;
+            } else {
+                podiumEl.style.display = 'none';
+            }
+        }
+
+        // Render Bảng danh sách thí sinh
+        let tableHtml = `
+            <div class="azota-lb-table-wrap">
+                <table class="azota-lb-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 75px; text-align: center;">Hạng</th>
+                            <th>Thí sinh</th>
+                            <th style="width: 140px; text-align: center;">Điểm số</th>
+                            <th style="width: 160px; text-align: right;">Thời gian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        listData.forEach((item, index) => {
+            let rank = index + 1;
+            let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+            let isMe = Boolean(currentStudent && item.student_name.trim().toLowerCase() === currentStudent.trim().toLowerCase());
+            let scaledScoreItem = currentData.length > 0 ? ((item.score / currentData.length) * 10).toFixed(1) : item.score;
+            
+            tableHtml += `
+                <tr class="${isMe ? 'is-current-user' : ''}">
+                    <td style="text-align: center;">
+                        <span class="azota-lb-rank-badge ${rank <= 3 ? 'top' : ''}">${medal}</span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 700; color: #1e293b;">${escapeHtml(item.student_name)}</span>
+                        ${isMe ? '<span class="azota-lb-you-tag">Bạn</span>' : ''}
+                    </td>
+                    <td style="text-align: center;">
+                        <span style="font-weight: 800; color: #2563eb; font-size: 1.05rem;">${item.score}</span>
+                        <span style="font-size: 0.82rem; color: #64748b;"> / ${currentData.length} (${scaledScoreItem}đ)</span>
+                    </td>
+                    <td style="text-align: right; color: #64748b; font-size: 0.9rem;">
+                        <i class="ri-time-line" style="vertical-align: middle;"></i> ${formatTime(item.time_elapsed)}
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `</tbody></table></div>`;
+        lbList.innerHTML = tableHtml;
+    } catch(err) {
+        console.warn("Lỗi tải bảng xếp hạng:", err);
+    }
+}
+
+// --- HÀM RENDER TOÀN BỘ KẾT QUẢ, ĐÁP ÁN, LỜI GIẢI VÀ GIA SƯ AI SAU KHI NỘP BÀI ---
+function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers, resultsList) {
+    // 1. Tạo Map kết quả từ Backend nếu có
+    const resultsMap = {};
+    if (Array.isArray(resultsList)) {
+        resultsList.forEach(item => {
+            resultsMap[item.question_index] = item;
+        });
+    }
+
+    let correctCount = 0;
+    let wrongCount = 0;
+    let skippedCount = 0;
+
+    // Đánh giá chi tiết từng câu hỏi trong đề
+    const evaluatedQuestions = currentData.map((q, qIndex) => {
+        const qType = q.type || 'mcq';
+        const serverItem = resultsMap[qIndex];
+        let userAnswer = userAnswers[qIndex];
+        let correctAnswer = serverItem ? serverItem.correct_answer : q.correct_answer;
+        let explain = (serverItem && serverItem.explain) ? serverItem.explain : (q.explain || '');
+        
+        let status = 'wrong'; // 'correct', 'wrong', 'skipped'
+        let earnedScore = 0;
+
+        if (serverItem) {
+            if (serverItem.is_correct) {
+                status = 'correct';
+                earnedScore = 1.0;
+            } else if (userAnswer === null || userAnswer === undefined || userAnswer === '' || (typeof userAnswer === 'object' && Object.keys(userAnswer).length === 0)) {
+                status = 'skipped';
+                earnedScore = 0;
+            } else {
+                status = 'wrong';
+                earnedScore = 0;
+            }
+        } else {
+            // Tự chấm điểm chuẩn GD&ĐT
+            if (qType === 'true_false' || typeof correctAnswer === 'object') {
+                const correctMap = (typeof correctAnswer === 'object' && correctAnswer) ? correctAnswer : {};
+                const userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
+                let matchCount = 0;
+                let userAnswersGiven = 0;
+                ['a', 'b', 'c', 'd'].forEach(char => {
+                    if (userMap[char] !== undefined) userAnswersGiven++;
+                    if (userMap[char] !== undefined && Boolean(userMap[char]) === Boolean(correctMap[char])) {
+                        matchCount++;
+                    }
+                });
+                const scale = [0.0, 0.1, 0.25, 0.5, 1.0];
+                earnedScore = scale[matchCount] !== undefined ? scale[matchCount] : 0.0;
+                if (userAnswersGiven === 0) status = 'skipped';
+                else if (matchCount === 4) status = 'correct';
+                else status = 'wrong';
+            } else if (qType === 'short_answer') {
+                let uStr = String(userAnswer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+                let cStr = String(correctAnswer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+                if (!uStr) {
+                    status = 'skipped';
+                } else if (uStr === cStr) {
+                    status = 'correct';
+                    earnedScore = 1.0;
+                } else {
+                    status = 'wrong';
+                }
+            } else {
+                // MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án
+                if (userAnswer === null || userAnswer === undefined || userAnswer === '') {
+                    status = 'skipped';
+                } else if (matchOptionToTarget(userAnswer, 0, correctAnswer)) {
+                    status = 'correct';
+                    earnedScore = 1.0;
+                } else {
+                    status = 'wrong';
+                }
+            }
+        }
+
+        if (status === 'correct') correctCount++;
+        else if (status === 'skipped') skippedCount++;
+        else wrongCount++;
+
+        return {
+            q,
+            qIndex,
+            qType,
+            userAnswer,
+            correctAnswer,
+            explain,
+            status,
+            earnedScore
+        };
+    });
+
+    const scaledScore = totalQues > 0 ? ((score / totalQues) * 10).toFixed(1) : "0.0";
+
+    // 2. Render Score Board
+    const scoreBoard = document.getElementById('score-board');
+    scoreBoard.style.display = 'block';
+    scoreBoard.innerHTML = `
+        <div class="azota-result-card">
+            <div class="azota-score-circle">
+                <span class="big-num">${scaledScore}</span>
+                <span class="scale">Điểm / 10</span>
+            </div>
+            <h2 style="color: var(--azota-primary); margin: 0 0 8px 0; font-size: 1.6rem; font-weight: 800;">
+                ${score >= totalQues * 0.8 ? '🎉 Kết Quả Xuất Sắc!' : (score >= totalQues * 0.5 ? '👏 Bạn Đã Hoàn Thành Bài Thi!' : '💪 Cần Cố Gắng Thêm Lần Sau!')}
+            </h2>
+            <p style="color: #64748b; font-size: 1.05rem; margin: 0 0 20px 0;">
+                Bạn đạt <b>${score}</b> trên tổng số <b>${totalQues}</b> điểm của đề thi.
+            </p>
+
+            <div class="azota-result-grid">
+                <div class="azota-res-tile green">
+                    <div class="val">${correctCount}</div>
+                    <div class="desc"><i class="ri-checkbox-circle-line"></i> Số câu đúng</div>
+                </div>
+                <div class="azota-res-tile red">
+                    <div class="val">${wrongCount}</div>
+                    <div class="desc"><i class="ri-close-circle-line"></i> Số câu sai</div>
+                </div>
+                <div class="azota-res-tile gray">
+                    <div class="val">${skippedCount}</div>
+                    <div class="desc"><i class="ri-question-line"></i> Chưa làm</div>
+                </div>
+                <div class="azota-res-tile blue">
+                    <div class="val">${formatTime(totalTimeElapsed)}</div>
+                    <div class="desc"><i class="ri-time-line"></i> Thời gian</div>
+                </div>
+            </div>
+
+            <!-- Các nút hành động chính -->
+            <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
+                <button type="button" class="btn-primary" style="background: #1976d2; padding: 12px 22px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="switchResultView('review')">
+                    <i class="ri-file-list-3-line"></i> Xem chi tiết đáp án & lời giải
+                </button>
+                <button type="button" class="btn-outline" style="border-color: #eab308; color: #ca8a04; background: #fefce8; padding: 12px 22px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="switchResultView('leaderboard')">
+                    <i class="ri-trophy-fill"></i> Bảng xếp hạng phòng thi
+                </button>
+                <button type="button" class="btn-outline" style="padding: 12px 20px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="${currentMode === 'practice' ? 'restartPractice()' : 'restartExam()'}">
+                    <i class="ri-refresh-line"></i> Làm lại đề này
+                </button>
+                <button type="button" class="btn-outline" style="border-color: #cbd5e1; color: #64748b; padding: 12px 18px; font-weight: 600; border-radius: 10px; margin: 0; cursor: pointer;" onclick="exitMinimalMode()">
+                    <i class="ri-logout-box-r-line"></i> Thoát
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Render BỘ LỌC CÂU HỎI vào reviewFilterBarContainer (nằm ngay dưới tabs)
+    const filterContainer = document.getElementById('reviewFilterBarContainer');
+    if (filterContainer) {
+        filterContainer.style.display = 'block';
+        filterContainer.innerHTML = `
+            <div class="azota-review-filter-bar">
+                <span class="filter-title"><i class="ri-filter-3-line"></i> Lọc câu hỏi:</span>
+                <button type="button" class="azota-filter-tab active" data-filter="all" onclick="filterReviewQuestions('all')">
+                    Tất cả <span class="tab-count">${totalQues}</span>
+                </button>
+                <button type="button" class="azota-filter-tab tab-wrong" data-filter="wrong" onclick="filterReviewQuestions('wrong')">
+                    <i class="ri-close-circle-fill" style="color: #ef4444;"></i> Câu làm sai <span class="tab-count">${wrongCount}</span>
+                </button>
+                <button type="button" class="azota-filter-tab tab-correct" data-filter="correct" onclick="filterReviewQuestions('correct')">
+                    <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Câu đúng <span class="tab-count">${correctCount}</span>
+                </button>
+                <button type="button" class="azota-filter-tab tab-skipped" data-filter="skipped" onclick="filterReviewQuestions('skipped')">
+                    <i class="ri-question-fill" style="color: #f59e0b;"></i> Chưa làm <span class="tab-count">${skippedCount}</span>
+                </button>
+            </div>
+        `;
+    }
+
+    // Cập nhật tab số lượng câu hỏi
+    const tabReviewCount = document.getElementById('tabReviewCount');
+    if (tabReviewCount) tabReviewCount.innerText = `${totalQues} câu`;
+    const tabNav = document.getElementById('resultNavTabs');
+    if (tabNav) tabNav.style.display = 'flex';
+
+    // 3. Render TOÀN BỘ CÂU HỎI VÀO #quiz-container (Từ câu 1 đến câu N)
+    const container = document.getElementById('quiz-container');
+    container.innerHTML = '';
+
+    evaluatedQuestions.forEach((item) => {
+        const { q, qIndex, qType, userAnswer, correctAnswer, explain, status, earnedScore } = item;
+        const card = document.createElement('div');
+        card.className = `review-question-card status-${status}`;
+        card.id = `review_q_${qIndex}`;
+        card.dataset.resultStatus = status;
+
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+
+        let typeBadge = '';
+        if (qType === 'true_false' || typeof correctAnswer === 'object') {
+            typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; border: 1px solid #bae6fd;">Đúng / Sai</span>';
+        } else if (qType === 'short_answer') {
+            typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; border: 1px solid #fde68a;">Trả lời ngắn</span>';
+        } else {
+            typeBadge = '<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; border: 1px solid #e2e8f0;">Trắc nghiệm 4 lựa chọn</span>';
+        }
+
+        let statusBadge = '';
+        if (status === 'correct') {
+            statusBadge = `<span class="review-status-badge correct"><i class="ri-checkbox-circle-fill"></i> Đúng (+${earnedScore}đ)</span>`;
+        } else if (status === 'skipped') {
+            statusBadge = `<span class="review-status-badge skipped"><i class="ri-question-fill"></i> Chưa trả lời (0đ)</span>`;
+        } else {
+            statusBadge = `<span class="review-status-badge wrong"><i class="ri-close-circle-fill"></i> Sai (0đ)</span>`;
+        }
+
+        // Tìm chữ cái đáp án đúng và lựa chọn của học sinh cho câu MCQ
+        let correctCharDisplay = '';
+        let userCharDisplay = '';
+
+        if (qType === 'mcq' || (!qType && Array.isArray(q.options))) {
+            (q.options || []).forEach((opt, oIdx) => {
+                let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIdx);
+                if (matchOptionToTarget(opt, oIdx, correctAnswer)) {
+                    correctCharDisplay = char;
+                }
+                if (matchOptionToTarget(opt, oIdx, userAnswer)) {
+                    userCharDisplay = char;
+                }
+            });
+            if (!correctCharDisplay && correctAnswer) {
+                let m = String(correctAnswer).match(/^[A-F]/i);
+                correctCharDisplay = m ? m[0].toUpperCase() : String(correctAnswer);
+            }
+            if (!userCharDisplay && userAnswer) {
+                let m = String(userAnswer).match(/^[A-F]/i);
+                userCharDisplay = m ? m[0].toUpperCase() : String(userAnswer);
+            }
+        }
+
+        // Tóm tắt kết quả nhanh trên mỗi câu hỏi
+        let summaryBannerHtml = '';
+        if (qType === 'mcq' || (!qType && Array.isArray(q.options))) {
+            if (status === 'correct') {
+                summaryBannerHtml = `
+                    <div class="review-quick-banner is-correct">
+                        <i class="ri-checkbox-circle-fill" style="font-size: 1.15rem;"></i> 
+                        <span>Chính xác! Bạn đã chọn đúng đáp án <b>${correctCharDisplay || 'A'}</b></span>
+                    </div>
+                `;
+            } else if (status === 'skipped') {
+                summaryBannerHtml = `
+                    <div class="review-quick-banner is-skipped">
+                        <i class="ri-question-fill" style="font-size: 1.15rem;"></i> 
+                        <span>Chưa trả lời! Đáp án đúng là: <b class="highlight-correct">${correctCharDisplay || 'A'}</b></span>
+                    </div>
+                `;
+            } else {
+                summaryBannerHtml = `
+                    <div class="review-quick-banner is-wrong">
+                        <i class="ri-close-circle-fill" style="font-size: 1.15rem;"></i> 
+                        <span>Lựa chọn của bạn: <b class="highlight-wrong">${userCharDisplay || '(Chưa chọn)'}</b> &nbsp;|&nbsp; Đáp án chính xác: <b class="highlight-correct">${correctCharDisplay || 'A'}</b></span>
+                    </div>
+                `;
+            }
+        }
+
+        let cleanQText = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+        let cardHtml = `
+            ${groupTitleHtml}
+            <div class="review-q-header">
+                <div class="review-q-number">
+                    <span>Câu ${qIndex + 1} / ${totalQues}</span>
+                    ${typeBadge}
+                </div>
+                <div>${statusBadge}</div>
+            </div>
+            <div class="review-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+            ${summaryBannerHtml}
+        `;
+
+        if (qType === 'true_false' || typeof correctAnswer === 'object') {
+            const correctMap = (typeof correctAnswer === 'object' && correctAnswer) ? correctAnswer : {};
+            const userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
+            
+            cardHtml += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">`;
+            ['a', 'b', 'c', 'd'].forEach((char, oIndex) => {
+                let optText = (q.options && q.options[oIndex]) ? q.options[oIndex].replace(/^[a-d][\.\:\)]\s*/i, '') : `Ý kiến ${char.toUpperCase()}`;
+                let isCorrectVal = correctMap[char];
+                let userVal = userMap[char];
+                let isMatch = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
+                
+                cardHtml += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #ffffff; border: 1.5px solid ${userVal === undefined ? '#e2e8f0' : (isMatch ? '#86efac' : '#fca5a5')}; border-radius: 12px; gap: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 220px; font-size: 0.96rem; color: #1e293b; line-height: 1.5;">
+                            <b style="color: var(--azota-primary); margin-right: 6px;">${char})</b> ${optText}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; flex-shrink: 0;">
+                            <span style="color: #64748b;">Bạn chọn: <b style="color: ${userVal === undefined ? '#64748b' : (isMatch ? '#16a34a' : '#dc2626')};">${userVal === true ? 'Đúng' : (userVal === false ? 'Sai' : 'Chưa chọn')}</b></span>
+                            <span style="background: #f0fdf4; color: #166534; padding: 3px 10px; border-radius: 6px; font-weight: 700; border: 1px solid #bbf7d0;">Đáp án: ${isCorrectVal === true ? 'Đúng' : 'Sai'}</span>
+                            <span style="font-size: 1.1rem;">${userVal === undefined ? '⚠️' : (isMatch ? '✅' : '❌')}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            cardHtml += `</div>`;
+        } else if (qType === 'short_answer') {
+            const uStr = String(userAnswer || '').trim();
+            const cStr = String(correctAnswer || '').trim();
+            const isMatch = (status === 'correct');
+            
+            cardHtml += `
+                <div style="margin-bottom: 16px; padding: 14px 18px; background: #ffffff; border-radius: 12px; border: 1.5px solid ${isMatch ? '#86efac' : '#e2e8f0'};">
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: #64748b; font-weight: 600;">Câu trả lời của bạn:</span> 
+                        <span style="font-weight: 800; font-size: 1.05rem; color: ${isMatch ? '#16a34a' : '#dc2626'};">${escapeHtml(uStr) || '(Chưa điền câu trả lời)'}</span>
+                        ${isMatch ? ' ✅' : (uStr ? ' ❌' : ' ⚠️')}
+                    </div>
+                    <div>
+                        <span style="color: #64748b; font-weight: 600;">Đáp án chính xác:</span> 
+                        <span style="font-weight: 800; font-size: 1.05rem; color: #15803d; text-decoration: underline;">${escapeHtml(cStr)}</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            // MCQ 4 lựa chọn
+            cardHtml += `<div class="review-opt-list">`;
+            (q.options || []).forEach((opt, oIndex) => {
+                let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
+                let isThisCorrect = matchOptionToTarget(opt, oIndex, correctAnswer);
+                let isThisUserPick = matchOptionToTarget(opt, oIndex, userAnswer);
+                
+                let optClass = 'review-opt-item';
+                let tagHtml = '';
+                
+                if (isThisCorrect && isThisUserPick) {
+                    optClass += ' is-correct';
+                    tagHtml = `<span class="review-opt-tag tag-correct"><i class="ri-check-double-line"></i> Bạn đã chọn đúng</span>`;
+                } else if (isThisCorrect) {
+                    optClass += ' is-correct';
+                    tagHtml = `<span class="review-opt-tag tag-correct"><i class="ri-check-line"></i> Đáp án đúng</span>`;
+                } else if (isThisUserPick) {
+                    optClass += ' is-user-wrong';
+                    tagHtml = `<span class="review-opt-tag tag-wrong"><i class="ri-close-line"></i> Bạn đã chọn</span>`;
+                }
+
+                cardHtml += `
+                    <div class="${optClass}">
+                        <div class="review-opt-badge">${char}</div>
+                        <div style="flex: 1; word-break: break-word;">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</div>
+                        ${tagHtml}
+                    </div>
+                `;
+            });
+            cardHtml += `</div>`;
+        }
+
+        // Khung Lời giải chi tiết
+        if (explain && explain.trim() !== '') {
+            cardHtml += `
+                <div class="review-explain-box">
+                    <div class="review-explain-title"><i class="ri-lightbulb-fill"></i> Hướng dẫn giải chi tiết:</div>
+                    <div class="review-explain-body">${explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+                </div>
+            `;
+        } else if (correctCharDisplay) {
+            cardHtml += `
+                <div class="review-explain-box fallback">
+                    <div class="review-explain-title"><i class="ri-information-fill"></i> Thông tin đáp án:</div>
+                    <div class="review-explain-body">Đáp án chính xác của câu hỏi này là: <b>${correctCharDisplay}</b></div>
+                </div>
+            `;
+        }
+
+        card.innerHTML = cardHtml;
+
+        // Tích hợp Gia sư ảo AI WebLLM cho từng câu hỏi (nếu bật tính năng)
+        if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
+            const aiBox = document.createElement('div');
+            aiBox.className = 'webllm-feedback-container';
+            card.appendChild(aiBox);
+            
+            const isMistake = (status !== 'correct');
+            const explainBtn = window.WebLLMTutor.createExplainButton(() => {
+                window.WebLLMTutor.renderExplainCard(aiBox, q, userAnswer, isMistake);
+                explainBtn.style.display = 'none';
+            }, isMistake);
+            explainBtn.style.marginTop = '12px';
+            card.appendChild(explainBtn);
+        }
+
+        container.appendChild(card);
+    });
+
+    renderMath(container);
+}
+
+// --- HÀM NỘP BÀI THI & CHẤM ĐIỂM HOÀN CHỈNH (CHO CẢ LUYỆN TẬP VÀ THI THỬ) ---
 async function submitExam(isReview = false) {
     clearInterval(timerInterval);
     const timerDisplay = document.getElementById('timerDisplay');
@@ -3212,21 +4027,49 @@ async function submitExam(isReview = false) {
     let totalTimeElapsed = isReview ? (quizProgress.timeElapsed || 0) : ((quizProgress.timeElapsed || 0) + sessionTime);
     let score = 0;
     
-    // Thu thập câu trả lời của học sinh (hỗ trợ MCQ, Đúng/Sai, Trả lời ngắn)
+    // 1. Thu thập câu trả lời của học sinh (hỗ trợ cả Luyện tập và Thi thử)
     let userAnswers = {};
     currentData.forEach((q, qIndex) => {
         let qType = q.type || 'mcq';
         if (isReview && quizProgress && quizProgress.answers) {
             userAnswers[qIndex] = quizProgress.answers[qIndex];
         } else {
-            if (qType === 'true_false') {
-                userAnswers[qIndex] = (quizProgress && quizProgress.answers && quizProgress.answers[qIndex]) || {};
-            } else if (qType === 'short_answer') {
-                const saInput = document.getElementById(`exam_sa_${qIndex}`);
-                userAnswers[qIndex] = saInput ? saInput.value.trim() : ((quizProgress && quizProgress.answers && quizProgress.answers[qIndex]) || '');
+            if (currentMode === 'practice') {
+                // Trong chế độ Luyện tập: Lấy câu trả lời đã lưu của từng câu
+                if (q.user_answer_practice !== undefined) {
+                    userAnswers[qIndex] = q.user_answer_practice;
+                } else if (qIndex === currentQuestionIndex) {
+                    // Nếu đang làm dở câu hiện tại
+                    if (qType === 'true_false') {
+                        userAnswers[qIndex] = window.currentPracticeTF || {};
+                    } else if (qType === 'short_answer') {
+                        const saInput = document.getElementById('pract_sa_input');
+                        userAnswers[qIndex] = saInput ? saInput.value.trim() : '';
+                    } else {
+                        const checked = document.querySelector('input[name="pract_radio"]:checked');
+                        if (checked && q.options) {
+                            const optLabels = document.querySelectorAll('#quiz-container .option-practice');
+                            optLabels.forEach((lbl, oIdx) => {
+                                if (lbl.querySelector('input:checked')) userAnswers[qIndex] = q.options[oIdx];
+                            });
+                        }
+                    }
+                } else if (quizProgress && quizProgress.answers && quizProgress.answers[qIndex] !== undefined) {
+                    userAnswers[qIndex] = quizProgress.answers[qIndex];
+                } else {
+                    userAnswers[qIndex] = null;
+                }
             } else {
-                const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
-                userAnswers[qIndex] = selected ? selected.value : null;
+                // Trong chế độ Thi thử
+                if (qType === 'true_false') {
+                    userAnswers[qIndex] = (quizProgress && quizProgress.answers && quizProgress.answers[qIndex]) || {};
+                } else if (qType === 'short_answer') {
+                    const saInput = document.getElementById(`exam_sa_${qIndex}`);
+                    userAnswers[qIndex] = saInput ? saInput.value.trim() : ((quizProgress && quizProgress.answers && quizProgress.answers[qIndex]) || '');
+                } else {
+                    const selected = document.querySelector(`input[name="exam_${qIndex}"]:checked`);
+                    userAnswers[qIndex] = selected ? selected.value : ((quizProgress && quizProgress.answers && quizProgress.answers[qIndex]) || null);
+                }
             }
         }
     });
@@ -3236,7 +4079,7 @@ async function submitExam(isReview = false) {
     let backendResults = null;
     let verifiedScore = null;
 
-    // CHẤM ĐIỂM PHÍA SERVER (BẢO MẬT & CHỐNG HACK ĐIỂM F12)
+    // 2. Chấm điểm phía Server nếu có kết nối và có mã đề thi
     if (!isReview && quizId) {
         try {
             const res = await fetch(`${API_BASE_URL}/api/student/submit_exam`, {
@@ -3256,92 +4099,14 @@ async function submitExam(isReview = false) {
                 backendResults = resData.results;
             }
         } catch(err) {
-            console.warn("Lỗi kết nối server chấm điểm, sử dụng cơ chế nội bộ:", err);
+            console.warn("Lỗi kết nối server chấm điểm, sử dụng cơ chế chấm điểm cục bộ:", err);
         }
     }
-    
-    // Áp dụng kết quả xác thực từ Backend
-    if (backendResults && Array.isArray(backendResults)) {
+
+    // 3. Fallback chấm điểm cục bộ nếu không có kết quả từ server
+    if (verifiedScore !== null) {
         score = verifiedScore;
-        backendResults.forEach(item => {
-            const qIndex = item.question_index;
-            const q = currentData[qIndex];
-            if (!q) return;
-            
-            q.correct_answer = item.correct_answer;
-            q.explain = item.explain;
-            const userAnswer = item.user_answer;
-            const qType = q.type || 'mcq';
-            
-            if (qType === 'true_false' || typeof item.correct_answer === 'object') {
-                const correctMap = (typeof item.correct_answer === 'object' && item.correct_answer) ? item.correct_answer : {};
-                const userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
-                
-                ['a', 'b', 'c', 'd'].forEach(char => {
-                    const row = document.getElementById(`exam_tf_${qIndex}_${char}`);
-                    const isCorrectVal = correctMap[char];
-                    const userVal = userMap[char];
-                    const isMatched = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
-                    
-                    if (row) {
-                        const btns = row.querySelectorAll('.azota-tf-btn');
-                        if (btns.length >= 2) {
-                            btns[0].disabled = true;
-                            btns[1].disabled = true;
-                            if (isCorrectVal === true) btns[0].classList.add('correct-state');
-                            else btns[1].classList.add('correct-state');
-                            if (userVal === true && !isMatched) btns[0].classList.add('wrong-state');
-                            else if (userVal === false && !isMatched) btns[1].classList.add('wrong-state');
-                        }
-                    }
-                });
-            } else if (qType === 'short_answer') {
-                const inputEl = document.getElementById(`exam_sa_${qIndex}`);
-                if (inputEl) {
-                    inputEl.disabled = true;
-                    if (item.is_correct) inputEl.classList.add('correct');
-                    else inputEl.classList.add('incorrect');
-                }
-                const saBox = document.querySelector(`#question_box_${qIndex} .azota-sa-box`);
-                if (saBox && !saBox.querySelector('.sa-ans-reveal')) {
-                    const ansDiv = document.createElement('div');
-                    ansDiv.className = 'sa-ans-reveal';
-                    ansDiv.style.cssText = 'margin-top: 8px; font-size: 0.95rem; font-weight: 700; color: #166534;';
-                    ansDiv.innerHTML = `✅ Đáp án đúng: <u>${escapeHtml(String(item.correct_answer || ''))}</u>`;
-                    saBox.appendChild(ansDiv);
-                }
-            } else {
-                // MCQ
-                (q.options || []).forEach((opt, oIndex) => {
-                    const optEl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
-                    if (optEl) {
-                        optEl.classList.remove('correct', 'incorrect');
-                        const inputEl = optEl.querySelector('input');
-                        if (inputEl) inputEl.disabled = true;
-                        
-                        if (opt === item.correct_answer) {
-                            optEl.classList.add('correct');
-                        } else if (opt === userAnswer && !item.is_correct) {
-                            optEl.classList.add('incorrect');
-                        }
-                    }
-                });
-            }
-            
-            // Hiển thị lời giải thích chi tiết dưới câu hỏi nếu có
-            if (item.explain) {
-                const qCard = document.getElementById(`question_box_${qIndex}`) || document.getElementById(`exam_q_${qIndex}`) || (document.getElementById(`exam_opt_${qIndex}_0`) ? document.getElementById(`exam_opt_${qIndex}_0`).parentElement : null);
-                if (qCard && !qCard.querySelector('.exam-explain-box')) {
-                    const expDiv = document.createElement('div');
-                    expDiv.className = 'exam-explain-box';
-                    expDiv.style.cssText = 'margin-top: 12px; padding: 10px 14px; background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 6px; font-size: 0.95rem; color: #166534;';
-                    expDiv.innerHTML = `<b>💡 Hướng dẫn giải:</b> ${item.explain}`;
-                    qCard.appendChild(expDiv);
-                }
-            }
-        });
     } else {
-        // Fallback chế độ xem lại (Review) hoặc Offline
         currentData.forEach((q, qIndex) => {
             let userAnswer = userAnswers[qIndex];
             let qType = q.type || 'mcq';
@@ -3350,159 +4115,43 @@ async function submitExam(isReview = false) {
                 let correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
                 let userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
                 let matchCount = 0;
-                
                 ['a', 'b', 'c', 'd'].forEach(char => {
-                    let row = document.getElementById(`exam_tf_${qIndex}_${char}`);
                     let isCorrectVal = correctMap[char];
                     let userVal = userMap[char];
-                    let isMatched = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
-                    if (isMatched) matchCount++;
-                    
-                    if (row) {
-                        const btns = row.querySelectorAll('.azota-tf-btn');
-                        if (btns.length >= 2) {
-                            btns[0].disabled = true;
-                            btns[1].disabled = true;
-                            if (isCorrectVal === true) btns[0].classList.add('correct-state');
-                            else btns[1].classList.add('correct-state');
-                            if (userVal === true && !isMatched) btns[0].classList.add('wrong-state');
-                            else if (userVal === false && !isMatched) btns[1].classList.add('wrong-state');
-                        }
+                    if (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal)) {
+                        matchCount++;
                     }
                 });
-                
-                // Quy chuẩn chấm điểm Đúng/Sai của Bộ GD&ĐT
                 let scale = [0.0, 0.1, 0.25, 0.5, 1.0];
                 let earned = scale[matchCount] !== undefined ? scale[matchCount] : 0.0;
                 score += earned;
             } else if (qType === 'short_answer') {
                 let uStr = String(userAnswer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
                 let cStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
-                let isMatch = (uStr && uStr === cStr);
-                const inputEl = document.getElementById(`exam_sa_${qIndex}`);
-                if (inputEl) {
-                    inputEl.disabled = true;
-                    if (isMatch) inputEl.classList.add('correct');
-                    else inputEl.classList.add('incorrect');
-                }
-                if (isMatch) score += 1;
-                
-                const saBox = document.querySelector(`#question_box_${qIndex} .azota-sa-box`);
-                if (saBox && !saBox.querySelector('.sa-ans-reveal')) {
-                    const ansDiv = document.createElement('div');
-                    ansDiv.className = 'sa-ans-reveal';
-                    ansDiv.style.cssText = 'margin-top: 8px; font-size: 0.95rem; font-weight: 700; color: #166534;';
-                    ansDiv.innerHTML = `✅ Đáp án đúng: <u>${escapeHtml(String(q.correct_answer || ''))}</u>`;
-                    saBox.appendChild(ansDiv);
-                }
+                if (uStr && uStr === cStr) score += 1;
             } else {
-                // MCQ
-                if (isReview && userAnswer) {
-                    const oIndex = q.options.indexOf(userAnswer);
-                    if(oIndex !== -1) {
-                        const r = document.querySelector(`#exam_opt_${qIndex}_${oIndex} input`);
-                        if(r) r.checked = true;
-                        const lbl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
-                        if(lbl) lbl.classList.add('selected');
-                    }
-                }
-                
-                q.options.forEach((opt, oIndex) => {
-                    const optEl = document.getElementById(`exam_opt_${qIndex}_${oIndex}`);
-                    if (optEl) {
-                        optEl.classList.remove('correct', 'incorrect');
-                        const inputEl = optEl.querySelector('input');
-                        if (inputEl) inputEl.disabled = true;
-                        
-                        if (opt === q.correct_answer) {
-                            optEl.classList.add('correct');
-                        } else if (opt === userAnswer && userAnswer !== q.correct_answer) {
-                            optEl.classList.add('incorrect');
-                        }
-                    }
-                });
-                
-                if (userAnswer === q.correct_answer) score++;
-            }
-
-            // Hiển thị lời giải thích nếu có
-            if (q.explain) {
-                const qBox = document.getElementById(`question_box_${qIndex}`);
-                if (qBox && !qBox.querySelector('.exam-explain-box')) {
-                    const expDiv = document.createElement('div');
-                    expDiv.className = 'exam-explain-box';
-                    expDiv.style.cssText = 'margin-top: 12px; padding: 10px 14px; background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 6px; font-size: 0.95rem; color: #166534;';
-                    expDiv.innerHTML = `<b>💡 Hướng dẫn giải:</b> ${q.explain}`;
-                    qBox.appendChild(expDiv);
-                }
+                if (matchOptionToTarget(userAnswer, 0, q.correct_answer)) score += 1;
             }
         });
         score = Math.round(score * 100) / 100;
     }
-    
-    document.getElementById('submitBtn').style.display = 'none';
+
+    // 4. Cập nhật các trạng thái nút bấm và giao diện
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) submitBtn.style.display = 'none';
     const stickySubmit = document.getElementById('stickySubmitBtn');
     if (stickySubmit) stickySubmit.style.display = 'none';
     const sideCol = document.getElementById('azotaSideExamCol');
-    if (sideCol) sideCol.style.display = 'none'; // Ẩn bảng palette khi đã nộp bài
+    if (sideCol) sideCol.style.display = 'none';
     const mobileBar = document.getElementById('azotaMobileExamBar');
     if (mobileBar) mobileBar.style.display = 'none';
     toggleMobileNavSheet(false);
     document.body.classList.add('quiz-completed');
-    
-    const totalQues = currentData.length;
-    const answeredCount = Object.keys(userAnswers).length;
-    const skippedCount = totalQues - answeredCount;
-    const wrongCount = totalQues - score - skippedCount;
-    const scaledScore = totalQues > 0 ? ((score / totalQues) * 10).toFixed(1) : "0.0";
 
-    const scoreBoard = document.getElementById('score-board');
-    scoreBoard.style.display = 'block';
-    scoreBoard.innerHTML = `
-        <div class="azota-result-card">
-            <div class="azota-score-circle">
-                <span class="big-num">${scaledScore}</span>
-                <span class="scale">Điểm / 10</span>
-            </div>
-            <h2 style="color: var(--azota-primary); margin: 0 0 8px 0; font-size: 1.5rem; font-weight: 800;">
-                ${score >= totalQues * 0.8 ? '🎉 Kết Quả Xuất Sắc!' : (score >= totalQues * 0.5 ? '👏 Bạn Đã Hoàn Thành Bài Thi!' : '💪 Cần Cố Gắng Thêm Lần Sau!')}
-            </h2>
-            <p style="color: #64748b; font-size: 1rem; margin: 0 0 20px 0;">
-                Bạn đã làm đúng <b>${score}</b> trên tổng số <b>${totalQues}</b> câu hỏi.
-            </p>
+    // 5. Render toàn bộ Bảng điểm tổng kết và Danh sách tất cả câu hỏi có giải thích
+    renderSubmissionReview(score, currentData.length, totalTimeElapsed, userAnswers, backendResults);
 
-            <div class="azota-result-grid">
-                <div class="azota-res-tile green">
-                    <div class="val">${score}</div>
-                    <div class="desc"><i class="ri-checkbox-circle-line"></i> Số câu đúng</div>
-                </div>
-                <div class="azota-res-tile red">
-                    <div class="val">${Math.max(0, wrongCount)}</div>
-                    <div class="desc"><i class="ri-close-circle-line"></i> Số câu sai</div>
-                </div>
-                <div class="azota-res-tile gray">
-                    <div class="val">${Math.max(0, skippedCount)}</div>
-                    <div class="desc"><i class="ri-question-line"></i> Chưa làm</div>
-                </div>
-                <div class="azota-res-tile blue">
-                    <div class="val">${formatTime(totalTimeElapsed)}</div>
-                    <div class="desc"><i class="ri-time-line"></i> Thời gian</div>
-                </div>
-            </div>
-
-            <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
-                <button class="btn-primary" style="background: #1976d2; padding: 12px 24px; font-weight: 700; border-radius: 10px; margin: 0;" onclick="document.getElementById('quiz-container').scrollIntoView({behavior: 'smooth'})">
-                    <i class="ri-file-search-line"></i> Xem chi tiết bài làm & lời giải
-                </button>
-                <button class="btn-outline" style="padding: 12px 24px; font-weight: 700; border-radius: 10px; margin: 0;" onclick="restartExam()">
-                    <i class="ri-refresh-line"></i> Thi lại đề này
-                </button>
-            </div>
-        </div>
-    `;
-
-    showToast("🎉 Đã nộp bài thi thành công!", "success");
-    
+    // 6. Lưu tiến trình làm bài vào Storage và gọi Bảng xếp hạng
     if (!isReview && isStudentMode && studentName) { 
         if (!quizProgress.answers) quizProgress.answers = {};
         Object.assign(quizProgress.answers, userAnswers);
@@ -3516,18 +4165,23 @@ async function submitExam(isReview = false) {
             total: currentData.length,
             timeElapsed: totalTimeElapsed,
             date: new Date().toLocaleString('vi-VN'),
-            mode: 'Thi thử'
+            mode: currentMode === 'practice' ? 'Luyện tập' : 'Thi thử'
         });
         
         saveProgressToLocal();
         sendPing();
-        if (quizId) fetchLeaderboard(quizId);
     }
-    
+
+    // Luôn tải bảng xếp hạng sau khi nộp bài
+    await fetchLeaderboard(quizId);
+    switchResultView('review');
+
+    showToast("🎉 Đã nộp bài thành công!", "success");
+
+    // 7. Cuộn trang mượt mà lên đầu để xem kết quả
     const quizContainer = document.getElementById('quiz-container');
     if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    renderMath();
 }
 
 function exitMinimalMode() {
