@@ -45,11 +45,7 @@ _client_pool: Dict[str, genai.Client] = {}
 
 
 def get_gemini_client(api_key: str) -> genai.Client:
-
     """Lấy client từ pool hoặc tạo mới nếu chưa tồn tại."""
-
-    global _client_pool
-
     key_clean = api_key.strip()
 
     if key_clean not in _client_pool:

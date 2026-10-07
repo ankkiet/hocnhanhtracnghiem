@@ -1,9 +1,12 @@
 import os
+import sys
 import io
 import unittest
 import xml.etree.ElementTree as ET
 from docx import Document
 from fastapi.testclient import TestClient
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import tempfile
 from core.image_converter import detect_image_format, process_image_blob

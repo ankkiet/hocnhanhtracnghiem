@@ -98,7 +98,6 @@ def init_firebase():
         return None
 
 def get_db():
-    global db
     if db is None:
         return init_firebase()
     return db
