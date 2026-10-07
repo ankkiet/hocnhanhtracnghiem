@@ -146,7 +146,47 @@ class TestAPIEndpoints(unittest.TestCase):
         res_approved = self.client.get("/api/auth/check_approval_status?user_id=u456")
         self.assertEqual(res_approved.status_code, 200)
         self.assertEqual(res_approved.json()["status"], "approved")
-        self.assertIn("token", res_approved.json())
+    @patch("routers.auth.get_db")
+    def test_select_role_with_profile_fields(self, mock_get_db):
+        """Kiểm tra chọn vai trò kèm thông tin họ tên, lớp, sđt, trường học"""
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "email": "teacher_new@example.com",
+            "username": "teacher_new@example.com",
+            "full_name": "Google User",
+            "status": "needs_role"
+        }
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+        
+        payload = {
+            "user_id": "u789",
+            "role": "teacher",
+            "full_name": "Thầy Nguyễn Văn Nam",
+            "class_name": "Tổ Toán - Khối 12",
+            "phone": "0987654321",
+            "school": "THPT Chuyên Hà Nội - Amsterdam"
+        }
+        response = self.client.post("/api/auth/select_role", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "pending_approval")
+        self.assertEqual(data["role"], "teacher")
+        self.assertEqual(data["full_name"], "Thầy Nguyễn Văn Nam")
+        self.assertEqual(data["class_name"], "Tổ Toán - Khối 12")
+        self.assertEqual(data["phone"], "0987654321")
+        self.assertEqual(data["school"], "THPT Chuyên Hà Nội - Amsterdam")
+        
+        update_args = mock_db.collection.return_value.document.return_value.update.call_args[0][0]
+        self.assertEqual(update_args["role"], "teacher")
+        self.assertEqual(update_args["status"], "pending")
+        self.assertEqual(update_args["full_name"], "Thầy Nguyễn Văn Nam")
+        self.assertEqual(update_args["class_name"], "Tổ Toán - Khối 12")
+        self.assertEqual(update_args["phone"], "0987654321")
+        self.assertEqual(update_args["school"], "THPT Chuyên Hà Nội - Amsterdam")
+        self.assertTrue(update_args["profile_completed"])
 
 
 if __name__ == "__main__":

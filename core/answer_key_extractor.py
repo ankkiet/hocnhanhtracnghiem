@@ -179,15 +179,12 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             continue
                         q_num = int(num_m.group(1))
 
-                        # 1. Đúng/Sai: a-Đ, b-S, c-Đ, d-S hoặc aĐ bS cĐ dS
-                        tf_m = re.search(r'\b[a-d]\s*[\:\-\.]?\s*(?:Đ|S|Đúng|Sai)\b', c_bot, re.IGNORECASE)
-                        if tf_m:
-                            tf_dict = {}
-                            for k in ['a', 'b', 'c', 'd']:
-                                m = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s)\b', c_bot, re.IGNORECASE)
-                                if m:
-                                    tf_dict[k] = m.group(1).lower() in ['đ', 'đúng']
-                            if tf_dict:
+                        # 1. Đúng/Sai: a-Đ, b-S, c-Đ, d-S hoặc aĐ bS cĐ dS hoặc a. Đúng...
+                        tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', c_bot, re.IGNORECASE)
+                        if tf_m or len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c_bot, re.IGNORECASE)) >= 3:
+                            from services.ai_service import parse_tf_answer
+                            tf_dict = parse_tf_answer(c_bot)
+                            if tf_dict and any(tf_dict.values()):
                                 ak.set_answer(2, q_num, tf_dict)
                                 continue
 
@@ -227,14 +224,11 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                         continue
                     q_num = int(num_m.group(1))
 
-                    tf_m = re.search(r'\b[a-d]\s*[\:\-\.]?\s*(?:Đ|S|Đúng|Sai)\b', c1, re.IGNORECASE)
-                    if tf_m:
-                        tf_dict = {}
-                        for k in ['a', 'b', 'c', 'd']:
-                            m = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s)\b', c1, re.IGNORECASE)
-                            if m:
-                                tf_dict[k] = m.group(1).lower() in ['đ', 'đúng']
-                        if tf_dict:
+                    tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', c1, re.IGNORECASE)
+                    if tf_m or len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)) >= 3:
+                        from services.ai_service import parse_tf_answer
+                        tf_dict = parse_tf_answer(c1)
+                        if tf_dict and any(tf_dict.values()):
                             ak.set_answer(2, q_num, tf_dict)
                             continue
 
@@ -297,12 +291,9 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
             for m in tf_pattern.finditer(chunk):
                 q_num = int(m.group(1))
                 tf_str = m.group(2)
-                tf_dict = {}
-                for k in ['a', 'b', 'c', 'd']:
-                    km = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s|true|false)\b', tf_str, re.IGNORECASE)
-                    if km:
-                        tf_dict[k] = km.group(1).lower() in ['đ', 'đúng', 'true']
-                if tf_dict:
+                from services.ai_service import parse_tf_answer
+                tf_dict = parse_tf_answer(tf_str)
+                if tf_dict and any(tf_dict.values()):
                     ak.set_answer(2, q_num, tf_dict)
 
             # Chuỗi 4 chữ Đ/S theo sau số câu trong phần II (ví dụ: Câu 1: Đ S Đ S hoặc 1. Đ, S, Đ, S)
@@ -405,7 +396,24 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
 
         q_type = q_item.get('type', 'mcq')
         linear_num = idx + 1
-        
+
+        # Cố gắng tìm số thứ tự gốc trong đề bài nếu có (ví dụ: "Câu 5:", "5.")
+        raw_num = None
+        q_text = q_item.get('question', '')
+        num_m = re.search(r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])', q_text, re.IGNORECASE)
+        if num_m:
+            raw_num = int(num_m.group(1) or num_m.group(2))
+
+        # Tự động cứu hộ: Nếu câu hỏi bị gán nhầm là short_answer nhưng thực chất chứa các ý a, b, c, d
+        if q_type == 'short_answer':
+            from services.ai_service import extract_sub_statements_from_text
+            stem, opts = extract_sub_statements_from_text(q_item.get('question', ''))
+            if len(opts) >= 3:
+                q_type = 'true_false'
+                q_item['type'] = 'true_false'
+                q_item['question'] = stem
+                q_item['options'] = opts
+
         # Đếm số thứ tự con trong phần tương ứng
         if q_type == 'true_false':
             part_counters['true_false'] += 1
@@ -417,12 +425,13 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
             part_counters['mcq'] += 1
             part_num = part_counters['mcq']
 
-        # Cố gắng tìm số thứ tự gốc trong đề bài nếu có (ví dụ: "Câu 5:", "5.")
-        raw_num = None
-        q_text = q_item.get('question', '')
-        num_m = re.search(r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])', q_text, re.IGNORECASE)
-        if num_m:
-            raw_num = int(num_m.group(1) or num_m.group(2))
+        # Nếu là câu Đúng/Sai nhưng options bị thiếu, tự trích xuất lại từ nội dung câu hỏi
+        if q_type == 'true_false' and len(q_item.get('options', [])) <= 1:
+            from services.ai_service import extract_sub_statements_from_text
+            stem, opts = extract_sub_statements_from_text(q_item.get('question', ''))
+            if len(opts) >= 3:
+                q_item['question'] = stem
+                q_item['options'] = opts
 
         official_ans = answer_key.get_answer(
             q_type=q_type,
@@ -436,13 +445,8 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
                 if isinstance(official_ans, dict):
                     q_item['correct_answer'] = official_ans
                 elif isinstance(official_ans, str) and len(official_ans) >= 2:
-                    tf_d = {}
-                    for k in ['a', 'b', 'c', 'd']:
-                        km = re.search(rf'\b{k}\s*[\:\-\.]?\s*(đúng|sai|đ|s)\b', official_ans, re.IGNORECASE)
-                        if km:
-                            tf_d[k] = km.group(1).lower() in ['đ', 'đúng']
-                    if tf_d:
-                        q_item['correct_answer'] = tf_d
+                    from services.ai_service import parse_tf_answer
+                    q_item['correct_answer'] = parse_tf_answer(official_ans)
             elif q_type == 'short_answer':
                 q_item['correct_answer'] = str(official_ans).strip()
             else: # MCQ

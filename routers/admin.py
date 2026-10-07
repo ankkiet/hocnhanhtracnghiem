@@ -52,9 +52,14 @@ async def get_all_users(admin_token: str):
         res.append({
             'id': u.id,
             'username': d.get('username'),
+            'email': d.get('email') or d.get('username'),
             'full_name': d.get('full_name'),
             'role': d.get('role'),
-            'status': d.get('status')
+            'status': d.get('status'),
+            'class_name': d.get('class_name', ''),
+            'phone': d.get('phone', ''),
+            'school': d.get('school', ''),
+            'created_at': d.get('created_at', '')
         })
     return {"status": "success", "data": res}
 

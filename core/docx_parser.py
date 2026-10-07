@@ -1,6 +1,6 @@
 import re
 import base64
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from docx import Document
 from docx.oxml.ns import qn, nsmap
 if 'o' not in nsmap:
@@ -8,6 +8,7 @@ if 'o' not in nsmap:
 if 'v' not in nsmap:
     nsmap['v'] = 'urn:schemas-microsoft-com:vml'
 from docx.text.paragraph import Paragraph
+from docx.table import Table
 
 from services.r2_service import upload_image_to_r2
 from core.image_converter import process_image_blob
@@ -594,157 +595,288 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     return extracted_data
 
 
+def parse_azota_tf_table(table: Table) -> Optional[Dict[str, bool]]:
+    """
+    Kiểm tra và bóc tách bảng đáp án Đúng/Sai đặt ngay dưới từng câu hỏi (chuẩn Azota Cách 2):
+    - Dạng dọc: Cột 'Lệnh hỏi' / 'Ý', Cột 'Đúng', Cột 'Sai' (với các dấu tích x, v, 1, ✓, ✔, Đ)
+    - Dạng ngang: Hàng 1 chứa các ý a, b, c, d; Hàng 2 chứa Đ, S, Đ, S
+    Trả về dict {'a': bool, 'b': bool, 'c': bool, 'd': bool} nếu phát hiện, ngược lại None.
+    """
+    if not table or not table.rows or len(table.rows) < 2:
+        return None
+
+    num_rows = len(table.rows)
+
+    # 1. KIỂM TRA DẠNG DỌC (Thường 3 cột hoặc 2 cột: Lệnh hỏi / Đúng / Sai)
+    header_texts = [c.text.strip().lower() for c in table.rows[0].cells]
+    col_correct = None
+    col_false = None
+    col_label = None
+
+    for idx, h in enumerate(header_texts):
+        if re.search(r'^(?:đúng|dung|true|đ|t)\b', h, re.IGNORECASE):
+            col_correct = idx
+        elif re.search(r'^(?:sai|false|s|f)\b', h, re.IGNORECASE):
+            col_false = idx
+        elif any(k in h for k in ['lệnh hỏi', 'lenh hoi', 'ý', 'phương án', 'mệnh đề', 'câu']):
+            col_label = idx
+
+    if col_correct is not None and col_false is not None:
+        tf_dict = {}
+        found_chars = set()
+        for r_idx in range(1, num_rows):
+            row_cells = table.rows[r_idx].cells
+            if not row_cells:
+                continue
+            label_text = row_cells[col_label].text.strip() if col_label is not None and col_label < len(row_cells) else ""
+            char_m = re.search(r'\b([a-d])[\)\.\:\-]?', label_text, re.IGNORECASE)
+            if not char_m:
+                char_m = re.search(r'\b([a-d])[\)\.\:\-]?', row_cells[0].text.strip(), re.IGNORECASE)
+
+            if char_m:
+                char_key = char_m.group(1).lower()
+            elif 1 <= r_idx <= 4:
+                char_key = ['a', 'b', 'c', 'd'][r_idx - 1]
+            else:
+                continue
+
+            val_corr = row_cells[col_correct].text.strip().lower() if col_correct < len(row_cells) else ""
+            val_fls = row_cells[col_false].text.strip().lower() if col_false < len(row_cells) else ""
+
+            mark_corr = bool(re.search(r'[xv✓✔1đt]|đúng|true', val_corr, re.IGNORECASE))
+            mark_fls = bool(re.search(r'[xv✓✔1sf]|sai|false', val_fls, re.IGNORECASE))
+
+            if mark_corr and not mark_fls:
+                tf_dict[char_key] = True
+                found_chars.add(char_key)
+            elif mark_fls and not mark_corr:
+                tf_dict[char_key] = False
+                found_chars.add(char_key)
+            elif mark_corr and mark_fls:
+                tf_dict[char_key] = 'đ' in val_corr or 'true' in val_corr
+                found_chars.add(char_key)
+
+        if len(found_chars) >= 2:
+            for c in ['a', 'b', 'c', 'd']:
+                if c not in tf_dict:
+                    tf_dict[c] = False
+            return tf_dict
+
+    # 2. KIỂM TRA DẠNG NGANG (Hàng 0 chứa a, b, c, d; Hàng 1 chứa Đ, S)
+    if num_rows >= 2:
+        for r_idx in range(num_rows - 1):
+            row_labels = [c.text.strip().lower() for c in table.rows[r_idx].cells]
+            row_vals = [c.text.strip().lower() for c in table.rows[r_idx + 1].cells]
+
+            matched_cols = {}
+            for c_idx, lab in enumerate(row_labels):
+                m = re.search(r'\b([a-d])[\)\.\:\-]?', lab)
+                if m:
+                    matched_cols[m.group(1).lower()] = c_idx
+
+            if len(matched_cols) >= 2:
+                tf_dict = {}
+                for char_key, c_idx in matched_cols.items():
+                    if c_idx < len(row_vals):
+                        val_str = row_vals[c_idx]
+                        is_t = any(k in val_str for k in ['đ', 'đúng', 'true', 't', '1', 'v', '✓', '✔']) and not any(k in val_str for k in ['s', 'sai', 'false', 'f', '0'])
+                        tf_dict[char_key] = is_t
+                if len(tf_dict) >= 2:
+                    for c in ['a', 'b', 'c', 'd']:
+                        if c not in tf_dict:
+                            tf_dict[c] = False
+                    return tf_dict
+
+    return None
+
+
+def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> str:
+    """Xử lý định dạng HTML, toán LaTeX và hình ảnh cho một phần tử paragraph <w:p>"""
+    para = Paragraph(p_element, doc._body)
+    raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
+    has_text = bool(raw_text.strip())
+    has_media = bool(para._element.xpath('.//*[local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'))
+    if not has_text and not has_media:
+        return ""
+
+    para_text = ""
+    prefix = get_auto_numbering_prefix(para, doc, counters)
+    if prefix:
+        para_text_strip = raw_text.strip()
+        is_numbering_text = RE_NUMBERING.match(para_text_strip)
+        is_group_title = RE_GROUP_TITLE.match(para_text_strip)
+        if not is_numbering_text and not is_group_title:
+            para_text += prefix
+
+    for node in para._element.xpath('.//*[local-name()="t" or local-name()="tab" or local-name()="br" or local-name()="cr" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
+        if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
+            continue
+
+        if node.tag.endswith('}tab'):
+            para_text += "\t"
+        elif node.tag.endswith('}br') or node.tag.endswith('}cr'):
+            para_text += "\n"
+        elif node.tag.endswith('}oMath'):
+            math_latex = parse_omath(node)
+            if math_latex:
+                encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
+                para_text += f" \\({encoded_math}\\) "
+        elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
+            img_nodes = node.xpath('.//*[local-name()="blip" or local-name()="imagedata" or local-name()="svgBlip"]')
+            if not img_nodes:
+                continue
+            extent = node.xpath('.//*[local-name()="extent"]')
+            img_style = "max-width: 100%; height: auto;"
+            if extent:
+                try:
+                    cx = int(extent[0].get('cx', 0))
+                    if cx > 0:
+                        px_width = int(cx / 9525)
+                        if px_width <= 2:
+                            continue
+                        img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
+                except:
+                    pass
+
+            processed_rids = set()
+            for img_node in img_nodes:
+                try:
+                    if img_node.tag.endswith('}svgBlip') and img_node.xpath('ancestor::*[local-name()="blip"]'):
+                        continue
+
+                    rId, image_part = find_image_part_and_id(img_node, doc)
+                    if rId and rId not in processed_rids and image_part is not None:
+                        processed_rids.add(rId)
+                        mime_type = image_part.content_type
+                        blob = image_part.blob
+                        if not blob or len(blob) < 50:
+                            continue
+
+                        processed_blob, processed_mime = process_image_blob(blob, mime_type)
+                        if not processed_blob:
+                            continue
+
+                        img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
+                        img_tag = None
+                        if img_url:
+                            img_tag = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
+                        elif processed_mime and processed_mime.startswith("image/"):
+                            b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
+                            img_tag = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
+
+                        if img_tag:
+                            img_counter = len(image_mapping) + 1
+                            placeholder = f"[IMG_{img_counter}]"
+                            image_mapping[placeholder] = img_tag
+                            para_text += f"\n{placeholder}\n"
+                except Exception as img_err:
+                    print(f"[CẢNH BÁO] parse_docx_to_marked_text lỗi ảnh: {img_err}")
+        elif node.tag.endswith('}t'):
+            run_text = node.text
+            if not run_text: continue
+
+            r = node.getparent()
+            rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
+            is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
+
+            if rPr_list:
+                rPr = rPr_list[0]
+                if rPr.find(qn('w:b')) is not None: is_bold = True
+                if rPr.find(qn('w:i')) is not None: is_italic = True
+                if rPr.find(qn('w:u')) is not None: is_underline = True
+
+                highlight = rPr.find(qn('w:highlight'))
+                if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
+
+                color = rPr.find(qn('w:color'))
+                if color is not None:
+                    c_val = str(color.get(qn('w:val'), '')).upper()
+                    if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
+                        is_red_text = True
+
+                vertAlign = rPr.find(qn('w:vertAlign'))
+                if vertAlign is not None:
+                    val = vertAlign.get(qn('w:val'))
+                    if val == 'subscript': is_subscript = True
+                    if val == 'superscript': is_superscript = True
+
+            if '✓' in run_text or '✔' in run_text:
+                is_red_text = True
+
+            formatted_text = run_text.replace("<", "&lt;").replace(">", "&gt;")
+            if is_subscript: formatted_text = f"<sub>{formatted_text}</sub>"
+            if is_superscript: formatted_text = f"<sup>{formatted_text}</sup>"
+            if is_italic: formatted_text = f"<i>{formatted_text}</i>"
+            if is_underline and not is_red_text: formatted_text = f"<u>{formatted_text}</u>"
+            if is_bold and not is_red_text: formatted_text = f"<b>{formatted_text}</b>"
+
+            if is_red_text or is_highlighted or is_underline:
+                para_text += f"<MARK>{formatted_text}</MARK>"
+            else:
+                para_text += formatted_text
+
+    return para_text
+
+
 def parse_docx_to_marked_text(file_path: str):
-    """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ để gửi lên AI, đồng thời giữ định dạng HTML"""
+    """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ/gạch chân để gửi lên AI, đồng thời giữ định dạng HTML và bóc tách bảng Đúng/Sai Azota"""
     doc = Document(file_path)
     full_text = []
     image_mapping = {}
-    img_counter = 0
     counters = {'q': 0, 'opt': 0}
-    
-    for p_element in doc.element.xpath('.//*[local-name()="p"]'):
-        para = Paragraph(p_element, doc._body)
-        raw_text = "".join(node.text for node in para._element.iter() if node.tag.endswith('}t') and node.text)
-        has_text = bool(raw_text.strip())
-        has_media = bool(para._element.xpath('.//*[local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'))
-        if not has_text and not has_media:
-            full_text.append("\n")
-            continue
-        
-        para_text = ""
-        prefix = get_auto_numbering_prefix(para, doc, counters)
-        if prefix:
-            para_text_strip = raw_text.strip()
-            is_numbering_text = RE_NUMBERING.match(para_text_strip)
-            is_group_title = RE_GROUP_TITLE.match(para_text_strip)
-            if not is_numbering_text and not is_group_title:
-                para_text += prefix
-                
-        for node in para._element.xpath('.//*[local-name()="t" or local-name()="tab" or local-name()="br" or local-name()="cr" or local-name()="drawing" or local-name()="pict" or local-name()="object" or local-name()="oMath"]'):
-            if node.xpath('ancestor::*[local-name()="oMath"]') and not node.tag.endswith('}oMath'):
-                continue
 
-            if node.tag.endswith('}tab'):
-                para_text += "\t"
-            elif node.tag.endswith('}br') or node.tag.endswith('}cr'):
-                para_text += "\n"
-            elif node.tag.endswith('}oMath'):
-                math_latex = parse_omath(node)
-                if math_latex:
-                    encoded_math = math_latex.replace("<", "&lt;").replace(">", "&gt;")
-                    para_text += f" \\({encoded_math}\\) "
-            elif node.tag.endswith('}drawing') or node.tag.endswith('}pict') or node.tag.endswith('}object'):
-                img_nodes = node.xpath('.//*[local-name()="blip" or local-name()="imagedata" or local-name()="svgBlip"]')
-                if not img_nodes:
-                    continue
-                extent = node.xpath('.//*[local-name()="extent"]')
-                img_style = "max-width: 100%; height: auto;"
-                if extent:
-                    try:
-                        cx = int(extent[0].get('cx', 0))
-                        if cx > 0:
-                            px_width = int(cx / 9525)
-                            if px_width <= 2:
-                                continue
-                            img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
-                    except:
-                        pass
-                        
-                processed_rids = set()
-                for img_node in img_nodes:
-                    try:
-                        if img_node.tag.endswith('}svgBlip') and img_node.xpath('ancestor::*[local-name()="blip"]'):
-                            continue
+    # Quét tuần tự các phần tử con của body để bảo toàn đúng vị trí câu hỏi và bảng đáp án (chuẩn Azota Cách 2)
+    for child in doc.element.body:
+        if child.tag.endswith('}p'):
+            para_text = _process_p_element(child, doc, counters, image_mapping)
+            if para_text:
+                full_text.append(para_text)
+            else:
+                full_text.append("\n")
+        elif child.tag.endswith('}tbl'):
+            tbl = Table(child, doc._body)
+            # Kiểm tra xem có phải bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn Azota Cách 2 không
+            tf_res = parse_azota_tf_table(tbl)
+            if tf_res:
+                ans_str = ", ".join(f"{k}-{'Đ' if v else 'S'}" for k, v in tf_res.items())
+                full_text.append(f"\nĐáp án: {ans_str}\n")
+            else:
+                # Bảng thông thường (bảng dữ liệu thí nghiệm, số liệu...), bóc tách các dòng
+                table_lines = []
+                for row in tbl.rows:
+                    row_texts = []
+                    for cell in row.cells:
+                        cell_paras = []
+                        for cp in cell._element.xpath('.//*[local-name()="p"]'):
+                            pt = _process_p_element(cp, doc, counters, image_mapping)
+                            if pt.strip():
+                                cell_paras.append(pt.strip())
+                        row_texts.append(" ".join(cell_paras))
+                    table_lines.append("\t".join(row_texts))
+                if table_lines:
+                    full_text.append("\n" + "\n".join(table_lines) + "\n")
 
-                        rId, image_part = find_image_part_and_id(img_node, doc)
-                        if rId and rId not in processed_rids and image_part is not None:
-                            processed_rids.add(rId)
-                            mime_type = image_part.content_type
-                            blob = image_part.blob
-                            if not blob or len(blob) < 50:
-                                continue
-
-                            processed_blob, processed_mime = process_image_blob(blob, mime_type)
-                            if not processed_blob:
-                                continue
-
-                            img_url = upload_image_to_r2(processed_blob, mime_type=processed_mime)
-                            img_tag = None
-                            if img_url:
-                                img_tag = f"<img src='{img_url}' class='quiz-image' style='{img_style}' />"
-                            elif processed_mime and processed_mime.startswith("image/"):
-                                b64_encoded = base64.b64encode(processed_blob).decode('utf-8')
-                                img_tag = f"<img src='data:{processed_mime};base64,{b64_encoded}' class='quiz-image' style='{img_style}' />"
-                            
-                            if img_tag:
-                                img_counter += 1
-                                placeholder = f"[IMG_{img_counter}]"
-                                image_mapping[placeholder] = img_tag
-                                para_text += f"\n{placeholder}\n"
-                    except Exception as img_err:
-                        print(f"[CẢNH BÁO] parse_docx_to_marked_text lỗi ảnh: {img_err}")
-            elif node.tag.endswith('}t'):
-                run_text = node.text
-                if not run_text: continue
-                
-                r = node.getparent()
-                rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
-                is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
-                
-                if rPr_list:
-                    rPr = rPr_list[0]
-                    if rPr.find(qn('w:b')) is not None: is_bold = True
-                    if rPr.find(qn('w:i')) is not None: is_italic = True
-                    if rPr.find(qn('w:u')) is not None: is_underline = True
-                    
-                    highlight = rPr.find(qn('w:highlight'))
-                    if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
-                        
-                    color = rPr.find(qn('w:color'))
-                    if color is not None:
-                        c_val = str(color.get(qn('w:val'), '')).upper()
-                        if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
-                            is_red_text = True
-                            
-                    vertAlign = rPr.find(qn('w:vertAlign'))
-                    if vertAlign is not None:
-                        val = vertAlign.get(qn('w:val'))
-                        if val == 'subscript': is_subscript = True
-                        if val == 'superscript': is_superscript = True
-
-                if '✓' in run_text or '✔' in run_text:
-                    is_red_text = True
-                
-                formatted_text = run_text.replace("<", "&lt;").replace(">", "&gt;")
-                if is_subscript: formatted_text = f"<sub>{formatted_text}</sub>"
-                if is_superscript: formatted_text = f"<sup>{formatted_text}</sup>"
-                if is_italic: formatted_text = f"<i>{formatted_text}</i>"
-                if is_underline and not is_red_text: formatted_text = f"<u>{formatted_text}</u>"
-                if is_bold and not is_red_text: formatted_text = f"<b>{formatted_text}</b>"
-                
-                if is_red_text or is_highlighted or is_underline:
-                    para_text += f"<MARK>{formatted_text}</MARK>"
-                else:
-                    para_text += formatted_text
-                    
-        full_text.append(para_text)
-        
     raw_output = "\n".join(full_text)
     for tag in ['b', 'i', 'u', 'sup', 'sub']:
         raw_output = raw_output.replace(f"</{tag}> <{tag}>", " ").replace(f"</{tag}><{tag}>", "")
-    
+
     end_markers = ['\nHẾT\n', '\nHET\n', '\n--- HẾT ---\n', '\n---HẾT---\n', '\nTHE END\n']
     for marker in end_markers:
         pos = raw_output.upper().find(marker.upper())
         if pos != -1 and pos > len(raw_output) * 0.5:
             tail = raw_output[pos:].upper()
-            if any(k in tail for k in ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ĐÁP ÁN", "DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM"]):
+            if any(k in tail for k in ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ĐÁP ÁN", "DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM", "LỜI GIẢI", "LOI GIAI", "HƯỚNG DẪN GIẢI", "HUONG DAN GIAI", "GIẢI THÍCH"]):
                 pass
             else:
                 raw_output = raw_output[:pos]
             break
-        
+
     # Tách các phương án A-D trên cùng 1 dòng thành từng dòng riêng biệt (yêu cầu tab, 2 khoảng trắng trở lên hoặc sau dấu câu)
     raw_output = re.sub(r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)(\*?[A-D][\.\:\)]\s*)', r'\n\1', raw_output)
-    raw_output = re.sub(r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)(\*?[a-d][\)\.\:\-]\s*)', r'\n\1', raw_output)
+    # Hỗ trợ tách các ý con a-d trên cùng 1 dòng kèm tiền tố ma trận Azota [0, NB] và markup <u>, <MARK>
+    raw_output = re.sub(
+        r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)((?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?(?:<MARK>\s*|<u>\s*)*\*?[a-d][\)\.\:\-]\s*)',
+        r'\n\1',
+        raw_output
+    )
     return raw_output, image_mapping

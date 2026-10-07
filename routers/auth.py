@@ -24,6 +24,9 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: str
     role: str
+    class_name: Optional[str] = ""
+    phone: Optional[str] = ""
+    school: Optional[str] = ""
 
 class LoginRequest(BaseModel):
     username: str
@@ -114,6 +117,11 @@ async def get_auth_config():
 class SelectRoleRequest(BaseModel):
     user_id: str
     role: str
+    full_name: Optional[str] = ""
+    class_name: Optional[str] = ""
+    phone: Optional[str] = ""
+    school: Optional[str] = ""
+    extra_info: Optional[str] = ""
 
 @router.post("/google", summary="Đăng nhập hoặc đăng ký nhanh bằng Google")
 async def google_login(req: GoogleAuthRequest):
@@ -193,8 +201,11 @@ async def google_login(req: GoogleAuthRequest):
                     "user_id": user_id,
                     "email": email,
                     "full_name": user_data.get('full_name') or name,
+                    "class_name": user_data.get('class_name', ''),
+                    "phone": user_data.get('phone', ''),
+                    "school": user_data.get('school', ''),
                     "avatar": picture or user_data.get('avatar', ''),
-                    "message": "Vui lòng chọn bạn là Học sinh hay Giáo viên để tiếp tục."
+                    "message": "Vui lòng hoàn tất thông tin cá nhân và chọn bạn là Học sinh hay Giáo viên để tiếp tục."
                 }
 
             # Nếu là Giáo viên nhưng chưa được Admin duyệt
@@ -204,6 +215,9 @@ async def google_login(req: GoogleAuthRequest):
                     "user_id": user_id,
                     "email": email,
                     "full_name": user_data.get('full_name') or name,
+                    "class_name": user_data.get('class_name', ''),
+                    "phone": user_data.get('phone', ''),
+                    "school": user_data.get('school', ''),
                     "role": "teacher",
                     "avatar": picture or user_data.get('avatar', ''),
                     "message": "Tài khoản Giáo viên của bạn đang chờ Quản trị viên phê duyệt."
@@ -239,7 +253,11 @@ async def google_login(req: GoogleAuthRequest):
                 'full_name': name,
                 'role': 'pending_selection',
                 'status': 'needs_role',
+                'class_name': '',
+                'phone': '',
+                'school': '',
                 'role_selected_at': None,
+                'profile_completed': False,
                 'auth_provider': 'google',
                 'avatar': picture,
                 'google_id': google_sub,
@@ -253,8 +271,11 @@ async def google_login(req: GoogleAuthRequest):
                 "user_id": user_id,
                 "email": email,
                 "full_name": name,
+                "class_name": "",
+                "phone": "",
+                "school": "",
                 "avatar": picture,
-                "message": "Đăng nhập Google thành công! Vui lòng chọn bạn là Học sinh hay Giáo viên."
+                "message": "Đăng nhập Google thành công! Vui lòng nhập thông tin cá nhân và chọn vai trò."
             }
 
     # Tạo JWT Token bảo mật 7 ngày
@@ -275,10 +296,10 @@ async def google_login(req: GoogleAuthRequest):
         "avatar": picture
     }
 
-@router.post("/select_role", summary="Chọn vai trò sau khi đăng nhập lần đầu")
+@router.post("/select_role", summary="Chọn vai trò và cập nhật thông tin cá nhân")
 async def select_role(req: SelectRoleRequest):
     """
-    Xử lý chọn vai trò sau khi đăng nhập Google lần đầu:
+    Xử lý cập nhật thông tin cá nhân (Tên, Lớp, SĐT, Trường) và vai trò sau đăng nhập Google:
     - Học sinh: Cấp quyền ngay (status=approved), trả về JWT Token.
     - Giáo viên: Đặt status=pending (Chờ Admin duyệt), không cấp quyền truy cập ngay.
     """
@@ -298,35 +319,49 @@ async def select_role(req: SelectRoleRequest):
         raise HTTPException(status_code=400, detail="Vai trò không hợp lệ. Vui lòng chọn 'student' hoặc 'teacher'.")
 
     email = user_data.get('email') or user_data.get('username', '')
-    full_name = user_data.get('full_name', '') or email.split('@')[0]
+    raw_name = (getattr(req, 'full_name', '') or '').strip()
+    full_name = raw_name if raw_name else (user_data.get('full_name') or email.split('@')[0])
+    class_name = (getattr(req, 'class_name', '') or '').strip()
+    phone = (getattr(req, 'phone', '') or '').strip()
+    school = (getattr(req, 'school', '') or '').strip()
+    extra_info = (getattr(req, 'extra_info', '') or '').strip()
+
+    update_payload = {
+        'role': selected_role,
+        'full_name': full_name,
+        'class_name': class_name,
+        'phone': phone,
+        'school': school,
+        'extra_info': extra_info,
+        'role_selected_at': now_iso,
+        'profile_completed': True
+    }
 
     if selected_role == 'teacher':
         # Giáo viên: BẮT BUỘC chờ Quản trị viên duyệt
-        db.collection('users').document(req.user_id).update({
-            'role': 'teacher',
-            'status': 'pending',
-            'role_selected_at': now_iso
-        })
+        update_payload['status'] = 'pending'
+        db.collection('users').document(req.user_id).update(update_payload)
         return {
             "status": "pending_approval",
             "user_id": req.user_id,
             "role": "teacher",
             "email": email,
             "full_name": full_name,
-            "message": "Đã ghi nhận vai trò Giáo viên! Tài khoản của bạn đang chờ Quản trị viên xét duyệt."
+            "class_name": class_name,
+            "phone": phone,
+            "school": school,
+            "message": "Đã ghi nhận thông tin Giáo viên! Tài khoản của bạn đang chờ Quản trị viên xét duyệt trước khi có thể truy cập."
         }
     else:
         # Học sinh: Kích hoạt ngay lập tức
-        db.collection('users').document(req.user_id).update({
-            'role': 'student',
-            'status': 'approved',
-            'role_selected_at': now_iso
-        })
+        update_payload['status'] = 'approved'
+        db.collection('users').document(req.user_id).update(update_payload)
         token_payload = {
             "sub": req.user_id,
             "username": email,
             "role": "student",
-            "full_name": full_name
+            "full_name": full_name,
+            "class_name": class_name
         }
         jwt_token = create_access_token(token_payload)
         return {
@@ -334,8 +369,11 @@ async def select_role(req: SelectRoleRequest):
             "token": jwt_token,
             "role": "student",
             "full_name": full_name,
+            "class_name": class_name,
+            "phone": phone,
+            "school": school,
             "email": email,
-            "message": "Đăng ký vai trò Học sinh thành công! Chúc bạn học tập hiệu quả."
+            "message": "Cập nhật thông tin thành công! Chúc bạn học tập hiệu quả."
         }
 
 @router.get("/check_approval_status", summary="Kiểm tra trạng thái duyệt tài khoản")
@@ -368,6 +406,9 @@ async def check_approval_status(user_id: str):
             "token": jwt_token,
             "role": role,
             "full_name": full_name,
+            "class_name": user_data.get('class_name', ''),
+            "phone": user_data.get('phone', ''),
+            "school": user_data.get('school', ''),
             "email": email,
             "message": "Tài khoản của bạn đã được Quản trị viên phê duyệt thành công!"
         }
@@ -375,6 +416,9 @@ async def check_approval_status(user_id: str):
         "status": "pending",
         "role": role,
         "full_name": full_name,
+        "class_name": user_data.get('class_name', ''),
+        "phone": user_data.get('phone', ''),
+        "school": user_data.get('school', ''),
         "email": email,
         "message": "Tài khoản vẫn đang trong danh sách chờ Quản trị viên xét duyệt."
     }
@@ -410,6 +454,9 @@ async def get_current_user_profile(token: Optional[str] = None):
                 "user_id": user.get('id'),
                 "email": email or username,
                 "full_name": user.get('full_name', ''),
+                "class_name": user.get('class_name', ''),
+                "phone": user.get('phone', ''),
+                "school": user.get('school', ''),
                 "avatar": user.get('avatar', '')
             }
 
@@ -419,6 +466,9 @@ async def get_current_user_profile(token: Optional[str] = None):
                 "user_id": user.get('id'),
                 "email": email or username,
                 "full_name": user.get('full_name', ''),
+                "class_name": user.get('class_name', ''),
+                "phone": user.get('phone', ''),
+                "school": user.get('school', ''),
                 "role": "teacher",
                 "avatar": user.get('avatar', '')
             }
@@ -428,6 +478,9 @@ async def get_current_user_profile(token: Optional[str] = None):
         "user_id": user.get('id'),
         "role": user.get('role', 'student'),
         "full_name": user.get('full_name', ''),
+        "class_name": user.get('class_name', ''),
+        "phone": user.get('phone', ''),
+        "school": user.get('school', ''),
         "email": email or username,
         "avatar": user.get('avatar', ''),
         "status_code": user.get('status', 'approved')
@@ -465,6 +518,7 @@ async def register(req: RegisterRequest):
         role = 'teacher'
         status = 'pending' # Giáo viên (hoặc giá trị khác) phải chờ admin duyệt
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     db.collection('users').add({
         'username': username,
         'email': username if '@' in username else '',
@@ -472,7 +526,12 @@ async def register(req: RegisterRequest):
         'full_name': req.full_name.strip(),
         'role': role,
         'status': status,
-        'created_at': datetime.now(timezone.utc).isoformat()
+        'class_name': (getattr(req, 'class_name', '') or '').strip(),
+        'phone': (getattr(req, 'phone', '') or '').strip(),
+        'school': (getattr(req, 'school', '') or '').strip(),
+        'role_selected_at': now_iso,
+        'profile_completed': True,
+        'created_at': now_iso
     })
     
     if role == 'teacher':

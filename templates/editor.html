@@ -3,10 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HocnhanhTN Studio - Biên tập & Soát lỗi Đề thi</title>
+    <title>HocNhanhTN Studio - Biên tập & Soát lỗi Đề thi</title>
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    <meta property="og:title" content="HocNhanhTN Studio - Biên tập & Soát lỗi Đề thi">
+    <meta property="og:description" content="Studio biên tập đề thi trắc nghiệm thông minh, tích hợp AI bóc tách công thức toán học và hình ảnh.">
+    <meta property="og:image" content="/unnamed.jpg">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="/unnamed.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="editor.css">
+    <link rel="stylesheet" href="style.css?v=20261007_hntn_loader">
+    <link rel="stylesheet" href="editor.css?v=20261007_hntn_loader">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
         window.MathJax = {
@@ -38,8 +46,9 @@
             <button id="btnDiscardOrDelete" class="studio-back-btn" style="color: #ef4444; border-color: #fecaca;" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
                 <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel">Hủy nháp</span>
             </button>
-            <div class="studio-brand-badge" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 6px 14px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                <i class="ri-survey-line" style="font-size: 1.25rem;"></i> HocNhanhTN Studio
+            <div class="studio-brand-badge" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: white; padding: 5px 12px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 24px; height: 24px; border-radius: 6px; object-fit: contain; background: white; padding: 2px; box-sizing: border-box;">
+                <span>HocNhanhTN Studio</span>
             </div>
             <div class="studio-title-box">
                 <input type="text" id="studioQuizTitle" class="studio-title-input" placeholder="Nhập tên bài kiểm tra / đề thi..." title="Nhấn để đổi tên đề thi">
@@ -124,7 +133,36 @@
                     </div>
                 </div>
                 <div class="studio-pane-body" id="preview-content">
-                    <p style="text-align: center; color: var(--studio-text-muted); margin-top: 50px;">Đang tải dữ liệu đề thi...</p>
+                    <div class="hntn-inline-loader" style="padding: 60px 20px;">
+                        <div class="hntn-loader-wrapper" style="width: 80px; height: 80px; margin-bottom: 12px;">
+                            <div class="hntn-loader-glow" style="width: 60px; height: 60px;"></div>
+                            <svg class="hntn-loader-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                                <g class="disappearing-elements">
+                                    <path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#studioBookLeftGrad)"></path>
+                                    <path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#studioBookRightGrad)"></path>
+                                    <path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+                                    <path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#studioPrimaryGrad)"></path>
+                                    <path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#studioBookRightGrad)"></path>
+                                    <path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+                                    <path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+                                    <path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+                                </g>
+                                <g class="tick-interactive-group">
+                                    <path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#studioPrimaryGrad)" filter="url(#studioSoftGlow)"></path>
+                                    <path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+                                </g>
+                                <g class="cap-kicked-group">
+                                    <polygon fill="url(#studioCapGrad)" filter="url(#studioSoftGlow)" points="250,138 324,168 250,198 176,168"></polygon>
+                                    <polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+                                    <path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+                                    <path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+                                    <circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="hntn-inline-title">Đang tải dữ liệu đề thi...</div>
+                        <div class="hntn-inline-sub">Vui lòng chờ trong giây lát</div>
+                    </div>
                 </div>
             </div>
 
@@ -258,7 +296,61 @@
     <!-- MÀN HÌNH CHỜ PHÂN TÍCH ĐỀ TRỰC TIẾP TRONG STUDIO -->
     <div id="studioLoadingOverlay" class="studio-loading-overlay" style="display: none;">
         <div class="studio-loading-card">
-            <div class="studio-spinner-ring"></div>
+            <div class="hntn-loader-wrapper">
+                <div class="hntn-loader-glow"></div>
+                <svg class="hntn-loader-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="studioPrimaryGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+                            <stop offset="0%" stop-color="#2d4af3"></stop>
+                            <stop offset="50%" stop-color="#2d79f3"></stop>
+                            <stop offset="100%" stop-color="#00d2ff"></stop>
+                        </linearGradient>
+                        <linearGradient id="studioBookLeftGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                            <stop offset="0%" stop-color="#00b4ff"></stop>
+                            <stop offset="100%" stop-color="#3b46e8"></stop>
+                        </linearGradient>
+                        <linearGradient id="studioBookRightGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                            <stop offset="0%" stop-color="#00e5ff"></stop>
+                            <stop offset="100%" stop-color="#2b59f5"></stop>
+                        </linearGradient>
+                        <linearGradient id="studioCapGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                            <stop offset="0%" stop-color="#00d2ff"></stop>
+                            <stop offset="50%" stop-color="#2d79f3"></stop>
+                            <stop offset="100%" stop-color="#1d4ed8"></stop>
+                        </linearGradient>
+                        <filter id="studioSoftGlow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                            <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                        </filter>
+                    </defs>
+                    <g id="studio-dynamic-loader">
+                        <!-- 1. CÁC THÀNH PHẦN TRÔI XUỐNG VÀ BIẾN MẤT VĨNH VIỄN SAU 1 GIÂY -->
+                        <g class="disappearing-elements">
+                            <path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#studioBookLeftGrad)"></path>
+                            <path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#studioBookRightGrad)"></path>
+                            <path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+                            <path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#studioPrimaryGrad)"></path>
+                            <path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#studioBookRightGrad)"></path>
+                            <path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+                            <path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+                            <path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+                        </g>
+                        <!-- 2. DẤU TICK (CHECKMARK) -->
+                        <g class="tick-interactive-group">
+                            <path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#studioPrimaryGrad)" filter="url(#studioSoftGlow)"></path>
+                            <path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+                        </g>
+                        <!-- 3. CHIẾC NÓN CỬ NHÂN -->
+                        <g class="cap-kicked-group">
+                            <polygon fill="url(#studioCapGrad)" filter="url(#studioSoftGlow)" points="250,138 324,168 250,198 176,168"></polygon>
+                            <polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+                            <path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+                            <path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+                            <circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+                        </g>
+                    </g>
+                </svg>
+            </div>
             <div id="studioProgressPercent" class="studio-progress-percent">0%</div>
             <div class="studio-progress-bar-bg">
                 <div id="studioProgressBar" class="studio-progress-bar-fill"></div>
@@ -268,6 +360,6 @@
         </div>
     </div>
 
-    <script src="editor.js?v=20260930_ai_review_v2"></script>
+    <script src="editor.js?v=20261007_hntn_loader"></script>
 </body>
 </html>

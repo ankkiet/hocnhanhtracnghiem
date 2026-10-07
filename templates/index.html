@@ -4,17 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     
-    <!-- CẤU HÌNH THẺ OPEN GRAPH (Hiển thị ảnh bìa, tiêu đề khi gửi link qua Zalo, Facebook) -->
-    <meta property="og:title" content="📝 Bài thi Trắc nghiệm - HocnhanhTN">
-    <meta property="og:description" content="Nhấn vào link để bắt đầu làm bài thi/kiểm tra ngay!">
-    <meta property="og:image" content="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80">
+    <!-- CẤU HÌNH THẺ OPEN GRAPH & FAVICON -->
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    <title>HocNhanhTN - Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên</title>
+    <meta name="description" content="Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên - Nền tảng số hóa đề thi thông minh, biên tập và thi trực tuyến chuẩn GDPT 2018.">
+    <meta property="og:site_name" content="HocNhanhTN">
     <meta property="og:type" content="website">
-    
-    <title>HocNhanhTN - Hệ thống Khảo sát & Thi Trắc nghiệm Thông minh</title>
+    <meta property="og:url" content="/">
+    <meta property="og:title" content="HocNhanhTN - Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên">
+    <meta property="og:description" content="Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên - Nền tảng số hóa đề thi thông minh, biên tập và thi trực tuyến chuẩn GDPT 2018.">
+    <meta property="og:image" content="/unnamed.jpg">
+    <meta property="og:image:secure_url" content="/unnamed.jpg">
+    <meta property="og:image:width" content="1376">
+    <meta property="og:image:height" content="768">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:alt" content="HocNhanhTN - Nền tảng học nhanh trắc nghiệm">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="HocNhanhTN - Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên">
+    <meta name="twitter:description" content="Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên - Nền tảng số hóa đề thi thông minh, biên tập và thi trực tuyến chuẩn GDPT 2018.">
+    <meta name="twitter:image" content="/unnamed.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260930_mobile_v4">
+    <link rel="stylesheet" href="style.css?v=20261007_hntn_loader">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <style id="styled-wrapper-css">
       #authContainer {
@@ -261,6 +274,165 @@
       .styled-auth-wrapper .btn svg {
         flex-shrink: 0 !important;
       }
+
+      /* Google User Banner & Role Selection (Khớp 100% Giao diện Đăng nhập) */
+      .styled-auth-wrapper .google-user-banner {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        background: #f8fafc !important;
+        border: 1.5px solid #edf2f7 !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        margin-bottom: 2px !important;
+      }
+
+      .styled-auth-wrapper .google-user-avatar-box {
+        width: 42px !important;
+        height: 42px !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #4f46e5, #06b6d4) !important;
+        color: white !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 700 !important;
+        font-size: 16px !important;
+        overflow: hidden !important;
+        flex-shrink: 0 !important;
+        border: 2px solid #ffffff !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+      }
+
+      .styled-auth-wrapper .google-user-avatar-box img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+      }
+
+      .styled-auth-wrapper .google-user-meta {
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        text-align: left !important;
+        gap: 2px !important;
+      }
+
+      .styled-auth-wrapper .google-tag {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+      }
+
+      .styled-auth-wrapper .google-email {
+        font-size: 13.5px !important;
+        font-weight: 600 !important;
+        color: #0f172a !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        max-width: 310px !important;
+      }
+
+      .styled-auth-wrapper .role-selector-row {
+        display: flex !important;
+        gap: 10px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 2px 0 !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item {
+        flex: 1 !important;
+        border: 1.5px solid #ecedec !important;
+        border-radius: 12px !important;
+        padding: 10px 12px !important;
+        background: #ffffff !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease-in-out !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        box-sizing: border-box !important;
+        user-select: none !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item:hover {
+        border-color: #cbd5e1 !important;
+        background: #f8fafc !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item.selected#chooseStudentCard {
+        border-color: #2d79f3 !important;
+        background: #f0f7ff !important;
+        box-shadow: 0 0 0 1px #2d79f3 !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item.selected#chooseTeacherCard {
+        border-color: #6366f1 !important;
+        background: #f5f3ff !important;
+        box-shadow: 0 0 0 1px #6366f1 !important;
+      }
+
+      .styled-auth-wrapper .role-selector-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+      }
+
+      .styled-auth-wrapper .role-emoji {
+        font-size: 18px !important;
+        line-height: 1 !important;
+      }
+
+      .styled-auth-wrapper .role-name {
+        font-size: 13.5px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        flex: 1 !important;
+        margin-left: 6px !important;
+      }
+
+      .styled-auth-wrapper .role-check-icon {
+        font-size: 16px !important;
+        color: #cbd5e1 !important;
+        transition: color 0.2s ease !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item.selected#chooseStudentCard .role-check-icon {
+        color: #2d79f3 !important;
+      }
+
+      .styled-auth-wrapper .role-selector-item.selected#chooseTeacherCard .role-check-icon {
+        color: #6366f1 !important;
+      }
+
+      .styled-auth-wrapper .role-badge-text {
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+        display: inline-block !important;
+        align-self: flex-start !important;
+      }
+
+      .styled-auth-wrapper .role-badge-text.instant {
+        background: #dcfce7 !important;
+        color: #15803d !important;
+      }
+
+      .styled-auth-wrapper .role-badge-text.pending {
+        background: #fef3c7 !important;
+        color: #b45309 !important;
+      }
     </style>
     <script>
         window.MathJax = {
@@ -315,6 +487,9 @@
 <div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
     <!-- Form Đăng nhập (Sign In) -->
     <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+        <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
+            <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+        </div>
         <div class="flex-column">
           <label>Email </label>
         </div>
@@ -375,6 +550,9 @@
 
     <!-- Form Đăng ký (Sign Up) -->
     <form class="form" id="registerForm" style="display: none !important;" onsubmit="event.preventDefault(); handleRegister();">
+        <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
+            <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+        </div>
         <div class="flex-column">
           <label>Tên đăng nhập (Username / Email) </label>
         </div>
@@ -443,97 +621,149 @@
         </div>
     </form>
 
-    <!-- Card Tùy chọn Vai trò sau khi đăng nhập lần đầu (Role Selection) -->
-    <div class="form role-selection-card" id="roleSelectionCard" style="display: none !important;">
-        <div style="text-align: center; margin-bottom: 24px;">
-            <div id="roleUserAvatarWrap" style="display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #06b6d4); color: white; font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; box-shadow: 0 8px 18px rgba(79, 70, 229, 0.25); overflow: hidden; border: 3px solid #ffffff;">
+    <!-- Form Hoàn tất đăng ký tài khoản Google (Sign Up with Google) -->
+    <form class="form" id="roleSelectionCard" style="display: none !important;" onsubmit="event.preventDefault(); submitUserProfileAndRole();">
+        <div class="auth-brand-header" style="text-align: center; margin-bottom: 10px;">
+            <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 44px; max-width: 200px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+        </div>
+        <!-- Header tài khoản Google -->
+        <div class="google-user-banner">
+            <div class="google-user-avatar-box">
                 <span id="roleUserInitials">U</span>
-                <img id="roleUserImg" src="" alt="avatar" style="display: none; width: 100%; height: 100%; object-fit: cover;" />
+                <img id="roleUserImg" src="" alt="avatar" style="display: none;" />
             </div>
-            <h2 style="font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 6px 0; letter-spacing: -0.02em;">Chào mừng bạn đến với HocNhanhTN! 🎉</h2>
-            <p style="font-size: 0.92rem; color: #64748b; margin: 0;">Xin chào <b id="roleUserFullName" style="color: #0f172a;">...</b> (<span id="roleUserEmail">...</span>)</p>
-            <p style="font-size: 0.9rem; color: #334155; margin-top: 10px; font-weight: 600;">Vui lòng chọn vai trò để thiết lập không gian làm việc phù hợp:</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 20px;">
-            <!-- Lựa chọn Học sinh -->
-            <div class="role-card-option" id="chooseStudentCard" onclick="submitRoleChoice('student')">
-                <div class="role-badge instant">⚡ Bắt đầu học ngay</div>
-                <div class="role-icon-wrap student">
-                    <i class="ri-graduation-cap-fill"></i>
+            <div class="google-user-meta">
+                <div class="google-tag">
+                    <svg viewBox="0 0 512 512" width="13" height="13">
+                        <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00"/>
+                        <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8"/>
+                        <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446"/>
+                        <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336"/>
+                    </svg>
+                    <span>Google Account</span>
                 </div>
-                <h3 class="role-title">Tôi là Học sinh</h3>
-                <p class="role-desc">Ôn tập trắc nghiệm, thi thử và kiểm tra kiến thức trực tuyến.</p>
-                <ul class="role-perks">
-                    <li><i class="ri-check-line"></i> Làm bài trắc nghiệm mọi lúc mọi nơi</li>
-                    <li><i class="ri-check-line"></i> Xem đáp án & giải thích chi tiết</li>
-                    <li><i class="ri-check-line"></i> Bảng xếp hạng thi đua học tập</li>
-                </ul>
-                <button type="button" class="btn-role-action student-btn">
-                    <span>Chọn Học sinh</span> <i class="ri-arrow-right-line"></i>
-                </button>
+                <div class="google-email" id="roleUserEmail">...</div>
             </div>
+        </div>
 
-            <!-- Lựa chọn Giáo viên -->
-            <div class="role-card-option" id="chooseTeacherCard" onclick="submitRoleChoice('teacher')">
-                <div class="role-badge pending">🛡️ Cần Admin duyệt</div>
-                <div class="role-icon-wrap teacher">
-                    <i class="ri-presentation-fill"></i>
+        <div style="margin: 4px 0 8px 0; text-align: center;">
+            <h3 style="font-size: 17px; font-weight: 700; color: #151717; margin: 0 0 2px 0;">Hoàn tất đăng ký</h3>
+            <p class="p" style="font-size: 13px; color: #71717a; margin: 0;">Xác nhận thông tin & vai trò của bạn để tiếp tục</p>
+        </div>
+
+        <!-- Họ và Tên -->
+        <div class="flex-column">
+            <label>Họ và Tên <span style="color: #ef4444;">*</span></label>
+        </div>
+        <div class="inputForm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <input placeholder="Họ và tên của bạn" class="input" type="text" id="roleFullNameInput" required />
+        </div>
+
+        <!-- Chọn vai trò -->
+        <div class="flex-column">
+            <label>Vai trò tham gia <span style="color: #ef4444;">*</span></label>
+        </div>
+        <div class="role-selector-row">
+            <div class="role-selector-item selected" id="chooseStudentCard" onclick="selectRoleTab('student')">
+                <div class="role-selector-header">
+                    <span class="role-emoji">👨‍🎓</span>
+                    <span class="role-name">Học sinh</span>
+                    <i class="ri-checkbox-circle-fill role-check-icon"></i>
                 </div>
-                <h3 class="role-title">Tôi là Giáo viên</h3>
-                <p class="role-desc">Soạn đề, phân tích đề AI, tạo phòng thi và quản lý học sinh.</p>
-                <ul class="role-perks">
-                    <li><i class="ri-check-line"></i> Bóc tách đề Word / PDF bằng AI</li>
-                    <li><i class="ri-check-line"></i> Trình soạn đề chuẩn Bộ GD&ĐT</li>
-                    <li><i class="ri-check-line"></i> Tạo phòng thi & quản lý điểm số</li>
-                </ul>
-                <button type="button" class="btn-role-action teacher-btn">
-                    <span>Đăng ký Giáo viên</span> <i class="ri-shield-user-line"></i>
-                </button>
+                <span class="role-badge-text instant">⚡ Vào học ngay</span>
+            </div>
+
+            <div class="role-selector-item" id="chooseTeacherCard" onclick="selectRoleTab('teacher')">
+                <div class="role-selector-header">
+                    <span class="role-emoji">👨‍🏫</span>
+                    <span class="role-name">Giáo viên</span>
+                    <i class="ri-checkbox-blank-circle-line role-check-icon"></i>
+                </div>
+                <span class="role-badge-text pending">🛡️ Cần Admin duyệt</span>
             </div>
         </div>
 
-        <div style="text-align: center; border-top: 1px solid #f1f5f9; padding-top: 14px;">
-            <button type="button" onclick="cancelRoleSelection()" style="background: none; border: none; color: #64748b; font-size: 0.88rem; cursor: pointer; text-decoration: underline;">
-                Đăng xuất & Đổi tài khoản khác
-            </button>
+        <!-- Thông báo lưu ý khi chọn Giáo viên -->
+        <div id="teacherApprovalNotice" style="display: none; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #92400e; line-height: 1.45;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <i class="ri-information-fill" style="font-size: 16px; color: #d97706; flex-shrink: 0;"></i>
+                <span><b>Lưu ý:</b> Tài khoản Giáo viên cần Quản trị viên duyệt để kích hoạt tính năng tạo đề.</span>
+            </div>
         </div>
-    </div>
+
+        <!-- Lớp học / Đơn vị (Không bắt buộc) -->
+        <div class="flex-column">
+            <label id="roleClassLabel">Lớp học / Đơn vị <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+        </div>
+        <div class="inputForm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            <input placeholder="VD: Lớp 12A1 / THPT Amsterdam..." class="input" type="text" id="roleClassNameInput" />
+        </div>
+
+        <!-- Số điện thoại (Không bắt buộc) -->
+        <div class="flex-column">
+            <label>Số điện thoại / Zalo <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+        </div>
+        <div class="inputForm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+            </svg>
+            <input placeholder="VD: 0912345678" class="input" type="tel" id="rolePhoneInput" />
+        </div>
+        <input type="hidden" id="roleSchoolInput" value="" />
+
+        <!-- Nút Submit Hoàn tất -->
+        <button class="button-submit" type="submit" id="btnSubmitRoleChoice" style="background-color: #2563eb; margin-top: 14px;">
+            <span id="btnSubmitRoleText">🚀 Hoàn tất & Vào học ngay</span>
+        </button>
+
+        <!-- Quay lại / Đổi tài khoản -->
+        <p class="p" style="margin-top: 8px;">
+            <span class="span" onclick="cancelRoleSelection()" style="color: #64748b; font-size: 13px;">
+                ← Đăng xuất & Đổi tài khoản khác
+            </span>
+        </p>
+    </form>
 
     <!-- Card Thông báo Tài khoản Giáo viên đang chờ duyệt (Pending Approval) -->
-    <div class="form pending-approval-card" id="pendingApprovalCard" style="display: none !important;">
-        <div class="pending-icon-pulse">
+    <div class="form" id="pendingApprovalCard" style="display: none !important; text-align: center;">
+        <div style="margin: 10px auto 14px auto; width: 64px; height: 64px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.2);">
             <i class="ri-hourglass-2-fill"></i>
         </div>
-        <div>
-            <span style="display: inline-block; background: #fef3c7; color: #b45309; padding: 4px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 700; border: 1px solid #fde68a; margin-bottom: 12px;">
-                ⏳ ĐANG CHỜ QUẢN TRỊ VIÊN DUYỆT
+        <div style="margin-bottom: 8px;">
+            <span style="display: inline-block; background: #fef3c7; color: #b45309; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">
+                ⏳ CHỜ QUẢN TRỊ VIÊN DUYỆT
             </span>
         </div>
-        <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0 0 10px 0;">Tài khoản Giáo viên chờ kích hoạt</h2>
-        <p style="font-size: 0.94rem; color: #475569; line-height: 1.6; margin: 0 0 18px 0;">
+        <h3 style="font-size: 18px; font-weight: 700; color: #151717; margin: 0 0 6px 0;">Tài khoản đang chờ duyệt</h3>
+        <p class="p" style="font-size: 13px; color: #475569; line-height: 1.5; margin: 0 0 12px 0;">
             Xin chào <b id="pendingTeacherName" style="color: #0f172a;">...</b>!<br>
-            Hệ thống đã ghi nhận đăng ký vai trò Giáo viên từ email <b id="pendingTeacherEmail" style="color: #2563eb;">...</b>.
+            Hệ thống đã nhận yêu cầu tài khoản Giáo viên từ email <b id="pendingTeacherEmail" style="color: #2563eb;">...</b>.
         </p>
+        <p id="pendingTeacherInfo" style="display: none; font-size: 12px; color: #475569; margin: 0 0 12px 0; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;"></p>
 
-        <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 12px; padding: 14px 18px; margin-bottom: 22px; text-align: left; font-size: 0.88rem; color: #334155; line-height: 1.5;">
-            <div style="display: flex; gap: 10px; align-items: flex-start;">
-                <i class="ri-shield-keyhole-line" style="font-size: 1.25rem; color: #2563eb; flex-shrink: 0; margin-top: 2px;"></i>
+        <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left; font-size: 12.5px; color: #475569; line-height: 1.45;">
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+                <i class="ri-shield-keyhole-line" style="font-size: 16px; color: #2563eb; flex-shrink: 0; margin-top: 2px;"></i>
                 <div>
-                    <b>Tại sao cần xét duyệt?</b><br>
-                    Để đảm bảo an toàn cho ngân hàng câu hỏi và tính bảo mật của phòng thi, Quản trị viên sẽ rà soát và kích hoạt quyền Giáo viên trong thời gian sớm nhất.
+                    Để đảm bảo an toàn ngân hàng đề thi, Quản trị viên sẽ phê duyệt tài khoản của bạn trong thời gian sớm nhất.
                 </div>
             </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button type="button" class="btn-check-approval" onclick="checkCurrentApprovalStatus()" id="btnCheckApproval">
-                <i class="ri-refresh-line"></i> Kiểm tra trạng thái duyệt
-            </button>
-            <button type="button" class="btn-cancel-pending" onclick="cancelRoleSelection()">
-                <i class="ri-logout-box-r-line"></i> Đăng nhập tài khoản khác
-            </button>
-        </div>
+        <button class="button-submit" type="button" onclick="checkCurrentApprovalStatus()" id="btnCheckApproval" style="background-color: #2563eb; margin: 0 0 10px 0;">
+            <i class="ri-refresh-line"></i> &nbsp; Kiểm tra trạng thái duyệt
+        </button>
+        <button class="btn" type="button" onclick="cancelRoleSelection()" style="margin: 0;">
+            Đăng nhập tài khoản khác
+        </button>
     </div>
 </div>
 
@@ -594,11 +824,11 @@
     <div class="azota-navbar-inner" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 16px;">
         <a href="/" class="azota-nav-brand" style="text-decoration: none;">
             <div class="azota-brand-logo">
-                <i class="ri-flashlight-fill"></i>
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="azota-brand-img">
             </div>
             <div>
                 <div class="azota-brand-title">HocNhanh<span>TN</span></div>
-                <div class="azota-brand-sub">Hệ thống Khảo sát & Thi trực tuyến</div>
+                <div class="azota-brand-sub">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên</div>
             </div>
         </a>
 
@@ -635,11 +865,11 @@
 
     <!-- Màn hình yêu cầu nhập tên & Lịch sử thi (Dành cho Học sinh) -->
     <div id="welcomeScreen" class="card azota-result-card" style="display:none; text-align: center; margin-bottom: 24px;">
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: #eff6ff; color: #1976d2; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px auto;">
-            <i class="ri-user-smile-line"></i>
+        <div style="width: 76px; height: 76px; border-radius: 50%; background: #ffffff; border: 2.5px solid #e0f2fe; box-shadow: 0 4px 16px rgba(2, 132, 199, 0.2); overflow: hidden; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; padding: 6px; box-sizing: border-box;">
+            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 100%; height: 100%; object-fit: contain;">
         </div>
-        <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với phòng thi!</h2>
-        <p style="font-size: 1.05rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống đã nhận diện bài kiểm tra. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
+        <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với HocNhanhTN!</h2>
+        <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
         
         <div style="max-width: 420px; margin: 0 auto 20px auto;">
             <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên của bạn (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
@@ -1029,19 +1259,91 @@
             </button>
         </div>
     </div>
+
+    <!-- FOOTER BRANDING -->
+    <footer class="app-footer" style="text-align: center; padding: 36px 16px 28px; color: #64748b; font-size: 0.85rem; border-top: 1px solid #e2e8f0; margin-top: 48px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
+            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 24px; height: 24px; border-radius: 6px; object-fit: contain; vertical-align: middle;">
+            <strong style="color: #0f172a; font-size: 0.95rem;">HocNhanhTN</strong>
+        </div>
+        <p style="margin: 0 0 6px 0; color: #475569; font-weight: 500;">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên</p>
+        <p style="margin: 0; color: #94a3b8; font-size: 0.78rem;">&copy; HocNhanhTN. Tối ưu theo Chương trình GDPT 2018.</p>
+    </footer>
 </div>
 
 <!-- FLOATING TOAST CONTAINER -->
 <div id="azotaToastContainer" class="azota-toast-container"></div>
 
-<!-- Lớp phủ (Overlay) màn hình chờ Tải file -->
-<div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; color: white; backdrop-filter: blur(5px);">
-    <div class="progress-bar-container">
-        <div id="progressBar" class="progress-bar-fill"></div>
+<!-- Lớp phủ (Overlay) màn hình chờ Tải file & Phân tích Đề thi HocNhanhTN -->
+<div id="loadingOverlay" class="hntn-loading-overlay" style="display: none;">
+    <div class="hntn-loading-card">
+        <div class="hntn-loader-wrapper">
+            <div class="hntn-loader-glow"></div>
+            <svg class="hntn-loader-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="hntnPrimaryGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+                        <stop offset="0%" stop-color="#2d4af3"></stop>
+                        <stop offset="50%" stop-color="#2d79f3"></stop>
+                        <stop offset="100%" stop-color="#00d2ff"></stop>
+                    </linearGradient>
+                    <linearGradient id="hntnBookLeftGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00b4ff"></stop>
+                        <stop offset="100%" stop-color="#3b46e8"></stop>
+                    </linearGradient>
+                    <linearGradient id="hntnBookRightGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00e5ff"></stop>
+                        <stop offset="100%" stop-color="#2b59f5"></stop>
+                    </linearGradient>
+                    <linearGradient id="hntnCapGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00d2ff"></stop>
+                        <stop offset="50%" stop-color="#2d79f3"></stop>
+                        <stop offset="100%" stop-color="#1d4ed8"></stop>
+                    </linearGradient>
+                    <filter id="hntnSoftGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                        <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                    </filter>
+                </defs>
+                <g id="hocnhanhtn-dynamic-loader">
+                    <!-- 1. CÁC THÀNH PHẦN TRÔI XUỐNG VÀ BIẾN MẤT VĨNH VIỄN SAU 1 GIÂY -->
+                    <g class="disappearing-elements">
+                        <!-- Lớp cánh sách ngoài cùng -->
+                        <path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#hntnBookLeftGrad)"></path>
+                        <!-- Lớp trang sách giữa -->
+                        <path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#hntnBookRightGrad)"></path>
+                        <!-- Lớp đế lõi sách bên trong -->
+                        <path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+                        <!-- TRỤ CHỮ 'H' -->
+                        <path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#hntnPrimaryGrad)"></path>
+                        <path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#hntnBookRightGrad)"></path>
+                        <!-- CÁC NGÔI SAO AI SPARKLES -->
+                        <path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+                        <path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+                        <path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+                    </g>
+                    <!-- 2. DẤU TICK (CHECKMARK) -->
+                    <g class="tick-interactive-group">
+                        <path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#hntnPrimaryGrad)" filter="url(#hntnSoftGlow)"></path>
+                        <path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+                    </g>
+                    <!-- 3. CHIẾC NÓN CỬ NHÂN -->
+                    <g class="cap-kicked-group">
+                        <polygon fill="url(#hntnCapGrad)" filter="url(#hntnSoftGlow)" points="250,138 324,168 250,198 176,168"></polygon>
+                        <polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+                        <path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+                        <path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+                        <circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+                    </g>
+                </g>
+            </svg>
+        </div>
+        <div id="progressText" class="hntn-progress-percent">0%</div>
+        <div class="hntn-progress-bar-bg progress-bar-container">
+            <div id="progressBar" class="hntn-progress-bar-fill progress-bar-fill"></div>
+        </div>
+        <h3 id="loadingStatusText" class="hntn-loading-title">⚙️ Đang tải file lên...</h3>
+        <p id="loadingStatusSub" class="hntn-loading-sub">Quá trình này có thể mất đến 30 giây đối với tài liệu hoặc đề thi dài.</p>
     </div>
-    <div id="progressText" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #34d399;">0%</div>
-    <h2 id="loadingStatusText" style="margin-top: 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); font-size: 1.2rem; font-weight: normal; text-align: center;">⚙️ Đang tải file lên...</h2>
-    <p style="font-size: 0.9rem; color: #9ca3af; margin-top: 5px;">Quá trình này có thể mất đến 30 giây đối với đề thi dài.</p>
 </div>
 
 <!-- Modal Cấu hình Xuất bản -->
@@ -1092,6 +1394,6 @@
 <!-- Khi cần tiếp tục phát triển WebLLM, kích hoạt lại module dưới:
 <script type="module" src="webllm_service.js"></script>
 -->
-<script src="script.js?v=20261006_webllm_v3"></script>
+<script src="script.js?v=20261007_hntn_loader"></script>
 </body>
 </html>

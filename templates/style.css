@@ -358,7 +358,8 @@ body.minimal-mode #teacherDashboard {
 }
 
 body.minimal-mode:not(.quiz-completed) #leaderboard,
-body.minimal-mode:not(.quiz-completed) #resultNavTabs {
+body.minimal-mode:not(.quiz-completed) #resultNavTabs,
+body.minimal-mode .app-footer {
     display: none !important;
 }
 
@@ -751,27 +752,214 @@ body.minimal-mode.quiz-completed #quiz-container {
     padding-bottom: 30px;
 }
 
-/* --- THANH TIẾN TRÌNH (PROGRESS BAR) --- */
-.progress-bar-container {
-    width: 80%;
-    max-width: 400px;
-    height: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 15px;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-.progress-bar-fill {
+/* ========================================================
+   HOCNHANHTN MODERN BRAND LOADING SYSTEM
+   ======================================================== */
+.hntn-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 100%;
-    width: 0%;
-    background: linear-gradient(45deg, #10b981 25%, #059669 25%, #059669 50%, #10b981 50%, #10b981 75%, #059669 75%, #059669 100%);
-    background-size: 20px 20px;
-    animation: progress-stripe 1s linear infinite;
-    border-radius: 10px;
-    transition: width 0.4s ease;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 99999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+    animation: hntnFadeIn 0.25s ease-out;
 }
-@keyframes progress-stripe { 0% { background-position: 20px 0; } 100% { background-position: 0 0; } }
+
+@keyframes hntnFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.hntn-loading-card {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 38px 32px 32px 32px;
+    width: 100%;
+    max-width: 460px;
+    text-align: center;
+    box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.8);
+    animation: hntnCardScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes hntnCardScale {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.hntn-loading-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #00d2ff, #2d79f3, #2d4af3);
+}
+
+.hntn-loader-wrapper {
+    position: relative;
+    width: 124px;
+    height: 124px;
+    margin: 0 auto 16px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hntn-loader-glow {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle, rgba(45, 121, 243, 0.22) 0%, rgba(0, 229, 255, 0.1) 50%, transparent 70%);
+    border-radius: 50%;
+    animation: hntnGlowPulse 2.2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes hntnGlowPulse {
+    0%, 100% { transform: scale(0.92); opacity: 0.5; }
+    50% { transform: scale(1.22); opacity: 0.85; }
+}
+
+.hntn-loader-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    display: block;
+    filter: drop-shadow(0 6px 14px rgba(45, 121, 243, 0.18));
+}
+
+/* Kịch bản chuyển động logo HocNhanhTN (Tương thích với hieuung.html) */
+@keyframes fadeAndSlideDownDisappear {
+    0% { opacity: 1; transform: translateY(0px); }
+    35% { opacity: 1; transform: translateY(0px); }
+    60% { opacity: 0.5; transform: translateY(35px); }
+    90%, 100% { opacity: 0; transform: translateY(90px); visibility: hidden; }
+}
+
+.disappearing-elements {
+    animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes checkmarkKickUp {
+    0% { transform: translateY(0px) rotate(0deg); }
+    10% { transform: translateY(6px) rotate(-2deg); }
+    24% { transform: translateY(-24px) rotate(5deg) scale(1.05); }
+    40% { transform: translateY(-4px) rotate(1deg); }
+    55%, 100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes capKickedJumpSpin {
+    0% { transform: translateY(0px) rotate(0deg) scale(1); }
+    10% { transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98); }
+    26% { transform: translateY(-56px) rotate(90deg) scale(1.12); }
+    48% { transform: translateY(-44px) rotate(240deg) scale(1.08); }
+    68% { transform: translateY(3px) rotate(360deg) scale(0.97, 1.03); }
+    78% { transform: translateY(-5px) rotate(360deg) scale(1.01); }
+    88%, 100% { transform: translateY(0px) rotate(360deg) scale(1); }
+}
+
+.tick-interactive-group {
+    transform-origin: 250px 280px;
+    animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+    animation-delay: 1.1s;
+}
+
+.cap-kicked-group {
+    transform-origin: 250px 185px;
+    animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+    animation-delay: 1.1s;
+}
+
+.hntn-progress-percent {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--primary, #2563eb);
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.hntn-progress-bar-bg, .progress-bar-container {
+    width: 100%;
+    max-width: 380px;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0 auto 18px auto;
+}
+
+.hntn-progress-bar-fill, .progress-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #00d2ff 0%, #2d79f3 50%, #2d4af3 100%);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.45);
+}
+
+.hntn-loading-title {
+    margin: 0 0 6px 0;
+    color: #0f172a;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.hntn-loading-sub {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+/* Inline Loading Component */
+.hntn-inline-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 20px;
+    text-align: center;
+    width: 100%;
+}
+
+.hntn-inline-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--primary, #2563eb);
+    margin-bottom: 4px;
+}
+
+.hntn-inline-sub {
+    font-size: 0.88rem;
+    color: #64748b;
+}
+
+/* Fallback spinner */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3.5px solid #e2e8f0;
+    border-top: 3.5px solid var(--primary, #2563eb);
+    border-radius: 50%;
+    animation: hntnSpinFallback 0.8s linear infinite;
+    display: inline-block;
+}
+@keyframes hntnSpinFallback {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
 /* =======================================================
    CSS CHO BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI AI
@@ -1286,178 +1474,162 @@ body.minimal-mode.quiz-completed #quiz-container {
 /* ========================================================
    ROLE SELECTION & PENDING APPROVAL CARDS (FIRST LOGIN)
    ======================================================== */
-.styled-auth-wrapper .role-selection-card {
-  width: 620px !important;
-  max-width: 95vw !important;
-  padding: 32px 28px !important;
+.styled-auth-wrapper .google-user-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  background: #f8fafc !important;
+  border: 1.5px solid #edf2f7 !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin-bottom: 2px !important;
+}
+
+.styled-auth-wrapper .google-user-avatar-box {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #4f46e5, #06b6d4) !important;
+  color: white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+}
+
+.styled-auth-wrapper .google-user-avatar-box img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.styled-auth-wrapper .google-user-meta {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  text-align: left !important;
+  gap: 2px !important;
+}
+
+.styled-auth-wrapper .google-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.styled-auth-wrapper .google-email {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 310px !important;
+}
+
+.styled-auth-wrapper .role-selector-row {
+  display: flex !important;
+  gap: 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin: 2px 0 !important;
+}
+
+.styled-auth-wrapper .role-selector-item {
+  flex: 1 !important;
+  border: 1.5px solid #ecedec !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
   background: #ffffff !important;
-  border-radius: 24px !important;
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8) !important;
-  animation: authCardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
 }
 
-.styled-auth-wrapper .pending-approval-card {
-  width: 520px !important;
-  max-width: 95vw !important;
-  padding: 36px 30px !important;
-  background: #ffffff !important;
-  border-radius: 24px !important;
-  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(226, 232, 240, 0.8) !important;
-  animation: authCardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+.styled-auth-wrapper .role-selector-item:hover {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
 }
 
-@keyframes authCardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(16px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.styled-auth-wrapper .role-selector-item.selected#chooseStudentCard {
+  border-color: #2d79f3 !important;
+  background: #f0f7ff !important;
+  box-shadow: 0 0 0 1px #2d79f3 !important;
 }
 
-.role-card-option {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 24px 20px;
-  background: #ffffff;
-  border: 2px solid #e2e8f0;
-  border-radius: 18px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
+.styled-auth-wrapper .role-selector-item.selected#chooseTeacherCard {
+  border-color: #6366f1 !important;
+  background: #f5f3ff !important;
+  box-shadow: 0 0 0 1px #6366f1 !important;
 }
 
-.role-card-option:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 14px 28px -8px rgba(15, 23, 42, 0.12);
+.styled-auth-wrapper .role-selector-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
 }
 
-.role-card-option#chooseStudentCard:hover {
-  border-color: #10b981;
-  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+.styled-auth-wrapper .role-emoji {
+  font-size: 18px !important;
+  line-height: 1 !important;
 }
 
-.role-card-option#chooseTeacherCard:hover {
-  border-color: #6366f1;
-  background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+.styled-auth-wrapper .role-name {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  flex: 1 !important;
+  margin-left: 6px !important;
 }
 
-.role-badge {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 20px;
-  letter-spacing: 0.02em;
+.styled-auth-wrapper .role-check-icon {
+  font-size: 16px !important;
+  color: #cbd5e1 !important;
+  transition: color 0.2s ease !important;
 }
 
-.role-badge.instant {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+.styled-auth-wrapper .role-selector-item.selected#chooseStudentCard .role-check-icon {
+  color: #2d79f3 !important;
 }
 
-.role-badge.pending {
-  background: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fde68a;
+.styled-auth-wrapper .role-selector-item.selected#chooseTeacherCard .role-check-icon {
+  color: #6366f1 !important;
 }
 
-.role-icon-wrap {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.8rem;
-  margin-bottom: 14px;
-  transition: transform 0.25s ease;
+.styled-auth-wrapper .role-badge-text {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  display: inline-block !important;
+  align-self: flex-start !important;
 }
 
-.role-card-option:hover .role-icon-wrap {
-  transform: scale(1.08);
+.styled-auth-wrapper .role-badge-text.instant {
+  background: #dcfce7 !important;
+  color: #15803d !important;
 }
 
-.role-icon-wrap.student {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 16px -4px rgba(16, 185, 129, 0.35);
-}
-
-.role-icon-wrap.teacher {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
-  box-shadow: 0 8px 16px -4px rgba(99, 102, 241, 0.35);
-}
-
-.role-title {
-  font-size: 1.22rem;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 6px 0;
-}
-
-.role-desc {
-  font-size: 0.84rem;
-  color: #64748b;
-  margin: 0 0 14px 0;
-  line-height: 1.45;
-}
-
-.role-perks {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 20px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  flex: 1;
-}
-
-.role-perks li {
-  font-size: 0.82rem;
-  color: #334155;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  line-height: 1.35;
-}
-
-.role-perks li i {
-  color: #10b981;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.btn-role-action {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  font-size: 0.92rem;
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-role-action.student-btn {
-  background: #10b981;
-  color: #ffffff;
-}
-
-.btn-role-action.student-btn:hover {
-  background: #059669;
-  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.35);
+.styled-auth-wrapper .role-badge-text.pending {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
 }
 
 .btn-role-action.teacher-btn {
@@ -1622,18 +1794,29 @@ body.minimal-mode.quiz-completed #quiz-container {
 }
 
 .azota-brand-logo {
-  width: 42px;
-  height: 42px;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  width: 44px;
+  height: 44px;
+  background: #ffffff;
+  border: 1.5px solid rgba(2, 132, 199, 0.2);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-size: 1.35rem;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.18);
   flex-shrink: 0;
+  overflow: hidden;
+  padding: 3px;
+  box-sizing: border-box;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.azota-brand-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .azota-brand:hover .azota-brand-logo,
@@ -1650,7 +1833,7 @@ body.minimal-mode.quiz-completed #quiz-container {
 }
 
 .azota-brand-title span {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 900;

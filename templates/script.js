@@ -59,6 +59,86 @@ function showToast(message, type = 'info') {
 }
 window.showToast = showToast;
 
+// ========================================================
+// HOCNHANHTN BRAND LOADER SYSTEM
+// ========================================================
+function getHntnLoaderSvgHtml(uniqueId = 'hntn_' + Math.random().toString(36).substr(2, 6)) {
+    return `<svg class="hntn-loader-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="pGrad_${uniqueId}" x1="0%" x2="100%" y1="100%" y2="0%">
+                <stop offset="0%" stop-color="#2d4af3"></stop>
+                <stop offset="50%" stop-color="#2d79f3"></stop>
+                <stop offset="100%" stop-color="#00d2ff"></stop>
+            </linearGradient>
+            <linearGradient id="blGrad_${uniqueId}" x1="0%" x2="100%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="#00b4ff"></stop>
+                <stop offset="100%" stop-color="#3b46e8"></stop>
+            </linearGradient>
+            <linearGradient id="brGrad_${uniqueId}" x1="0%" x2="100%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="#00e5ff"></stop>
+                <stop offset="100%" stop-color="#2b59f5"></stop>
+            </linearGradient>
+            <linearGradient id="cGrad_${uniqueId}" x1="0%" x2="100%" y1="0%" y2="100%">
+                <stop offset="0%" stop-color="#00d2ff"></stop>
+                <stop offset="50%" stop-color="#2d79f3"></stop>
+                <stop offset="100%" stop-color="#1d4ed8"></stop>
+            </linearGradient>
+            <filter id="glow_${uniqueId}" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+            </filter>
+        </defs>
+        <g id="loaderGroup_${uniqueId}">
+            <g class="disappearing-elements">
+                <path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#blGrad_${uniqueId})"></path>
+                <path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#brGrad_${uniqueId})"></path>
+                <path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+                <path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#pGrad_${uniqueId})"></path>
+                <path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#brGrad_${uniqueId})"></path>
+                <path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+                <path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+                <path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+            </g>
+            <g class="tick-interactive-group">
+                <path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#pGrad_${uniqueId})" filter="url(#glow_${uniqueId})"></path>
+                <path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+            </g>
+            <g class="cap-kicked-group">
+                <polygon fill="url(#cGrad_${uniqueId})" filter="url(#glow_${uniqueId})" points="250,138 324,168 250,198 176,168"></polygon>
+                <polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+                <path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+                <path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+                <circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+            </g>
+        </g>
+    </svg>`;
+}
+
+function renderHntnInlineLoader(title = "Đang tải dữ liệu...", subtitle = "", size = 80) {
+    const uniqueId = 'inline_' + Math.random().toString(36).substr(2, 6);
+    return `
+    <div class="hntn-inline-loader">
+        <div class="hntn-loader-wrapper" style="width: ${size}px; height: ${size}px; margin-bottom: 12px;">
+            <div class="hntn-loader-glow" style="width: ${Math.round(size * 0.75)}px; height: ${Math.round(size * 0.75)}px;"></div>
+            ${getHntnLoaderSvgHtml(uniqueId)}
+        </div>
+        <div class="hntn-inline-title">${title}</div>
+        ${subtitle ? `<div class="hntn-inline-sub">${subtitle}</div>` : ''}
+    </div>`;
+}
+
+function resetHntnLoader(container) {
+    if (!container) return;
+    const svg = container.querySelector('.hntn-loader-svg');
+    if (svg && svg.parentNode) {
+        const clone = svg.cloneNode(true);
+        svg.parentNode.replaceChild(clone, svg);
+    }
+}
+window.getHntnLoaderSvgHtml = getHntnLoaderSvgHtml;
+window.renderHntnInlineLoader = renderHntnInlineLoader;
+window.resetHntnLoader = resetHntnLoader;
+
 // Khởi tạo bộ nhớ tạm để thu gọn mã Base64 ảnh trong Code Editor
 let globalEditorImageStorage = {};
 let globalEditorImageCounter = 0;
@@ -112,8 +192,52 @@ function initGoogleAuth() {
 }
 
 let currentPendingUserId = null;
+let selectedUserRole = 'student';
 
-function showRoleSelection(userId, fullName, email, avatar) {
+function selectRoleTab(role) {
+    selectedUserRole = role;
+    const studentCard = document.getElementById('chooseStudentCard');
+    const teacherCard = document.getElementById('chooseTeacherCard');
+    const notice = document.getElementById('teacherApprovalNotice');
+    const btn = document.getElementById('btnSubmitRoleChoice');
+    const btnText = document.getElementById('btnSubmitRoleText');
+    const classLabel = document.getElementById('roleClassLabel');
+    
+    if (role === 'teacher') {
+        if (studentCard) {
+            studentCard.classList.remove('selected');
+            const mark = studentCard.querySelector('.role-check-icon');
+            if (mark) mark.className = 'ri-checkbox-blank-circle-line role-check-icon';
+        }
+        if (teacherCard) {
+            teacherCard.classList.add('selected');
+            const mark = teacherCard.querySelector('.role-check-icon');
+            if (mark) mark.className = 'ri-checkbox-circle-fill role-check-icon';
+        }
+        if (notice) notice.style.display = 'block';
+        if (btn) btn.style.backgroundColor = '#4f46e5';
+        if (btnText) btnText.innerHTML = '🛡️ Gửi đăng ký Giáo viên (Chờ duyệt)';
+        if (classLabel) classLabel.innerHTML = 'Bộ môn / Trường công tác <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span>';
+    } else {
+        if (teacherCard) {
+            teacherCard.classList.remove('selected');
+            const mark = teacherCard.querySelector('.role-check-icon');
+            if (mark) mark.className = 'ri-checkbox-blank-circle-line role-check-icon';
+        }
+        if (studentCard) {
+            studentCard.classList.add('selected');
+            const mark = studentCard.querySelector('.role-check-icon');
+            if (mark) mark.className = 'ri-checkbox-circle-fill role-check-icon';
+        }
+        if (notice) notice.style.display = 'none';
+        if (btn) btn.style.backgroundColor = '#2563eb';
+        if (btnText) btnText.innerHTML = '🚀 Hoàn tất & Vào học ngay';
+        if (classLabel) classLabel.innerHTML = 'Lớp học / Đơn vị <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span>';
+    }
+}
+window.selectRoleTab = selectRoleTab;
+
+function showRoleSelection(userId, fullName, email, avatar, className, phone, school) {
     currentPendingUserId = userId;
 
     const authBox = document.getElementById('authContainer');
@@ -146,12 +270,19 @@ function showRoleSelection(userId, fullName, email, avatar) {
         roleCard.classList.remove('hidden');
     }
     
-    const nameElem = document.getElementById('roleUserFullName');
+    const nameInput = document.getElementById('roleFullNameInput');
+    const classInput = document.getElementById('roleClassNameInput');
+    const phoneInput = document.getElementById('rolePhoneInput');
+    const schoolInput = document.getElementById('roleSchoolInput');
     const emailElem = document.getElementById('roleUserEmail');
-    if (nameElem) nameElem.innerText = fullName || 'Bạn';
+
+    if (nameInput) nameInput.value = fullName || '';
+    if (classInput) classInput.value = className || '';
+    if (phoneInput) phoneInput.value = phone || '';
+    if (schoolInput) schoolInput.value = school || '';
     if (emailElem) emailElem.innerText = email || '';
     
-    const initials = (fullName || 'U').charAt(0).toUpperCase();
+    const initials = (fullName || email || 'U').charAt(0).toUpperCase();
     const initElem = document.getElementById('roleUserInitials');
     const imgElem = document.getElementById('roleUserImg');
     if (avatar && imgElem) {
@@ -165,10 +296,13 @@ function showRoleSelection(userId, fullName, email, avatar) {
         }
         if (imgElem) imgElem.style.display = 'none';
     }
+
+    // Mặc định chọn Học sinh
+    selectRoleTab('student');
 }
 window.showRoleSelection = showRoleSelection;
 
-function showPendingApproval(userId, fullName, email) {
+function showPendingApproval(userId, fullName, email, className, school, phone) {
     if (userId) currentPendingUserId = userId;
 
     const authBox = document.getElementById('authContainer');
@@ -203,8 +337,23 @@ function showPendingApproval(userId, fullName, email) {
     
     const nameElem = document.getElementById('pendingTeacherName');
     const emailElem = document.getElementById('pendingTeacherEmail');
+    const infoElem = document.getElementById('pendingTeacherInfo');
+
     if (nameElem) nameElem.innerText = fullName || 'Thầy/Cô';
     if (emailElem) emailElem.innerText = email || '';
+
+    if (infoElem) {
+        let details = [];
+        if (className) details.push(`Lớp/Môn: <b>${escapeHtml(className)}</b>`);
+        if (school) details.push(`Trường: <b>${escapeHtml(school)}</b>`);
+        if (phone) details.push(`SĐT: <b>${escapeHtml(phone)}</b>`);
+        if (details.length > 0) {
+            infoElem.innerHTML = details.join(' &nbsp;&bull;&nbsp; ');
+            infoElem.style.display = 'block';
+        } else {
+            infoElem.style.display = 'none';
+        }
+    }
 }
 window.showPendingApproval = showPendingApproval;
 
@@ -216,18 +365,43 @@ function hideRoleScreens() {
 }
 window.hideRoleScreens = hideRoleScreens;
 
-async function submitRoleChoice(role) {
+async function submitUserProfileAndRole() {
     if (!currentPendingUserId) {
         alert("Lỗi phiên chọn vai trò. Vui lòng thử đăng nhập lại với Google.");
         cancelRoleSelection();
         return;
+    }
+
+    const fullName = (document.getElementById('roleFullNameInput')?.value || '').trim();
+    const className = (document.getElementById('roleClassNameInput')?.value || '').trim();
+    const phone = (document.getElementById('rolePhoneInput')?.value || '').trim();
+    const school = (document.getElementById('roleSchoolInput')?.value || '').trim();
+
+    if (!fullName) {
+        alert("Vui lòng nhập Họ và Tên của bạn.");
+        document.getElementById('roleFullNameInput')?.focus();
+        return;
+    }
+
+    const btn = document.getElementById('btnSubmitRoleChoice');
+    const oldBtnHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Đang lưu thông tin...`;
     }
     
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/select_role`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: currentPendingUserId, role: role })
+            body: JSON.stringify({
+                user_id: currentPendingUserId,
+                role: selectedUserRole,
+                full_name: fullName,
+                class_name: className,
+                phone: phone,
+                school: school
+            })
         });
         const data = await res.json();
         if (res.ok) {
@@ -240,17 +414,29 @@ async function submitRoleChoice(role) {
                 authName = data.full_name;
                 hideRoleScreens();
                 checkAuthState();
-                alert(`🎉 Chào mừng bạn tham gia với vai trò Học sinh!\nHọ và tên: ${data.full_name}`);
+                alert(`🎉 Chúc mừng ${data.full_name}! Bạn đã đăng ký thành công với vai trò Học sinh.`);
             } else if (data.status === 'pending_approval') {
-                showPendingApproval(currentPendingUserId, data.full_name, data.email);
+                showPendingApproval(currentPendingUserId, data.full_name, data.email, data.class_name, data.school, data.phone);
+                alert("⏳ Đã gửi thông tin đăng ký Giáo viên! Tài khoản của bạn đang chờ Quản trị viên (Admin) xét duyệt.");
             }
         } else {
-            alert("Lỗi: " + (data.detail || "Không thể lưu vai trò"));
+            alert("Lỗi: " + (data.detail || "Không thể lưu thông tin tài khoản"));
         }
     } catch(err) {
         console.error(err);
-        alert("Lỗi kết nối khi chọn vai trò");
+        alert("Lỗi kết nối khi lưu thông tin");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldBtnHtml;
+        }
     }
+}
+window.submitUserProfileAndRole = submitUserProfileAndRole;
+
+async function submitRoleChoice(role) {
+    selectRoleTab(role);
+    submitUserProfileAndRole();
 }
 window.submitRoleChoice = submitRoleChoice;
 
@@ -343,11 +529,11 @@ async function triggerGoogleSignIn() {
                 const roleDesc = data.role === 'admin' ? '🛡️ Quản trị viên (Admin)' : (data.role === 'teacher' ? '👨‍🏫 Giáo viên' : '👨‍🎓 Học sinh');
                 alert(`🎉 Đăng nhập thành công với Google!\nXin chào: ${data.full_name}\nVai trò: ${roleDesc}`);
             } else if (data.status === 'needs_role_selection') {
-                // Hiển thị giao diện chọn vai trò lần đầu
-                showRoleSelection(data.user_id, data.full_name, data.email, data.avatar);
+                // Hiển thị giao diện nhập thông tin & chọn vai trò
+                showRoleSelection(data.user_id, data.full_name, data.email, data.avatar, data.class_name, data.phone, data.school);
             } else if (data.status === 'pending_approval') {
                 // Hiển thị màn hình chờ Quản trị viên duyệt
-                showPendingApproval(data.user_id, data.full_name, data.email);
+                showPendingApproval(data.user_id, data.full_name, data.email, data.class_name, data.school, data.phone);
             } else {
                 alert("Lỗi: " + (data.message || data.detail || "Không thể xác minh tài khoản."));
             }
@@ -610,13 +796,27 @@ function logout() {
 
 
 
-async function initApp() {
+// Hàm trợ giúp trích xuất mã đề thi từ query param (?id=, ?quiz_id=) hoặc URL path (/quiz/...)
+function getCurrentQuizId() {
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    let quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    if (!quizId) {
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        if (path.startsWith('quiz/')) {
+            quizId = path.split('/')[1];
+        } else if (path && path.length >= 5 && path.length <= 15 && !path.includes('.html') && !path.includes('/')) {
+            quizId = path;
+        }
+    }
+    return quizId || null;
+}
+
+async function initApp() {
+    const quizId = getCurrentQuizId();
     if (quizId) {
         document.getElementById('creationHub').style.display = 'none';
         document.getElementById('btnEdit').style.display = 'none'; 
-        document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Đang tải dữ liệu bài thi...</p>";
+        document.getElementById('quiz-container').innerHTML = renderHntnInlineLoader('Đang tải dữ liệu bài thi...', 'Vui lòng chờ trong giây lát...', 85);
         try {
             const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
             const result = await response.json();
@@ -626,6 +826,11 @@ async function initApp() {
                 serverData = JSON.parse(JSON.stringify(currentData));
                 const serverUpdatedAt = result.updated_at || 0;
                 
+                // Cập nhật tiêu đề trang web
+                if (result.title) {
+                    document.title = `${result.title} - HocNhanhTN`;
+                }
+
                 // --- Thiết lập Giao diện Dành riêng cho Học sinh ---
                 const oldHeader = document.querySelector('.header');
                 if (oldHeader) oldHeader.style.display = 'none';
@@ -749,12 +954,7 @@ async function initApp() {
 
 function sendPing() {
     if (!isStudentMode) return;
-    const urlParams = new URLSearchParams(window.location.search);
-    let quizId = urlParams.get('quiz_id') || urlParams.get('id');
-    if (!quizId) {
-        const path = window.location.pathname.replace(/^\/|\/$/g, '');
-        if (path && path.length >= 5 && path.length <= 10 && !path.includes('.html')) quizId = path;
-    }
+    const quizId = getCurrentQuizId();
     if (!quizId) return;
     
     fetch(`${API_BASE_URL}/api/monitor/ping`, {
@@ -775,8 +975,7 @@ async function startStudentQuiz() {
     const nameInput = document.getElementById('studentNameInput').value.trim();
     studentName = nameInput;
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    const quizId = getCurrentQuizId();
 
     // Nếu bấm nút khi đã hoàn thành -> Có nghĩa là muốn Xóa lịch sử làm lại từ đầu
     if (quizProgress.completed) {
@@ -856,7 +1055,7 @@ async function fetchLatestDataAndRestart(mode) {
     const quizId = urlParams.get('quiz_id') || urlParams.get('id');
     
     const container = document.getElementById('quiz-container');
-    if (container) container.innerHTML = "<p style='text-align:center; padding: 50px; font-weight: bold; color: var(--primary);'>🔄 Đang tải dữ liệu mới nhất từ máy chủ...</p>";
+    if (container) container.innerHTML = renderHntnInlineLoader('Đang tải dữ liệu mới nhất...', 'Hệ thống đang đồng bộ với máy chủ...', 85);
     
     if (quizId) {
         try {
@@ -1163,7 +1362,7 @@ async function showQuizAnalytics(quizId, quizTitle) {
         if (!modal || !content) return;
         
         modal.style.display = 'flex';
-        content.innerHTML = '<div style="text-align:center; padding: 40px;"><div class="spinner" style="margin: 0 auto 15px;"></div> Đang phân tích dữ liệu bài thi...</div>';
+        content.innerHTML = renderHntnInlineLoader('Đang phân tích dữ liệu bài thi...', 'Hệ thống đang tính toán phổ điểm và thống kê câu hỏi...', 85);
         
         const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_analytics/${quizId}?teacher_token=${authToken}`);
         const data = await res.json();
@@ -1481,26 +1680,39 @@ async function loadAdminUsers() {
         const res = await fetch(`${API_BASE_URL}/api/admin/users?admin_token=${authToken}`);
         const data = await res.json();
         if(res.ok && data.status === 'success') {
-            let html = `<table style="width:100%; border-collapse: collapse; text-align:left;">
-                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted);">
-                    <th style="padding: 12px 10px;">Tài khoản</th>
+            let html = `<table style="width:100%; border-collapse: collapse; text-align:left; font-size: 0.9rem;">
+                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); background: #f8fafc;">
+                    <th style="padding: 12px 10px;">Tài khoản / Email</th>
                     <th style="padding: 12px 10px;">Họ tên</th>
                     <th style="padding: 12px 10px;">Vai trò</th>
+                    <th style="padding: 12px 10px;">Lớp / Môn</th>
+                    <th style="padding: 12px 10px;">SĐT & Trường</th>
                     <th style="padding: 12px 10px;">Trạng thái</th>
-                    <th style="padding: 12px 10px;">Thao tác</th>
+                    <th style="padding: 12px 10px; text-align: right;">Thao tác</th>
                 </tr>`;
             data.data.forEach(u => {
-                let roleStr = u.role === 'teacher' ? '👨‍🏫 Giáo viên' : (u.role === 'student' ? '👨‍🎓 Học sinh' : '🛡️ Admin');
-                let statStr = u.status === 'approved' ? '<span style="color:var(--success); font-weight:bold;">Đã duyệt</span>' : '<span style="color:var(--danger); font-weight:bold;">Chờ duyệt</span>';
-                let btn = u.status === 'pending' ? `<button class="btn-success" style="width:auto; margin:0; padding: 6px 12px; font-size:0.9rem;" onclick="approveUser('${u.id}')">Duyệt</button>` : '';
-                let resetBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 8px; padding: 6px 12px; font-size:0.9rem; color: var(--primary); border-color: var(--primary);" onclick="resetUserPassword('${u.id}', '${u.username}')">Đổi MK</button>` : '';
-                let delBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 8px; padding: 6px 12px; font-size:0.9rem; color: var(--danger); border-color: var(--danger);" onclick="deleteUser('${u.id}')">Xóa</button>` : '';
+                let roleStr = u.role === 'teacher' ? '<span style="color:#4f46e5; font-weight:700;">👨‍🏫 Giáo viên</span>' : (u.role === 'student' ? '<span style="color:#059669; font-weight:600;">👨‍🎓 Học sinh</span>' : '<span style="color:#dc2626; font-weight:700;">🛡️ Admin</span>');
+                let statStr = u.status === 'approved' 
+                    ? '<span style="display:inline-block; padding:3px 8px; border-radius:12px; background:#dcfce7; color:#15803d; font-weight:700; font-size:0.8rem;">Đã duyệt</span>' 
+                    : '<span style="display:inline-block; padding:3px 8px; border-radius:12px; background:#fef3c7; color:#b45309; font-weight:700; font-size:0.8rem;">⏳ Chờ duyệt</span>';
+                
+                let extraInfo = [];
+                if (u.phone) extraInfo.push(`📞 ${escapeHtml(u.phone)}`);
+                if (u.school) extraInfo.push(`🏫 ${escapeHtml(u.school)}`);
+                let extraHtml = extraInfo.length > 0 ? extraInfo.join('<br>') : '<span style="color:#94a3b8;">-</span>';
+                let classHtml = u.class_name ? `<span style="font-weight:600; color:#334155;">${escapeHtml(u.class_name)}</span>` : '<span style="color:#94a3b8;">-</span>';
+
+                let btn = u.status === 'pending' ? `<button class="btn-success" style="width:auto; margin:0; padding: 6px 12px; font-size:0.85rem; font-weight:700; background:#10b981; color:white; border:none; border-radius:8px; cursor:pointer;" onclick="approveUser('${u.id}')"><i class="ri-check-line"></i> Duyệt</button>` : '';
+                let resetBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 6px; padding: 5px 10px; font-size:0.82rem; color: var(--primary); border-color: var(--primary); border-radius:8px;" onclick="resetUserPassword('${u.id}', '${u.username}')">Đổi MK</button>` : '';
+                let delBtn = u.role !== 'admin' ? `<button class="btn-outline" style="width:auto; margin:0 0 0 6px; padding: 5px 10px; font-size:0.82rem; color: var(--danger); border-color: var(--danger); border-radius:8px;" onclick="deleteUser('${u.id}')">Xóa</button>` : '';
                 html += `<tr style="border-bottom: 1px solid var(--border);">
-                    <td style="padding: 12px 10px; font-weight: 600;">${u.username}</td>
-                    <td style="padding: 12px 10px;">${u.full_name}</td>
+                    <td style="padding: 12px 10px; font-weight: 600; word-break: break-all;">${escapeHtml(u.email || u.username || '')}</td>
+                    <td style="padding: 12px 10px; font-weight: 600;">${escapeHtml(u.full_name || '')}</td>
                     <td style="padding: 12px 10px;">${roleStr}</td>
+                    <td style="padding: 12px 10px;">${classHtml}</td>
+                    <td style="padding: 12px 10px; font-size:0.85rem; color:#475569;">${extraHtml}</td>
                     <td style="padding: 12px 10px;">${statStr}</td>
-                    <td style="padding: 12px 10px;">${btn} ${resetBtn} ${delBtn}</td>
+                    <td style="padding: 12px 10px; text-align: right; white-space: nowrap;">${btn} ${resetBtn} ${delBtn}</td>
                 </tr>`;
             });
             html += `</table>`;
@@ -1512,8 +1724,15 @@ async function loadAdminUsers() {
 async function approveUser(uid) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/approve`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({admin_token: authToken, user_id: uid}) });
-        if(res.ok) loadAdminUsers();
-    } catch(e) {}
+        if(res.ok) {
+            alert("✅ Đã phê duyệt tài khoản thành công!");
+            loadAdminUsers();
+        } else {
+            alert("Lỗi khi duyệt tài khoản");
+        }
+    } catch(e) {
+        alert("Lỗi kết nối máy chủ");
+    }
 }
 
 async function deleteUser(uid) {
@@ -1590,6 +1809,7 @@ async function uploadFile() {
     const statusText = document.getElementById('loadingStatusText');
     
     if (loadingOverlay) {
+        resetHntnLoader(loadingOverlay);
         loadingOverlay.style.display = 'flex';
         progressBar.style.width = '35%';
         progressText.innerText = '35%';
@@ -1673,6 +1893,7 @@ async function generateQuizWithAI() {
     let detectedTitle = promptStr.length > 50 ? promptStr.substring(0, 50) + "..." : promptStr;
 
     if (loadingOverlay) {
+        resetHntnLoader(loadingOverlay);
         loadingOverlay.style.display = 'flex';
         progressBar.style.width = '35%';
         progressText.innerText = '35%';
@@ -2959,7 +3180,7 @@ function parseEditorText(text) {
 
     const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
     const mcqOptRegex = /^\s*(\*?\s*[A-F])[\.\:\)]/i;
-    const tfOptRegex = /^\s*(\*?\s*[a-d])[\.\:\)]/i;
+    const tfOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?[\(\[]?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/i;
     const shortAnsRegex = /^\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]\s*(.*)$/i;
     const explainRegex = /^\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]\s*(.*)$/i;
     const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
@@ -2986,13 +3207,48 @@ function parseEditorText(text) {
             }
             const match = line.match(tfOptRegex);
             const charRaw = match[1].trim().toLowerCase();
-            const isCorrect = charRaw.includes('*');
             const char = charRaw.replace('*', '').trim();
-            let optContent = line.replace(tfOptRegex, '').trim();
             
+            // Nhận diện đánh dấu Đúng/Sai theo chuẩn Azota Cách 3 (gạch chân, *, thẻ <MARK>)
+            const isLeadingStar = charRaw.includes('*') || /^\s*[\(\[]?\s*\*\s*[a-d]/i.test(line);
+            const isUnderlined = /^\s*(?:<MARK>\s*)?(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<MARK>\s*)?<u>\s*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?\*?[a-d]/i.test(line);
+            const isMarked = /^\s*<MARK>\s*(?:<u>)?\s*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?\*?[a-d][\)\.\:\-\]\/]/i.test(line);
+            const hasCorrectTag = /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔/i.test(line);
+            const hasFalseTag = /\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|✗|✘/i.test(line);
+            
+            let isTrue = isLeadingStar || isUnderlined || isMarked || hasCorrectTag;
+            if (hasFalseTag) isTrue = false;
+
+            // Làm sạch nội dung phương án và giữ lại nhãn ma trận Azota nếu có
+            let optContent = line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘/gi, '').trim();
+            let azotaTag = "";
+            const mTag = optContent.match(/^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:<\/MARK>\s*|<\/u>\s*)*/i);
+            if (mTag) {
+                azotaTag = mTag[1].trim();
+                optContent = optContent.substring(mTag[0].length).trim();
+            }
+            optContent = optContent.replace(/^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?[a-d](?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/](?:\s*<\/u>)*(?:\s*<\/MARK>)*\s*/i, '').trim();
+            if (!azotaTag) {
+                const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
+                if (mTagPost) {
+                    azotaTag = mTagPost[1].trim();
+                    optContent = mTagPost[2].trim();
+                }
+            }
+            optContent = optContent.replace(/^(?:<MARK>|<u>|\*)+\s*/gi, '').replace(/\s*(?:<\/MARK>|<\/u>)+$/gi, '').replace(/<MARK>|<\/MARK>/gi, '').trim();
+            if (azotaTag) {
+                optContent = `${azotaTag} ${optContent}`.trim();
+            }
+
             const fullOpt = `${char}) ${optContent}`;
             currentQ.options.push(fullOpt);
-            currentQ.correct_answer[char] = isCorrect;
+            currentQ.correct_answer[char] = isTrue;
+        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
+            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang Azota
+            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+            ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+            });
         } else if (mcqOptRegex.test(line)) {
             if (!currentQ) {
                 currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
@@ -3011,9 +3267,47 @@ function parseEditorText(text) {
         } else if (shortAnsRegex.test(line)) {
             if (currentQ) {
                 const ansMatch = line.match(shortAnsRegex);
-                currentQ.type = 'short_answer';
-                currentQ.options = [];
-                currentQ.correct_answer = ansMatch[1].trim();
+                const ansContent = (ansMatch[1] || "").trim();
+
+                const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
+                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
+                const hasTfOpts = currentQ.type === 'true_false' || (currentQ.options && currentQ.options.some(opt => /^\s*\(?(\*?[a-d])\)/i.test(opt)));
+
+                if (isTfAns || hasTfOpts) {
+                    currentQ.type = 'true_false';
+                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
+                    ['a', 'b', 'c', 'd'].forEach(k => {
+                        const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
+                        if (m) {
+                            const v = m[1].toLowerCase();
+                            tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
+                        }
+                    });
+                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+                    if (seq && seq.length === 4) {
+                        ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                            tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+                        });
+                    }
+                    currentQ.correct_answer = tfDict;
+                } else if (currentQ.type === 'mcq' && currentQ.options.length > 0) {
+                    const mcqLetterMatch = ansContent.match(/^(?:Đáp án\s*)?\(?\[?([A-Fa-f])[\.\:\)]?$/i);
+                    if (mcqLetterMatch) {
+                        const targetLetter = mcqLetterMatch[1].toUpperCase();
+                        const matchedOpt = currentQ.options.find(opt => opt.trim().toUpperCase().startsWith(targetLetter + '.'));
+                        if (matchedOpt) {
+                            currentQ.correct_answer = matchedOpt;
+                        }
+                    } else {
+                        currentQ.type = 'short_answer';
+                        currentQ.options = [];
+                        currentQ.correct_answer = ansContent;
+                    }
+                } else {
+                    currentQ.type = 'short_answer';
+                    currentQ.options = [];
+                    currentQ.correct_answer = ansContent;
+                }
             }
         } else if (explainRegex.test(line)) {
             if (currentQ) {

@@ -327,6 +327,176 @@ BẢNG ĐÁP ÁN:
         self.assertEqual(questions[0]["correct_answer"], "C. Python")
         self.assertEqual(questions[1]["correct_answer"], "B. 3.14")
 
+    def test_rescue_true_false_from_short_answer_misclassification(self):
+        """Kiểm tra hệ thống tự động phát hiện và phục hồi câu Đúng/Sai bị AI hoặc Parser gán nhầm thành Trả lời ngắn."""
+        from services.ai_service import normalize_question_data
+        from core.answer_key_extractor import reconcile_quiz_with_answer_key, AnswerKeyMap
+
+        # Case 1: AI trả về type short_answer, options rỗng nhưng nội dung câu hỏi chứa 4 ý a, b, c, d
+        q_raw1 = {
+            "type": "short_answer",
+            "question": "Câu 2: Cho hàm số f(x).\na) Hàm số đồng biến trên (0; 1).\nb) Đồ thị có 2 điểm cực trị.\nc) Giá trị nhỏ nhất là -4.\nd) Phương trình f(x) = 0 có 3 nghiệm.",
+            "options": [],
+            "correct_answer": "a. Đúng, b. Sai, c. Đúng, d. Sai"
+        }
+        res1 = normalize_question_data(q_raw1)
+        self.assertEqual(res1["type"], "true_false")
+        self.assertEqual(len(res1["options"]), 4)
+        self.assertEqual(res1["options"][0], "a) Hàm số đồng biến trên (0; 1).")
+        self.assertEqual(res1["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
+
+        # Case 2: AI trả về type short_answer nhưng correct_answer có dạng a-Đ, b-S, c-Đ, d-S
+        q_raw2 = {
+            "type": "short_answer",
+            "question": "Cho tứ diện ABCD đều cạnh a.",
+            "options": ["a) Góc giữa hai đường thẳng bằng 60 độ", "b) Thể tích bằng a^3/12", "c) Khoảng cách là a/2", "d) Bán kính mặt cầu ngoại tiếp là a*sqrt(6)/4"],
+            "correct_answer": "a-Đ, b-S, c-Đ, d-S"
+        }
+        res2 = normalize_question_data(q_raw2)
+        self.assertEqual(res2["type"], "true_false")
+        self.assertEqual(len(res2["options"]), 4)
+        self.assertEqual(res2["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
+
+        # Case 3: Thật sự là câu trả lời ngắn -> Giữ nguyên type short_answer
+        q_raw3 = {
+            "type": "short_answer",
+            "question": "Tìm số nghiệm nguyên của bất phương trình.",
+            "options": [],
+            "correct_answer": "15,5"
+        }
+        res3 = normalize_question_data(q_raw3)
+        self.assertEqual(res3["type"], "short_answer")
+        self.assertEqual(res3["correct_answer"], "15.5")
+        self.assertEqual(res3["options"], [])
+
+        # Case 4: Reconcile áp dụng cứu hộ cho câu short_answer chứa các ý a-d
+        ak = AnswerKeyMap()
+        ak.set_answer(2, 1, {"a": True, "b": True, "c": False, "d": True})
+        quiz = [{
+            "type": "short_answer",
+            "question": "Câu 1: Xét tính đúng sai của các mệnh đề:\na) 2 là số nguyên tố\nb) 4 là hợp số\nc) 1 là số nguyên tố\nd) 0 là số tự nhiên",
+            "options": [],
+            "correct_answer": ""
+        }]
+        reconciled = reconcile_quiz_with_answer_key(quiz, ak)
+        self.assertEqual(reconciled[0]["type"], "true_false")
+        self.assertEqual(len(reconciled[0]["options"]), 4)
+        self.assertEqual(reconciled[0]["correct_answer"], {"a": True, "b": True, "c": False, "d": True})
+
+
+    def test_azota_cach_3_underline_marking(self):
+        """Kiểm tra chuẩn Azota Cách 3: Gạch chân trực tiếp đáp án đúng (<u>a)</u>, <u>a</u>), <u>a.</u>). Ký hiệu được gạch chân -> True, không gạch chân -> False."""
+        from services.ai_service import clean_option_text, normalize_question_data
+
+        # 1. Kiểm tra clean_option_text nhận diện chính xác gạch chân
+        res_a = clean_option_text("<u>a)</u> Mệnh đề a đúng")
+        self.assertEqual(res_a[3], "a")
+        self.assertTrue(res_a[1])  # is_correct
+        self.assertEqual(res_a[0], "Mệnh đề a đúng")
+
+        res_b = clean_option_text("b) Mệnh đề b sai")
+        self.assertEqual(res_b[3], "b")
+        self.assertFalse(res_b[1])
+        self.assertEqual(res_b[0], "Mệnh đề b sai")
+
+        res_c = clean_option_text("<u>c</u>) Mệnh đề c đúng")
+        self.assertEqual(res_c[3], "c")
+        self.assertTrue(res_c[1])
+
+        res_d = clean_option_text("<MARK><u>d.</u></MARK> Mệnh đề d đúng")
+        self.assertEqual(res_d[3], "d")
+        self.assertTrue(res_d[1])
+
+        # 2. Kiểm tra normalize_question_data: Các ý không gạch chân BẮT BUỘC là False
+        q_item = {
+            "type": "true_false",
+            "question": "Cho hàm số f(x).",
+            "options": [
+                "<u>a)</u> Hàm số đồng biến trên R",
+                "b) Đồ thị có 2 điểm cực trị",
+                "c) Giá trị lớn nhất bằng 5",
+                "<u>d)</u> Đi qua điểm A(1; 2)"
+            ]
+        }
+        norm = normalize_question_data(q_item)
+        self.assertEqual(norm["type"], "true_false")
+        self.assertEqual(norm["correct_answer"], {"a": True, "b": False, "c": False, "d": True})
+        self.assertEqual(norm["options"][0], "a) Hàm số đồng biến trên R")
+        self.assertEqual(norm["options"][1], "b) Đồ thị có 2 điểm cực trị")
+
+    def test_azota_matrix_tags_preservation(self):
+        """Kiểm tra tiền tố ma trận mức độ nhận thức Azota ([0, NB], [1, TH], [2, VD], [3, VDC]) không bị mất hay lặp."""
+        from services.ai_service import clean_option_text, extract_sub_statements_from_text, normalize_question_data
+
+        raw_text = """Cho hình chóp S.ABCD.
+[0, NB] a) Đáy ABCD là hình vuông.
+[1, TH] <u>b)</u> SA vuông góc với đáy.
+[2, VD] c) Thể tích khối chóp bằng a^3/3.
+[3, VDC] <u>d)</u> Khoảng cách từ A đến (SBD) bằng a*sqrt(2)/2."""
+
+        stem, opts = extract_sub_statements_from_text(raw_text)
+        self.assertEqual(stem, "Cho hình chóp S.ABCD.")
+        self.assertEqual(len(opts), 4)
+        self.assertTrue("[0, NB]" in opts[0])
+        self.assertTrue("[1, TH]" in opts[1])
+
+        # Chuẩn hóa qua normalize_question_data
+        item = {
+            "type": "true_false",
+            "question": stem,
+            "options": opts
+        }
+        norm = normalize_question_data(item)
+        self.assertEqual(norm["options"][0], "a) [0, NB] Đáy ABCD là hình vuông.")
+        self.assertEqual(norm["options"][1], "b) [1, TH] SA vuông góc với đáy.")
+        self.assertEqual(norm["correct_answer"], {"a": False, "b": True, "c": False, "d": True})
+
+    def test_azota_cach_2_per_question_tables(self):
+        """Kiểm tra bóc tách bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn Azota Cách 2."""
+        from docx import Document
+        from core.docx_parser import parse_azota_tf_table
+
+        doc = Document()
+        # Bảng đứng: Lệnh hỏi, Đúng, Sai
+        t_vert = doc.add_table(rows=5, cols=3)
+        t_vert.rows[0].cells[0].text = "Lệnh hỏi"
+        t_vert.rows[0].cells[1].text = "Đúng"
+        t_vert.rows[0].cells[2].text = "Sai"
+
+        t_vert.rows[1].cells[0].text = "a"
+        t_vert.rows[1].cells[1].text = "x"
+        t_vert.rows[1].cells[2].text = ""
+
+        t_vert.rows[2].cells[0].text = "b"
+        t_vert.rows[2].cells[1].text = ""
+        t_vert.rows[2].cells[2].text = "x"
+
+        t_vert.rows[3].cells[0].text = "c"
+        t_vert.rows[3].cells[1].text = "v"
+        t_vert.rows[3].cells[2].text = ""
+
+        t_vert.rows[4].cells[0].text = "d"
+        t_vert.rows[4].cells[1].text = ""
+        t_vert.rows[4].cells[2].text = "1"
+
+        res_vert = parse_azota_tf_table(t_vert)
+        self.assertEqual(res_vert, {"a": True, "b": False, "c": True, "d": False})
+
+        # Bảng ngang: Hàng 1: a | b | c | d, Hàng 2: Đ | S | Đ | S
+        t_horiz = doc.add_table(rows=2, cols=4)
+        t_horiz.rows[0].cells[0].text = "Ý a"
+        t_horiz.rows[0].cells[1].text = "Ý b"
+        t_horiz.rows[0].cells[2].text = "Ý c"
+        t_horiz.rows[0].cells[3].text = "Ý d"
+
+        t_horiz.rows[1].cells[0].text = "Đ"
+        t_horiz.rows[1].cells[1].text = "S"
+        t_horiz.rows[1].cells[2].text = "S"
+        t_horiz.rows[1].cells[3].text = "Đ"
+
+        res_horiz = parse_azota_tf_table(t_horiz)
+        self.assertEqual(res_horiz, {"a": True, "b": False, "c": False, "d": True})
+
 
 if __name__ == '__main__':
     unittest.main()

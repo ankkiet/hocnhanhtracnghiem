@@ -8,6 +8,7 @@ from core.docx_parser import (
     split_merged_options,
     replace_placeholders
 )
+from services.ai_service import clean_option_text, parse_tf_answer
 
 
 def extract_explain_from_block(text: str) -> tuple:
@@ -68,9 +69,11 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*'
     )
     
-    # Pattern nhận diện các ý con a-d (chữ thường) cho Đúng/Sai
+    # Pattern nhận diện các ý con a-d (chữ thường) cho Đúng/Sai hỗ trợ ma trận Azota và markup
     sub_opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))(?:\(?\[?(\*?[a-d])(?:[\.\:\/\)\]\-]|\b))\s*'
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))'
+        r'((?:(?:<MARK>|<mark>|<u>|<U>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>\s*)*)?'
+        r'(?:<MARK>|<mark>|<u>|<U>\s*)*\(?\[?(\*?[a-d])(?:[\.\:\/\)\]\-]|\b))\s*'
     )
     
     for i, m in enumerate(matches):
@@ -88,29 +91,45 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             # 1. DẠNG TRẮC NGHIỆM ĐÚNG / SAI (PHẦN II)
             q_text = block[:sub_matches[0].start()].strip()
             options = []
-            tf_dict = {"a": True, "b": False, "c": True, "d": False}
+            opt_tf_marks = {}
+            explicit_ans = None
             
             for j, opt_m in enumerate(sub_matches[:4]):
-                char_raw = opt_m.group(1).lower()
-                is_asterisk = '*' in char_raw
-                char = char_raw.replace('*', '').strip()
-                
-                opt_start = opt_m.end()
+                char = opt_m.group(2).replace('*', '').lower()
+                opt_start = opt_m.start()
                 opt_end = sub_matches[j+1].start() if j+1 < len(sub_matches) else len(block)
                 opt_content_raw = block[opt_start:opt_end].strip()
                 
-                is_true = is_asterisk
-                if any(k in opt_content_raw for k in ['[ĐÚNG]', '[Đ]', '(Đúng)', '(Đ)', '<MARK>', '✓', '✔']):
-                    is_true = True
-                elif any(k in opt_content_raw for k in ['[SAI]', '[S]', '(Sai)', '(S)', '✗', '✘']):
-                    is_true = False
-                    
-                clean_text = opt_content_raw.replace('<MARK>', '').replace('</MARK>', '').strip()
-                clean_text = re.sub(r'\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)', '', clean_text, flags=re.IGNORECASE).strip()
-                
+                # Nếu là ý cuối cùng, kiểm tra và tách dòng Đáp án kèm theo
+                if j == len(sub_matches[:4]) - 1:
+                    ans_m = re.search(r'(?:\n|\r)\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*(.*)$', opt_content_raw, re.IGNORECASE)
+                    if ans_m:
+                        ans_content = ans_m.group(1).strip()
+                        opt_content_raw = opt_content_raw[:ans_m.start()].strip()
+                        parsed_ans = parse_tf_answer(ans_content)
+                        if parsed_ans and any(parsed_ans.values()):
+                            explicit_ans = parsed_ans
+
+                clean_text, is_corr, is_fls, ext_char = clean_option_text(opt_content_raw)
                 options.append(f"{char}) {clean_text}")
-                tf_dict[char] = is_true
+                if is_corr:
+                    opt_tf_marks[char] = True
+                elif is_fls:
+                    opt_tf_marks[char] = False
                 
+            if explicit_ans:
+                tf_dict = explicit_ans
+                for k, v in opt_tf_marks.items():
+                    tf_dict[k] = v
+            elif opt_tf_marks:
+                has_any_true = any(v is True for v in opt_tf_marks.values())
+                if has_any_true:
+                    tf_dict = {k: bool(opt_tf_marks.get(k, False)) for k in ['a', 'b', 'c', 'd']}
+                else:
+                    tf_dict = {k: opt_tf_marks.get(k, True) for k in ['a', 'b', 'c', 'd']}
+            else:
+                tf_dict = {"a": True, "b": False, "c": True, "d": False}
+
             results.append({
                 "type": "true_false",
                 "group_title": "",
@@ -153,27 +172,44 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             })
             
         else:
-            # 3. DẠNG TRẮC NGHIỆM TRẢ LỜI NGẮN (PHẦN III)
-            q_text = block
-            ans_val = ""
-            ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*([^\n\r\;]+)', q_text, re.IGNORECASE)
-            if ans_match:
-                ans_val = ans_match.group(1).strip()
-                q_text = q_text[:ans_match.start()].strip() + " " + q_text[ans_match.end():].strip()
-                q_text = q_text.strip()
-            elif explain:
-                ans_match_exp = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả)\s*[\:\-\=]?\s*([^\n\r\;]+)', explain, re.IGNORECASE)
-                if ans_match_exp:
-                    ans_val = ans_match_exp.group(1).strip()
-                    
-            results.append({
-                "type": "short_answer",
-                "group_title": "",
-                "question": q_text,
-                "options": [],
-                "correct_answer": ans_val,
-                "explain": explain
-            })
+            # Cứu hộ: Kiểm tra xem block có thực sự là Đúng / Sai có ý a, b, c, d bị dính liền không
+            from services.ai_service import extract_sub_statements_from_text, parse_tf_answer
+            stem, tf_opts = extract_sub_statements_from_text(block)
+            if len(tf_opts) >= 3:
+                tf_ca = {"a": True, "b": False, "c": True, "d": False}
+                ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*([^\n\r]+)', block, re.IGNORECASE)
+                if ans_match:
+                    tf_ca = parse_tf_answer(ans_match.group(1).strip())
+                results.append({
+                    "type": "true_false",
+                    "group_title": "",
+                    "question": stem,
+                    "options": tf_opts,
+                    "correct_answer": tf_ca,
+                    "explain": explain
+                })
+            else:
+                # 3. DẠNG TRẮC NGHIỆM TRẢ LỜI NGẮN (PHẦN III)
+                q_text = block
+                ans_val = ""
+                ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*([^\n\r\;]+)', q_text, re.IGNORECASE)
+                if ans_match:
+                    ans_val = ans_match.group(1).strip()
+                    q_text = q_text[:ans_match.start()].strip() + " " + q_text[ans_match.end():].strip()
+                    q_text = q_text.strip()
+                elif explain:
+                    ans_match_exp = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả)\s*[\:\-\=]?\s*([^\n\r\;]+)', explain, re.IGNORECASE)
+                    if ans_match_exp:
+                        ans_val = ans_match_exp.group(1).strip()
+                        
+                results.append({
+                    "type": "short_answer",
+                    "group_title": "",
+                    "question": q_text,
+                    "options": [],
+                    "correct_answer": ans_val,
+                    "explain": explain
+                })
             
     # Đối chiếu toàn diện với Bảng đáp án bóc tách được từ văn bản
     if detected_ak:

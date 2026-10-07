@@ -1,4 +1,4 @@
-# 🎓 HocnhanhTN - Hệ Thống Tạo & Quản Lý Đề Thi Trắc Nghiệm Thông Minh
+# 🎓 HocNhanhTN - Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên
 
 [![CI Workflow](https://github.com/ankkiet/hocnhanhtracnghiem/actions/workflows/ci.yml/badge.svg)](https://github.com/ankkiet/hocnhanhtracnghiem/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)

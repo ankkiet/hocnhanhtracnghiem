@@ -71,6 +71,15 @@ async function initStudio() {
     }
 }
 
+function resetHntnLoader(container) {
+    if (!container) return;
+    const svg = container.querySelector('.hntn-loader-svg');
+    if (svg && svg.parentNode) {
+        const clone = svg.cloneNode(true);
+        svg.parentNode.replaceChild(clone, svg);
+    }
+}
+
 async function pollStudioTask(taskId, initialTitle, mode) {
     const overlay = document.getElementById('studioLoadingOverlay');
     const progressBar = document.getElementById('studioProgressBar');
@@ -78,7 +87,10 @@ async function pollStudioTask(taskId, initialTitle, mode) {
     const statusTitle = document.getElementById('studioLoadingStatus');
     const statusSub = document.getElementById('studioLoadingSub');
 
-    if (overlay) overlay.style.display = 'flex';
+    if (overlay) {
+        resetHntnLoader(overlay);
+        overlay.style.display = 'flex';
+    }
     
     if (initialTitle) {
         editingQuizSettings.title = initialTitle;
@@ -512,7 +524,7 @@ function parseEditorText(text) {
 
     const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
     const mcqOptRegex = /^\s*(\*?\s*[A-F])[\.\:\)]/i;
-    const tfOptRegex = /^\s*(\*?\s*[a-d])[\.\:\)]/i;
+    const tfOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?[\(\[]?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/i;
     const shortAnsRegex = /^\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]\s*(.*)$/i;
     const explainRegex = /^\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]\s*(.*)$/i;
     const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
@@ -546,13 +558,48 @@ function parseEditorText(text) {
             }
             const match = line.match(tfOptRegex);
             const charRaw = match[1].trim().toLowerCase();
-            const isTrue = charRaw.includes('*');
             const char = charRaw.replace('*', '').trim();
-            let optContent = line.replace(tfOptRegex, '').trim();
             
+            // Nhận diện đánh dấu Đúng/Sai theo chuẩn Azota Cách 3 (gạch chân, *, thẻ <MARK>)
+            const isLeadingStar = charRaw.includes('*') || /^\s*[\(\[]?\s*\*\s*[a-d]/i.test(line);
+            const isUnderlined = /^\s*(?:<MARK>\s*)?(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<MARK>\s*)?<u>\s*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?\*?[a-d]/i.test(line);
+            const isMarked = /^\s*<MARK>\s*(?:<u>)?\s*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?\*?[a-d][\)\.\:\-\]\/]/i.test(line);
+            const hasCorrectTag = /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔/i.test(line);
+            const hasFalseTag = /\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|✗|✘/i.test(line);
+            
+            let isTrue = isLeadingStar || isUnderlined || isMarked || hasCorrectTag;
+            if (hasFalseTag) isTrue = false;
+
+            // Làm sạch nội dung phương án và giữ lại nhãn ma trận Azota nếu có
+            let optContent = line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘/gi, '').trim();
+            let azotaTag = "";
+            const mTag = optContent.match(/^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:<\/MARK>\s*|<\/u>\s*)*/i);
+            if (mTag) {
+                azotaTag = mTag[1].trim();
+                optContent = optContent.substring(mTag[0].length).trim();
+            }
+            optContent = optContent.replace(/^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?[a-d](?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/](?:\s*<\/u>)*(?:\s*<\/MARK>)*\s*/i, '').trim();
+            if (!azotaTag) {
+                const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
+                if (mTagPost) {
+                    azotaTag = mTagPost[1].trim();
+                    optContent = mTagPost[2].trim();
+                }
+            }
+            optContent = optContent.replace(/^(?:<MARK>|<u>|\*)+\s*/gi, '').replace(/\s*(?:<\/MARK>|<\/u>)+$/gi, '').replace(/<MARK>|<\/MARK>/gi, '').trim();
+            if (azotaTag) {
+                optContent = `${azotaTag} ${optContent}`.trim();
+            }
+
             const fullOpt = `${char}) ${optContent}`;
             currentQ.options.push(fullOpt);
             currentQ.correct_answer[char] = isTrue;
+        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
+            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang Azota
+            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+            ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+            });
         } else if (mcqOptRegex.test(line)) {
             if (!currentQ) {
                 currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
@@ -571,9 +618,47 @@ function parseEditorText(text) {
         } else if (shortAnsRegex.test(line)) {
             if (currentQ) {
                 const ansMatch = line.match(shortAnsRegex);
-                currentQ.type = 'short_answer';
-                currentQ.options = [];
-                currentQ.correct_answer = ansMatch[1].trim();
+                const ansContent = (ansMatch[1] || "").trim();
+
+                const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
+                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
+                const hasTfOpts = currentQ.type === 'true_false' || (currentQ.options && currentQ.options.some(opt => /^\s*\(?(\*?[a-d])\)/i.test(opt)));
+
+                if (isTfAns || hasTfOpts) {
+                    currentQ.type = 'true_false';
+                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
+                    ['a', 'b', 'c', 'd'].forEach(k => {
+                        const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
+                        if (m) {
+                            const v = m[1].toLowerCase();
+                            tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
+                        }
+                    });
+                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+                    if (seq && seq.length === 4) {
+                        ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                            tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+                        });
+                    }
+                    currentQ.correct_answer = tfDict;
+                } else if (currentQ.type === 'mcq' && currentQ.options.length > 0) {
+                    const mcqLetterMatch = ansContent.match(/^(?:Đáp án\s*)?\(?\[?([A-Fa-f])[\.\:\)]?$/i);
+                    if (mcqLetterMatch) {
+                        const targetLetter = mcqLetterMatch[1].toUpperCase();
+                        const matchedOpt = currentQ.options.find(opt => opt.trim().toUpperCase().startsWith(targetLetter + '.'));
+                        if (matchedOpt) {
+                            currentQ.correct_answer = matchedOpt;
+                        }
+                    } else {
+                        currentQ.type = 'short_answer';
+                        currentQ.options = [];
+                        currentQ.correct_answer = ansContent;
+                    }
+                } else {
+                    currentQ.type = 'short_answer';
+                    currentQ.options = [];
+                    currentQ.correct_answer = ansContent;
+                }
             }
         } else if (explainRegex.test(line)) {
             if (currentQ) {

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+<!-- STITCH_SVG_START:ANIMATION_21 class="fixed inset-0 w-full h-full" --><div class="fixed inset-0 w-full h-full" id="animated-svg-ANIMATION_21" style="display:block;"><svg height="100%" viewbox="0 0 500 500" width="100%" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<!-- Gradients strictly matching HocNhanhTN brand -->
+<lineargradient id="primaryGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+<stop offset="0%" stop-color="#2d4af3"></stop>
+<stop offset="50%" stop-color="#2d79f3"></stop>
+<stop offset="100%" stop-color="#00d2ff"></stop>
+</lineargradient>
+<lineargradient id="bookLeftGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00b4ff"></stop>
+<stop offset="100%" stop-color="#3b46e8"></stop>
+</lineargradient>
+<lineargradient id="bookRightGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00e5ff"></stop>
+<stop offset="100%" stop-color="#2b59f5"></stop>
+</lineargradient>
+<lineargradient id="capGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00d2ff"></stop>
+<stop offset="50%" stop-color="#2d79f3"></stop>
+<stop offset="100%" stop-color="#1d4ed8"></stop>
+</lineargradient>
+<filter height="140%" id="softGlow" width="140%" x="-20%" y="-20%">
+<fegaussianblur result="blur" stddeviation="3.5"></fegaussianblur>
+<fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+</filter>
+<style>
+      /* 
+        KỊCH BẢN CHUYỂN ĐỘNG:
+        1. Giai đoạn 1s đầu: Logo xuất hiện nguyên bản đầy đủ.
+        2. Ở mốc ~1.0s -> 1.7s: Tất cả thành phần (trang sách, trụ H dưới, cụm sao) trôi tụt xuống dưới và mờ dần biến mất vĩnh viễn (animation-fill-mode: forwards).
+        3. Dấu checkmark (dấu tick) bắt đầu chu kỳ hẩy mạnh lên từ mốc 1.8s.
+        4. Chiếc nón nhận lực hẩy từ dấu tick, bay vút lên không trung, xoay tròn theo chiều kim đồng hồ rồi hạ xuống, lặp lại nhịp nhàng vô tận (infinite).
+      */
+
+      /* Lớp thành phần trôi xuống biến mất vĩnh viễn sau 1s (chạy 1 lần DUY NHẤT) */
+      @keyframes fadeAndSlideDownDisappear {
+        0% {
+          opacity: 1;
+          transform: translateY(0px);
+        }
+        35% {
+          /* Bắt đầu trôi xuống ở 1s */
+          opacity: 1;
+          transform: translateY(0px);
+        }
+        60% {
+          opacity: 0.5;
+          transform: translateY(35px);
+        }
+        90%, 100% {
+          /* Biến mất hoàn toàn và chìm xuống dưới, giữ nguyên trạng thái này vĩnh viễn */
+          opacity: 0;
+          transform: translateY(90px);
+          visibility: hidden;
+        }
+      }
+
+      .disappearing-elements {
+        /* Chạy trong 1.7s (sau 1.0s là trôi xuống biến mất hẳn) và giữ nguyên biến mất với forwards */
+        animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+
+      /* Chu kỳ Dấu Tick hẩy lên tác động (Bắt đầu sau khi các phần tử kia biến mất, lặp lại liên tục) */
+      /* Chu kỳ lặp 2.2s */
+      @keyframes checkmarkKickUp {
+        0% {
+          transform: translateY(0px) rotate(0deg);
+        }
+        10% {
+          /* Chuẩn bị nhún lấy thế */
+          transform: translateY(6px) rotate(-2deg);
+        }
+        24% {
+          /* Hẩy mạnh vút lên trên tác động lực vào nón */
+          transform: translateY(-24px) rotate(5deg) scale(1.05);
+        }
+        40% {
+          /* Thu về vị trí tự nhiên */
+          transform: translateY(-4px) rotate(1deg);
+        }
+        55% {
+          transform: translateY(0px) rotate(0deg);
+        }
+        100% {
+          transform: translateY(0px) rotate(0deg);
+        }
+      }
+
+      /* Chiếc nón bị hẩy bay lên cao và xoay tròn theo chiều kim đồng hồ (0 -> 360 deg) */
+      @keyframes capKickedJumpSpin {
+        0% {
+          transform: translateY(0px) rotate(0deg) scale(1);
+        }
+        10% {
+          /* Nhún nhẹ theo dấu tick trước khi bật */
+          transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98);
+        }
+        26% {
+          /* Nhận lực hẩy từ dấu tick, bay vút lên không trung */
+          transform: translateY(-56px) rotate(90deg) scale(1.12);
+        }
+        48% {
+          /* Xoay tiếp ở trên cao theo chiều kim đồng hồ */
+          transform: translateY(-44px) rotate(240deg) scale(1.08);
+        }
+        68% {
+          /* Tiếp đất, hoàn tất vòng quay 360 độ */
+          transform: translateY(3px) rotate(360deg) scale(0.97, 1.03);
+        }
+        78% {
+          /* Nảy nhẹ phản hồi tại chỗ */
+          transform: translateY(-5px) rotate(360deg) scale(1.01);
+        }
+        88%, 100% {
+          /* Trở về vị trí chuẩn chờ nhịp hẩy tiếp theo */
+          transform: translateY(0px) rotate(360deg) scale(1);
+        }
+      }
+
+      /* Dấu tick bắt đầu chu kỳ hẩy sau 1.2s và lặp lại liên tục */
+      .tick-interactive-group {
+        transform-origin: 250px 280px;
+        animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+        animation-delay: 1.1s;
+      }
+
+      /* Chiếc nón nhận lực bay lên và xoay, trễ một nhịp rất nhỏ theo cú hẩy */
+      .cap-kicked-group {
+        transform-origin: 250px 185px;
+        animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+        animation-delay: 1.1s;
+      }
+    </style>
+</defs>
+<!-- HỆ THỐNG LOGO HOCNHANHTN -->
+<g id="hocnhanhtn-dynamic-loader">
+<!-- 1. CÁC THÀNH PHẦN TRÔI XUỐNG VÀ BIẾN MẤT VĨNH VIỄN SAU 1 GIÂY (Trang sách, trụ H, các ngôi sao) -->
+<g class="disappearing-elements">
+<!-- CÁC TRANG SÁCH MỞ ĐỐI XỨNG -->
+<!-- Lớp cánh sách ngoài cùng -->
+<path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#bookLeftGrad)"></path>
+<!-- Lớp trang sách giữa -->
+<path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#bookRightGrad)"></path>
+<!-- Lớp đế lõi sách bên trong -->
+<path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+<!-- TRỤ CHỮ 'H' (Bên trái & bên phải phía dưới) -->
+<path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#primaryGrad)"></path>
+<path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#bookRightGrad)"></path>
+<!-- CÁC NGÔI SAO AI SPARKLES (Cũng trôi xuống biến mất) -->
+<path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+<path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+<path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+</g>
+<!-- 2. DẤU TICK (CHECKMARK) - GIỮ LẠI VÀ THỰC HIỆN ĐỘNG TÁC HẨY NẨY LÊN TÁC ĐỘNG NÓN -->
+<g class="tick-interactive-group">
+<path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#primaryGrad)" filter="url(#softGlow)"></path>
+<!-- Lớp sáng facet tạo chiều sâu cho dấu tick -->
+<path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+</g>
+<!-- 3. CHIẾC NÓN CỬ NHÂN (GRADUATION CAP) - GIỮ LẠI VÀ BỊ DẤU TICK HẨY BAY LÊN XOAY 360° -->
+<g class="cap-kicked-group">
+<!-- Mũ hình thoi (Mortarboard top diamond) -->
+<polygon fill="url(#capGrad)" filter="url(#softGlow)" points="250,138 324,168 250,198 176,168"></polygon>
+<!-- Gờ viền khối 3D độ dày nón -->
+<polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+<!-- Vòm ôm đầu dưới nón (Skullcap base) -->
+<path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+<!-- Dây tua rua (Cap Tassel) lơ lửng theo nón -->
+<path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+<!-- Điểm nút tâm nón (Cap Center Button) -->
+<circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+</g>
+</g>
+</svg></div><!-- STITCH_SVG_END:ANIMATION_21 -->
+</body>
+</html>
