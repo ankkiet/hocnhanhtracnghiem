@@ -1,11 +1,22 @@
 // Tự động nhận diện môi trường (Localhost vs Production)
-let API_BASE_URL = "";
-if (window.location.protocol === 'file:') {
+const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
+let API_BASE_URL = PROD_BACKEND_URL;
+
+const currentHost = window.location.hostname || '';
+if (window.location.protocol === 'file:' || currentHost === 'localhost' || currentHost === '127.0.0.1') {
     API_BASE_URL = "http://127.0.0.1:8000";
-} else if (window.location.origin && window.location.origin !== "null") {
+} else if (currentHost.startsWith('192.168.')) {
+    API_BASE_URL = `http://${currentHost}:8000`;
+} else if (currentHost.includes('koyeb.app')) {
     API_BASE_URL = window.location.origin;
 } else {
-    API_BASE_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
+    // Cloudflare Pages (*.pages.dev), GitHub Pages, Vercel, Netlify hoặc tên miền tĩnh riêng
+    API_BASE_URL = PROD_BACKEND_URL;
+}
+
+// Hỗ trợ override linh hoạt qua localStorage nếu cần trỏ đến máy chủ khác
+if (typeof localStorage !== 'undefined' && localStorage.getItem('CUSTOM_API_BASE_URL')) {
+    API_BASE_URL = localStorage.getItem('CUSTOM_API_BASE_URL');
 }
 
 // Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở trang (Chống Sleep / Cold Start)
