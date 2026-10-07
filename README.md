@@ -3,7 +3,7 @@
 [![CI Workflow](https://github.com/ankkiet/hocnhanhtracnghiem/actions/workflows/ci.yml/badge.svg)](https://github.com/ankkiet/hocnhanhtracnghiem/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: All Rights Reserved](https://img.shields.io/badge/License-All_Rights_Reserved-red.svg)](LICENSE)
 
 **HocnhanhTN** là nền tại số hóa tài liệu giáo dục và tổ chức thi trực tuyến thông minh, tối ưu hóa theo **Chương trình Giáo dục Phổ thông 2018 (Bộ GD&ĐT)**. Hệ thống cho phép giáo viên tải lên tài liệu Microsoft Word (`.docx`) hoặc PDF (`.pdf`), tự động bóc tách câu hỏi, công thức toán học và hình ảnh, đồng thời hỗ trợ AI cứu hộ và sinh đề tự động bằng Google Gemini.
 
@@ -190,8 +190,11 @@ Kiểm thử bao gồm:
 
 ---
 
-## 📄 Bản Quyền & Giấy Phép
+## 📄 Bản Quyền & Giấy Phép (Copyright & License)
 
-Dự án được phát hành theo giấy phép [MIT License](LICENSE).
-Mọi đóng góp, báo lỗi hoặc yêu cầu tính năng xin vui lòng mở Issue hoặc Pull Request trên kho mã nguồn.
-Link công khai: [hocnhanhtn.pages.dev](https://hocnhanhtn.pages.dev/) 
+**Bản quyền © 2026 thuộc về tác giả / HocNhanhTN (ankkiet). Toàn bộ quyền được bảo lưu (All Rights Reserved).**
+
+* Phần mềm này và toàn bộ mã nguồn liên quan là sản phẩm trí tuệ độc quyền.
+* **Nghiêm cấm mọi hành vi sao chép, trích xuất, phân phối lại, chỉnh sửa hoặc khai thác thương mại** dưới bất kỳ hình thức nào khi chưa có sự đồng ý bằng văn bản từ tác giả / chủ sở hữu.
+* **Email liên hệ & Cấp phép:** [kiet0905478167@gmail.com](mailto:kiet0905478167@gmail.com)
+* Website chính thức: [hocnhanhtn.pages.dev](https://hocnhanhtn.pages.dev/)
