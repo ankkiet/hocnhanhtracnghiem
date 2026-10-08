@@ -30,16 +30,21 @@ def init_firebase():
         
         if firebase_env:
             try:
-                # Xử lý trường hợp chuỗi JSON có chứa ký tự escape \n (thường gặp trên Koyeb/Heroku)
-                if '\\n' in firebase_env:
-                    firebase_env = firebase_env.replace('\\n', '\n')
-                cred_dict = json.loads(firebase_env)
+                # Dùng strict=False để cho phép ký tự xuống dòng (raw newlines) thường gặp trên Koyeb
+                cred_dict = json.loads(firebase_env, strict=False)
                 cred = credentials.Certificate(cred_dict)
                 logger.info("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
             except Exception as e:
-                firebase_init_error = f"Lỗi parse FIREBASE_JSON: {str(e)}"
-                logger.error(firebase_init_error)
-                return None
+                # Fallback: Nếu JSON có chứa raw newlines khiến json.loads() bó tay kể cả khi strict=False
+                try:
+                    firebase_env_fixed = firebase_env.replace('\n', '\\n')
+                    cred_dict = json.loads(firebase_env_fixed)
+                    cred = credentials.Certificate(cred_dict)
+                    logger.info("Đang kết nối Firebase (Koyeb fallback thay thế newline)...")
+                except Exception as e2:
+                    firebase_init_error = f"Lỗi parse FIREBASE_JSON: {str(e)} | Fallback error: {str(e2)}"
+                    logger.error(firebase_init_error)
+                    return None
         else:
             # 2. Đọc từ file vật lý (Dành cho Local)
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
