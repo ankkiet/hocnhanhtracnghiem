@@ -4,17 +4,20 @@
 
 // Tự động nhận diện môi trường (Localhost vs Production)
 const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
-let API_BASE_URL = PROD_BACKEND_URL;
+let API_BASE_URL = window.location.origin;
 
 const currentHost = window.location.hostname || '';
-if (window.location.protocol === 'file:' || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+if (window.location.protocol === 'file:') {
     API_BASE_URL = "http://127.0.0.1:8000";
-} else if (currentHost.startsWith('192.168.')) {
-    API_BASE_URL = `http://${currentHost}:8000`;
-} else if (currentHost.includes('koyeb.app')) {
-    API_BASE_URL = window.location.origin;
-} else {
+} else if (
+    currentHost.endsWith('.pages.dev') || 
+    currentHost.endsWith('.vercel.app') || 
+    currentHost.endsWith('.netlify.app') || 
+    currentHost.endsWith('.github.io')
+) {
     API_BASE_URL = PROD_BACKEND_URL;
+} else {
+    API_BASE_URL = window.location.origin;
 }
 
 if (typeof localStorage !== 'undefined' && localStorage.getItem('CUSTOM_API_BASE_URL')) {
@@ -364,9 +367,30 @@ function saveDraftToSession() {
 // ----------------------------------------------------
 // THIẾT LẬP SỰ KIỆN TRÌNH SOẠN THẢO CODE
 // ----------------------------------------------------
+function getRichEditorText(node) {
+    if (!node) return '';
+    let result = '';
+    for (let child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+            result += child.nodeValue;
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+            if (child.tagName === 'IMG') {
+                result += child.outerHTML;
+            } else if (child.tagName === 'BR') {
+                result += '\n';
+            } else if (child.tagName === 'DIV' || child.tagName === 'P') {
+                let inner = getRichEditorText(child);
+                result += (result.length > 0 && !result.endsWith('\n') ? '\n' : '') + inner + '\n';
+            } else {
+                result += getRichEditorText(child);
+            }
+        }
+    }
+    return result;
+}
+
 function setupEditorEvents() {
     const codeEditor = document.getElementById('codeEditor');
-    const codeHighlight = document.getElementById('codeHighlight');
     if (!codeEditor) return;
 
     let editTimeout;
@@ -376,56 +400,18 @@ function setupEditorEvents() {
 
         clearTimeout(editTimeout);
         editTimeout = setTimeout(() => {
-            updateSyntaxHighlight();
-            currentData = parseEditorText(codeEditor.value);
+            currentData = parseEditorText(getRichEditorText(codeEditor));
             renderPreviewAll();
             updateQCountBadge();
             saveDraftToSession();
         }, 300);
     });
 
-    codeEditor.addEventListener('scroll', function() {
-        if (codeHighlight) {
-            codeHighlight.scrollTop = this.scrollTop;
-            codeHighlight.scrollLeft = this.scrollLeft;
-        }
-    });
-
     // Auto-complete bằng phím Tab
     codeEditor.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
-            const start = this.selectionStart;
-            const end = this.selectionEnd;
-
-            if (start === end) {
-                const textBefore = this.value.substring(0, start);
-                const cauMatch = textBefore.match(/(?:^|\n)\s*(?:cau|câu)\s*$/i);
-                
-                if (cauMatch) {
-                    const matchedLen = cauMatch[0].length;
-                    const replaceStart = start - matchedLen;
-                    const qIndex = currentData.length + 1;
-                    const template = `\n\nCâu ${qIndex}: \n*A. \nB. \nC. \nD. `;
-                    
-                    this.value = this.value.substring(0, replaceStart) + template + this.value.substring(end);
-                    const newCursorPos = replaceStart + template.indexOf('\n*A.');
-                    this.selectionStart = this.selectionEnd = newCursorPos;
-                    
-                    updateSyntaxHighlight();
-                    currentData = parseEditorText(this.value);
-                    renderPreviewAll();
-                    updateQCountBadge();
-                    saveDraftToSession();
-                    return;
-                }
-            }
-
-            // Chèn 4 khoảng trắng nếu không phải từ khóa
-            const spaces = "    ";
-            this.value = this.value.substring(0, start) + spaces + this.value.substring(end);
-            this.selectionStart = this.selectionEnd = start + spaces.length;
-            updateSyntaxHighlight();
+            document.execCommand('insertText', false, '    ');
         }
     });
 }
@@ -443,8 +429,7 @@ function setupTitleEvents() {
 function syncDataToEditor() {
     const codeEditor = document.getElementById('codeEditor');
     if (codeEditor) {
-        codeEditor.value = dataToEditorText(currentData);
-        updateSyntaxHighlight();
+        codeEditor.innerHTML = dataToEditorText(currentData);
     }
 }
 
@@ -487,31 +472,31 @@ function getRealQuestionType(q) {
 // CHUYỂN ĐỔI GIỮA DỮ LIỆU JSON VÀ TEXT CODE
 // ----------------------------------------------------
 function dataToEditorText(data) {
-    let text = "";
+    let html = "";
     data.forEach((q, i) => {
         if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
-            text += `${q.group_title.replace(/<br>/gi, '\n')}\n`;
+            html += `<div style="color: #b45309; font-weight: bold; margin-bottom: 5px;">${q.group_title.replace(/<br>/gi, '<br>')}</div>`;
         }
-        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '').replace(/<br>/gi, '\n');
-        text += `Câu ${i + 1}: ${qClean}\n`;
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '').replace(/<br>/gi, '<br>');
+        html += `<div style="margin-top: 10px;"><span style="color: #2563eb; font-weight: bold;">Câu ${i + 1}: </span>${qClean}</div>`;
         
         let qType = getRealQuestionType(q);
         if (qType === 'true_false') {
             let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
             (q.options || []).forEach((opt, oIdx) => {
-                let optText = opt.replace(/<br>/gi, '\n');
+                let optText = opt.replace(/<br>/gi, '<br>');
                 let charMatch = optText.match(/^[a-d]/);
                 let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIdx);
                 let isTrue = (char && tfMap[char] === true) || /^\*[a-d]/.test(optText) || /\[ĐÚNG\]|\(Đúng\)/i.test(optText);
                 let cleanOpt = optText.replace(/^\*?[a-d][\)\.\:\-]\s*/, '');
                 cleanOpt = cleanOpt.replace(/\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)/gi, '').trim();
-                let prefix = isTrue ? `*${char}) ` : `${char}) `;
-                text += `${prefix}${cleanOpt}\n`;
+                let prefix = isTrue ? `<span style="color: #059669; font-weight: bold;">*${char}) </span>` : `<span style="color: #0ea5e9; font-weight: bold;">${char}) </span>`;
+                html += `<div>${prefix}${cleanOpt}</div>`;
             });
         } else if (qType === 'short_answer') {
             let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
             if (ca) {
-                text += `Đáp án: ${ca}\n`;
+                html += `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>${ca}</div>`;
             }
         } else {
             // MCQ (4 lựa chọn)
@@ -524,44 +509,30 @@ function dataToEditorText(data) {
                         isCorrect = true;
                     }
                 }
-                let optText = opt.replace(/<br>/gi, '\n');
+                let optText = opt.replace(/<br>/gi, '<br>');
                 if (isCorrect) {
-                    optText = optText.replace(/^([A-F])([\.\:\)])/, '*$1$2');
+                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #059669; font-weight: bold;">*$1$2</span>');
+                } else {
+                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #7c3aed; font-weight: bold;">$1$2</span>');
                 }
-                text += `${optText}\n`;
+                html += `<div>${optText}</div>`;
             });
         }
         if (q.explain && q.explain.trim()) {
-            text += `Lời giải: ${q.explain.replace(/<br>/gi, '\n')}\n`;
+            html += `<div><span style="color: #16a34a; font-style: italic;">Lời giải: </span>${q.explain.replace(/<br>/gi, '<br>')}</div>`;
         }
-        text += "\n";
+        html += `<br>`;
     });
     
-    text = text.trim();
-    
-    // Nén thẻ ảnh vào placeholder [HÌNH_ẢNH_X]
+    // Nén thẻ ảnh vào placeholder [HÌNH_ẢNH_X] - BỎ VÌ DÙNG WYSIWYG
     globalEditorImageStorage = {};
     globalEditorImageCounter = 0;
-    
-    const imgRegex = /<img[^>]+src=['"][^'"]+['"][^>]*\/?>/gi;
-    text = text.replace(imgRegex, (match) => {
-        let existingKey = Object.keys(globalEditorImageStorage).find(key => globalEditorImageStorage[key] === match);
-        if (existingKey) return existingKey;
-        
-        globalEditorImageCounter++;
-        let placeholder = `[HÌNH_ẢNH_${globalEditorImageCounter}]`;
-        globalEditorImageStorage[placeholder] = match;
-        return placeholder;
-    });
 
-    return text;
+    return html;
 }
 
 function parseEditorText(text) {
     let restoredText = text;
-    for (let key in globalEditorImageStorage) {
-        restoredText = restoredText.split(key).join(globalEditorImageStorage[key]);
-    }
     
     const data = [];
     let currentQ = null;
@@ -608,6 +579,7 @@ function parseEditorText(text) {
             
             // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
             const isCorrect = charRaw.includes('*')
+                || /^\s*\*/.test(line)
                 || /<\/?(?:MARK|u)>/i.test(line)
                 || /[✓✔☑]/i.test(line)
                 || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
@@ -766,27 +738,7 @@ function parseEditorText(text) {
 }
 
 function updateSyntaxHighlight() {
-    const codeEditor = document.getElementById('codeEditor');
-    const codeHighlight = document.getElementById('codeHighlight');
-    if (!codeEditor || !codeHighlight) return;
-    
-    let text = codeEditor.value;
-    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    
-    escaped = escaped.replace(/(\[HÌNH_ẢNH_\d+\])/g, '<span class="hl-image">$1</span>');
-    escaped = escaped.replace(/(\\\([\s\S]*?\\\))/g, '<span class="hl-math">$1</span>');
-    escaped = escaped.replace(/^(\s*)(Câu|Bài|Question|Q)(\s*\d+[\.\:\-\)])/gim, '$1<span class="hl-question">$2$3</span>');
-    escaped = escaped.replace(/^(\s*)(\*\s*[A-F][\.\:\)])/gim, '$1<span class="hl-correct">$2</span>');
-    escaped = escaped.replace(/^(\s*)([A-F][\.\:\)])/gim, '$1<span class="hl-option">$2</span>');
-    escaped = escaped.replace(/^(\s*)(\*\s*[a-d][\.\:\)])/gim, '$1<span class="hl-correct">$2</span>');
-    escaped = escaped.replace(/^(\s*)([a-d][\.\:\)])/gim, '$1<span class="hl-option" style="color:#0ea5e9;">$2</span>');
-    escaped = escaped.replace(/^(\s*)(Đáp án|Đáp số|ĐS|Kết quả)(\s*[\:\-\=].*)$/gim, '$1<span class="hl-correct">$2$3</span>');
-    escaped = escaped.replace(/^(\s*)(Lời giải|Hướng dẫn giải|Giải thích|HDG)(\s*[\:\-\=].*)$/gim, '$1<span class="hl-math">$2$3</span>');
-    escaped = escaped.replace(/^(\s*)(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)(.*)$/gim, '$1<span class="hl-group">$2$3</span>');
-    escaped = escaped.replace(/(&lt;\/?(b|i|u|sub|sup|MARK)&gt;)/gi, '<span class="hl-html">$1</span>');
-    
-    if (escaped.endsWith('\n')) escaped += ' ';
-    codeHighlight.innerHTML = escaped;
+    // Đã loại bỏ do chuyển sang giao diện WYSIWYG
 }
 
 function formatSubscriptsAndFormulas(text) {
@@ -877,8 +829,8 @@ function renderPreviewAll() {
                             <span style="font-size: 0.95rem; color: #1e293b;">${optClean}</span>
                         </div>
                         <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'};">Đúng</span>
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'};">Sai</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', true); event.stopPropagation();" title="Chọn làm đáp án đúng">Đúng</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', false); event.stopPropagation();" title="Chọn làm đáp án sai">Sai</span>
                         </div>
                     </div>`;
             });
@@ -903,7 +855,7 @@ function renderPreviewAll() {
                     }
                 }
                 let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
-                html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: default; padding: 10px 14px; margin-bottom: 8px;">
+                html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: pointer; padding: 10px 14px; margin-bottom: 8px;" onclick="changeCorrectAnswer(${qIndex}, ${oIndex}); event.stopPropagation();" title="Bấm để chọn làm đáp án đúng">
                             <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
                             <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
                             <span class="opt-text">${optClean}</span>
@@ -1054,46 +1006,67 @@ function scrollToQuestionInEditor(qIndex) {
     const editor = document.getElementById('codeEditor');
     if (!editor) return;
     
-    const text = editor.value;
-    const lines = text.split('\n');
-    const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
+    const spans = editor.querySelectorAll('span');
+    let targetMatch = null;
+    let currentQ = 0;
     
-    let currentQCount = -1;
-    let charOffset = 0;
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim() !== '') {
-            if (qRegex.test(line)) {
-                currentQCount++;
-                if (currentQCount === qIndex) {
-                    editor.focus();
-                    editor.setSelectionRange(charOffset, charOffset + line.length);
-                    
-                    const scrollRatio = charOffset / text.length;
-                    const targetScroll = editor.scrollHeight * scrollRatio;
-                    editor.scrollTop = targetScroll - 50;
-                    return;
-                }
+    for (let span of spans) {
+        if (/Câu\s+\d+:/i.test(span.innerText)) {
+            if (currentQ === qIndex) {
+                targetMatch = span;
+                break;
             }
+            currentQ++;
         }
-        charOffset += line.length + 1;
+    }
+    
+    if (targetMatch) {
+        targetMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        const parent = targetMatch.parentElement || targetMatch;
+        const origBg = parent.style.backgroundColor;
+        parent.style.transition = 'background-color 0.3s';
+        parent.style.backgroundColor = '#fef08a';
+        setTimeout(() => { 
+            parent.style.backgroundColor = origBg; 
+        }, 1500);
     }
 }
+
+// Thay đổi đáp án từ giao diện Xem trước
+window.changeCorrectAnswer = function(qIndex, oIndex) {
+    if (!currentData[qIndex] || !currentData[qIndex].options) return;
+    currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex];
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật đáp án đúng!");
+};
+
+window.changeTfAnswer = function(qIndex, char, isTrue) {
+    if (!currentData[qIndex]) return;
+    if (typeof currentData[qIndex].correct_answer !== 'object' || currentData[qIndex].correct_answer === null) {
+        currentData[qIndex].correct_answer = {};
+    }
+    currentData[qIndex].correct_answer[char.toLowerCase()] = isTrue;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật đáp án Đúng/Sai!");
+};
 
 function insertQuestionTemplate() {
     const editor = document.getElementById('codeEditor');
     if (!editor) return;
     
     const nextQNum = currentData.length + 1;
-    const template = `\n\nCâu ${nextQNum}: Nội dung câu hỏi mới ở đây?\n*A. Đáp án đúng thứ nhất\nB. Đáp án thứ hai\nC. Đáp án thứ ba\nD. Đáp án thứ tư\n`;
+    const template = `<br><br>Câu ${nextQNum}: Nội dung câu hỏi mới ở đây?<br>*A. Đáp án đúng thứ nhất<br>B. Đáp án thứ hai<br>C. Đáp án thứ ba<br>D. Đáp án thứ tư<br>`;
     
-    editor.value += template;
+    editor.innerHTML += template;
     editor.scrollTop = editor.scrollHeight;
     editor.focus();
     
-    updateSyntaxHighlight();
-    currentData = parseEditorText(editor.value);
+    currentData = parseEditorText(getRichEditorText(editor));
     renderPreviewAll();
     updateQCountBadge();
     saveDraftToSession();

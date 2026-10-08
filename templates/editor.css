@@ -362,16 +362,9 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     bottom: 0;
 }
 
-#codeHighlight {
-    color: #333333;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 1;
-}
-
 #codeEditor {
-    background: transparent;
-    color: transparent;
+    background: white;
+    color: #1e293b;
     caret-color: #0f172a;
     resize: none;
     outline: none;
@@ -381,7 +374,7 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
 
 #codeEditor::selection {
     background: rgba(37, 99, 235, 0.25);
-    color: transparent;
+    color: #000;
 }
 
 #codeEditor::-webkit-scrollbar {

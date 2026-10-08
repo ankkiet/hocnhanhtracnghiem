@@ -15,8 +15,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261008_mobile_fix">
-    <link rel="stylesheet" href="editor.css?v=20261007_hntn_loader">
+    <link rel="stylesheet" href="style.css?v=20261008_wysiwyg">
+    <link rel="stylesheet" href="editor.css?v=20261008_wysiwyg">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
         window.MathJax = {
@@ -196,9 +196,14 @@
                 <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; gap: 8px;">
                     <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Thêm dấu <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>). Gõ <code>câu</code> rồi nhấn <b>Tab</b> để tạo nhanh khung câu mới.</span>
                 </div>
-                <div class="studio-editor-wrapper">
-                    <div id="codeHighlight" class="studio-code-font"></div>
-                    <textarea id="codeEditor" class="studio-code-font" spellcheck="false" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></textarea>
+                <div class="studio-editor-wrapper" style="background: white; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                    <div class="editor-toolbar" style="padding: 6px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 5px;">
+                        <button onclick="document.execCommand('bold', false, null)" title="In đậm" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-bold"></i></button>
+                        <button onclick="document.execCommand('italic', false, null)" title="In nghiêng" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-italic"></i></button>
+                        <button onclick="document.execCommand('underline', false, null)" title="Gạch chân" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-underline"></i></button>
+                        <button onclick="let url = prompt('Nhập URL ảnh:'); if(url) document.execCommand('insertImage', false, url);" title="Chèn ảnh" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-image-line"></i></button>
+                    </div>
+                    <div id="codeEditor" class="studio-code-font" contenteditable="true" spellcheck="false" style="flex: 1; padding: 15px; overflow-y: auto; outline: none; font-family: inherit; font-size: 15px; line-height: 1.6;" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></div>
                 </div>
             </div>
         </div>
@@ -377,6 +382,6 @@
         <i class="ri-eye-line"></i> <span>Xem trước</span>
     </button>
 
-    <script src="editor.js?v=20261008_mobile_fix"></script>
+    <script src="editor.js?v=20261008_wysiwyg"></script>
 </body>
 </html>

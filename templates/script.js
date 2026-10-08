@@ -1,17 +1,21 @@
 // Tự động nhận diện môi trường (Localhost vs Production)
 const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
-let API_BASE_URL = PROD_BACKEND_URL;
+let API_BASE_URL = window.location.origin;
 
 const currentHost = window.location.hostname || '';
-if (window.location.protocol === 'file:' || currentHost === 'localhost' || currentHost === '127.0.0.1') {
+if (window.location.protocol === 'file:') {
     API_BASE_URL = "http://127.0.0.1:8000";
-} else if (currentHost.startsWith('192.168.')) {
-    API_BASE_URL = `http://${currentHost}:8000`;
-} else if (currentHost.includes('koyeb.app')) {
-    API_BASE_URL = window.location.origin;
-} else {
-    // Cloudflare Pages (*.pages.dev), GitHub Pages, Vercel, Netlify hoặc tên miền tĩnh riêng
+} else if (
+    currentHost.endsWith('.pages.dev') || 
+    currentHost.endsWith('.vercel.app') || 
+    currentHost.endsWith('.netlify.app') || 
+    currentHost.endsWith('.github.io')
+) {
+    // Nếu deploy giao diện (Frontend) tách biệt trên các host tĩnh
     API_BASE_URL = PROD_BACKEND_URL;
+} else {
+    // Được phục vụ bởi backend (ngrok, localhost, IP, domain riêng trỏ về server)
+    API_BASE_URL = window.location.origin;
 }
 
 // Hỗ trợ override linh hoạt qua localStorage nếu cần trỏ đến máy chủ khác
