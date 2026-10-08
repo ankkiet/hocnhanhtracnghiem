@@ -6,7 +6,10 @@ import tempfile
 import shutil
 import time
 import asyncio
+import logging
 from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form, BackgroundTasks, Response
 from fastapi.responses import FileResponse
@@ -134,7 +137,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             try:
                 file_ak = extract_answer_key_from_doc(temp_file_path)
             except Exception as ak_err:
-                print(f"[CẢNH BÁO] Lỗi trích xuất bảng đáp án từ DOCX: {ak_err}")
+                logger.warning(f"[CẢNH BÁO] Lỗi trích xuất bảng đáp án từ DOCX: {ak_err}")
 
         extracted_data = None
         if ext == ".pdf":
@@ -143,7 +146,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                     active_tasks[task_id]["message"] = "AI đang phân tích tài liệu PDF..."
                     extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
                 except Exception as pdf_ai_err:
-                    print(f"[CẢNH BÁO] Lỗi AI bóc tách PDF: {pdf_ai_err}")
+                    logger.warning(f"[CẢNH BÁO] Lỗi AI bóc tách PDF: {pdf_ai_err}")
                     active_tasks[task_id]["message"] = "Tự động chuyển sang phân tích PDF nội bộ..."
                     extracted_data = extract_questions_from_pdf_locally(temp_file_path)
             else:
@@ -151,12 +154,12 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 extracted_data = extract_questions_from_pdf_locally(temp_file_path)
                 # Nếu bộ phân tích PDF nội bộ không tìm thấy câu hỏi mà có API Key, tự động cứu hộ bằng AI
                 if (not extracted_data or len(extracted_data) == 0) and api_keys:
-                    print("[CẢNH BÁO] PDF nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
+                    logger.warning("[CẢNH BÁO] PDF nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
                     active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ PDF..."
                     try:
                         extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
                     except Exception as rescue_err:
-                        print(f"[CẢNH BÁO] AI cứu hộ PDF gặp lỗi: {rescue_err}")
+                        logger.warning(f"[CẢNH BÁO] AI cứu hộ PDF gặp lỗi: {rescue_err}")
         elif use_ai and api_keys:
             try:
                 active_tasks[task_id]["message"] = "AI đang phân tích tài liệu Word..."
@@ -167,7 +170,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 if file_ak and extracted_data:
                     extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
             except Exception as ai_err:
-                print(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
+                logger.warning(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
                 active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
                 try:
                     extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
@@ -187,7 +190,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
                 extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
             except Exception as bp_err:
-                print(f"[CẢNH BÁO] Bộ bóc tách Bulletproof gặp lỗi: {bp_err}")
+                logger.warning(f"[CẢNH BÁO] Bộ bóc tách Bulletproof gặp lỗi: {bp_err}")
                 extracted_data = None
                 
             # Nếu bộ bóc tách chính không tìm thấy câu hỏi, kích hoạt bộ bóc tách dự phòng (Engine 2)
@@ -195,12 +198,12 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 try:
                     extracted_data = extract_formatting_from_docx(temp_file_path)
                 except Exception as docx_err:
-                    print(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
+                    logger.warning(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
                     extracted_data = None
                     
             # Nếu cả 2 bộ bóc tách nội bộ đều không tìm thấy câu hỏi mà hệ thống CÓ API key, tự động kích hoạt AI cứu hộ
             if (not extracted_data or len(extracted_data) == 0) and api_keys:
-                print("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
+                logger.warning("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
                 active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
                 try:
                     if not marked_text:
@@ -211,7 +214,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                     if file_ak and extracted_data:
                         extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
                 except Exception as rescue_err:
-                    print(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
+                    logger.warning(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
 
         extracted_data = recursive_unescape(extracted_data)
 

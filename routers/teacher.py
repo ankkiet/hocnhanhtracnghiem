@@ -1,8 +1,12 @@
 import json
 import re
 import datetime
+import asyncio
+import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from services.firebase_service import get_db
@@ -112,7 +116,7 @@ async def quiz_action(req: QuizActionRequest):
             for sub in subs:
                 sub.reference.delete()
         except Exception as sub_err:
-            print(f"[CẢNH BÁO] Lỗi khi dọn dẹp submissions: {sub_err}")
+            logger.warning(f"[CẢNH BÁO] Lỗi khi dọn dẹp submissions: {sub_err}")
 
         # 3. Xóa toàn bộ tài liệu trong subcollection 'active_sessions'
         try:
@@ -120,7 +124,7 @@ async def quiz_action(req: QuizActionRequest):
             for s in sessions:
                 s.reference.delete()
         except Exception as sess_err:
-            print(f"[CẢNH BÁO] Lỗi khi dọn dẹp active_sessions: {sess_err}")
+            logger.warning(f"[CẢNH BÁO] Lỗi khi dọn dẹp active_sessions: {sess_err}")
 
         # 4. Xóa chính document bài thi trong Firestore
         doc_ref.delete()
@@ -161,23 +165,154 @@ async def get_monitor_data(quiz_id: str, teacher_token: str):
         raise HTTPException(status_code=403, detail="Không có quyền giám sát đề thi này")
     
     sessions = db.collection('quizzes').document(quiz_id).collection('active_sessions').get()
-    res = []
+    submissions = db.collection('quizzes').document(quiz_id).collection('submissions').get()
+    
+    res_dict = {}
     now = datetime.datetime.now(datetime.timezone.utc)
+    
+    # 1. Process active_sessions
     for s in sessions:
         d = s.to_dict()
         updated_at = d.get('updated_at')
         is_online = False
         if updated_at and (now - updated_at).total_seconds() < 40:
             is_online = True
-        res.append({
+            
+        student_name = d.get('student_name', 'Ẩn danh').strip()
+        res_dict[student_name] = {
             'session_id': s.id,
-            'student_name': d.get('student_name', 'Ẩn danh'),
+            'student_name': student_name,
             'answers_count': d.get('answers_count', 0),
             'time_remaining': d.get('time_remaining', 0),
             'completed': d.get('completed', False),
-            'is_online': is_online
-        })
-    return {"status": "success", "data": res}
+            'is_online': is_online,
+            'score': None,
+            'total_questions': None
+        }
+        
+    # 2. Process submissions (completed students)
+    for sub in submissions:
+        d = sub.to_dict()
+        student_name = d.get('student_name', 'Ẩn danh').strip()
+        
+        try:
+            score = float(d.get('score', 0))
+        except (ValueError, TypeError):
+            score = 0.0
+            
+        try:
+            total = int(d.get('total_questions', 0))
+        except (ValueError, TypeError):
+            total = 0
+            
+        if student_name in res_dict:
+            res_dict[student_name]['completed'] = True
+            res_dict[student_name]['score'] = score
+            res_dict[student_name]['total_questions'] = total
+            res_dict[student_name]['is_online'] = False
+            # Nếu đã nộp bài, số câu đã trả lời thường là total
+            res_dict[student_name]['answers_count'] = total if total > 0 else res_dict[student_name]['answers_count']
+        else:
+            res_dict[student_name] = {
+                'session_id': sub.id,
+                'student_name': student_name,
+                'answers_count': total,
+                'time_remaining': 0,
+                'completed': True,
+                'is_online': False,
+                'score': score,
+                'total_questions': total
+            }
+            
+    return {"status": "success", "data": list(res_dict.values())}
+
+@router.get("/monitor_stream/{quiz_id}", summary="SSE Giám sát thời gian thực")
+async def monitor_stream(quiz_id: str, teacher_token: str, request: Request):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Lỗi DB")
+        
+    user, user_uid = verify_teacher_access(teacher_token, db)
+    doc_ref = db.collection('quizzes').document(quiz_id).get()
+    if not doc_ref.exists:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+        
+    creator = doc_ref.to_dict().get('creator_id')
+    if creator != user_uid and creator != teacher_token and user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền giám sát đề thi này")
+
+    async def event_generator():
+        # Polling DB mỗi 2 giây
+        while True:
+            if await request.is_disconnected():
+                break
+                
+            sessions = db.collection('quizzes').document(quiz_id).collection('active_sessions').get()
+            submissions = db.collection('quizzes').document(quiz_id).collection('submissions').get()
+            
+            res_dict = {}
+            now = datetime.datetime.now(datetime.timezone.utc)
+            
+            for s in sessions:
+                d = s.to_dict()
+                updated_at = d.get('updated_at')
+                is_online = False
+                if updated_at and (now - updated_at).total_seconds() < 40:
+                    is_online = True
+                    
+                student_name = d.get('student_name', 'Ẩn danh').strip()
+                res_dict[student_name] = {
+                    'session_id': s.id,
+                    'student_name': student_name,
+                    'answers_count': d.get('answers_count', 0),
+                    'time_remaining': d.get('time_remaining', 0),
+                    'completed': d.get('completed', False),
+                    'is_online': is_online,
+                    'score': None,
+                    'total_questions': None
+                }
+                
+            for sub in submissions:
+                d = sub.to_dict()
+                student_name = d.get('student_name', 'Ẩn danh').strip()
+                
+                try:
+                    score = float(d.get('score', 0))
+                except (ValueError, TypeError):
+                    score = 0.0
+                    
+                try:
+                    total = int(d.get('total_questions', 0))
+                except (ValueError, TypeError):
+                    total = 0
+                    
+                if student_name in res_dict:
+                    res_dict[student_name]['completed'] = True
+                    res_dict[student_name]['score'] = score
+                    res_dict[student_name]['total_questions'] = total
+                    res_dict[student_name]['is_online'] = False
+                    res_dict[student_name]['answers_count'] = total if total > 0 else res_dict[student_name]['answers_count']
+                else:
+                    res_dict[student_name] = {
+                        'session_id': sub.id,
+                        'student_name': student_name,
+                        'answers_count': total,
+                        'time_remaining': 0,
+                        'completed': True,
+                        'is_online': False,
+                        'score': score,
+                        'total_questions': total
+                    }
+                    
+            data = list(res_dict.values())
+            
+            # SSE Message format
+            payload = json.dumps({'status': 'success', 'data': data}, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+            
+            await asyncio.sleep(2.0)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @router.post("/check_quiz_ai", summary="AI Kiểm tra lỗi đề thi")
 async def check_quiz_ai(req: CheckQuizRequest):

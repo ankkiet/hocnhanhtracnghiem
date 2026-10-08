@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================================
+    // HỆ THỐNG BẢO MẬT FIRESTORE - HOCNHANHTN
+    // LƯU Ý QUAN TRỌNG:
+    // Toàn bộ logic nghiệp vụ cốt lõi (Tạo đề, lưu điểm, tạo tài khoản Admin/Giáo viên)
+    // đều được xử lý qua hệ thống Python FastAPI Backend (Sử dụng Firebase Admin SDK).
+    // Admin SDK tự động CÓ QUYỀN CAO NHẤT (Vượt qua mọi Rules ở đây).
+    // Do đó, ở cấp độ Client (Trình duyệt Web), ta có thể KHÓA GẦN NHƯ TOÀN BỘ 
+    // quyền Ghi (Write) để phòng chống Hacker can thiệp sửa điểm hoặc lấy đáp án.
+    // =========================================================================
+
+    // 1. Quizzes (Bộ lưu trữ Đề thi)
+    match /quizzes/{quizId} {
+      // CHẶN HOÀN TOÀN việc tải đề thi trực tiếp từ Firebase Client.
+      // Trình duyệt phải gọi API qua FastAPI (để FastAPI xóa đáp án trước khi trả về).
+      allow read, write: if false; 
+      
+      // CHO PHÉP ĐỌC: Giám sát thời gian thực học sinh đang làm bài
+      // Frontend của Giáo viên sử dụng onSnapshot để nghe dữ liệu ở đây.
+      match /active_sessions/{sessionId} {
+        allow read: if true; 
+        allow write: if false; // Học sinh gửi ping lên FastAPI, FastAPI ghi vào đây
+      }
+      
+      // CHO PHÉP ĐỌC: Bảng điểm & Xếp hạng thời gian thực
+      match /submissions/{subId} {
+        allow read: if true;
+        allow write: if false; // FastAPI sẽ tự chấm điểm và ghi vào đây
+      }
+    }
+    
+    // 2. Users (Tài khoản người dùng & Quản trị)
+    match /users/{userId} {
+      allow read, write: if false; // Chặn truy cập trực tiếp từ trình duyệt
+      
+      match /progress/{quizId} {
+        allow read, write: if false; 
+      }
+    }
+
+    // 3. Settings (Cấu hình hệ thống & API Keys)
+    match /settings/{docId} {
+      // TUYỆT ĐỐI CHẶN: Không ai được đọc cấu hình (Gemini API Key, v.v.) qua web
+      allow read, write: if false; 
+    }
+
+    // 4. Default Block (Chặn mọi truy cập lạ)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

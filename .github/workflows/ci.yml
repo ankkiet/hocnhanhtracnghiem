@@ -1,48 +1,75 @@
-name: HocnhanhTracnghiem CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8
+      - name: Run flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
   test:
     runs-on: ubuntu-latest
+    needs: lint
     strategy:
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      - name: Run tests (if available)
+        run: |
+          if [ -d "tests" ]; then
+            pytest --cov=./ --cov-report=xml
+          else
+            echo "No tests directory found, skipping."
+          fi
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install security tools
+        run: |
+          pip install bandit safety
+      - name: Run Bandit
+        run: bandit -r . -f custom -x venv,tests -c .bandit || true
+      - name: Run Safety
+        run: safety check -r requirements.txt || true
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libxml2-dev libxslt-dev
-
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install flake8 pytest
-
-    - name: Lint with flake8
-      run: |
-        # Dừng build nếu có lỗi cú pháp Python hoặc biến chưa định nghĩa
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv*,env,venv,scratch,backup_bgd_feature
-        # Cảnh báo các lỗi khác nhưng không ngắt CI
-        flake8 . --count --exit-zero --max-complexity=15 --max-line-length=160 --statistics --exclude=.venv*,env,venv,scratch,backup_bgd_feature
-
-    - name: Run Unit Tests
-      env:
-        PYTHONPATH: .
-      run: |
-        python -m unittest discover -s tests -p "test_*.py"
+  docker-build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [test, security]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build Docker image
+        run: docker build -t hocnhanhtn:latest .

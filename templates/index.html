@@ -456,6 +456,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, doc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyBNZKHspA74knftwTqM0DLgfsH1NCHHMSM",
@@ -469,14 +470,23 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
         const googleProvider = new GoogleAuthProvider();
         googleProvider.setCustomParameters({ prompt: 'select_account' });
 
         window.firebaseApp = app;
         window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseOnSnapshot = onSnapshot;
+        window.firebaseCollection = collection;
+        window.firebaseQuery = query;
+        window.firebaseDoc = doc;
+        window.firebaseSetDoc = setDoc;
+        window.firebaseServerTimestamp = serverTimestamp;
+        
         window.googleProvider = googleProvider;
         window.signInWithPopup = signInWithPopup;
-        console.log("🔥 Firebase Web App đã được khởi tạo thành công!");
+        console.log("🔥 Firebase Web App & Firestore đã được khởi tạo thành công!");
     </script>
 </head>
 
@@ -875,9 +885,14 @@
             <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên của bạn (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
         </div>
 
-        <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="startStudentQuiz()">
-            <i class="ri-rocket-line"></i> Bắt đầu làm bài thi
-        </button>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
+            <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="startStudentQuiz()">
+                <i class="ri-rocket-line"></i> Bắt đầu làm bài thi
+            </button>
+            <button id="viewLbBtn" class="btn-outline" style="font-size: 1.15rem; padding: 14px 24px; border-radius: 10px; font-weight: 600; background: white; border-color: #eab308; color: #ca8a04;" onclick="showLeaderboardOnly()">
+                <i class="ri-trophy-fill"></i> Xem BXH
+            </button>
+        </div>
         
         <!-- Khung hiển thị Lịch sử -->
         <div id="historySection" style="display:none; margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border);"></div>
@@ -1086,23 +1101,44 @@
     </div>
 
     <!-- Bảng Giám sát thi của Giáo viên -->
-    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px; border-radius: 14px; border: 1px solid var(--azota-border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
-            <h2 id="monitorQuizTitle" style="color: var(--azota-primary); margin: 0; font-size: 1.3rem; font-weight: 800;">Đang giám sát...</h2>
-            <button class="btn-outline" onclick="stopMonitoring()"><i class="ri-arrow-left-line"></i> Quay lại</button>
+    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow-md); background: #ffffff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem;">
+                    <i class="ri-radar-line"></i>
+                </div>
+                <div>
+                    <h2 id="monitorQuizTitle" style="color: var(--text-dark); margin: 0; font-size: 1.25rem; font-weight: 800; line-height: 1.2;">Đang giám sát...</h2>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                        <span class="live-indicator"></span>
+                        <span style="font-size: 0.85rem; color: var(--success); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Trực tiếp (Live)</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-outline" style="border-radius: 8px; font-weight: 600; padding: 8px 16px;" onclick="stopMonitoring()">
+                <i class="ri-arrow-left-line"></i> Đóng giám sát
+            </button>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-            <span id="monitorCount" style="font-weight: bold; color: var(--text-muted);">Tổng số: 0 học sinh</span>
-            <span style="font-size: 0.9rem; color: var(--success);"><i class="ri-refresh-line"></i> Tự động làm mới mỗi 5 giây</span>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="ri-group-line" style="color: var(--text-muted); font-size: 1.2rem;"></i>
+                <span id="monitorCount" style="font-weight: 700; color: var(--text-dark); font-size: 1.05rem;">Tổng số: 0 học sinh</span>
+            </div>
+            <span style="font-size: 0.85rem; color: var(--text-muted);"><i class="ri-shield-check-line"></i> Dữ liệu được bảo mật thời gian thực</span>
         </div>
-        <div style="overflow-x: auto;">
-            <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 600px;">
-                <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); background: #f9fafb;">
-                    <th style="padding: 12px 10px;">Họ tên Học sinh</th>
-                    <th style="padding: 12px 10px;">Trạng thái</th>
-                    <th style="padding: 12px 10px;">Số câu đã chọn</th>
-                    <th style="padding: 12px 10px;">Thời gian còn lại</th>
-                </tr>
+        
+        <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); background: #fff;">
+            <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 650px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border); color: #475569; background: #f1f5f9; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <th style="padding: 16px; font-weight: 700; width: 30%;">Họ tên Học sinh</th>
+                        <th style="padding: 16px; font-weight: 700; width: 20%;">Trạng thái</th>
+                        <th style="padding: 16px; font-weight: 700; width: 20%;">Đã chọn</th>
+                        <th style="padding: 16px; font-weight: 700; width: 15%;">Còn lại</th>
+                        <th style="padding: 16px; font-weight: 700; width: 15%; text-align: center;">Điểm số</th>
+                    </tr>
+                </thead>
                 <tbody id="monitorTableBody"></tbody>
             </table>
         </div>
@@ -1151,9 +1187,14 @@
     <!-- BẢNG XẾP HẠNG THÀNH TÍCH (Hiển thị khi chọn tab Bảng xếp hạng) -->
     <div id="leaderboard" class="azota-leaderboard-card" style="display:none; margin-bottom: 28px;">
         <div class="azota-lb-header">
-            <div class="azota-lb-title">
-                <i class="ri-trophy-fill" style="color: #eab308; font-size: 1.6rem;"></i>
-                <span>BẢNG XẾP HẠNG THÀNH TÍCH PHÒNG THI</span>
+            <div style="display: flex; align-items: center;">
+                <button id="lbBackBtn" class="btn-outline" style="display: none; padding: 6px 12px; margin-right: 15px; border-radius: 8px; font-size: 0.95rem; font-weight: 600;" onclick="hideLeaderboardOnly()">
+                    <i class="ri-arrow-left-line"></i> Quay lại
+                </button>
+                <div class="azota-lb-title" style="margin-bottom: 0;">
+                    <i class="ri-trophy-fill" style="color: #eab308; font-size: 1.6rem;"></i>
+                    <span>BẢNG XẾP HẠNG THÀNH TÍCH PHÒNG THI</span>
+                </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span id="lbTotalParticipants" class="azota-lb-badge">0 thí sinh</span>

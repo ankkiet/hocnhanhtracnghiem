@@ -123,7 +123,7 @@ Mở tệp `.env` và điền các tham số:
 ### 4. Khởi Chạy Ứng Dụng
 
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+python main.py
 ```
 
 Truy cập hệ thống tại:

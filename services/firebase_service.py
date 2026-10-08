@@ -1,9 +1,12 @@
 import os
 import sys
 import json
+import logging
 import firebase_admin
 from firebase_admin import credentials, firestore
 from core.security import hash_password
+
+logger = logging.getLogger(__name__)
 
 if sys.platform == "win32":
     try:
@@ -27,13 +30,13 @@ def init_firebase():
         if firebase_env:
             cred_dict = json.loads(firebase_env)
             cred = credentials.Certificate(cred_dict)
-            print("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
+            logger.info("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
         else:
             # 2. Đọc từ file vật lý (Dành cho Local)
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
             if not os.path.exists(cert_path):
-                print(f"CẢNH BÁO: Không tìm thấy tệp cấu hình Firebase tại: {cert_path}")
+                logger.warning(f"CẢNH BÁO: Không tìm thấy tệp cấu hình Firebase tại: {cert_path}")
                 return None
             cred = credentials.Certificate(cert_path)
             print("Đang kết nối Firebase bằng tệp vật lý (Local)...")

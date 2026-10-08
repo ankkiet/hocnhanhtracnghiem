@@ -898,7 +898,8 @@ async function initApp() {
                     try {
                         quizProgress = loadedProgress;
                         
-                        if (quizProgress.quizUpdatedAt && serverUpdatedAt > 0 && quizProgress.quizUpdatedAt < serverUpdatedAt) {
+                        let localTs = quizProgress.quizUpdatedAt || 0;
+                        if (serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
                             alert("⚠️ Đề thi đã được giáo viên cập nhật nội dung/đáp án mới!\nTiến trình làm bài cũ của bạn sẽ được làm mới lại để đảm bảo tính chính xác.");
                             let oldHistory = quizProgress.history || [];
                             let sName = quizProgress.studentName || "";
@@ -1146,6 +1147,11 @@ async function saveProgressToLocal() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ student_token: authToken, quiz_id: quizId, progress_data: quizProgress })
             }).catch(e => console.log("Lỗi đồng bộ cloud")); // Không dùng await để tránh giật lag UI
+        }
+        
+        // Gửi Ping Real-time ngay lập tức khi học sinh thao tác
+        if (isStudentMode && !quizProgress.completed) {
+            sendPing();
         }
     }
 }
@@ -1547,51 +1553,122 @@ async function toggleQuizStatus(quizId, newStatus) {
 let monitorInterval;
 let monitoringQuizId = null;
 
+let monitorEventSource = null;
+
 function startMonitoring(quizId, title) {
     monitoringQuizId = quizId;
     document.getElementById('teacherDashboard').style.display = 'none';
     document.getElementById('monitorDashboard').style.display = 'block';
     document.getElementById('monitorQuizTitle').innerText = "Đang giám sát: " + title;
-    fetchMonitorData();
-    monitorInterval = setInterval(fetchMonitorData, 5000); // Lấy dữ liệu 5s/lần
+    
+    if (typeof monitorInterval !== 'undefined') clearInterval(monitorInterval);
+    if (monitorEventSource) monitorEventSource.close();
+    
+    // Firebase Firestore Realtime (onSnapshot)
+    if (window.firebaseDb && window.firebaseOnSnapshot && window.firebaseCollection) {
+        const activeSessionsRef = window.firebaseCollection(window.firebaseDb, 'quizzes', monitoringQuizId, 'active_sessions');
+        const submissionsRef = window.firebaseCollection(window.firebaseDb, 'quizzes', monitoringQuizId, 'submissions');
+        
+        let monitorDataMap = {};
+        
+        // Lắng nghe học sinh đang làm bài
+        monitorEventSource = window.firebaseOnSnapshot(activeSessionsRef, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                const s = change.doc.data();
+                const now = Date.now() / 1000;
+                let isOnline = false;
+                if (s.updated_at && s.updated_at.seconds) {
+                    isOnline = (now - s.updated_at.seconds) < 40;
+                }
+                
+                monitorDataMap[change.doc.id] = {
+                    session_id: change.doc.id,
+                    student_name: s.student_name || 'Ẩn danh',
+                    answers_count: s.answers_count || 0,
+                    time_remaining: s.time_remaining || 0,
+                    completed: s.completed || false,
+                    is_online: isOnline,
+                    score: null,
+                    total_questions: null
+                };
+            });
+            renderMonitorData(Object.values(monitorDataMap));
+        }, (error) => {
+            console.error("Lỗi onSnapshot (active_sessions):", error);
+            if (error.code === 'permission-denied') {
+                alert("Bạn chưa cấp quyền Read trong Firebase Security Rules. Vui lòng xem hướng dẫn của trợ lý.");
+            }
+        });
+
+        // Lắng nghe học sinh đã nộp bài
+        window.firebaseSubmissionsUnsub = window.firebaseOnSnapshot(submissionsRef, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                const s = change.doc.data();
+                const studentName = s.student_name || 'Ẩn danh';
+                // Tìm session cũ (nếu có) để đè lên, hoặc tạo mới nếu học sinh nộp bài quá nhanh
+                const existingKey = Object.keys(monitorDataMap).find(k => monitorDataMap[k].student_name === studentName) || change.doc.id;
+                
+                monitorDataMap[existingKey] = {
+                    session_id: existingKey,
+                    student_name: studentName,
+                    answers_count: s.total_questions || 0,
+                    time_remaining: 0,
+                    completed: true,
+                    is_online: false,
+                    score: s.score || 0,
+                    total_questions: s.total_questions || 0
+                };
+            });
+            renderMonitorData(Object.values(monitorDataMap));
+        });
+        
+    } else {
+        alert("Firebase SDK chưa được tải. Vui lòng tải lại trang.");
+    }
 }
 
 function stopMonitoring() {
-    clearInterval(monitorInterval);
+    if (typeof monitorInterval !== 'undefined') clearInterval(monitorInterval);
+    if (monitorEventSource && typeof monitorEventSource === 'function') {
+        monitorEventSource(); // Unsubscribe active_sessions
+        monitorEventSource = null;
+    }
+    if (window.firebaseSubmissionsUnsub && typeof window.firebaseSubmissionsUnsub === 'function') {
+        window.firebaseSubmissionsUnsub(); // Unsubscribe submissions
+        window.firebaseSubmissionsUnsub = null;
+    }
     monitoringQuizId = null;
     document.getElementById('monitorDashboard').style.display = 'none';
     document.getElementById('teacherDashboard').style.display = 'block';
 }
 
-async function fetchMonitorData() {
-    if (!monitoringQuizId) return;
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/teacher/monitor/${monitoringQuizId}?teacher_token=${authToken}`);
-        const data = await res.json();
-        if (res.ok && data.status === 'success') {
-            const tbody = document.getElementById('monitorTableBody');
-            if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px; color: var(--text-muted);">Chưa có học sinh nào tham gia...</td></tr>';
-                document.getElementById('monitorCount').innerText = `Tổng số: 0 học sinh`;
-                return;
-            }
-            
-            data.data.sort((a, b) => {
-                if (a.completed !== b.completed) return a.completed ? 1 : -1;
-                if (a.is_online !== b.is_online) return a.is_online ? -1 : 1;
-                return a.student_name.localeCompare(b.student_name);
-            });
-            
-            tbody.innerHTML = data.data.map(s => {
-                let status = s.completed ? '<span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">✅ Đã nộp bài</span>' : 
-                             (s.is_online ? '<span style="background:#dbeafe; color:#1e40af; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🟢 Đang làm</span>' : 
-                             '<span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🔴 Mất kết nối</span>');
-                let timeStr = s.time_remaining > 0 ? formatTime(s.time_remaining) : '--';
-                return `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 12px 10px; font-weight: 600;">${s.student_name}</td><td style="padding: 12px 10px;">${status}</td><td style="padding: 12px 10px; font-weight:bold; color:var(--primary);">${s.answers_count} câu</td><td style="padding: 12px 10px;">${timeStr}</td></tr>`;
-            }).join('');
-            document.getElementById('monitorCount').innerText = `Tổng số: ${data.data.length} học sinh`;
+function renderMonitorData(dataList) {
+    const tbody = document.getElementById('monitorTableBody');
+    if (!dataList || dataList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-muted);">Chưa có học sinh nào tham gia...</td></tr>';
+        document.getElementById('monitorCount').innerText = `Tổng số: 0 học sinh`;
+        return;
+    }
+    
+    dataList.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (a.is_online !== b.is_online) return a.is_online ? -1 : 1;
+        return a.student_name.localeCompare(b.student_name);
+    });
+    
+    tbody.innerHTML = dataList.map(s => {
+        let status = s.completed ? '<span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">✅ Đã nộp bài</span>' : 
+                     (s.is_online ? '<span style="background:#dbeafe; color:#1e40af; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🟢 Đang làm</span>' : 
+                     '<span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🔴 Mất kết nối</span>');
+        let timeStr = s.time_remaining > 0 ? formatTime(s.time_remaining) : '--';
+        let scoreStr = '--';
+        if (s.completed && s.score !== null) {
+            let scaledScore = (s.total_questions > 0) ? ((s.score / s.total_questions) * 10).toFixed(1) : s.score;
+            scoreStr = `<span style="font-weight: 800; color: #16a34a;">${scaledScore}đ</span>`;
         }
-    } catch(e) {}
+        return `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 12px 10px; font-weight: 600;">${escapeHtml(s.student_name)}</td><td style="padding: 12px 10px;">${status}</td><td style="padding: 12px 10px; font-weight:bold; color:var(--primary);">${s.answers_count} câu</td><td style="padding: 12px 10px;">${timeStr}</td><td style="padding: 12px 10px; text-align: center;">${scoreStr}</td></tr>`;
+    }).join('');
+    document.getElementById('monitorCount').innerText = `Tổng số: ${dataList.length} học sinh`;
 }
 
 async function loadAdminSettings() {
@@ -3746,19 +3823,7 @@ function formatTime(seconds) {
     return `${m} phút ${s} giây`;
 }
 
-async function submitScoreToServer(score, total, time) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
-    if (!quizId) return;
-    try {
-        await fetch(`${API_BASE_URL}/api/submit_score`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quiz_id: quizId, student_name: studentName, score: score, total_questions: total, time_elapsed: time })
-        });
-        fetchLeaderboard(quizId);
-    } catch(e) { console.log(e); }
-}
+
 
 // --- BỘ LỌC CÂU HỎI SAU KHI NỘP BÀI (TẤT CẢ / CÂU SAI / CÂU ĐÚNG / CHƯA LÀM) ---
 function filterReviewQuestions(filterType) {
@@ -3792,7 +3857,8 @@ function matchOptionToTarget(opt, oIndex, target) {
 
     // 2. Chữ cái đại diện của Option ('A', 'B', 'C', 'D'...)
     let optChar = null;
-    const optMatch = optStr.match(/^([A-Fa-f0-9])[\.\:\)]/i);
+    const rePrefix = /^([A-Fa-f0-9])(?:[\.\:\)]\s*|\s+|$)/i;
+    const optMatch = optStr.match(rePrefix);
     if (optMatch) {
         optChar = optMatch[1].toUpperCase();
     } else {
@@ -3801,9 +3867,11 @@ function matchOptionToTarget(opt, oIndex, target) {
 
     // 3. Chữ cái đại diện của Target
     let tgtChar = null;
-    const tgtMatch = tgtStr.match(/^([A-Fa-f0-9])[\.\:\)]?/i);
-    if (tgtMatch && (tgtStr.length === 1 || /^([A-Fa-f0-9])[\.\:\)]\s*/i.test(tgtStr))) {
-        tgtChar = tgtMatch[1].toUpperCase();
+    if (tgtStr.length === 1 && /^[A-Fa-f0-9]$/i.test(tgtStr)) {
+        tgtChar = tgtStr.toUpperCase();
+    } else {
+        const tgtMatch = tgtStr.match(rePrefix);
+        if (tgtMatch) tgtChar = tgtMatch[1].toUpperCase();
     }
 
     // Nếu target là chữ cái đơn (ví dụ 'A', 'B', 'A.')
@@ -3874,6 +3942,44 @@ function switchResultView(viewType) {
     }
 }
 
+function showLeaderboardOnly() {
+    document.getElementById('welcomeScreen').style.display = 'none';
+    
+    const azotaNav = document.getElementById('azotaNavbar');
+    if (azotaNav) azotaNav.style.display = 'none';
+    const azotaFooter = document.getElementById('azotaFooter');
+    if (azotaFooter) azotaFooter.style.display = 'none';
+
+    const lb = document.getElementById('leaderboard');
+    if (lb) {
+        lb.style.display = 'block';
+        lb.style.marginTop = '20px';
+    }
+
+    const lbBackBtn = document.getElementById('lbBackBtn');
+    if (lbBackBtn) lbBackBtn.style.display = 'inline-flex';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    fetchLeaderboard(quizId);
+}
+
+function hideLeaderboardOnly() {
+    const lb = document.getElementById('leaderboard');
+    if (lb) lb.style.display = 'none';
+    
+    const lbBackBtn = document.getElementById('lbBackBtn');
+    if (lbBackBtn) lbBackBtn.style.display = 'none';
+
+    const azotaNav = document.getElementById('azotaNavbar');
+    if (azotaNav && (authToken || !window.isCurrentQuizPublished)) azotaNav.style.display = 'block';
+
+    const azotaFooter = document.getElementById('azotaFooter');
+    if (azotaFooter) azotaFooter.style.display = 'block';
+
+    document.getElementById('welcomeScreen').style.display = 'block';
+}
+
 // --- HÀM TẢI LẠI BẢNG XẾP HẠNG KHI BẤM NÚT REFRESH ---
 async function refreshLeaderboardBtn() {
     const btn = document.getElementById('lbRefreshBtn');
@@ -3916,23 +4022,29 @@ async function fetchLeaderboard(quizId) {
         const myScore = (quizProgress && quizProgress.score !== undefined) ? quizProgress.score : (practiceScore || 0);
         const myTime = (quizProgress && quizProgress.timeElapsed) ? quizProgress.timeElapsed : (startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 45);
 
-        // Nếu danh sách từ server rỗng, tạo bản ghi của chính học sinh để luôn hiển thị
+        // Nếu danh sách từ server rỗng và học sinh đã làm xong, tạo bản ghi của chính học sinh để luôn hiển thị
+        const hasCompleted = (quizProgress && quizProgress.completed) || (myScore > 0 && startTime > 0);
+        
         if (listData.length === 0) {
-            listData = [{
-                student_name: currentStudent,
-                score: myScore,
-                time_elapsed: myTime
-            }];
-        } else {
-            // Kiểm tra xem học sinh hiện tại đã có trong danh sách chưa
-            const found = listData.some(item => item.student_name && item.student_name.trim().toLowerCase() === currentStudent.toLowerCase());
-            if (!found) {
-                listData.push({
+            if (hasCompleted) {
+                listData = [{
                     student_name: currentStudent,
                     score: myScore,
                     time_elapsed: myTime
-                });
-                listData.sort((a, b) => b.score - a.score || a.time_elapsed - b.time_elapsed);
+                }];
+            }
+        } else {
+            // Kiểm tra xem học sinh hiện tại đã có trong danh sách chưa
+            if (hasCompleted) {
+                const found = listData.some(item => item.student_name && item.student_name.trim().toLowerCase() === currentStudent.toLowerCase());
+                if (!found) {
+                    listData.push({
+                        student_name: currentStudent,
+                        score: myScore,
+                        time_elapsed: myTime
+                    });
+                    listData.sort((a, b) => b.score - a.score || a.time_elapsed - b.time_elapsed);
+                }
             }
         }
 
@@ -3948,22 +4060,23 @@ async function fetchLeaderboard(quizId) {
                 const rank2 = listData[1];
                 const rank3 = listData.length >= 3 ? listData[2] : null;
 
-                const getLBScore = (s) => {
-                    return currentData.length > 0 ? ((s / currentData.length) * 10).toFixed(1) + 'đ' : s + 'đ';
+                const getLBScore = (item) => {
+                    let t = item.total_questions || currentData.length;
+                    return t > 0 ? ((item.score / t) * 10).toFixed(1) + 'đ' : item.score + 'đ';
                 };
 
                 let podiumHtml = `
                     <div class="azota-podium-slot rank-2">
                         <div class="azota-podium-avatar">🥈</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank2.student_name)}">${escapeHtml(rank2.student_name)}</div>
-                        <div class="azota-podium-score">${getLBScore(rank2.score)}</div>
+                        <div class="azota-podium-score">${getLBScore(rank2)}</div>
                         <div class="azota-podium-time">${formatTime(rank2.time_elapsed)}</div>
                         <div class="azota-podium-bar">2</div>
                     </div>
                     <div class="azota-podium-slot rank-1">
                         <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
-                        <div class="azota-podium-score">${getLBScore(rank1.score)}</div>
+                        <div class="azota-podium-score">${getLBScore(rank1)}</div>
                         <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
                         <div class="azota-podium-bar">1</div>
                     </div>
@@ -3973,7 +4086,7 @@ async function fetchLeaderboard(quizId) {
                         <div class="azota-podium-slot rank-3">
                             <div class="azota-podium-avatar">🥉</div>
                             <div class="azota-podium-name" title="${escapeHtml(rank3.student_name)}">${escapeHtml(rank3.student_name)}</div>
-                            <div class="azota-podium-score">${getLBScore(rank3.score)}</div>
+                            <div class="azota-podium-score">${getLBScore(rank3)}</div>
                             <div class="azota-podium-time">${formatTime(rank3.time_elapsed)}</div>
                             <div class="azota-podium-bar">3</div>
                         </div>
@@ -3983,12 +4096,15 @@ async function fetchLeaderboard(quizId) {
             } else if (listData.length === 1) {
                 podiumEl.style.display = 'flex';
                 const rank1 = listData[0];
-                const getLBScore = (s) => currentData.length > 0 ? ((s / currentData.length) * 10).toFixed(1) + 'đ' : s + 'đ';
+                const getLBScore = (item) => {
+                    let t = item.total_questions || currentData.length;
+                    return t > 0 ? ((item.score / t) * 10).toFixed(1) + 'đ' : item.score + 'đ';
+                };
                 podiumEl.innerHTML = `
                     <div class="azota-podium-slot rank-1" style="margin: 0 auto; min-width: 220px;">
                         <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
-                        <div class="azota-podium-score">${getLBScore(rank1.score)}</div>
+                        <div class="azota-podium-score">${getLBScore(rank1)}</div>
                         <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
                         <div class="azota-podium-bar">Quán quân</div>
                     </div>
@@ -4017,7 +4133,9 @@ async function fetchLeaderboard(quizId) {
             let rank = index + 1;
             let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
             let isMe = Boolean(currentStudent && item.student_name.trim().toLowerCase() === currentStudent.trim().toLowerCase());
-            let scaledScoreItem = currentData.length > 0 ? ((item.score / currentData.length) * 10).toFixed(1) : item.score;
+            
+            let itemTotalQ = item.total_questions || currentData.length;
+            let scaledScoreItem = itemTotalQ > 0 ? ((item.score / itemTotalQ) * 10).toFixed(1) : item.score;
             
             tableHtml += `
                 <tr class="${isMe ? 'is-current-user' : ''}">
@@ -4030,7 +4148,7 @@ async function fetchLeaderboard(quizId) {
                     </td>
                     <td style="text-align: center;">
                         <span style="font-weight: 800; color: #2563eb; font-size: 1.05rem;">${item.score}</span>
-                        <span style="font-size: 0.82rem; color: #64748b;"> / ${currentData.length} (${scaledScoreItem}đ)</span>
+                        <span style="font-size: 0.82rem; color: #64748b;"> / ${itemTotalQ} (${scaledScoreItem}đ)</span>
                     </td>
                     <td style="text-align: right; color: #64748b; font-size: 0.9rem;">
                         <i class="ri-time-line" style="vertical-align: middle;"></i> ${formatTime(item.time_elapsed)}
@@ -4269,7 +4387,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         } else if (status === 'skipped') {
             statusBadge = `<span class="review-status-badge skipped"><i class="ri-question-fill"></i> Chưa trả lời (0đ)</span>`;
         } else {
-            statusBadge = `<span class="review-status-badge wrong"><i class="ri-close-circle-fill"></i> Sai (0đ)</span>`;
+            statusBadge = `<span class="review-status-badge wrong"><i class="ri-close-circle-fill"></i> Sai (+${earnedScore}đ)</span>`;
         }
 
         // Tìm chữ cái đáp án đúng và lựa chọn của học sinh cho câu MCQ
@@ -4551,15 +4669,16 @@ async function submitExam(isReview = false) {
                 let correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
                 let userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
                 let matchCount = 0;
-                ['a', 'b', 'c', 'd'].forEach(char => {
+                let keys = Object.keys(correctMap);
+                if (keys.length === 0) keys = ['a', 'b', 'c', 'd']; // Fallback
+                keys.forEach(char => {
                     let isCorrectVal = correctMap[char];
                     let userVal = userMap[char];
                     if (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal)) {
                         matchCount++;
                     }
                 });
-                let scale = [0.0, 0.1, 0.25, 0.5, 1.0];
-                let earned = scale[matchCount] !== undefined ? scale[matchCount] : 0.0;
+                let earned = (keys.length > 0) ? (matchCount / keys.length) : 0.0;
                 score += earned;
             } else if (qType === 'short_answer') {
                 let uStr = String(userAnswer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');

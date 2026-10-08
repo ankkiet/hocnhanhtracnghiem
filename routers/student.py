@@ -87,10 +87,14 @@ async def submit_exam(req: SubmitExamRequest):
 
                 u_norm = norm_tf(user_ans)
                 c_norm = norm_tf(correct_ans)
-                matches = sum(1 for k in ['a', 'b', 'c', 'd'] if k in u_norm and k in c_norm and u_norm[k] == c_norm[k])
-                tf_scale = [0.0, 0.1, 0.25, 0.5, 1.0]
-                earned = tf_scale[matches] if matches < len(tf_scale) else 1.0
-                is_correct = (matches == 4)
+                total_tf = len(c_norm)
+                if total_tf == 0:
+                    earned = 0.0
+                    is_correct = False
+                else:
+                    matches = sum(1 for k in c_norm if k in u_norm and u_norm[k] == c_norm[k])
+                    earned = float(matches) / float(total_tf)
+                    is_correct = (matches == total_tf)
             score += earned
         elif q_type == 'short_answer':
             u_clean = str(user_ans or '').strip().lower().replace(',', '.').replace(' ', '')
@@ -99,18 +103,29 @@ async def submit_exam(req: SubmitExamRequest):
             earned = 1.0 if is_correct else 0.0
             score += earned
         else:
-            # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt (hỗ trợ cả chữ cái A,B,C,D và văn bản option)
+            # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt
             is_correct = False
             if user_ans is not None and correct_ans is not None:
                 u_str = str(user_ans).strip()
                 c_str = str(correct_ans).strip()
+                
+                # Sửa lỗi: Nếu correct_answer là index (VD: "0", "1") do AI sinh ra
+                if c_str.isdigit() and q.get('options') and isinstance(q.get('options'), list):
+                    idx = int(c_str)
+                    if 0 <= idx < len(q['options']):
+                        c_str = str(q['options'][idx]).strip()
+
                 if u_str.upper() == c_str.upper():
                     is_correct = True
                 else:
-                    u_m = re.match(r'^([A-Da-d])[\.\:\)\s]?', u_str)
-                    c_m = re.match(r'^([A-Da-d])[\.\:\)\s]?', c_str)
+                    # Ràng buộc chặt chẽ: Chỉ lấy A, B, C, D nếu nó đứng đầu và theo sau là dấu câu hoặc khoảng trắng
+                    # Ngăn chặn lỗi "Con chó" bị nhận diện thành "C"
+                    re_prefix = r'^([A-Da-d])(?:[\.\:\)]\s*|\s+|$)'
+                    u_m = re.match(re_prefix, u_str)
+                    c_m = re.match(re_prefix, c_str)
                     u_char = u_m.group(1).upper() if u_m else None
                     c_char = c_m.group(1).upper() if c_m else None
+                    
                     if u_char and c_char and u_char == c_char:
                         is_correct = True
                     else:

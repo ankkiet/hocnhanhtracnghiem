@@ -2,7 +2,15 @@ import sys
 import os
 import re
 import html
+import logging
 from typing import List, Dict, Any, Optional
+
+# Cấu hình Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 if sys.platform == "win32":
     try:
@@ -168,7 +176,7 @@ async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Op
                             desc_parts.append(f"{time_limit} phút làm bài")
                         quiz_desc = " • ".join(desc_parts) + ". Hệ thống học nhanh trắc nghiệm HocNhanhTN chuẩn GDPT 2018."
         except Exception as e:
-            print(f"Lỗi truy vấn metadata đề thi {target_quiz_id}: {e}")
+            logger.error(f"Lỗi truy vấn metadata đề thi {target_quiz_id}: {e}")
             
     if quiz_title:
         escaped_title = html.escape(quiz_title)
@@ -210,4 +218,9 @@ if os.path.exists(templates_dir):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    HOST = os.getenv("HOST", "0.0.0.0")
+    PORT = int(os.getenv("PORT", "8000"))
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    reload_mode = (ENVIRONMENT == "development")
+    logger.info(f"App startup in {ENVIRONMENT} mode on {HOST}:{PORT}")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=reload_mode)
