@@ -17,6 +17,7 @@ from core.answer_key_extractor import (
     extract_answer_key_from_doc,
     reconcile_quiz_with_answer_key,
     separate_answer_key_from_text,
+    align_mcq_correct_answer,
     AnswerKeyMap
 )
 from services.ai_service import restore_image_placeholders
@@ -620,11 +621,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         if q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
             q_item["options"] = split_merged_options(q_item["options"])
             if q_item.get("correct_answer"):
-                ca_char = q_item["correct_answer"].strip()[:2].upper()
-                for opt in q_item["options"]:
-                    if opt.upper().startswith(ca_char):
-                        q_item["correct_answer"] = opt
-                        break
+                q_item["correct_answer"] = align_mcq_correct_answer(q_item["correct_answer"], q_item["options"])
 
     if image_mapping:
         extracted_data = replace_placeholders(extracted_data, image_mapping)

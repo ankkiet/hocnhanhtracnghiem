@@ -2,7 +2,8 @@ import re
 from typing import List, Dict, Any
 from core.answer_key_extractor import (
     separate_answer_key_from_text,
-    reconcile_quiz_with_answer_key
+    reconcile_quiz_with_answer_key,
+    align_mcq_correct_answer
 )
 from core.docx_parser import (
     split_merged_options,
@@ -320,11 +321,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         if q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
             q_item["options"] = split_merged_options(q_item["options"])
             if q_item.get("correct_answer"):
-                ca_char = q_item["correct_answer"].strip()[:2].upper()
-                for opt in q_item["options"]:
-                    if opt.upper().startswith(ca_char):
-                        q_item["correct_answer"] = opt
-                        break
+                q_item["correct_answer"] = align_mcq_correct_answer(q_item["correct_answer"], q_item["options"])
 
     if image_mapping and results:
         results = replace_placeholders(results, image_mapping)

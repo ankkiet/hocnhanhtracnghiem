@@ -32,7 +32,8 @@ from services.r2_service import get_stored_image, extract_image_keys_from_data
 from core.state import active_tasks
 from core.answer_key_extractor import (
     extract_answer_key_from_doc,
-    reconcile_quiz_with_answer_key
+    reconcile_quiz_with_answer_key,
+    align_mcq_correct_answer
 )
 from core.docx_parser import (
     parse_docx_to_marked_text,
@@ -226,11 +227,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 if isinstance(q_item, dict) and q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
                     q_item["options"] = split_merged_options(q_item["options"])
                     if q_item.get("correct_answer"):
-                        ca_char = q_item["correct_answer"].strip()[:2].upper()
-                        for opt in q_item["options"]:
-                            if opt.upper().startswith(ca_char):
-                                q_item["correct_answer"] = opt
-                                break
+                        q_item["correct_answer"] = align_mcq_correct_answer(q_item["correct_answer"], q_item["options"])
 
         if not extracted_data:
             active_tasks[task_id] = {

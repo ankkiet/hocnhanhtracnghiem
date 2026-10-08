@@ -377,6 +377,58 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
     return full_text, "", ak
 
 
+def align_mcq_correct_answer(correct_ans: Any, options: List[str]) -> str:
+    """
+    Gán chính xác đáp án MCQ với phương án tương ứng trong options.
+    Tuyệt đối không dùng startswith chữ cái đơn lẻ vì sẽ bị trùng từ ngữ (VD: "Có...", "Con...").
+    """
+    if not options or not correct_ans:
+        return str(correct_ans or "")
+    
+    ca_str = str(correct_ans).strip()
+    if not ca_str:
+        return ""
+
+    import html
+    # 1. Trích xuất chữ cái đại diện A, B, C, D từ correct_ans
+    letter = None
+    if len(ca_str) == 1 and ca_str.upper() in 'ABCDEF':
+        letter = ca_str.upper()
+    else:
+        m = re.match(r'^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])(?:[\.\:\)]|\s|$)', ca_str)
+        if m and (len(ca_str) <= 4 or re.match(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]', ca_str)):
+            letter = m.group(1).upper()
+
+    # 2. Nếu có chữ cái đại diện (A, B, C, D...):
+    if letter:
+        # Cách 1: Tìm trong options phương án có prefix letter tương ứng (hỗ trợ cả thẻ HTML)
+        pattern = re.compile(rf'^\*?\s*(?:<[^>]+>\s*)*{letter}[\.\:\)]', re.IGNORECASE)
+        for opt in options:
+            if pattern.match(opt.strip()):
+                return opt
+        
+        # Cách 2: Tìm theo chỉ số thứ tự tương ứng (A -> 0, B -> 1, C -> 2, D -> 3)
+        idx = ord(letter) - ord('A')
+        if 0 <= idx < len(options):
+            return options[idx]
+
+    # 3. So khớp theo nội dung văn bản (bỏ qua tiền tố A, B, C, D và thẻ HTML)
+    def clean_text(s):
+        s = html.unescape(str(s))
+        s = re.sub(r'<[^>]+>', '', s)
+        s = re.sub(r'^\*?\s*[a-fA-F][\.\:\)]\s*', '', s)
+        s = re.sub(r'[\u00a0\u200b\s]+', ' ', s)
+        return s.strip().lower()
+
+    target_clean = clean_text(ca_str)
+    if target_clean:
+        for opt in options:
+            if clean_text(opt) == target_clean:
+                return opt
+
+    return ca_str
+
+
 def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: AnswerKeyMap) -> List[Dict[str, Any]]:
     """
     Đối chiếu và áp đặt Bảng đáp án chuẩn (Source of Truth) lên toàn bộ danh sách câu hỏi:
@@ -491,20 +543,11 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
             elif q_type == 'short_answer':
                 q_item['correct_answer'] = str(official_ans).strip()
             else: # MCQ
-                target_char = str(official_ans).strip()[:1].upper()
                 opts = q_item.get('options', [])
-                matched = False
-                for opt in opts:
-                    if opt.strip().upper().startswith(f"{target_char}."):
-                        q_item['correct_answer'] = opt
-                        matched = True
-                        break
-                if not matched and opts:
-                    for opt in opts:
-                        if re.match(rf'^\*?\s*{target_char}[\.\:\)]', opt.strip(), re.IGNORECASE):
-                            q_item['correct_answer'] = opt
-                            matched = True
-                            break
+                if opts:
+                    q_item['correct_answer'] = align_mcq_correct_answer(official_ans, opts)
+                else:
+                    q_item['correct_answer'] = str(official_ans).strip()
 
     return quiz_data
 

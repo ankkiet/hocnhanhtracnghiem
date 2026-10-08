@@ -838,6 +838,7 @@ async function initApp() {
             if (result.status === 'success') {
                 document.getElementById('quiz-container').innerHTML = '';
                 currentData = normalizeImageUrls(result.data);
+                currentData.forEach((q, i) => { q._originalIndex = i; });
                 serverData = JSON.parse(JSON.stringify(currentData));
                 const serverUpdatedAt = result.updated_at || 0;
                 
@@ -1006,6 +1007,7 @@ async function startStudentQuiz() {
                 const result = await response.json();
                 if (result.status === 'success') {
                     serverData = normalizeImageUrls(result.data);
+                    serverData.forEach((q, i) => { q._originalIndex = i; });
                     isShuffleEnabled = result.is_shuffle;
                     quizProgress.quizUpdatedAt = result.updated_at || 0;
                     currentTimeLimit = result.time_limit || 0;
@@ -1079,6 +1081,7 @@ async function fetchLatestDataAndRestart(mode) {
             const result = await response.json();
             if (result.status === 'success') {
                 serverData = normalizeImageUrls(result.data);
+                serverData.forEach((q, i) => { q._originalIndex = i; });
                 isShuffleEnabled = result.is_shuffle;
                 quizProgress.quizUpdatedAt = result.updated_at || 0;
                 currentTimeLimit = result.time_limit || 0;
@@ -4181,7 +4184,8 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
     // Đánh giá chi tiết từng câu hỏi trong đề
     const evaluatedQuestions = currentData.map((q, qIndex) => {
         const qType = getRealQuestionType(q);
-        const serverItem = resultsMap[qIndex];
+        const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
+        const serverItem = resultsMap[origIdx];
         let userAnswer = userAnswers[qIndex];
         let correctAnswer = serverItem ? serverItem.correct_answer : q.correct_answer;
         let explain = (serverItem && serverItem.explain) ? serverItem.explain : (q.explain || '');
@@ -4636,6 +4640,16 @@ async function submitExam(isReview = false) {
     // 2. Chấm điểm phía Server nếu có kết nối và có mã đề thi
     if (!isReview && quizId) {
         try {
+            // QUAN TRỌNG: Chuyển đổi đáp án từ chỉ số ĐÃ TRỘN sang chỉ số GỐC
+            // để Backend so khớp đúng câu hỏi với đáp án tương ứng
+            const serverAnswers = {};
+            currentData.forEach((q, qIndex) => {
+                const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
+                if (userAnswers[qIndex] !== undefined) {
+                    serverAnswers[origIdx] = userAnswers[qIndex];
+                }
+            });
+
             const res = await fetch(`${API_BASE_URL}/api/student/submit_exam`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -4643,7 +4657,7 @@ async function submitExam(isReview = false) {
                     quiz_id: quizId,
                     student_name: studentName || 'Học sinh',
                     student_token: authToken || '',
-                    answers: userAnswers,
+                    answers: serverAnswers,
                     time_elapsed: totalTimeElapsed
                 })
             });
@@ -4678,7 +4692,9 @@ async function submitExam(isReview = false) {
                         matchCount++;
                     }
                 });
-                let earned = (keys.length > 0) ? (matchCount / keys.length) : 0.0;
+                // Thang điểm chuẩn Bộ GD&ĐT cho câu Đúng/Sai 4 ý
+                const tfScale = {0: 0, 1: 0.1, 2: 0.25, 3: 0.5, 4: 1.0};
+                let earned = (matchCount in tfScale) ? tfScale[matchCount] : (keys.length > 0 ? matchCount / keys.length : 0.0);
                 score += earned;
             } else if (qType === 'short_answer') {
                 let uStr = String(userAnswer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');

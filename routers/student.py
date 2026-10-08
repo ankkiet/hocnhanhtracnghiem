@@ -93,7 +93,10 @@ async def submit_exam(req: SubmitExamRequest):
                     is_correct = False
                 else:
                     matches = sum(1 for k in c_norm if k in u_norm and u_norm[k] == c_norm[k])
-                    earned = float(matches) / float(total_tf)
+                    # Thang điểm chuẩn Bộ GD&ĐT cho câu Đúng/Sai 4 ý:
+                    # 1 ý đúng = 0.1đ | 2 ý đúng = 0.25đ | 3 ý đúng = 0.5đ | 4 ý đúng = 1.0đ
+                    tf_scale = {0: 0.0, 1: 0.1, 2: 0.25, 3: 0.5, 4: 1.0}
+                    earned = tf_scale.get(matches, float(matches) / float(total_tf))
                     is_correct = (matches == total_tf)
             score += earned
         elif q_type == 'short_answer':
