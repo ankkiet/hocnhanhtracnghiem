@@ -16,10 +16,11 @@ if sys.platform == "win32":
         pass
 
 db = None
+firebase_init_error = None
 
 def init_firebase():
     """Khởi tạo kết nối Firebase Firestore và tạo tài khoản Admin mặc định nếu chưa có."""
-    global db
+    global db, firebase_init_error
     if db is not None:
         return db
         
@@ -28,15 +29,24 @@ def init_firebase():
         firebase_env = os.environ.get("FIREBASE_JSON")
         
         if firebase_env:
-            cred_dict = json.loads(firebase_env)
-            cred = credentials.Certificate(cred_dict)
-            logger.info("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
+            try:
+                # Xử lý trường hợp chuỗi JSON có chứa ký tự escape \n (thường gặp trên Koyeb/Heroku)
+                if '\\n' in firebase_env:
+                    firebase_env = firebase_env.replace('\\n', '\n')
+                cred_dict = json.loads(firebase_env)
+                cred = credentials.Certificate(cred_dict)
+                logger.info("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
+            except Exception as e:
+                firebase_init_error = f"Lỗi parse FIREBASE_JSON: {str(e)}"
+                logger.error(firebase_init_error)
+                return None
         else:
             # 2. Đọc từ file vật lý (Dành cho Local)
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             cert_path = os.path.join(base_dir, "firebase-adminsdk.json")
             if not os.path.exists(cert_path):
-                logger.warning(f"CẢNH BÁO: Không tìm thấy tệp cấu hình Firebase tại: {cert_path}")
+                firebase_init_error = f"Không tìm thấy tệp {cert_path} và biến môi trường FIREBASE_JSON trống"
+                logger.warning(firebase_init_error)
                 return None
             cred = credentials.Certificate(cert_path)
             print("Đang kết nối Firebase bằng tệp vật lý (Local)...")
@@ -96,6 +106,8 @@ def init_firebase():
         return db
         
     except Exception as e:
+        global firebase_init_error
+        firebase_init_error = f"Lỗi khởi tạo DB: {str(e)}"
         print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Chi tiết: {e}")
         db = None
         return None
