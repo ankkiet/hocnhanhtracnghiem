@@ -4161,3 +4161,61 @@ body.minimal-mode.quiz-completed #quiz-container {
     flex: 1 1 calc(50% - 6px) !important;
   }
 }
+
+/* ========================================================
+   RESULT ACTION BUTTONS (MOBILE FRIENDLY)
+   ======================================================== */
+.result-action-btns {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+}
+.result-action-btns button {
+    padding: 12px 22px;
+    font-weight: 700;
+    border-radius: 10px;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+.result-action-btns .result-btn-primary {
+    background: #1976d2;
+    color: #fff;
+    border: none;
+}
+.result-action-btns .result-btn-primary:hover { background: #1565c0; }
+
+.result-action-btns .result-btn-lb {
+    border-color: #eab308; color: #ca8a04; background: #fefce8;
+}
+.result-action-btns .result-btn-lb:hover { background: #fef08a; }
+
+.result-action-btns .result-btn-retry {
+    border-color: #cbd5e1; color: #334155; background: #f8fafc;
+}
+.result-action-btns .result-btn-retry:hover { background: #f1f5f9; }
+
+.result-action-btns .result-btn-exit {
+    border-color: #cbd5e1; color: #64748b; background: transparent;
+}
+.result-action-btns .result-btn-exit:hover { background: #f1f5f9; }
+
+@media (max-width: 768px) {
+    .result-action-btns {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .result-action-btns button {
+        width: 100%;
+        padding: 14px;
+        font-size: 1.05rem;
+    }
+}
+

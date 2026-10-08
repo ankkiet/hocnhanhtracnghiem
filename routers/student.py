@@ -246,10 +246,26 @@ async def get_leaderboard(quiz_id: str):
     results = []
     for doc in docs:
         data = doc.to_dict()
+        try:
+            score = float(data.get('score', 0))
+        except (ValueError, TypeError):
+            score = 0.0
+            
+        try:
+            time_elapsed = int(data.get('time_elapsed', 999999))
+        except (ValueError, TypeError):
+            time_elapsed = 999999
+            
+        try:
+            total = int(data.get('total_questions', 0))
+        except (ValueError, TypeError):
+            total = 0
+
         results.append({
             'student_name': data.get('student_name', 'Ẩn danh'),
-            'score': data.get('score', 0),
-            'time_elapsed': data.get('time_elapsed', 999999)
+            'score': score,
+            'total_questions': total,
+            'time_elapsed': time_elapsed
         })
     results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
     return {"status": "success", "data": results[:50]}

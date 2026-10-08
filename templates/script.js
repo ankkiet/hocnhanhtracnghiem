@@ -1035,7 +1035,7 @@ async function startStudentQuiz() {
     document.body.classList.add('minimal-mode');
     document.body.classList.remove('quiz-completed');
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar && currentDataMode === 'exam') mobileBar.style.display = 'flex';
+    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) mobileBar.style.display = 'flex';
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
     }
@@ -2683,11 +2683,15 @@ function renderData() {
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
     if (currentMode !== 'edit') document.getElementById('aiFeedbackBox').style.display = 'none';
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (currentMode !== 'exam') {
+    if (currentMode === 'edit') {
         const sideCol = document.getElementById('azotaSideExamCol');
         if (sideCol) sideCol.style.display = 'none';
         if (mobileBar) mobileBar.style.display = 'none';
     } else {
+        if (currentMode !== 'exam') {
+            const sideCol = document.getElementById('azotaSideExamCol');
+            if (sideCol) sideCol.style.display = 'none';
+        }
         if (mobileBar && isStudentMode) mobileBar.style.display = 'flex';
     }
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
@@ -2771,7 +2775,7 @@ function renderPracticeQuestion() {
     btnWrapper.style.textAlign = 'right';
     btnWrapper.style.marginTop = '10px';
     btnWrapper.style.paddingBottom = '30px'; // Thêm khoảng đệm cho riêng nút bấm
-    btnWrapper.innerHTML = `<button id="nextBtn" class="btn-primary" style="display:none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" onclick="nextPracticeQuestion()">Câu tiếp ➔</button>`;
+    btnWrapper.innerHTML = `<button id="nextBtn" class="btn-primary desktop-only-submit" style="display:none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" onclick="nextPracticeQuestion()">Câu tiếp ➔</button>`;
     container.appendChild(btnWrapper);
     renderMath();
 }
@@ -2942,13 +2946,7 @@ function checkPracticeAnswer(oIndex) {
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
     attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
     
-    document.getElementById('nextBtn').style.display = 'inline-block';
-    if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
-    
-    // Tự động cuộn trượt màn hình xuống nút "Câu tiếp" mượt mà
-    setTimeout(() => {
-        document.getElementById('nextBtn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
+    showNextQuestionButton();
 }
 
 function selectPracticeTF(char, isTrue) {
@@ -3009,11 +3007,7 @@ function checkPracticeTF() {
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
     attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, matchCount < 4);
     
-    document.getElementById('nextBtn').style.display = 'inline-block';
-    if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
-    setTimeout(() => {
-        document.getElementById('nextBtn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
+    showNextQuestionButton();
 }
 
 function checkPracticeShortAnswer() {
@@ -3048,12 +3042,7 @@ function checkPracticeShortAnswer() {
     
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
     attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
-    
-    document.getElementById('nextBtn').style.display = 'inline-block';
-    if (currentQuestionIndex === currentData.length - 1) document.getElementById('nextBtn').innerText = 'Xem kết quả tổng kết';
-    setTimeout(() => {
-        document.getElementById('nextBtn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
+    showNextQuestionButton();
 }
 
 function nextPracticeQuestion() {
@@ -3959,18 +3948,22 @@ async function fetchLeaderboard(quizId) {
                 const rank2 = listData[1];
                 const rank3 = listData.length >= 3 ? listData[2] : null;
 
+                const getLBScore = (s) => {
+                    return currentData.length > 0 ? ((s / currentData.length) * 10).toFixed(1) + 'đ' : s + 'đ';
+                };
+
                 let podiumHtml = `
                     <div class="azota-podium-slot rank-2">
                         <div class="azota-podium-avatar">🥈</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank2.student_name)}">${escapeHtml(rank2.student_name)}</div>
-                        <div class="azota-podium-score">${rank2.score}đ</div>
+                        <div class="azota-podium-score">${getLBScore(rank2.score)}</div>
                         <div class="azota-podium-time">${formatTime(rank2.time_elapsed)}</div>
                         <div class="azota-podium-bar">2</div>
                     </div>
                     <div class="azota-podium-slot rank-1">
                         <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
-                        <div class="azota-podium-score">${rank1.score}đ</div>
+                        <div class="azota-podium-score">${getLBScore(rank1.score)}</div>
                         <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
                         <div class="azota-podium-bar">1</div>
                     </div>
@@ -3980,7 +3973,7 @@ async function fetchLeaderboard(quizId) {
                         <div class="azota-podium-slot rank-3">
                             <div class="azota-podium-avatar">🥉</div>
                             <div class="azota-podium-name" title="${escapeHtml(rank3.student_name)}">${escapeHtml(rank3.student_name)}</div>
-                            <div class="azota-podium-score">${rank3.score}đ</div>
+                            <div class="azota-podium-score">${getLBScore(rank3.score)}</div>
                             <div class="azota-podium-time">${formatTime(rank3.time_elapsed)}</div>
                             <div class="azota-podium-bar">3</div>
                         </div>
@@ -3990,11 +3983,12 @@ async function fetchLeaderboard(quizId) {
             } else if (listData.length === 1) {
                 podiumEl.style.display = 'flex';
                 const rank1 = listData[0];
+                const getLBScore = (s) => currentData.length > 0 ? ((s / currentData.length) * 10).toFixed(1) + 'đ' : s + 'đ';
                 podiumEl.innerHTML = `
                     <div class="azota-podium-slot rank-1" style="margin: 0 auto; min-width: 220px;">
                         <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
-                        <div class="azota-podium-score">${rank1.score}đ</div>
+                        <div class="azota-podium-score">${getLBScore(rank1.score)}</div>
                         <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
                         <div class="azota-podium-bar">Quán quân</div>
                     </div>
@@ -4078,15 +4072,24 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         let earnedScore = 0;
 
         if (serverItem) {
-            if (serverItem.is_correct) {
-                status = 'correct';
-                earnedScore = 1.0;
-            } else if (userAnswer === null || userAnswer === undefined || userAnswer === '' || (typeof userAnswer === 'object' && Object.keys(userAnswer).length === 0)) {
-                status = 'skipped';
-                earnedScore = 0;
+            earnedScore = serverItem.earned !== undefined ? serverItem.earned : (serverItem.is_correct ? 1.0 : 0.0);
+            
+            if (qType === 'true_false') {
+                if (userAnswer === null || userAnswer === undefined || userAnswer === '' || (typeof userAnswer === 'object' && Object.keys(userAnswer).length === 0)) {
+                    status = 'skipped';
+                } else if (earnedScore === 1.0) {
+                    status = 'correct';
+                } else {
+                    status = 'wrong';
+                }
             } else {
-                status = 'wrong';
-                earnedScore = 0;
+                if (serverItem.is_correct) {
+                    status = 'correct';
+                } else if (userAnswer === null || userAnswer === undefined || userAnswer === '' || (typeof userAnswer === 'object' && Object.keys(userAnswer).length === 0)) {
+                    status = 'skipped';
+                } else {
+                    status = 'wrong';
+                }
             }
         } else {
             // Tự chấm điểm chuẩn GD&ĐT
@@ -4121,11 +4124,18 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 // MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án
                 if (userAnswer === null || userAnswer === undefined || userAnswer === '') {
                     status = 'skipped';
-                } else if (matchOptionToTarget(userAnswer, 0, correctAnswer)) {
-                    status = 'correct';
-                    earnedScore = 1.0;
                 } else {
-                    status = 'wrong';
+                    let oIndex = 0;
+                    if (q.options && q.options.length > 0) {
+                        oIndex = q.options.indexOf(userAnswer);
+                        if (oIndex === -1) oIndex = 0;
+                    }
+                    if (matchOptionToTarget(userAnswer, oIndex, correctAnswer)) {
+                        status = 'correct';
+                        earnedScore = 1.0;
+                    } else {
+                        status = 'wrong';
+                    }
                 }
             }
         }
@@ -4184,17 +4194,18 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
             </div>
 
             <!-- Các nút hành động chính -->
-            <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
-                <button type="button" class="btn-primary" style="background: #1976d2; padding: 12px 22px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="switchResultView('review')">
+            <!-- Các nút hành động chính -->
+            <div class="result-action-btns">
+                <button type="button" class="btn-primary result-btn-primary" onclick="switchResultView('review')">
                     <i class="ri-file-list-3-line"></i> Xem chi tiết đáp án & lời giải
                 </button>
-                <button type="button" class="btn-outline" style="border-color: #eab308; color: #ca8a04; background: #fefce8; padding: 12px 22px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="switchResultView('leaderboard')">
+                <button type="button" class="btn-outline result-btn-lb" onclick="switchResultView('leaderboard')">
                     <i class="ri-trophy-fill"></i> Bảng xếp hạng phòng thi
                 </button>
-                <button type="button" class="btn-outline" style="padding: 12px 20px; font-weight: 700; border-radius: 10px; margin: 0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="${currentMode === 'practice' ? 'restartPractice()' : 'restartExam()'}">
+                <button type="button" class="btn-outline result-btn-retry" onclick="${currentMode === 'practice' ? 'restartPractice()' : 'restartExam()'}">
                     <i class="ri-refresh-line"></i> Làm lại đề này
                 </button>
-                <button type="button" class="btn-outline" style="border-color: #cbd5e1; color: #64748b; padding: 12px 18px; font-weight: 600; border-radius: 10px; margin: 0; cursor: pointer;" onclick="exitMinimalMode()">
+                <button type="button" class="btn-outline result-btn-exit" onclick="exitMinimalMode()">
                     <i class="ri-logout-box-r-line"></i> Thoát
                 </button>
             </div>
@@ -4555,7 +4566,12 @@ async function submitExam(isReview = false) {
                 let cStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
                 if (uStr && uStr === cStr) score += 1;
             } else {
-                if (matchOptionToTarget(userAnswer, 0, q.correct_answer)) score += 1;
+                let oIndex = 0;
+                if (q.options && q.options.length > 0) {
+                    oIndex = q.options.indexOf(userAnswer);
+                    if (oIndex === -1) oIndex = 0;
+                }
+                if (matchOptionToTarget(userAnswer, oIndex, q.correct_answer)) score += 1;
             }
         });
         score = Math.round(score * 100) / 100;
@@ -4663,4 +4679,67 @@ function updateSyntaxHighlight() {
     if (escaped.endsWith('\n')) escaped += ' ';
     
     codeHighlight.innerHTML = escaped;
+}
+
+// --- XỬ LÝ NÚT CÂU TIẾP TRÊN MOBILE BOTTOM BAR ---
+window.mobileNextQuestionAction = function() {
+    if (currentMode === 'practice') {
+        const nextBtn = document.getElementById('nextBtn');
+        if (nextBtn && nextBtn.style.display !== 'none') {
+            nextPracticeQuestion();
+        } else {
+            if (!practiceAnswered) {
+                showToast("Vui lòng trả lời câu hỏi trước khi sang câu tiếp theo!", "error");
+            } else {
+                nextPracticeQuestion();
+            }
+        }
+    } else {
+        // Trong chế độ thi thử (exam) - cuộn tới câu hỏi tiếp theo
+        const questions = document.querySelectorAll('.question-box');
+        let targetIndex = -1;
+        let currentIndex = 0;
+        
+        for (let i = 0; i < questions.length; i++) {
+            const rect = questions[i].getBoundingClientRect();
+            // Nếu câu hỏi đang nằm phần trên của màn hình
+            if (rect.top > 0 && rect.top < window.innerHeight / 2) {
+                currentIndex = i;
+                break;
+            } else if (rect.top >= window.innerHeight / 2) {
+                currentIndex = Math.max(0, i - 1);
+                break;
+            }
+        }
+
+        targetIndex = currentIndex + 1;
+        if (targetIndex < questions.length) {
+            const yOffset = -80; // Trừ hao khoảng cách header dính
+            const element = questions[targetIndex];
+            const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        } else {
+            toggleMobileNavSheet(true);
+            showToast("Bạn đã đến cuối đề thi. Nhấn NỘP BÀI THI NGAY trong bảng điều hướng!", "info");
+        }
+    }
+};
+
+function showNextQuestionButton() {
+    const isLast = (currentQuestionIndex === currentData.length - 1);
+    const nextBtn = document.getElementById('nextBtn');
+    if (nextBtn) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.innerText = isLast ? 'Xem kết quả tổng kết' : 'Câu tiếp ➔';
+        setTimeout(() => {
+            // Chỉ cuộn tới nút này nếu trên desktop (nút này visible)
+            if (window.innerWidth > 960) {
+                nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 100);
+    }
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        mobileNextBtn.innerHTML = isLast ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+    }
 }

@@ -783,6 +783,40 @@ function renderPreviewAll() {
         return;
     }
 
+    let stats = {
+        total: currentData.length,
+        mcq4: 0,
+        mcq3: 0,
+        mcqOther: 0,
+        tf: 0,
+        short: 0
+    };
+    
+    currentData.forEach(q => {
+        let qType = getRealQuestionType(q);
+        if (qType === 'true_false') stats.tf++;
+        else if (qType === 'short_answer') stats.short++;
+        else {
+            let optCount = (q.options || []).length;
+            if (optCount === 4) stats.mcq4++;
+            else if (optCount === 3) stats.mcq3++;
+            else stats.mcqOther++;
+        }
+    });
+
+    const statsBox = document.createElement('div');
+    statsBox.style.cssText = "background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;";
+    statsBox.innerHTML = `
+        <div style="font-weight: 700; color: #1e293b; width: 100%; margin-bottom: 4px;"><i class="ri-pie-chart-2-fill" style="color: #3b82f6;"></i> Thống kê đề thi</div>
+        <div style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #334155;">Tổng số: ${stats.total} câu</div>
+        ${stats.mcq4 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 4 ĐA: ${stats.mcq4}</div>` : ''}
+        ${stats.mcq3 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 3 ĐA: ${stats.mcq3}</div>` : ''}
+        ${stats.mcqOther > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm khác: ${stats.mcqOther}</div>` : ''}
+        ${stats.tf > 0 ? `<div style="background: #e0f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #0369a1;">Đúng/Sai: ${stats.tf}</div>` : ''}
+        ${stats.short > 0 ? `<div style="background: #fef3c7; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #92400e;">Trả lời ngắn: ${stats.short}</div>` : ''}
+    `;
+    previewContent.appendChild(statsBox);
+
     currentData.forEach((q, qIndex) => {
         const prevBox = document.createElement('div');
         prevBox.className = 'question-box';
