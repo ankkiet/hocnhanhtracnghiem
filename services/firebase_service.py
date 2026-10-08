@@ -33,14 +33,14 @@ def init_firebase():
                 # Dùng strict=False để cho phép ký tự xuống dòng (raw newlines) thường gặp trên Koyeb
                 cred_dict = json.loads(firebase_env, strict=False)
                 cred = credentials.Certificate(cred_dict)
-                logger.info("Đang kết nối Firebase bằng Biến môi trường (Koyeb)...")
+                logger.info(f"Đang kết nối Firebase bằng Biến môi trường (Koyeb)... Project: {cred.project_id}, Email: {cred.service_account_email}")
             except Exception as e:
                 # Fallback: Nếu JSON có chứa raw newlines khiến json.loads() bó tay kể cả khi strict=False
                 try:
                     firebase_env_fixed = firebase_env.replace('\n', '\\n')
                     cred_dict = json.loads(firebase_env_fixed)
                     cred = credentials.Certificate(cred_dict)
-                    logger.info("Đang kết nối Firebase (Koyeb fallback thay thế newline)...")
+                    logger.info(f"Đang kết nối Firebase (Koyeb fallback thay thế newline)... Project: {cred.project_id}, Email: {cred.service_account_email}")
                 except Exception as e2:
                     firebase_init_error = f"Lỗi parse FIREBASE_JSON: {str(e)} | Fallback error: {str(e2)}"
                     logger.error(firebase_init_error)
