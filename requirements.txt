@@ -51,7 +51,6 @@ pycparser==3.0
 pydantic==2.12.5
 pydantic_core==2.41.5
 pyflakes==4.0.2
-pygame==2.6.1
 PyJWT==2.12.1
 PyMuPDF==1.28.2
 pyparsing==3.3.2
