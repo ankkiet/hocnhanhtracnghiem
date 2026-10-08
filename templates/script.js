@@ -3135,6 +3135,12 @@ function showPracticeReview() {
 }
 
 function shuffleQuiz(noRender = false) {
+    // QUAN TRỌNG: Ghi nhớ chỉ số gốc TRƯỚC khi trộn để submitExam gửi đúng index cho server
+    // Chỉ gán lần đầu (nếu chưa có), tránh ghi đè khi người dùng trộn lại nhiều lần
+    currentData.forEach((q, idx) => {
+        if (q._originalIndex === undefined) q._originalIndex = idx;
+    });
+
     for (let i = currentData.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [currentData[i], currentData[j]] = [currentData[j], currentData[i]];
@@ -3146,6 +3152,22 @@ function shuffleQuiz(noRender = false) {
         // 2. Chỉ trộn ngẫu nhiên các đáp án cho dạng câu hỏi MCQ có options
         const isMcq = (!q.type || q.type === 'mcq') && Array.isArray(q.options) && q.options.length > 0 && typeof q.correct_answer === 'string';
         if (isMcq) {
+            // Xác định chính xác đáp án đúng TRƯỚC khi trộn
+            let originalCorrectIndex = -1;
+            q.options.forEach((opt, idx) => {
+                 if (matchOptionToTarget(opt, idx, q.correct_answer)) originalCorrectIndex = idx;
+            });
+            if (originalCorrectIndex === -1 && /^[A-D]$/i.test(q.correct_answer)) {
+                originalCorrectIndex = q.correct_answer.toUpperCase().charCodeAt(0) - 65;
+            }
+            if (originalCorrectIndex === -1 && /^\d+$/.test(q.correct_answer)) {
+                let parsedIdx = parseInt(q.correct_answer, 10);
+                if (parsedIdx >= 0 && parsedIdx < q.options.length) {
+                    originalCorrectIndex = parsedIdx;
+                }
+            }
+            let correctTextContent = originalCorrectIndex >= 0 && originalCorrectIndex < q.options.length ? q.options[originalCorrectIndex] : null;
+
             for (let i = q.options.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [q.options[i], q.options[j]] = [q.options[j], q.options[i]];
@@ -3154,9 +3176,10 @@ function shuffleQuiz(noRender = false) {
             // 3. Đánh lại nhãn A, B, C, D và cập nhật đáp án đúng theo vị trí mới
             let newCorrect = null;
             q.options = q.options.map((opt, oIndex) => {
+                let isThisCorrect = (correctTextContent !== null && opt === correctTextContent);
                 let cleanOpt = opt.replace(/^[A-F][\.\:\)]\s*/i, '');
                 let newOpt = String.fromCharCode(65 + oIndex) + ". " + cleanOpt;
-                if (opt === q.correct_answer) newCorrect = newOpt;
+                if (isThisCorrect) newCorrect = newOpt;
                 return newOpt;
             });
             if (newCorrect) q.correct_answer = newCorrect;
@@ -3166,6 +3189,7 @@ function shuffleQuiz(noRender = false) {
     practiceScore = 0;
     if (!noRender) renderData();
 }
+
 
 function switchMode(mode) {
     currentMode = mode;
@@ -4187,7 +4211,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
         const serverItem = resultsMap[origIdx];
         let userAnswer = userAnswers[qIndex];
-        let correctAnswer = serverItem ? serverItem.correct_answer : q.correct_answer;
+        let correctAnswer = q.correct_answer;
         let explain = (serverItem && serverItem.explain) ? serverItem.explain : (q.explain || '');
         
         let status = 'wrong'; // 'correct', 'wrong', 'skipped'

@@ -122,30 +122,33 @@ async def submit_exam(req: SubmitExamRequest):
                     is_correct = True
                 else:
                     # Ràng buộc chặt chẽ: Chỉ lấy A, B, C, D nếu nó đứng đầu và theo sau là dấu câu hoặc khoảng trắng
-                    # Ngăn chặn lỗi "Con chó" bị nhận diện thành "C"
                     re_prefix = r'^([A-Da-d])(?:[\.\:\)]\s*|\s+|$)'
                     u_m = re.match(re_prefix, u_str)
                     c_m = re.match(re_prefix, c_str)
                     u_char = u_m.group(1).upper() if u_m else None
                     c_char = c_m.group(1).upper() if c_m else None
                     
-                    if u_char and c_char and u_char == c_char:
-                        is_correct = True
-                    else:
-                        u_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', u_str).strip().lower()
-                        c_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', c_str).strip().lower()
-                        if u_clean and c_clean and u_clean == c_clean:
-                            is_correct = True
-                        elif c_char and q.get('options') and isinstance(q.get('options'), list):
-                            idx_opt = ord(c_char) - ord('A')
-                            if 0 <= idx_opt < len(q['options']):
-                                opt_str = str(q['options'][idx_opt]).strip()
-                                if u_str.upper() == opt_str.upper():
-                                    is_correct = True
-                                else:
-                                    opt_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', opt_str).strip().lower()
-                                    if u_clean and opt_clean and u_clean == opt_clean:
-                                        is_correct = True
+                    u_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', u_str).strip().lower()
+                    c_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', c_str).strip().lower()
+                    
+                    opt_clean = c_clean
+                    if not opt_clean and c_char and q.get('options') and isinstance(q.get('options'), list):
+                        idx_opt = ord(c_char) - ord('A')
+                        if 0 <= idx_opt < len(q['options']):
+                            opt_str = str(q['options'][idx_opt]).strip()
+                            opt_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', opt_str).strip().lower()
+                            if u_str.upper() == opt_str.upper():
+                                is_correct = True
+
+                    if not is_correct:
+                        if u_clean and opt_clean:
+                            # Ưu tiên so khớp nội dung: Giải quyết lỗi đảo vị trí đáp án nhưng bị trùng chữ cái A,B,C,D
+                            if u_clean == opt_clean:
+                                is_correct = True
+                        else:
+                            # Fallback: Nếu không có text, mới so khớp bằng chữ cái đại diện
+                            if u_char and c_char and u_char == c_char:
+                                is_correct = True
             earned = 1.0 if is_correct else 0.0
             score += earned
             
