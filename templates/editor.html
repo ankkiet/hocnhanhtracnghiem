@@ -12,8 +12,10 @@
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://hocnhanhtn.pages.dev/unnamed.jpg">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261007_hntn_loader">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20261008_mobile_fix">
     <link rel="stylesheet" href="editor.css?v=20261007_hntn_loader">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
@@ -120,8 +122,18 @@
             <div id="aiFeedbackContent"></div>
         </section>
 
+        <!-- CHUYỂN ĐỔI CHẾ ĐỘ XEM TRÊN ĐIỆN THOẠI (TAB SOẠN THẢO / XEM TRƯỚC) -->
+        <div class="studio-mobile-view-tabs" id="studioMobileViewTabs">
+            <button type="button" class="studio-m-tab-btn active" id="mTabCode" onclick="switchStudioMobileTab('code')">
+                <i class="ri-code-s-slash-line"></i> Soạn thảo Code
+            </button>
+            <button type="button" class="studio-m-tab-btn" id="mTabPreview" onclick="switchStudioMobileTab('preview')">
+                <i class="ri-eye-line"></i> Xem trước Học sinh
+            </button>
+        </div>
+
         <!-- VIEW 1: GIAO DIỆN BIÊN TẬP (SPLIT LAYOUT PREVIEW & CODE EDITOR) -->
-        <div id="splitEditorView" class="studio-split-layout">
+        <div id="splitEditorView" class="studio-split-layout mobile-tab-code">
             <!-- Left Pane: Preview Học Sinh -->
             <div class="studio-pane" id="previewPane">
                 <div class="studio-pane-header">
@@ -360,6 +372,11 @@
         </div>
     </div>
 
-    <script src="editor.js?v=20261007_api_fix"></script>
+        <!-- NÚT NỔI CHUYỂN ĐỔI NHANH XEM TRƯỚC / SOẠN THẢO TRÊN ĐIỆN THOẠI -->
+    <button id="studioMobileFloatToggle" class="studio-mobile-float-toggle" onclick="toggleStudioMobileTab()" title="Chuyển đổi Soạn thảo / Xem trước">
+        <i class="ri-eye-line"></i> <span>Xem trước</span>
+    </button>
+
+    <script src="editor.js?v=20261008_mobile_fix"></script>
 </body>
 </html>

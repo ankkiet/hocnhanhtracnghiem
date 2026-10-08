@@ -28,9 +28,9 @@ class AnswerKeyMap(dict):
     def get_answer(self, q_type: str, linear_num: int = None, part_num: int = None, raw_num: int = None) -> Any:
         """
         Tìm đáp án chuẩn xác nhất dựa trên loại câu hỏi và số thứ tự:
-        Ưu tiên: part_num trong từng phần -> raw_num -> linear_num
+        Ưu tiên: raw_num -> part_num -> linear_num
         """
-        candidates = [c for c in [part_num, raw_num, linear_num] if c is not None]
+        candidates = [c for c in [raw_num, part_num, linear_num] if c is not None]
 
         if q_type == "true_false":
             for c in candidates:
@@ -263,9 +263,11 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
     ans_section = ""
     for header in key_headers:
         pos = full_text.upper().rfind(header)
-        if pos != -1 and (len(full_text) - pos) < 20000:
+        if pos != -1 and (pos > len(full_text) * 0.2 or len(full_text) < 5000):
             ans_section = full_text[pos:]
             break
+    if not ans_section:
+        ans_section = full_text
 
     if ans_section:
         part_splits = re.split(r'(\bPHẦN\s+(?:III|II|I|3|2|1)\b[^\n]*)', ans_section, flags=re.IGNORECASE)
@@ -283,54 +285,58 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                 current_part = 1
                 continue
 
-            # 1. Dò đúng sai dạng: 1: a-Đ, b-S, c-Đ, d-S hoặc 1. aĐ bS cĐ dS hoặc 1. a. Đúng b. Sai
-            tf_pattern = re.compile(
-                r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*([a-d]\s*[\-\:\.]?\s*(?:Đ|S|Đúng|Sai|True|False).*?)(?=(?:Câu\s*)?\d+[\.\:\-\)]|\bPHẦN|$|\n\n)',
-                re.IGNORECASE
-            )
-            for m in tf_pattern.finditer(chunk):
-                q_num = int(m.group(1))
-                tf_str = m.group(2)
-                from services.ai_service import parse_tf_answer
-                tf_dict = parse_tf_answer(tf_str)
-                if tf_dict and any(tf_dict.values()):
-                    ak.set_answer(2, q_num, tf_dict)
+            lines = chunk.strip().split('\n')
+            # Dò bảng tab 2 dòng liên tiếp (Dòng 1: Câu/1/2/3, Dòng 2: Chọn/A/B/C hoặc Đáp án/12/8)
+            for li in range(len(lines) - 1):
+                l1_clean = re.sub(r'<[^>]+>', '', lines[li]).strip()
+                l2_clean = re.sub(r'<[^>]+>', '', lines[li+1]).strip()
+                p1 = [p.strip() for p in l1_clean.split('\t') if p.strip()]
+                p2 = [p.strip() for p in l2_clean.split('\t') if p.strip()]
+                if len(p1) >= 2 and len(p2) >= 2 and abs(len(p1) - len(p2)) <= 1:
+                    nums = [int(re.search(r'\d+', p).group(0)) for p in p1 if re.search(r'\d+', p)]
+                    if len(nums) >= 2:
+                        ans_items = p2[1:] if len(p2) > len(nums) else p2
+                        for q_n, a_val in zip(nums, ans_items):
+                            a_clean = a_val.strip()
+                            if current_part == 3 or (len(a_clean) <= 15 and re.search(r'^\-?\d+', a_clean) and not re.search(r'^[A-F]$', a_clean, re.I)):
+                                ak.set_answer(3, q_n, a_clean)
+                            else:
+                                m_c = re.search(r'^[A-F]$', a_clean, re.I)
+                                if m_c:
+                                    ak.set_answer(1, q_n, m_c.group(0).upper())
 
-            # Chuỗi 4 chữ Đ/S theo sau số câu trong phần II (ví dụ: Câu 1: Đ S Đ S hoặc 1. Đ, S, Đ, S)
-            if current_part == 2 or "ĐÚNG" in chunk_upper or "Đ/S" in chunk_upper:
-                seq_pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*([ĐSđsĐúngSai\s\-\,\;]{4,20})', re.IGNORECASE)
-                for sm in seq_pattern.finditer(chunk):
-                    q_num = int(sm.group(1))
-                    raw_seq = sm.group(2)
-                    found_letters = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', raw_seq, re.IGNORECASE)
-                    if len(found_letters) == 4 and q_num not in ak.part2:
-                        ak.set_answer(2, q_num, {
-                            'a': found_letters[0].lower() in ['đ', 'đúng'],
-                            'b': found_letters[1].lower() in ['đ', 'đúng'],
-                            'c': found_letters[2].lower() in ['đ', 'đúng'],
-                            'd': found_letters[3].lower() in ['đ', 'đúng']
-                        })
+            for line in lines:
+                line_str = line.strip()
+                if not line_str:
+                    continue
 
-            # 2. Dò trả lời ngắn nếu current_part == 3 hoặc có từ khóa
-            if current_part == 3 or "TRẢ LỜI NGẮN" in chunk_upper:
-                sa_pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\=\)]\s*([^\n\r\;\,]+)', re.IGNORECASE)
-                for m in sa_pattern.finditer(chunk):
-                    q_num = int(m.group(1))
-                    val_str = m.group(2).strip()
-                    val_str = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', val_str, flags=re.IGNORECASE).strip()
-                    if val_str and len(val_str) <= 35 and not re.match(r'^[A-F]$', val_str, re.IGNORECASE):
-                        if re.match(r'^-?\d+,\d+$', val_str):
-                            val_str = val_str.replace(',', '.')
-                        ak.set_answer(3, q_num, val_str)
+                # 1. Dò câu Đúng / Sai: Câu 1: a-Đ, b-S, c-Đ, d-Đ hoặc 1. aĐ bS cĐ dS
+                m_num = re.match(r'^(?:Câu\s*)?(\d+)\s*[\.\:\-\)]\s*(.*)$', line_str, re.IGNORECASE)
+                if m_num:
+                    q_num = int(m_num.group(1))
+                    body = m_num.group(2).strip()
+                    from services.ai_service import parse_tf_answer
+                    tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', body, re.IGNORECASE)
+                    has_4_tf = len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', body, re.IGNORECASE)) >= 3
+                    if (tf_m or has_4_tf) and any(c in body.lower() for c in ['a', 'b', 'c', 'd', 'đ', 's']):
+                        tf_dict = parse_tf_answer(body)
+                        if tf_dict and any(tf_dict.values()):
+                            ak.set_answer(2, q_num, tf_dict)
+                            continue
 
-            # 3. Dò MCQ dạng: 1.A 2.B hoặc Câu 1: A
-            if current_part == 1 or current_part is None:
-                mcq_pattern = re.compile(r'(?:Câu\s*)?(\d+)\s*[\.\:\-\)\/]?\s*([A-F])\b', re.IGNORECASE)
-                for m in mcq_pattern.finditer(chunk):
-                    q_num = int(m.group(1))
-                    ans_char = m.group(2).upper()
-                    ak.set_answer(1, q_num, ans_char)
+                    # 2. Dò trả lời ngắn nếu có từ khóa hoặc là chuỗi đáp số ngắn độc lập
+                    if re.search(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?', body, re.IGNORECASE) or (current_part == 3 and len(body) <= 20 and re.match(r'^-?\d+(?:[\.,]\d+)?$', body.strip())):
+                        clean_sa = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', body, flags=re.IGNORECASE).strip()
+                        if clean_sa and len(clean_sa) <= 35 and not re.match(r'^[A-F]$', clean_sa, re.IGNORECASE):
+                            if re.match(r'^-?\d+,\d+$', clean_sa):
+                                clean_sa = clean_sa.replace(',', '.')
+                            ak.set_answer(3, q_num, clean_sa)
+                            continue
 
+                # 3. Dò MCQ dạng: 1.A 2.B hoặc Câu 1: A hoặc 1:A 2:B trong dòng
+                if current_part == 1 or current_part is None:
+                    for mm in re.finditer(r'(?:^|\s|\b)(?:Câu\s*)?(\d+)\s*[\.\:\-\)\/]?\s*([A-F])(?![a-zA-Z0-9])', line_str, re.IGNORECASE):
+                        ak.set_answer(1, int(mm.group(1)), mm.group(2).upper())
 
     return ak
 
@@ -342,16 +348,16 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
     Giúp AI chỉ bóc tách câu hỏi thực sự, không bị nhầm bảng đáp án thành câu hỏi.
     """
     section_patterns = [
-        r'(?:^|\n)\s*(?:[-=~_*#]{2,}\s*)?(?:BẢNG\s+ĐÁP\s+ÁN|BANG\s+DAP\s+AN|BẢNG\s+ĐÁP\s+SỐ|ANSWER\s+KEY|HƯỚNG\s+DẪN\s+CHẤM)(?:\s*[-=~_*#]{2,})?\s*[:\-]?\s*(?:\n|$)',
-        r'(?:^|\n)\s*(?:[-=~_*#]{2,}\s*)?(?:ĐÁP\s+ÁN|DAP\s+AN|ĐÁP\s+ÁN\s+CHI\s+TIẾT)(?:\s*[-=~_*#]{2,})?\s*[:\-]?\s*(?:\n|$)'
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:BẢNG\s+ĐÁP\s+ÁN|BANG\s+DAP\s+AN|BẢNG\s+ĐÁP\s+SỐ|ANSWER\s+KEY|HƯỚNG\s+DẪN\s+CHẤM|ĐÁP\s+ÁN\s+CHI\s+TIẾT|ĐÁP\s+ÁN\s+VÀ\s+LỜI\s+GIẢI)[^\n]*(?:\n|$)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:ĐÁP\s+ÁN|DAP\s+AN)\s*[:\-]?\s*(?:[-=~_*#]{2,})?\s*(?:</[^>]+>\s*)*(?:\n|$)'
     ]
     
     found_pos = -1
     for p in section_patterns:
         for m in re.finditer(p, full_text, re.IGNORECASE):
             pos = m.start()
-            # Bảng đáp án chỉ nằm ở nửa sau tài liệu
-            if pos > len(full_text) * 0.3 and (len(full_text) - pos) < 15000:
+            # Bảng đáp án nằm ở phần thân dưới tài liệu (> 20% độ dài văn bản)
+            if pos > len(full_text) * 0.2:
                 if found_pos == -1 or pos < found_pos:
                     found_pos = pos
 
@@ -360,9 +366,10 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
         ans_raw = full_text[found_pos:].strip()
         ak = extract_answer_key_from_doc(None, ans_raw)
         
-        # Chỉ tách khi thực sự tìm thấy cấu trúc bảng đáp án hợp lệ (ít nhất 2 câu hoặc có part rõ ràng hoặc có từ khóa BẢNG ĐÁP ÁN)
-        has_clear_ak = bool(ak.part1 or ak.part2 or ak.part3 or len(ak) >= 2 or "BẢNG ĐÁP ÁN" in ans_raw.upper() or "BANG DAP AN" in ans_raw.upper())
-        if has_clear_ak and len(ak) > 0:
+        # Chỉ tách khi thực sự tìm thấy cấu trúc bảng đáp án hợp lệ hoặc có từ khóa rõ ràng
+        is_explicit_header = any(k in ans_raw.upper() for k in ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM"])
+        has_clear_ak = bool(ak.part1 or ak.part2 or ak.part3 or len(ak) >= 2 or is_explicit_header)
+        if has_clear_ak:
             return text_questions, ans_raw, ak
 
     # Nếu không tìm thấy header rõ ràng hoặc không có đáp án thực sự trong phần đuôi
@@ -397,22 +404,64 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
         q_type = q_item.get('type', 'mcq')
         linear_num = idx + 1
 
-        # Cố gắng tìm số thứ tự gốc trong đề bài nếu có (ví dụ: "Câu 5:", "5.")
-        raw_num = None
-        q_text = q_item.get('question', '')
-        num_m = re.search(r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])', q_text, re.IGNORECASE)
-        if num_m:
-            raw_num = int(num_m.group(1) or num_m.group(2))
+        # Cố gắng tìm số thứ tự gốc trong đề bài nếu có
+        raw_num = q_item.get("question_number")
+        if raw_num is None:
+            raw_q_id = q_item.get("question_id") or q_item.get("id") or q_item.get("stt")
+            if raw_q_id is not None:
+                try:
+                    raw_num = int(re.search(r'\d+', str(raw_q_id)).group(0))
+                except Exception:
+                    pass
+        if raw_num is None:
+            q_text = q_item.get('question', '')
+            num_m = re.search(r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])', q_text, re.IGNORECASE)
+            if num_m:
+                raw_num = int(num_m.group(1) or num_m.group(2))
 
-        # Tự động cứu hộ: Nếu câu hỏi bị gán nhầm là short_answer nhưng thực chất chứa các ý a, b, c, d
-        if q_type == 'short_answer':
-            from services.ai_service import extract_sub_statements_from_text
-            stem, opts = extract_sub_statements_from_text(q_item.get('question', ''))
-            if len(opts) >= 3:
+        # Rà soát bảo vệ tối cao: Nếu options chứa các phương án chữ in hoa A, B, C, D -> 100% là MCQ
+        opts = q_item.get('options', [])
+        if opts:
+            mcq_opt_count = sum(1 for o in opts if re.match(r'^\s*(?:<[^>]+>\s*)*\*?[A-F][\.\:\)]', str(o).strip()))
+            tf_opt_count = sum(1 for o in opts if re.match(r'^\s*(?:<[^>]+>\s*)*\*?[a-d][\)\.\:\-]', str(o).strip()))
+            if mcq_opt_count >= 2 and mcq_opt_count >= tf_opt_count:
+                q_type = 'mcq'
+                q_item['type'] = 'mcq'
+            elif tf_opt_count >= 2 and tf_opt_count > mcq_opt_count:
                 q_type = 'true_false'
                 q_item['type'] = 'true_false'
-                q_item['question'] = stem
-                q_item['options'] = opts
+
+        # Tự động cứu hộ: Nếu câu hỏi bị gán nhầm là short_answer nhưng thực chất chứa phương án
+        if q_type == 'short_answer':
+            from services.ai_service import extract_mcq_options_from_text, extract_sub_statements_from_text
+            stem_mcq, opts_mcq = extract_mcq_options_from_text(q_item.get('question', ''))
+            if len(opts_mcq) >= 2:
+                q_type = 'mcq'
+                q_item['type'] = 'mcq'
+                q_item['question'] = stem_mcq
+                q_item['options'] = opts_mcq
+            else:
+                stem_tf, opts_tf = extract_sub_statements_from_text(q_item.get('question', ''))
+                if len(opts_tf) >= 3:
+                    q_type = 'true_false'
+                    q_item['type'] = 'true_false'
+                    q_item['question'] = stem_tf
+                    q_item['options'] = opts_tf
+
+        # Nếu là câu Đúng/Sai nhưng options bị thiếu, tự trích xuất lại từ nội dung câu hỏi
+        if q_type == 'true_false' and len(q_item.get('options', [])) <= 1:
+            from services.ai_service import extract_mcq_options_from_text, extract_sub_statements_from_text
+            stem_mcq, opts_mcq = extract_mcq_options_from_text(q_item.get('question', ''))
+            if len(opts_mcq) >= 2:
+                q_type = 'mcq'
+                q_item['type'] = 'mcq'
+                q_item['question'] = stem_mcq
+                q_item['options'] = opts_mcq
+            else:
+                stem, opts = extract_sub_statements_from_text(q_item.get('question', ''))
+                if len(opts) >= 3:
+                    q_item['question'] = stem
+                    q_item['options'] = opts
 
         # Đếm số thứ tự con trong phần tương ứng
         if q_type == 'true_false':
@@ -424,14 +473,6 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
         else:
             part_counters['mcq'] += 1
             part_num = part_counters['mcq']
-
-        # Nếu là câu Đúng/Sai nhưng options bị thiếu, tự trích xuất lại từ nội dung câu hỏi
-        if q_type == 'true_false' and len(q_item.get('options', [])) <= 1:
-            from services.ai_service import extract_sub_statements_from_text
-            stem, opts = extract_sub_statements_from_text(q_item.get('question', ''))
-            if len(opts) >= 3:
-                q_item['question'] = stem
-                q_item['options'] = opts
 
         official_ans = answer_key.get_answer(
             q_type=q_type,

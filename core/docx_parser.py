@@ -149,6 +149,12 @@ def get_auto_numbering_prefix(para, doc, counters: dict) -> str:
     if numFmt in ["upperLetter", "lowerLetter"]:
         counters['opt'] += 1
         return f"{chr(ord('A') + (counters['opt'] - 1) % 26)}. "
+    elif numFmt in ["upperRoman", "lowerRoman"]:
+        counters['roman'] = counters.get('roman', 0) + 1
+        val = counters['roman']
+        roman_map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X'}
+        roman_str = roman_map.get(val, f"I{val}")
+        return f"{roman_str}. "
     else:
         counters['q'] += 1
         counters['opt'] = 0
@@ -271,6 +277,61 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
     return best_option_text
 
 
+def inspect_run_formatting(rPr, run_text: str = ""):
+    """
+    Phát hiện toàn diện các đặc trưng định dạng dùng để đánh dấu đáp án đúng trong Word:
+    1. Gạch chân (w:u): Gạch chân chữ cái A-D, a-d hoặc gạch chân toàn bộ nội dung phương án
+    2. Bút dạ quang (w:highlight): Tô vàng, xanh, hồng, lục...
+    3. Thùng sơn / Màu nền (w:shd): Tô nền ký tự hoặc ô
+    4. Màu chữ nổi bật (w:color): Chữ đỏ, cam, xanh lá, xanh dương, tím... (khác màu đen/auto)
+    5. Ký tự tick (✓, ✔, ☑)
+    6. In đậm (w:b), In nghiêng (w:i), Chỉ số dưới (subscript), Chỉ số trên (superscript)
+    """
+    is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
+
+    if rPr is not None:
+        b_node = rPr.find(qn('w:b'))
+        if b_node is not None and str(b_node.get(qn('w:val'), '')).lower() not in ['none', '0', 'false', 'off']:
+            is_bold = True
+
+        i_node = rPr.find(qn('w:i'))
+        if i_node is not None and str(i_node.get(qn('w:val'), '')).lower() not in ['none', '0', 'false', 'off']:
+            is_italic = True
+
+        u_node = rPr.find(qn('w:u'))
+        if u_node is not None and str(u_node.get(qn('w:val'), '')).lower() not in ['none', '0', 'false', 'off']:
+            is_underline = True
+
+        hl_node = rPr.find(qn('w:highlight'))
+        if hl_node is not None and str(hl_node.get(qn('w:val'), '')).lower() not in ['none', '', '0']:
+            is_highlighted = True
+
+        shd_node = rPr.find(qn('w:shd'))
+        if shd_node is not None:
+            shd_val = str(shd_node.get(qn('w:fill'), '')).upper()
+            if shd_val not in ['', 'NONE', 'AUTO', 'FFFFFF', '000000']:
+                is_highlighted = True
+
+        c_node = rPr.find(qn('w:color'))
+        if c_node is not None:
+            c_val = str(c_node.get(qn('w:val'), '')).upper()
+            if c_val not in ['', 'AUTO', '000000', '111111', '222222', '333333', 'NONE', 'WINDOWSTEXT', 'DEFAULT']:
+                is_red_text = True
+
+        va_node = rPr.find(qn('w:vertAlign'))
+        if va_node is not None:
+            val = va_node.get(qn('w:val'))
+            if val == 'subscript':
+                is_subscript = True
+            elif val == 'superscript':
+                is_superscript = True
+
+    if any(t in run_text for t in ['✓', '✔', '☑']):
+        is_red_text = True
+
+    return is_bold, is_italic, is_underline, is_highlighted, is_red_text, is_subscript, is_superscript
+
+
 def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     """Thuật toán phân tách Câu hỏi trắc nghiệm siêu tốc và thông minh từ tệp DOCX."""
     doc = Document(file_path)
@@ -384,32 +445,8 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 if not run_text: continue
                 
                 r = node.getparent()
-                rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
-                is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
-                
-                if rPr_list:
-                    rPr = rPr_list[0]
-                    if rPr.find(qn('w:b')) is not None: is_bold = True
-                    if rPr.find(qn('w:i')) is not None: is_italic = True
-                    if rPr.find(qn('w:u')) is not None: is_underline = True
-                    
-                    highlight = rPr.find(qn('w:highlight'))
-                    if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
-                        
-                    color = rPr.find(qn('w:color'))
-                    if color is not None:
-                        c_val = str(color.get(qn('w:val'), '')).upper()
-                        if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
-                            is_red_text = True
-                            
-                    vertAlign = rPr.find(qn('w:vertAlign'))
-                    if vertAlign is not None:
-                        val = vertAlign.get(qn('w:val'))
-                        if val == 'subscript': is_subscript = True
-                        if val == 'superscript': is_superscript = True
-
-                if '✓' in run_text or '✔' in run_text:
-                    is_red_text = True
+                rPr = r.xpath('./*[local-name()="rPr"]')[0] if r is not None and r.tag.endswith('}r') and r.xpath('./*[local-name()="rPr"]') else None
+                is_bold, is_italic, is_underline, is_highlighted, is_red_text, is_subscript, is_superscript = inspect_run_formatting(rPr, run_text)
                 
                 full_text_list.append(run_text)
                 weight = 3 if (is_red_text or is_highlighted or is_underline) else (1 if is_bold else 0)
@@ -595,9 +632,9 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
     return extracted_data
 
 
-def parse_azota_tf_table(table: Table) -> Optional[Dict[str, bool]]:
+def parse_hocnhanhtn_tf_table(table: Table) -> Optional[Dict[str, bool]]:
     """
-    Kiểm tra và bóc tách bảng đáp án Đúng/Sai đặt ngay dưới từng câu hỏi (chuẩn Azota Cách 2):
+    Kiểm tra và bóc tách bảng đáp án Đúng/Sai đặt ngay dưới từng câu hỏi (chuẩn HocNhanhTN Cách 2):
     - Dạng dọc: Cột 'Lệnh hỏi' / 'Ý', Cột 'Đúng', Cột 'Sai' (với các dấu tích x, v, 1, ✓, ✔, Đ)
     - Dạng ngang: Hàng 1 chứa các ý a, b, c, d; Hàng 2 chứa Đ, S, Đ, S
     Trả về dict {'a': bool, 'b': bool, 'c': bool, 'd': bool} nếu phát hiện, ngược lại None.
@@ -776,39 +813,15 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
             if not run_text: continue
 
             r = node.getparent()
-            rPr_list = r.xpath('./*[local-name()="rPr"]') if r is not None and r.tag.endswith('}r') else []
-            is_bold = is_italic = is_underline = is_highlighted = is_red_text = is_subscript = is_superscript = False
-
-            if rPr_list:
-                rPr = rPr_list[0]
-                if rPr.find(qn('w:b')) is not None: is_bold = True
-                if rPr.find(qn('w:i')) is not None: is_italic = True
-                if rPr.find(qn('w:u')) is not None: is_underline = True
-
-                highlight = rPr.find(qn('w:highlight'))
-                if highlight is not None and highlight.get(qn('w:val')) not in ['none', None]: is_highlighted = True
-
-                color = rPr.find(qn('w:color'))
-                if color is not None:
-                    c_val = str(color.get(qn('w:val'), '')).upper()
-                    if c_val in ['FF0000', 'C00000', 'ED1C24', 'RED', '008000', '00B050', '059669', '10B981', '22C55E', '16A34A', 'GREEN']:
-                        is_red_text = True
-
-                vertAlign = rPr.find(qn('w:vertAlign'))
-                if vertAlign is not None:
-                    val = vertAlign.get(qn('w:val'))
-                    if val == 'subscript': is_subscript = True
-                    if val == 'superscript': is_superscript = True
-
-            if '✓' in run_text or '✔' in run_text:
-                is_red_text = True
+            rPr = r.xpath('./*[local-name()="rPr"]')[0] if r is not None and r.tag.endswith('}r') and r.xpath('./*[local-name()="rPr"]') else None
+            is_bold, is_italic, is_underline, is_highlighted, is_red_text, is_subscript, is_superscript = inspect_run_formatting(rPr, run_text)
 
             formatted_text = run_text.replace("<", "&lt;").replace(">", "&gt;")
             if is_subscript: formatted_text = f"<sub>{formatted_text}</sub>"
             if is_superscript: formatted_text = f"<sup>{formatted_text}</sup>"
             if is_italic: formatted_text = f"<i>{formatted_text}</i>"
-            if is_underline and not is_red_text: formatted_text = f"<u>{formatted_text}</u>"
-            if is_bold and not is_red_text: formatted_text = f"<b>{formatted_text}</b>"
+            if is_underline: formatted_text = f"<u>{formatted_text}</u>"
+            if is_bold: formatted_text = f"<b>{formatted_text}</b>"
 
             if is_red_text or is_highlighted or is_underline:
                 para_text += f"<MARK>{formatted_text}</MARK>"
@@ -818,14 +831,18 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
     return para_text
 
 
+# Alias tương thích ngược
+parse_azota_tf_table = parse_hocnhanhtn_tf_table
+
+
 def parse_docx_to_marked_text(file_path: str):
-    """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ/gạch chân để gửi lên AI, đồng thời giữ định dạng HTML và bóc tách bảng Đúng/Sai Azota"""
+    """Đánh dấu thẻ <MARK> cho các từ in đậm/đỏ/gạch chân để gửi lên AI, đồng thời giữ định dạng HTML và bóc tách bảng Đúng/Sai HocNhanhTN"""
     doc = Document(file_path)
     full_text = []
     image_mapping = {}
     counters = {'q': 0, 'opt': 0}
 
-    # Quét tuần tự các phần tử con của body để bảo toàn đúng vị trí câu hỏi và bảng đáp án (chuẩn Azota Cách 2)
+    # Quét tuần tự các phần tử con của body để bảo toàn đúng vị trí câu hỏi và bảng đáp án (chuẩn HocNhanhTN Cách 2)
     for child in doc.element.body:
         if child.tag.endswith('}p'):
             para_text = _process_p_element(child, doc, counters, image_mapping)
@@ -835,8 +852,8 @@ def parse_docx_to_marked_text(file_path: str):
                 full_text.append("\n")
         elif child.tag.endswith('}tbl'):
             tbl = Table(child, doc._body)
-            # Kiểm tra xem có phải bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn Azota Cách 2 không
-            tf_res = parse_azota_tf_table(tbl)
+            # Kiểm tra xem có phải bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn HocNhanhTN Cách 2 không
+            tf_res = parse_hocnhanhtn_tf_table(tbl)
             if tf_res:
                 ans_str = ", ".join(f"{k}-{'Đ' if v else 'S'}" for k, v in tf_res.items())
                 full_text.append(f"\nĐáp án: {ans_str}\n")
@@ -872,8 +889,12 @@ def parse_docx_to_marked_text(file_path: str):
             break
 
     # Tách các phương án A-D trên cùng 1 dòng thành từng dòng riêng biệt (yêu cầu tab, 2 khoảng trắng trở lên hoặc sau dấu câu)
-    raw_output = re.sub(r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)(\*?[A-D][\.\:\)]\s*)', r'\n\1', raw_output)
-    # Hỗ trợ tách các ý con a-d trên cùng 1 dòng kèm tiền tố ma trận Azota [0, NB] và markup <u>, <MARK>
+    raw_output = re.sub(
+        r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)((?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?(?:<MARK>\s*|<u>\s*)*\*?[A-D][\.\:\)]\s*)',
+        r'\n\1',
+        raw_output
+    )
+    # Hỗ trợ tách các ý con a-d trên cùng 1 dòng kèm tiền tố ma trận HocNhanhTN [0, NB] và markup <u>, <MARK>
     raw_output = re.sub(
         r'(?<!\n)(?:\t|\s{2,}|(?<=[;\.\:\?!])\s+)((?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?(?:<MARK>\s*|<u>\s*)*\*?[a-d][\)\.\:\-]\s*)',
         r'\n\1',

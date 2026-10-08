@@ -9,6 +9,7 @@ import asyncio
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Form, BackgroundTasks, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 try:
@@ -169,37 +170,41 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 print(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
                 active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
                 try:
-                    extracted_data = extract_formatting_from_docx(temp_file_path)
+                    extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
                 except Exception:
                     extracted_data = None
                 if not extracted_data:
                     try:
-                        extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
+                        extracted_data = extract_formatting_from_docx(temp_file_path)
                     except Exception:
                         pass
         else:
             # use_ai = False: Phân tích DOCX bằng Python nội bộ
             active_tasks[task_id]["message"] = "Đang phân tích tài liệu bằng thuật toán Python..."
+            marked_text = ""
+            image_mapping = {}
             try:
-                extracted_data = extract_formatting_from_docx(temp_file_path)
-            except Exception as docx_err:
-                print(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
+                marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
+            except Exception as bp_err:
+                print(f"[CẢNH BÁO] Bộ bóc tách Bulletproof gặp lỗi: {bp_err}")
                 extracted_data = None
                 
             # Nếu bộ bóc tách chính không tìm thấy câu hỏi, kích hoạt bộ bóc tách dự phòng (Engine 2)
             if not extracted_data or len(extracted_data) == 0:
                 try:
-                    marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-                    extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
-                except Exception as fb_err:
-                    print(f"[CẢNH BÁO] Bộ bóc tách dự phòng gặp lỗi: {fb_err}")
+                    extracted_data = extract_formatting_from_docx(temp_file_path)
+                except Exception as docx_err:
+                    print(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
+                    extracted_data = None
                     
             # Nếu cả 2 bộ bóc tách nội bộ đều không tìm thấy câu hỏi mà hệ thống CÓ API key, tự động kích hoạt AI cứu hộ
             if (not extracted_data or len(extracted_data) == 0) and api_keys:
                 print("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
                 active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
                 try:
-                    marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                    if not marked_text:
+                        marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
                     extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id, answer_key=file_ak))
                     if image_mapping and extracted_data:
                         extracted_data = replace_placeholders(extracted_data, image_mapping)
@@ -356,4 +361,17 @@ async def serve_image(file_path: str):
         content=content,
         media_type=mime,
         headers={"Cache-Control": "public, max-age=31536000, immutable"}
+    )
+
+
+@router.get("/api/download-sample-docx", summary="Tải file Word mẫu chuẩn HocNhanhTN để tránh lỗi nhận diện")
+def download_sample_docx():
+    """Tải tệp Word (.docx) mẫu chuẩn HocNhanhTN có hướng dẫn định dạng chi tiết."""
+    template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", "DE_THI_MAU_CHUAN_HocNhanhTN.docx")
+    if not os.path.exists(template_path):
+        raise HTTPException(status_code=404, detail="Không tìm thấy file mẫu Word")
+    return FileResponse(
+        path=template_path,
+        filename="DE_THI_MAU_CHUAN_HocNhanhTN.docx",
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )

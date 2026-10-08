@@ -196,12 +196,12 @@ def clean_question_prefix(text: str) -> str:
 
 def clean_option_text(opt: str) -> tuple:
     """
-    Chuẩn hóa phương án chuẩn Bộ GD&ĐT và Azota:
+    Chuẩn hóa phương án chuẩn Bộ GD&ĐT và HocNhanhTN:
     - Bóc tách nội dung thuần túy (không dính tiền tố 'A. ', 'a) ', '*A. ', '<u>a)</u>', '<MARK><u>a)</u></MARK>')
-    - Chuẩn Azota Cách 3: Phát hiện gạch chân (thẻ <u>) hoặc <MARK> ở ký hiệu phương án -> Đáp án Đúng (is_correct=True)
+    - Chuẩn HocNhanhTN Cách 3: Phát hiện gạch chân (thẻ <u>) hoặc <MARK> ở ký hiệu phương án -> Đáp án Đúng (is_correct=True)
     - Phát hiện đánh dấu đáp án đúng (*, [ĐÚNG], (Đúng), ✓, ✔)
     - Phát hiện đánh dấu đáp án sai ([SAI], (Sai), ✗, ✘)
-    - Giữ và bảo toàn nhãn ma trận Azota: [0, NB], [1, TH], [2, VD], [3, VDC] nếu có
+    - Giữ và bảo toàn nhãn ma trận HocNhanhTN: [0, NB], [1, TH], [2, VD], [3, VDC] nếu có
     - Trả về: (nội_dung_sạch, is_correct, is_false, ký_tự_gốc)
     """
     if not opt:
@@ -209,10 +209,10 @@ def clean_option_text(opt: str) -> tuple:
 
     opt_str = str(opt).strip()
 
-    # 1. Phát hiện đánh dấu Đúng theo chuẩn Bộ GD&ĐT và chuẩn Azota
+    # 1. Phát hiện đánh dấu Đúng theo chuẩn Bộ GD&ĐT và chuẩn HocNhanhTN
     has_leading_asterisk = bool(re.match(r'^\s*[\(\[]?\s*\*\s*[A-Fa-f\d]', opt_str) or re.match(r'^\s*\*\s*[\(\[]?[A-Fa-f\d]', opt_str))
     
-    # Chuẩn Azota Cách 3: Gạch chân ký hiệu phương án đúng: <u>a)</u>, <u>a</u>), <u>a.</u>, <u>[0, NB] a)</u>, v.v.
+    # Chuẩn HocNhanhTN Cách 3: Gạch chân ký hiệu phương án đúng: <u>a)</u>, <u>a</u>), <u>a.</u>, <u>[0, NB] a)</u>, v.v.
     has_underline_marker = bool(re.search(
         r'^\s*(?:<MARK>\s*)?(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<MARK>\s*)?<u>\s*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?\*?[A-Fa-f\d]',
         opt_str,
@@ -226,15 +226,21 @@ def clean_option_text(opt: str) -> tuple:
         re.IGNORECASE
     ))
 
-    has_correct_tag = bool(re.search(r'\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔', opt_str, re.IGNORECASE))
-    is_correct = has_leading_asterisk or has_underline_marker or has_mark_prefix or has_correct_tag
+    # Phát hiện gạch chân (<u>), highlight / tô đỏ / tô màu nền (<MARK>), dấu tick ở BẤT KỲ ĐÂU trong phương án
+    has_mark_tag = bool(re.search(r'</?MARK>', opt_str, re.IGNORECASE))
+    has_underline_tag = bool(re.search(r'</?u>', opt_str, re.IGNORECASE))
+    has_star = '*' in opt_str[:15]
+    has_tick = any(c in opt_str for c in ['✓', '✔', '☑'])
+
+    has_correct_tag = bool(re.search(r'\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔|☑', opt_str, re.IGNORECASE))
+    is_correct = has_leading_asterisk or has_underline_marker or has_mark_prefix or has_correct_tag or has_mark_tag or has_underline_tag or has_star or has_tick
 
     is_false = bool(re.search(r'\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|✗|✘', opt_str, re.IGNORECASE))
 
     # 2. Xóa các thẻ đánh dấu explicit [ĐÚNG], [SAI], checkmarks
     cleaned = re.sub(r'\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘', '', opt_str, flags=re.IGNORECASE).strip()
 
-    # 3. Trích xuất tag ma trận Azota (ví dụ [0, NB], [1, TH], [NB]...) nếu có trước phương án
+    # 3. Trích xuất tag ma trận HocNhanhTN (ví dụ [0, NB], [1, TH], [NB]...) nếu có trước phương án
     azota_tag = ""
     m_tag = re.match(r'^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:</MARK>\s*|</u>\s*)*', cleaned, re.IGNORECASE)
     if m_tag:
@@ -243,13 +249,13 @@ def clean_option_text(opt: str) -> tuple:
 
     # 4. Trích xuất ký tự phương án (A-F hoặc a-d hoặc số)
     char_match = re.match(
-        r'^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])[\)\.\:\-\]\/](?:\s*</u>)*(?:\s*</MARK>)*(?:\s*</u>)*(?:\s*</MARK>)*\s*(.*)',
+        r'^\s*(?:<[^>]+>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])[\)\.\:\-\]\/](?:\s*</?[^>]+>\s*)*\s*(.*)',
         cleaned,
         flags=re.DOTALL | re.IGNORECASE
     )
     if not char_match:
         char_match = re.match(
-            r'^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])(?:\s*</u>)*(?:\s*</MARK>)*[\)\.\:\-\]\/]\s*(.*)',
+            r'^\s*(?:<[^>]+>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])(?:\s*</?[^>]+>\s*)*[\)\.\:\-\]\/]\s*(.*)',
             cleaned,
             flags=re.DOTALL | re.IGNORECASE
         )
@@ -261,19 +267,18 @@ def clean_option_text(opt: str) -> tuple:
         extracted_char = ""
         cleaned_content = cleaned.strip()
 
-    # 5. Nếu sau ký hiệu phương án lại có tag Azota (ví dụ a) [0, NB] Mệnh đề...)
+    # 5. Nếu sau ký hiệu phương án lại có tag HocNhanhTN (ví dụ a) [0, NB] Mệnh đề...)
     if not azota_tag:
         m_tag_post = re.match(r'^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)', cleaned_content, re.IGNORECASE | re.DOTALL)
         if m_tag_post:
             azota_tag = m_tag_post.group(1).strip()
             cleaned_content = m_tag_post.group(2).strip()
 
-    # Loại bỏ các thẻ <MARK>, </MARK> còn sót ở đầu hoặc cuối nội dung
-    cleaned_content = re.sub(r'^(?:<MARK>|<u>|\*)+\s*', '', cleaned_content, flags=re.IGNORECASE)
-    cleaned_content = re.sub(r'\s*(?:</MARK>|</u>)+$', '', cleaned_content, flags=re.IGNORECASE)
-    cleaned_content = cleaned_content.replace('<MARK>', '').replace('</MARK>', '').strip()
+    # Loại bỏ các thẻ <MARK>, </MARK>, <u>, </u> đánh dấu đáp án khỏi nội dung phương án
+    cleaned_content = re.sub(r'</?MARK>', '', cleaned_content, flags=re.IGNORECASE)
+    cleaned_content = re.sub(r'</?u>', '', cleaned_content, flags=re.IGNORECASE).strip()
 
-    # Giữ tiền tố ma trận Azota chuẩn hóa
+    # Giữ tiền tố ma trận HocNhanhTN chuẩn hóa
     if azota_tag:
         cleaned_content = f"{azota_tag} {cleaned_content}".strip()
 
@@ -334,21 +339,16 @@ def parse_tf_answer(raw_ca: Any) -> Dict[str, bool]:
     elif isinstance(raw_ca, str):
 
         found_any = False
-
         for k in ['a', 'b', 'c', 'd']:
-
-            m = re.search(rf'(?:\b|[\(\[])\s*{k}\s*[\)\:\-\.\=]?\s*([^\s,;\/]+)', raw_ca, re.IGNORECASE)
-
+            m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*(?:[\)\:\-\.\=]\s*|\s+)(?:là\s+)?(ĐÚNG|DUNG|SAI|TRUE|FALSE|Đ|S|T|F|1|0)\b', raw_ca, re.IGNORECASE)
+            if not m:
+                m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*[\)\:\-\.\=]\s*([^\s,;\/]+)', raw_ca, re.IGNORECASE)
             if m:
-
                 val_str = m.group(1).lower().strip()
-
                 tf_dict[k] = val_str in ['đ', 'đúng', 'dung', 'true', 't', '1', 'yes', 'y']
-
                 found_any = True
 
         if found_any:
-
             return tf_dict
 
         seq = re.findall(r'\b(Đ|S|ĐÚNG|SAI|TRUE|FALSE|T|F)\b', raw_ca, re.IGNORECASE)
@@ -367,22 +367,73 @@ def parse_tf_answer(raw_ca: Any) -> Dict[str, bool]:
 
 
 
+def extract_mcq_options_from_text(text: str) -> tuple:
+    """
+    Tự động phát hiện và bóc tách các phương án A, B, C, D (CHỮ IN HOA) nếu bị lẫn trong nội dung câu hỏi.
+    Trả về (question_stem, [A. ..., B. ..., C. ..., D. ...])
+    """
+    if not text or not isinstance(text, str):
+        return text, []
+
+    pattern = re.compile(
+        r'(?:^|\n|\r|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*)'
+        r'((?:(?:<MARK>\s*|<u>\s*|<b>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>\s*|</u>\s*|</b>\s*)*)?'
+        r'(?:<MARK>\s*|<u>\s*|<b>\s*)*'
+        r'(?:\(?\[?(\*?[A-F])[\.\:\)]|\b(\*?[A-F])[\.\:\)]))\s*'
+    )
+    matches = list(pattern.finditer(text))
+    if len(matches) < 2:
+        return text, []
+
+    matched_chars = []
+    valid_matches = []
+    expected_next = 'A'
+    for m in matches:
+        raw_char = (m.group(2) or m.group(3)).replace('*', '').strip()
+        if raw_char == expected_next:
+            matched_chars.append(raw_char)
+            valid_matches.append(m)
+            if raw_char == 'A': expected_next = 'B'
+            elif raw_char == 'B': expected_next = 'C'
+            elif raw_char == 'C': expected_next = 'D'
+            elif raw_char == 'D': expected_next = None
+
+    if len(matched_chars) < 2:
+        return text, []
+
+    stem = text[:valid_matches[0].start()].strip()
+    options = []
+    for idx, vm in enumerate(valid_matches):
+        char = matched_chars[idx]
+        full_block = text[vm.start(): valid_matches[idx + 1].start() if idx + 1 < len(valid_matches) else len(text)].strip()
+        if idx == len(valid_matches) - 1:
+            ans_split = re.split(
+                r'\n\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Đáp án|Đáp số)\s*[\:\-\=]',
+                full_block,
+                flags=re.IGNORECASE
+            )
+            if len(ans_split) > 1:
+                full_block = ans_split[0].strip()
+        options.append(full_block)
+
+    return stem, options
+
+
 def extract_sub_statements_from_text(text: str) -> tuple:
     """
-    Tự động phát hiện và bóc tách các ý a), b), c), d) nếu bị lẫn trong nội dung câu hỏi.
-    Hỗ trợ chuẩn Azota có tiền tố ma trận [0, NB], [1, TH], [2, VD], [3, VDC] và markup <u>, <MARK>.
+    Tự động phát hiện và bóc tách các ý a), b), c), d) (CHỮ THƯỜNG) nếu bị lẫn trong nội dung câu hỏi.
+    Hỗ trợ chuẩn HocNhanhTN có tiền tố ma trận [0, NB], [1, TH], [2, VD], [3, VDC] và markup <u>, <MARK>.
     Trả về (question_stem, [a) ..., b) ..., c) ..., d) ...])
     """
     if not text or not isinstance(text, str):
         return text, []
 
-    # Pattern bao gồm tiền tố ma trận Azota [0, NB] và markup <u>, <MARK>
+    # Pattern CHỮ THƯỜNG a-d (tuyệt đối KHÔNG có re.IGNORECASE để tránh nhận nhầm A, B, C, D của MCQ)
     pattern = re.compile(
         r'(?:^|\n|\r|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*)'
         r'((?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?'
         r'(?:<MARK>\s*|<u>\s*)*'
-        r'(?:\(?\[?(\*?[a-d])[\.\:\)\/\]\-]|\b(\*?[a-d])[\.\:\)\/]))\s*',
-        re.IGNORECASE
+        r'(?:\(?\[?(\*?[a-d])[\.\:\)\/\]\-]|\b(\*?[a-d])[\.\:\)\/]))\s*'
     )
     matches = list(pattern.finditer(text))
     if len(matches) < 2:
@@ -392,7 +443,7 @@ def extract_sub_statements_from_text(text: str) -> tuple:
     valid_matches = []
     expected_next = 'a'
     for m in matches:
-        raw_char = (m.group(2) or m.group(3)).replace('*', '').lower()
+        raw_char = (m.group(2) or m.group(3)).replace('*', '').strip()
         if raw_char == expected_next:
             matched_chars.append(raw_char)
             valid_matches.append(m)
@@ -401,7 +452,7 @@ def extract_sub_statements_from_text(text: str) -> tuple:
             elif raw_char == 'c': expected_next = 'd'
             elif raw_char == 'd': expected_next = None
 
-    if len(matched_chars) < 3:
+    if len(matched_chars) < 2:
         return text, []
 
     stem = text[:valid_matches[0].start()].strip()
@@ -434,38 +485,89 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(item, dict):
         return item
 
-    # 1. Chuẩn hóa question: xóa "Câu X:" và format chỉ số dưới / công thức
-    raw_q = str(item.get("question", "")).strip()
-    q_clean = clean_question_prefix(raw_q)
-    item["question"] = clean_subscripts_and_formulas(q_clean or raw_q)
+    # 1. Trích xuất question_number nếu AI hoặc parser trả về
+    raw_num = item.get("question_number") or item.get("question_id") or item.get("id") or item.get("stt") or item.get("number")
+    if raw_num is not None:
+        try:
+            m_num = re.search(r'\d+', str(raw_num))
+            if m_num:
+                item["question_number"] = int(m_num.group(0))
+        except Exception:
+            pass
 
-    # 2. Chuẩn hóa group_title & explain
+    # 2. Chuẩn hóa question: kiểm tra các tên trường thay thế của LLM
+    raw_q = str(
+        item.get("question") or
+        item.get("question_content") or
+        item.get("content") or
+        item.get("cau_hoi") or
+        item.get("question_text") or
+        item.get("noi_dung") or
+        ""
+    ).strip()
+
+    if "question_number" not in item:
+        m_q_prefix = re.match(r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])', raw_q, re.IGNORECASE)
+        if m_q_prefix:
+            item["question_number"] = int(m_q_prefix.group(1) or m_q_prefix.group(2))
+
+    q_clean = clean_question_prefix(raw_q)
+    # Loại bỏ thẻ MARK khỏi nội dung câu hỏi để tránh tự động highlight màu nền
+    q_cleaned = re.sub(r'</?MARK>', '', (q_clean or raw_q), flags=re.IGNORECASE)
+    item["question"] = clean_subscripts_and_formulas(q_cleaned)
+
+    # 3. Chuẩn hóa group_title & explain
     if "group_title" in item:
         gt = str(item.get("group_title", "")).strip()
         item["group_title"] = clean_subscripts_and_formulas(gt)
     item["explain"] = clean_subscripts_and_formulas(str(item.get("explain", ""))).strip()
 
     raw_type = str(item.get("type", "")).lower().strip()
-    options = item.get("options", [])
-    if not isinstance(options, list):
+
+    # Chuẩn hóa options: hỗ trợ trường hợp AI trả về dạng dict {"A": "...", "B": "..."}
+    raw_options = item.get("options")
+    if raw_options is None:
+        raw_options = item.get("choices") or item.get("phuong_an") or []
+
+    if isinstance(raw_options, dict):
+        options = [
+            f"{k}. {v}" if not re.match(rf'^\*?\s*[\(\[]?{k}[\.\:\)\-\]]', str(v).strip(), re.IGNORECASE) else str(v).strip()
+            for k, v in sorted(raw_options.items())
+        ]
+    elif isinstance(raw_options, list):
+        options = raw_options
+    else:
         options = []
 
+    # Chuẩn hóa correct_answer: hỗ trợ trường hợp AI trả về answer / dap_an
     raw_ca = item.get("correct_answer")
+    if raw_ca is None:
+        raw_ca = item.get("answer") or item.get("dap_an") or item.get("correctAnswer") or item.get("key")
+
     header_text = (str(item.get("group_title", "")) + " " + str(item.get("question", ""))).lower()
 
-    # 2.1 Tự động cứu hộ: Nếu options đang rỗng hoặc <= 1 nhưng question chứa các ý a), b), c), d)
+    # 2.1 Tự động cứu hộ: Nếu options đang rỗng hoặc <= 1
     if len(options) <= 1:
-        extracted_stem, extracted_opts = extract_sub_statements_from_text(item["question"])
-        if len(extracted_opts) >= 3:
-            item["question"] = extracted_stem
-            options = extracted_opts
+        # Ưu tiên kiểm tra phương án trắc nghiệm A, B, C, D (chữ in hoa)
+        extracted_stem_mcq, extracted_opts_mcq = extract_mcq_options_from_text(item["question"])
+        if len(extracted_opts_mcq) >= 2:
+            item["question"] = extracted_stem_mcq
+            options = extracted_opts_mcq
             item["options"] = options
+        else:
+            # Nếu không có A-D, mới kiểm tra ý con Đúng/Sai a), b), c), d) (chữ thường)
+            extracted_stem_tf, extracted_opts_tf = extract_sub_statements_from_text(item["question"])
+            if len(extracted_opts_tf) >= 2:
+                item["question"] = extracted_stem_tf
+                options = extracted_opts_tf
+                item["options"] = options
 
     # 2.2 Kiểm tra đặc trưng Đúng / Sai
     has_tf_dict = isinstance(raw_ca, dict) and any(str(k).lower() in ['a', 'b', 'c', 'd'] for k in raw_ca.keys())
     has_tf_str = False
     if isinstance(raw_ca, str):
-        tf_pat = r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai|True|False)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))'
+        # Yêu cầu ít nhất 2 ý được đánh giá (ví dụ a-Đ, b-S) hoặc 3 chữ Đ/S liên tục
+        tf_pat = r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai|True|False)[^\w\n]*[,\;\-]?\s*[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))'
         if re.search(tf_pat, raw_ca, re.IGNORECASE):
             has_tf_str = True
         elif len(re.findall(r'\b(Đ|S|ĐÚNG|SAI|TRUE|FALSE)\b', raw_ca, re.IGNORECASE)) >= 3:
@@ -474,46 +576,62 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
     has_tf_keywords = any(kw in header_text for kw in [
         "đúng sai", "đúng - sai", "đúng/sai", "dung sai", "dung-sai", "dung/sai",
         "phần ii", "phan ii", "phần 2", "phan 2", "part ii", "part 2",
-        "mỗi ý a", "đúng hoặc sai", "mệnh đề", "true/false", "true or false"
+        "mỗi ý a", "đúng hoặc sai", "true/false", "true or false"
     ])
     has_explicit_tf_marks = any(any(m in str(opt) for m in ['[ĐÚNG]', '[DUNG]', '[SAI]', '(Đúng)', '(Dung)', '(Sai)']) for opt in options)
 
-    # Kiểm tra xem đáp án có phải là đơn đáp án trắc nghiệm A-F (MCQ) hay không
-    is_single_mcq_ca = False
-    if isinstance(raw_ca, str) and not has_tf_str:
-        cleaned_ca = re.sub(r'^(?:Đáp án|Câu|Chọn|Ans|Answer)\s*[\:\-\=]?\s*', '', raw_ca.strip(), flags=re.IGNORECASE).strip()
-        m = re.match(r'^\(?\[?([A-Fa-f])[\.\:\)]?\s*$', cleaned_ca)
-        if m:
-            is_single_mcq_ca = True
-        elif any(str(opt).strip().startswith(cleaned_ca) for opt in options if cleaned_ca):
-            is_single_mcq_ca = True
+    # Đếm số lượng phương án theo quy chuẩn Bộ GD&ĐT:
+    # - MCQ: Ký hiệu CHỮ IN HOA A, B, C, D (A. hoặc A))
+    # - Đúng / Sai: Ký hiệu CHỮ THƯỜNG a, b, c, d (a) hoặc a.)
+    mcq_opt_re = re.compile(
+        r'^\s*(?:<MARK>\s*|<u>\s*|<b>\s*)*'
+        r'(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*)?'
+        r'(?:<MARK>\s*|<u>\s*|<b>\s*)*'
+        r'\(?\[?(\*?[A-F])(?:\s*</u>)*(?:\s*</b>)*(?:\s*</MARK>)*[\.\:\)]'
+    )
+    tf_opt_re = re.compile(
+        r'^\s*(?:<MARK>\s*|<u>\s*)*'
+        r'(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?'
+        r'(?:<MARK>\s*|<u>\s*)*'
+        r'\(?\[?(\*?[a-d])(?:\s*</u>)*(?:\s*</MARK>)*[\)\.\:\-\]\/]'
+    )
 
-    # Kiểm tra phương án dạng a), b), c), d) đặc trưng của Đúng / Sai GDPT 2018
-    is_tf_paren_options = False
-    if len(options) >= 3:
-        opt_matches = [re.match(r'^\s*\(?(\*?[a-d])\)', str(opt), re.IGNORECASE) for opt in options[:4]]
-        if all(m is not None for m in opt_matches):
-            is_tf_paren_options = True
+    mcq_count = sum(1 for opt in options[:4] if mcq_opt_re.match(str(opt).strip()))
+    tf_count = sum(1 for opt in options[:4] if tf_opt_re.match(str(opt).strip()))
 
-    # 3. Phân loại câu hỏi thông minh
+    is_all_uppercase_mcq = (mcq_count >= 2 and mcq_count >= tf_count)
+    is_tf_paren_options = (tf_count >= 2 and tf_count > mcq_count)
+
+    is_single_choice_ca = bool(
+        re.match(r'^\s*\(?[A-Da-d]\)?\.?\s*$', str(raw_ca).strip()) or
+        re.match(r'^\s*(?:đáp án|câu|phương án|chọn)\s*[A-Da-d]\b', str(raw_ca).strip(), re.IGNORECASE)
+    )
+
+    # 3. Phân loại câu hỏi thông minh & triệt để:
     is_true_false = False
     is_short_answer = False
 
-    if has_tf_dict or has_tf_str or has_explicit_tf_marks:
-        is_true_false = True
-    elif raw_type in ["true_false", "tf", "dung_sai", "dung-sai", "dung/sai", "dung sai"]:
-        is_true_false = True
-    elif is_tf_paren_options and not is_single_mcq_ca:
-        is_true_false = True
-    elif has_tf_keywords and len(options) >= 2 and not is_single_mcq_ca:
-        is_true_false = True
-    elif raw_type in ["short_answer", "sa", "tra_loi_ngan", "tra-loi-ngan", "short", "dien_khuyet", "tu_luan"]:
-        # TUYỆT ĐỐI không cho phép biến thành short_answer nếu câu hỏi có các ý con a, b, c, d hoặc có từ khóa Đúng/Sai
-        if not is_tf_paren_options and not has_tf_keywords and len(options) == 0:
-            is_short_answer = True
+    if is_all_uppercase_mcq:
+        # NẾU CÁC PHƯƠNG ÁN LÀ A, B, C, D (CHỮ IN HOA) -> BẮT BUỘC VÀ DUY NHẤT LÀ MCQ!
+        is_true_false = False
+        is_short_answer = False
+    elif is_tf_paren_options:
+        # Nếu đáp án là chọn 1 chữ cái đơn lẻ (MCQ) và không có dấu hiệu Đúng/Sai -> Vẫn là MCQ
+        if is_single_choice_ca and not (has_tf_dict or has_tf_str or has_explicit_tf_marks or has_tf_keywords):
+            is_true_false = False
         else:
             is_true_false = True
-    elif len(options) == 0 and not has_tf_keywords:
+        is_short_answer = False
+    elif (has_tf_dict or has_tf_str or has_explicit_tf_marks) and mcq_count == 0:
+        is_true_false = True
+    elif raw_type in ["true_false", "tf", "dung_sai", "dung-sai", "dung/sai", "dung sai"] and mcq_count == 0:
+        is_true_false = True
+    elif raw_type in ["short_answer", "sa", "tra_loi_ngan", "tra-loi-ngan", "short", "dien_khuyet", "tu_luan"]:
+        if tf_count >= 2:
+            is_true_false = True
+        else:
+            is_short_answer = True
+    elif len(options) == 0:
         is_short_answer = True
     else:
         is_true_false = False
@@ -589,7 +707,7 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
             for k, v in opt_tf_marks.items():
                 tf_dict[k] = v
         elif opt_tf_marks:
-            # Chuẩn Azota Cách 3 (Gạch chân trực tiếp đáp án đúng):
+            # Chuẩn HocNhanhTN Cách 3 (Gạch chân trực tiếp đáp án đúng):
             # Ký hiệu ĐƯỢC gạch chân / đánh dấu -> Đúng (True)
             # Ký hiệu KHÔNG ĐƯỢC gạch chân / đánh dấu -> Sai (False)
             has_any_true = any(v is True for v in opt_tf_marks.values())
@@ -662,30 +780,29 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
 
         item["options"] = normalized_options
 
-
-
-        raw_ca = str(item.get("correct_answer", "")).strip()
-
+        raw_ca_obj = item.get("correct_answer")
         final_ca = None
 
-
-
-        if raw_ca:
-
-            # 1. Tìm chữ cái A-F bằng word boundary (tránh bắt 'D' trong 'Dap an A')
-
-            m = re.search(r'\b([A-F])\b', raw_ca, re.IGNORECASE)
-
-            if m:
-
-                target_char = m.group(1).upper()
-
+        if isinstance(raw_ca_obj, dict):
+            # Cứu hộ khi AI hoặc parser vô tình gán dict {a: True, b: False} cho câu MCQ
+            true_keys = [str(k).upper().replace(')', '').replace('.', '') for k, v in raw_ca_obj.items() if v is True or str(v).lower() in ['true', '1', 'đ', 'đúng']]
+            if true_keys:
+                target_char = true_keys[0]
                 for opt in normalized_options:
-
                     if opt.startswith(f"{target_char}."):
-
                         final_ca = opt
+                        break
 
+        raw_ca = str(raw_ca_obj or "").strip()
+
+        if raw_ca and not final_ca:
+            # 1. Tìm chữ cái A-F bằng word boundary (tránh bắt 'D' trong 'Dap an A')
+            m = re.search(r'\b([A-F])\b', raw_ca, re.IGNORECASE)
+            if m:
+                target_char = m.group(1).upper()
+                for opt in normalized_options:
+                    if opt.startswith(f"{target_char}."):
+                        final_ca = opt
                         break
 
 
@@ -811,15 +928,10 @@ async def call_gemini_with_fallback(
     # Danh sách model tối ưu cho thế hệ mới nhất
 
     models_to_try = [
-
         'gemini-2.5-flash',
-
-        'gemini-flash-latest',
-
-        'gemini-3.5-flash',
-
-        'gemini-2.5-flash-lite'
-
+        'gemini-3.8-flash',
+        'gemini-2.5-flash-lite',
+        'gemini-flash-latest'
     ]
 
     last_error = None
@@ -1131,28 +1243,26 @@ async def generate_mcq_with_gemini(
     
 
     system_instruction = (
-
         "Bạn là một chuyên gia giáo dục và biên tập viên đề thi trắc nghiệm chuẩn sư phạm. "
-
         "Nhiệm vụ của bạn là bóc tách chuẩn xác toàn bộ câu hỏi và đáp án từ tài liệu được cung cấp. "
-
         "Quy tắc bất di bất dịch:\n"
-
         "1. Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) và placeholder ảnh [IMG_X]. "
-
         "2. CÔNG THỨC HÓA HỌC / CHỈ SỐ DƯỚI (SUBSCRIPT): Tuyệt đối KHÔNG viết chỉ số dưới thành dấu gạch dưới trần như CH_2, CO_2, H_2O, Fe_2O_3, C_2H_5OH, x_1. "
-
         "BẮT BUỘC giữ nguyên thẻ HTML <sub> và <sup> (ví dụ: CH<sub>2</sub>, H<sub>2</sub>O, CO<sub>2</sub>, C<sub>2</sub>H<sub>5</sub>OH, cm<sup>2</sup>) "
-
         "hoặc đặt trọn vẹn trong công thức LaTeX \\( ... \\) như \\(\\text{CH}_2\\). "
-
         "3. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \\( và \\). Nếu có chữ tiếng Việt trong công thức, phải dùng \\text{...}. "
-
-        "4. BẢO TOÀN ĐÁP ÁN: Tuyệt đối tuân thủ Bảng Đáp Án đi kèm, không tự ý sửa đáp án hay thêm bớt câu hỏi. "
-
-        "5. PHÂN BIỆT RÕ RÀNG ĐÚNG/SAI VÀ TRẢ LỜI NGẮN (CHUẨN GDPT 2018 & AZOTA):\n"
-        "   - CÂU ĐÚNG / SAI (true_false): Mọi câu hỏi có 4 ý a), b), c), d) (hoặc a., b., c., d.) hoặc có đáp án cho từng ý a, b, c, d (Đ/S) BẮT BUỘC PHẢI gán type: 'true_false', đưa đủ 4 ý vào 'options': ['a) ...', 'b) ...', 'c) ...', 'd) ...'], và 'correct_answer': {'a': bool, 'b': bool, 'c': bool, 'd': bool}. Khi phương án được gạch chân (thẻ <u> hoặc <MARK> ở chữ cái a, b, c, d) hoặc có dấu *, ý đó là Đúng (true), các ý KHÔNG gạch chân là Sai (false). Hỗ trợ đầy đủ tiền tố ma trận [0, NB], [1, TH], [2, VD], [3, VDC] trong các ý. TUYỆT ĐỐI KHÔNG GÁN type: 'short_answer' và KHÔNG ĐƯỢC để options là []!\n"
-        "   - CÂU TRẢ LỜI NGẮN (short_answer): CHỈ DÀNH RIÊNG cho câu tự luận/tính toán điền một đáp số duy nhất (số nguyên, số thập phân, phân số, tọa độ hoặc từ ngắn), options: []. TUYỆT ĐỐI KHÔNG DÙNG CHO CÂU CÓ CÁC MỆNH ĐỀ a, b, c, d.\n"
+        "4. BẢO TOÀN VÀ XÁC ĐỊNH ĐÁP ÁN ĐÚNG: Tuyệt đối tuân thủ Bảng Đáp Án đi kèm nếu có. "
+        "Nếu trong đề không có bảng đáp án tổng hợp, ĐÁP ÁN ĐÚNG được xác định dựa trên bất kỳ dấu hiệu đánh dấu nào của giáo viên: "
+        "- Thẻ <u> (chữ cái hoặc nội dung phương án được gạch chân), "
+        "- Thẻ <MARK> (chữ được tô đỏ, đổi màu nổi bật, highlight dạ quang, hoặc tô màu nền shading trong Word), "
+        "- Dấu hoa thị * (*A., A.*, *a)), "
+        "- Dấu tick (✓, ✔, ☑), "
+        "- Nhãn [ĐÚNG], (Đúng). "
+        "Tuyệt đối KHÔNG tự ý giải lại đề để thay đổi đáp án của tác giả. "
+        "5. QUY TẮC BẮT BUỘC PHÂN BIỆT 3 DẠNG CÂU HỎI (CHUẨN GDPT 2018):\n"
+        "   - CÂU TRẮC NGHIỆM NHIỀU LỰA CHỌN (type: 'mcq'): BẮT BUỘC có các lựa chọn bắt đầu bằng CHỮ IN HOA 'A.', 'B.', 'C.', 'D.' (hoặc 'A)', 'B)', 'C)', 'D)'). Thí sinh chọn 1 trong 4 lựa chọn. BẮT BUỘC gán type: 'mcq', 'options': ['A. ...', 'B. ...', 'C. ...', 'D. ...'], 'correct_answer': 'X. ...' (chuỗi, ví dụ 'A. Lựa chọn 1'). TUYỆT ĐỐI KHÔNG GÁN type: 'true_false' và KHÔNG ĐƯỢC gán correct_answer dạng object/dict!\n"
+        "   - CÂU TRẮC NGHIỆM ĐÚNG / SAI (type: 'true_false'): BẮT BUỘC có 4 ý/mệnh đề bắt đầu bằng CHỮ THƯỜNG 'a)', 'b)', 'c)', 'd)' (hoặc 'a.', 'b.', 'c.', 'd.'). Mỗi ý được đánh giá Đúng hoặc Sai độc lập. BẮT BUỘC gán type: 'true_false', 'options': ['a) ...', 'b) ...', 'c) ...', 'd) ...'], 'correct_answer': {'a': bool, 'b': bool, 'c': bool, 'd': bool}. Khi phương án hoặc nội dung được gạch chân (thẻ <u>), tô đỏ/highlight (thẻ <MARK>), hoặc có dấu *, ý đó là Đúng (true), các ý KHÔNG có dấu hiệu là Sai (false). Hỗ trợ đầy đủ tiền tố ma trận [0, NB], [1, TH], [2, VD], [3, VDC] trong các ý. TUYỆT ĐỐI KHÔNG GÁN type: 'mcq' và KHÔNG GÁN type: 'short_answer'!\n"
+        "   - CÂU TRẢ LỜI NGẮN (short_answer): CHỈ DÀNH RIÊNG cho câu tự luận/tính toán điền một đáp số duy nhất (số nguyên, số thập phân, phân số, tọa độ hoặc từ ngắn), options: []. TUYỆT ĐỐI KHÔNG DÙNG CHO CÂU CÓ CÁC PHƯƠNG ÁN A, B, C, D HOẶC CÁC Ý a, b, c, d.\n"
         f"Trả về kết quả dưới dạng JSON array duy nhất.{img_reminder}"
     )
 
@@ -1205,48 +1315,47 @@ async def generate_mcq_with_gemini(
             
 
             1. PHẦN I: TRẮC NGHIỆM NHIỀU LỰA CHỌN (type: "mcq")
-
                - 4 lựa chọn A, B, C, D (bắt buộc tiền tố 'A. ', 'B. ', 'C. ', 'D. ').
-
-               - correct_answer: Chuỗi đáp án đúng (ví dụ: 'A. Lựa chọn 1').
-
+               - NGUYÊN TẮC SỐNG CÒN: Khi các lựa chọn là CHỮ IN HOA A, B, C, D (hoặc A), B), C), D)) -> 100% BẮT BUỘC gán type: "mcq". TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC CHUYỂN SANG type: "true_false", KHÔNG ĐƯỢC BIẾN THÀNH a), b), c), d), VÀ KHÔNG ĐƯỢC GÁN correct_answer dạng dictionary!
+               - QUY TẮC XÁC ĐỊNH ĐÁP ÁN ĐÚNG CHUẨN XÁC:
+                 + Cách 1: Căn cứ Bảng đáp án chính thức / tổng hợp được cung cấp ở trên.
+                 + Cách 2: PHƯƠNG ÁN ĐƯỢC ĐÁNH DẤU TRỰC TIẾP LÀ ĐÁP ÁN ĐÚNG:
+                   * Có thẻ gạch chân <u> (ở ký hiệu A-D hoặc ở toàn bộ nội dung phương án).
+                   * Có thẻ <MARK> (tương ứng với chữ tô đỏ, đổi màu nổi bật, highlight bút dạ quang, hoặc tô màu nền shading trong Word).
+                   * Có dấu hoa thị * (*A., A.*) hoặc dấu tick (✓, ✔, ☑).
+                   * Có nhãn [ĐÚNG], (Đúng).
+                   -> BẮT BUỘC gán phương án đó vào 'correct_answer' (ví dụ: 'A. Lựa chọn 1').
+               - Trong mảng 'options' và 'correct_answer', làm sạch các thẻ <MARK>, <u> và dấu * để nội dung câu hỏi sạch đẹp chuẩn sư phạm.
                - explain: Lời giải chi tiết lý do chọn đáp án này.
-
                - Mẫu JSON:
-
                  {{
-
+                   "question_number": 1,
                    "type": "mcq",
-
                    "group_title": "",
-
                    "question": "Nội dung câu hỏi...",
-
                    "options": ["A. Lựa chọn 1", "B. Lựa chọn 2", "C. Lựa chọn 3", "D. Lựa chọn 4"],
-
                    "correct_answer": "A. Lựa chọn 1",
-
                    "explain": "Lời giải chi tiết..."
-
                  }}
 
-
-
             2. PHẦN II: TRẮC NGHIỆM ĐÚNG / SAI (type: "true_false")
-               - Mỗi câu gồm 4 ý/mệnh đề độc lập: a), b), c), d) (tiền tố 'a) ', 'b) ', 'c) ', 'd) ').
-               - HỖ TRỢ MA TRẬN MỨC ĐỘ NHẬN THỨC THEO CHUẨN AZOTA:
+               - Mỗi câu gồm 4 ý/mệnh đề độc lập: a), b), c), d) (tiền tố 'a) ', 'b) ', 'c) ', 'd) ' - BẮT BUỘC LÀ CHỮ THƯỜNG).
+               - ĐẶC TRƯNG BẮT BUỘC: CHỈ GÁN type: "true_false" cho câu hỏi có các ý/mệnh đề là CHỮ THƯỜNG a), b), c), d). TUYỆT ĐỐI KHÔNG GÁN type: "true_false" cho câu có phương án chữ in hoa A, B, C, D!
+               - HỖ TRỢ MA TRẬN MỨC ĐỘ NHẬN THỨC THEO CHUẨN HocNhanhTN:
                  Nếu có tiền tố ma trận như [0, NB], [1, TH], [2, VD], [3, VDC] (hoặc [NB], [TH], [VD], [VDC]) đặt trước hoặc sau ký hiệu a), b), c), d), HÃY BẢO TOÀN NGUYÊN VẸN tiền tố đó trong nội dung mệnh đề (ví dụ: 'a) [0, NB] Mệnh đề a' hoặc 'a) Mệnh đề a'), KHÔNG LÀM MẤT tiền tố và KHÔNG LẶP ký hiệu 'a) a)'.
-               - QUY TẮC XÁC ĐỊNH ĐÁP ÁN ĐÚNG/SAI CHUẨN AZOTA:
+               - QUY TẮC XÁC ĐỊNH ĐÁP ÁN ĐÚNG/SAI CHUẨN HocNhanhTN:
                  + Cách 1: Căn cứ Bảng đáp án tổng hợp (sau chữ HẾT) hoặc Bảng đáp án chính thức được cung cấp ở trên.
                  + Cách 2: Bảng đáp án riêng đặt ngay dưới từng câu hỏi (cột Đúng / Sai có dấu x, v, 1, ✓; hoặc hàng a, b, c, d với Đ, S).
-                 + Cách 3: Gạch chân (thẻ <u>) hoặc <MARK> hoặc dấu * trực tiếp ở ký hiệu phương án:
-                   * Ký hiệu ĐƯỢC gạch chân / đánh dấu -> ĐÚNG (true)
-                   * Ký hiệu KHÔNG ĐƯỢC gạch chân / đánh dấu -> SAI (false)
+                 + Cách 3: Gạch chân (thẻ <u>) hoặc highlight/tô màu đỏ/nền (thẻ <MARK>) hoặc dấu * hoặc dấu tick (✓, ✔, ☑) trực tiếp ở ký hiệu HOẶC ở nội dung mệnh đề:
+                   * Mệnh đề CÓ bất kỳ dấu hiệu đánh dấu nào trên -> ĐÚNG (true)
+                   * Mệnh đề KHÔNG CÓ dấu hiệu đánh dấu -> SAI (false)
+               - Trong 'options', làm sạch các thẻ <MARK>, <u> và dấu * để hiển thị chuẩn đẹp.
                - correct_answer: Đối tượng quy định Đúng (true) hoặc Sai (false) cho từng ý:
                  {{"a": true, "b": false, "c": true, "d": false}}
                - explain: Lời giải chi tiết giải thích rõ lý do vì sao từng ý a, b, c, d là Đúng hoặc Sai.
                - Mẫu JSON:
                  {{
+                   "question_number": 1,
                    "type": "true_false",
                    "group_title": "PHẦN II. Câu trắc nghiệm đúng sai...",
                    "question": "Nội dung câu hỏi hoặc thông tin dữ liệu...",
@@ -1260,8 +1369,6 @@ async def generate_mcq_with_gemini(
                    "explain": "Giải thích vì sao a đúng, b sai, c đúng, d sai..."
                  }}
 
-
-
             3. PHẦN III: TRẮC NGHIỆM TRẢ LỜI NGẮN (type: "short_answer")
                - Câu hỏi tự luận điền kết quả / đáp số ngắn (số nguyên, số thập phân, phân số, tọa độ hoặc từ ngắn).
                - options: BẮT BUỘC là mảng rỗng [].
@@ -1270,6 +1377,7 @@ async def generate_mcq_with_gemini(
                - LƯU Ý ĐẶC BIỆT: TUYỆT ĐỐI KHÔNG GÁN type: "short_answer" cho các câu có các ý a), b), c), d). Mọi câu có ý a, b, c, d PHẢI LÀ type: "true_false"!
                - Mẫu JSON:
                  {{
+                   "question_number": 1,
                    "type": "short_answer",
                    "group_title": "PHẦN III. Câu trắc nghiệm trả lời ngắn...",
                    "question": "Nội dung câu hỏi tính toán...",
@@ -1279,6 +1387,9 @@ async def generate_mcq_with_gemini(
                  }}
 
             QUY TẮC BẮT BUỘC VỀ ĐỊNH DẠNG:
+            0. NGUYÊN TẮC CỐT LÕI ĐỂ PHÂN BIỆT TRẮC NGHIỆM (mcq) VÀ ĐÚNG SAI (true_false):
+               - Lựa chọn là CHỮ IN HOA A, B, C, D -> 100% BẮT BUỘC type: "mcq", options: ["A. ...", "B. ...", "C. ...", "D. ..."], correct_answer: "X. ...". TUYỆT ĐỐI KHÔNG chuyển thành true_false, KHÔNG đổi sang a, b, c, d!
+               - Ý/mệnh đề là CHỮ THƯỜNG a), b), c), d) -> 100% BẮT BUỘC type: "true_false", options: ["a) ...", "b) ...", "c) ...", "d) ..."], correct_answer: {{"a": bool, "b": bool, "c": bool, "d": bool}}.
             1. TUYỆT ĐỐI KHÔNG ĐỂ TIỀN TỐ "Câu 1:", "Câu 2:", "1." vào trường "question". Chỉ lấy nội dung câu hỏi thuần túy (ví dụ: "Cho hàm số y = f(x)..." thay vì "Câu 1: Cho hàm số y = f(x)...").
             2. group_title: Chỉ điền khi là tiêu đề mở đầu cho một phần/bài đọc (ví dụ: "PHẦN II. Trắc nghiệm Đúng/Sai"). TUYỆT ĐỐI KHÔNG sao chép lặp lại group_title ở từng câu hỏi đơn lẻ.
             3. DẠNG TRẮC NGHIỆM (mcq): Các phương án trong "options" PHẢI có dạng 'A. [Nội dung]', 'B. [Nội dung]', 'C. [Nội dung]', 'D. [Nội dung]'. "correct_answer" BẮT BUỘC PHẢI KHỚP NGUYÊN VĂN với một trong 4 phương án đó (ví dụ: "A. [Nội dung]"). TUYỆT ĐỐI KHÔNG thêm dấu hoa thị '*' hay thẻ [ĐÚNG] vào options.

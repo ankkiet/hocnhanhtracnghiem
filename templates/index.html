@@ -27,7 +27,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261007_hntn_loader">
+    <link rel="stylesheet" href="style.css?v=20261008_mobile_fix">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <style id="styled-wrapper-css">
       #authContainer {
@@ -957,6 +957,11 @@
                 <button class="btn-primary" style="width: 100%; border-radius: 8px; font-weight: 700; padding: 12px; background: #1976d2;" onclick="uploadFile()">
                     <i class="ri-cpu-line"></i> Bóc tách tài liệu
                 </button>
+                <div style="margin-top: 10px; text-align: center;">
+                    <a href="/api/download-sample-docx" download="DE_THI_MAU_CHUAN_HocNhanhTN.docx" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; color: #0369a1; text-decoration: none; font-weight: 600; padding: 7px 12px; border-radius: 6px; background: #f0f9ff; border: 1px dashed #38bdf8; width: 100%; box-sizing: border-box; transition: all 0.2s ease;">
+                        <i class="ri-file-word-line" style="font-size: 1.1rem; color: #0284c7;"></i> Tải file Word mẫu chuẩn (Tránh lỗi nhận diện)
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -1394,6 +1399,11 @@
 <!-- Khi cần tiếp tục phát triển WebLLM, kích hoạt lại module dưới:
 <script type="module" src="webllm_service.js"></script>
 -->
-<script src="script.js?v=20261007_api_fix"></script>
+<!-- NÚT NỔI CHUYỂN ĐỔI NHANH SOẠN THẢO / XEM TRƯỚC TRÊN ĐIỆN THOẠI (INDEX) -->
+<button id="indexMobileFloatToggle" class="index-mobile-float-toggle" onclick="toggleIndexMobileEditorTab()" style="display:none;" title="Chuyển đổi Soạn thảo / Xem trước">
+    <i class="ri-eye-line"></i> <span>Xem trước</span>
+</button>
+
+<script src="script.js?v=20261008_mobile_fix"></script>
 </body>
 </html>

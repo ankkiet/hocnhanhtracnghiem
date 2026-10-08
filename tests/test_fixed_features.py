@@ -384,8 +384,8 @@ BẢNG ĐÁP ÁN:
         self.assertEqual(reconciled[0]["correct_answer"], {"a": True, "b": True, "c": False, "d": True})
 
 
-    def test_azota_cach_3_underline_marking(self):
-        """Kiểm tra chuẩn Azota Cách 3: Gạch chân trực tiếp đáp án đúng (<u>a)</u>, <u>a</u>), <u>a.</u>). Ký hiệu được gạch chân -> True, không gạch chân -> False."""
+    def test_hocnhanhtn_cach_3_underline_marking(self):
+        """Kiểm tra chuẩn HocNhanhTN Cách 3: Gạch chân trực tiếp đáp án đúng (<u>a)</u>, <u>a</u>), <u>a.</u>). Ký hiệu được gạch chân -> True, không gạch chân -> False."""
         from services.ai_service import clean_option_text, normalize_question_data
 
         # 1. Kiểm tra clean_option_text nhận diện chính xác gạch chân
@@ -424,8 +424,8 @@ BẢNG ĐÁP ÁN:
         self.assertEqual(norm["options"][0], "a) Hàm số đồng biến trên R")
         self.assertEqual(norm["options"][1], "b) Đồ thị có 2 điểm cực trị")
 
-    def test_azota_matrix_tags_preservation(self):
-        """Kiểm tra tiền tố ma trận mức độ nhận thức Azota ([0, NB], [1, TH], [2, VD], [3, VDC]) không bị mất hay lặp."""
+    def test_hocnhanhtn_matrix_tags_preservation(self):
+        """Kiểm tra tiền tố ma trận mức độ nhận thức HocNhanhTN ([0, NB], [1, TH], [2, VD], [3, VDC]) không bị mất hay lặp."""
         from services.ai_service import clean_option_text, extract_sub_statements_from_text, normalize_question_data
 
         raw_text = """Cho hình chóp S.ABCD.
@@ -451,10 +451,10 @@ BẢNG ĐÁP ÁN:
         self.assertEqual(norm["options"][1], "b) [1, TH] SA vuông góc với đáy.")
         self.assertEqual(norm["correct_answer"], {"a": False, "b": True, "c": False, "d": True})
 
-    def test_azota_cach_2_per_question_tables(self):
-        """Kiểm tra bóc tách bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn Azota Cách 2."""
+    def test_hocnhanhtn_cach_2_per_question_tables(self):
+        """Kiểm tra bóc tách bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn HocNhanhTN Cách 2."""
         from docx import Document
-        from core.docx_parser import parse_azota_tf_table
+        from core.docx_parser import parse_hocnhanhtn_tf_table
 
         doc = Document()
         # Bảng đứng: Lệnh hỏi, Đúng, Sai
@@ -479,7 +479,7 @@ BẢNG ĐÁP ÁN:
         t_vert.rows[4].cells[1].text = ""
         t_vert.rows[4].cells[2].text = "1"
 
-        res_vert = parse_azota_tf_table(t_vert)
+        res_vert = parse_hocnhanhtn_tf_table(t_vert)
         self.assertEqual(res_vert, {"a": True, "b": False, "c": True, "d": False})
 
         # Bảng ngang: Hàng 1: a | b | c | d, Hàng 2: Đ | S | Đ | S
@@ -494,7 +494,7 @@ BẢNG ĐÁP ÁN:
         t_horiz.rows[1].cells[2].text = "S"
         t_horiz.rows[1].cells[3].text = "Đ"
 
-        res_horiz = parse_azota_tf_table(t_horiz)
+        res_horiz = parse_hocnhanhtn_tf_table(t_horiz)
         self.assertEqual(res_horiz, {"a": True, "b": False, "c": False, "d": True})
 
 

@@ -496,6 +496,130 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(len(res_opts), 4)
         self.assertEqual(res_opts[0], opts[0])
 
+    def test_sample_template_docx_extraction(self):
+        """Kiểm tra bóc tách file Word mẫu chuẩn HocNhanhTN đạt độ chính xác 100%."""
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates", "DE_THI_MAU_CHUAN_HocNhanhTN.docx")
+        if not os.path.exists(template_path):
+            self.skipTest("Template docx not found")
+
+        import docx
+        from core.docx_parser import parse_docx_to_marked_text
+        from core.text_parser import extract_questions_from_text_bulletproof
+        from core.answer_key_extractor import extract_answer_key_from_doc, reconcile_quiz_with_answer_key
+        from services.ai_service import normalize_question_data
+
+        doc = docx.Document(template_path)
+        marked_text, image_mapping = parse_docx_to_marked_text(template_path)
+        ak = extract_answer_key_from_doc(doc, marked_text)
+
+        self.assertIsNotNone(ak)
+        self.assertEqual(ak.part1.get(1), "C")
+        self.assertEqual(ak.part1.get(2), "A")
+        self.assertEqual(ak.part1.get(3), "A")
+        self.assertEqual(ak.part1.get(4), "D")
+        self.assertEqual(ak.part2.get(1), {'a': True, 'b': False, 'c': True, 'd': False})
+        self.assertEqual(ak.part3.get(1), "12")
+        self.assertEqual(ak.part3.get(2), "8")
+
+        extracted = extract_questions_from_text_bulletproof(marked_text, image_mapping)
+        self.assertEqual(len(extracted), 8)
+
+        reconciled = reconcile_quiz_with_answer_key(extracted, ak)
+        normalized = [normalize_question_data(q) for q in reconciled]
+
+        self.assertEqual(normalized[0]["type"], "mcq")
+        self.assertEqual(normalized[0]["question_number"], 1)
+        self.assertEqual(normalized[0]["correct_answer"], "C. (2; +∞)")
+
+        self.assertEqual(normalized[3]["type"], "mcq")
+        self.assertEqual(normalized[3]["question_number"], 4)
+        self.assertEqual(normalized[3]["correct_answer"], "D. S = {9}")
+
+        self.assertEqual(normalized[4]["type"], "true_false")
+        self.assertEqual(normalized[4]["question_number"], 1)
+        self.assertEqual(normalized[4]["correct_answer"], {'a': True, 'b': False, 'c': True, 'd': False})
+
+        self.assertEqual(normalized[6]["type"], "short_answer")
+        self.assertEqual(normalized[6]["question_number"], 1)
+        self.assertEqual(normalized[6]["correct_answer"], "12")
+
+        self.assertEqual(normalized[7]["type"], "short_answer")
+        self.assertEqual(normalized[7]["question_number"], 2)
+        self.assertEqual(normalized[7]["correct_answer"], "8")
+
+    def test_mcq_answer_marking_underline_highlight_red_asterisk(self):
+        """Kiểm tra nhận diện đáp án đúng MCQ qua gạch chân (u), highlight/đỏ (MARK), hoa thị (*), tick (✓)."""
+        from core.text_parser import extract_questions_from_text_bulletproof
+
+        # Case 1: Gạch chân nội dung
+        text1 = (
+            "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn\n"
+            "Câu 1: Thủ đô nước ta là gì?\n"
+            "A. Đà Nẵng\n"
+            "B. <u>Hà Nội</u>\n"
+            "C. TP.HCM\n"
+            "D. Cần Thơ\n"
+        )
+        res1 = extract_questions_from_text_bulletproof(text1)
+        self.assertEqual(len(res1), 1)
+        self.assertEqual(res1[0]["correct_answer"], "B. Hà Nội")
+
+        # Case 2: Highlight/Tô đỏ bằng thẻ <MARK>
+        text2 = (
+            "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn\n"
+            "Câu 1: Khí nào nhẹ nhất?\n"
+            "A. Oxi\n"
+            "B. Nitơ\n"
+            "C. <MARK>Hiđro</MARK>\n"
+            "D. Cacbonic\n"
+        )
+        res2 = extract_questions_from_text_bulletproof(text2)
+        self.assertEqual(len(res2), 1)
+        self.assertEqual(res2[0]["correct_answer"], "C. Hiđro")
+
+        # Case 3: Dấu hoa thị ở chữ cái
+        text3 = (
+            "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn\n"
+            "Câu 1: Số nào là số nguyên tố chẵn?\n"
+            "A. 0\n"
+            "*B. 2\n"
+            "C. 4\n"
+            "D. 6\n"
+        )
+        res3 = extract_questions_from_text_bulletproof(text3)
+        self.assertEqual(len(res3), 1)
+        self.assertEqual(res3[0]["correct_answer"], "B. 2")
+
+        # Case 4: Dấu tick ở cuối phương án
+        text4 = (
+            "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn\n"
+            "Câu 1: Mặt trời mọc ở hướng nào?\n"
+            "A. Đông ✓\n"
+            "B. Tây\n"
+            "C. Nam\n"
+            "D. Bắc\n"
+        )
+        res4 = extract_questions_from_text_bulletproof(text4)
+        self.assertEqual(len(res4), 1)
+        self.assertEqual(res4[0]["correct_answer"], "A. Đông")
+
+    def test_tf_answer_marking_underline_highlight_red_asterisk(self):
+        """Kiểm tra nhận diện Đúng/Sai qua gạch chân (u), highlight/đỏ (MARK), hoa thị (*)."""
+        from core.text_parser import extract_questions_from_text_bulletproof
+
+        text = (
+            "PHẦN II. Câu trắc nghiệm đúng sai\n"
+            "Câu 1: Cho hàm số y = f(x).\n"
+            "a) <u>Hàm số đồng biến trên R</u>\n"
+            "b) Hàm số nghịch biến trên R\n"
+            "c) <MARK>Hàm số có cực trị</MARK>\n"
+            "d) Hàm số không có đạo hàm\n"
+        )
+        res = extract_questions_from_text_bulletproof(text)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0]["type"], "true_false")
+        self.assertEqual(res[0]["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
+
 
 if __name__ == "__main__":
     unittest.main()
