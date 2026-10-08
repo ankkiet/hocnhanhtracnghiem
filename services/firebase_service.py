@@ -106,7 +106,6 @@ def init_firebase():
         return db
         
     except Exception as e:
-        global firebase_init_error
         firebase_init_error = f"Lỗi khởi tạo DB: {str(e)}"
         print(f"CẢNH BÁO: Không thể khởi tạo Firebase. Chi tiết: {e}")
         db = None
