@@ -16,8 +16,11 @@ WORKDIR /app
 # Cài đặt các gói hệ thống cần thiết (cho lxml, xử lý ảnh và healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
+    build-essential \
     libxml2-dev \
     libxslt-dev \
+    libffi-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +29,8 @@ RUN useradd -m -u 1000 appuser
 
 # Cài đặt Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Sao chép toàn bộ mã nguồn ứng dụng
 COPY . .
