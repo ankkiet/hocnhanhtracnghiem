@@ -49,4 +49,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
 
 # Khởi chạy ứng dụng với Gunicorn (Production-grade ASGI server)
-CMD gunicorn main:app --workers=4 --worker-class=uvicorn.workers.UvicornWorker --bind=0.0.0.0:${PORT:-8000} --timeout=120 --access-logfile=- --error-logfile=- --log-level=info
+CMD gunicorn main:app --workers=1 --worker-class=uvicorn.workers.UvicornWorker --bind=0.0.0.0:${PORT:-8000} --timeout=120 --access-logfile=- --error-logfile=- --log-level=info
