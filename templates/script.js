@@ -974,8 +974,26 @@ async function initApp() {
 };
 
 function sendPing() {
-    // Đã tắt tính năng giám sát live để tránh quá tải quota Firebase
-    return;
+    if (!quizProgress || quizProgress.completed || !studentName) return;
+    
+    const quizId = getCurrentQuizId();
+    if (!quizId) return;
+
+    // Tính toán số câu đã làm (Answers count)
+    const answersCount = Object.keys(quizProgress.answers || {}).length;
+
+    fetch(`${API_BASE_URL}/api/monitor/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            quiz_id: quizId,
+            session_id: clientSessionId,
+            student_name: studentName,
+            answers_count: answersCount,
+            time_remaining: quizProgress.timeRemaining || 0,
+            completed: false
+        })
+    }).catch(e => console.error("Ping error:", e));
 }
 
 async function startStudentQuiz() {
@@ -1555,81 +1573,30 @@ function startMonitoring(quizId, title) {
     document.getElementById('monitorQuizTitle').innerText = "Đang giám sát: " + title;
     
     if (typeof monitorInterval !== 'undefined') clearInterval(monitorInterval);
-    if (monitorEventSource) monitorEventSource.close();
     
-    // Firebase Firestore Realtime (onSnapshot)
-    if (window.firebaseDb && window.firebaseOnSnapshot && window.firebaseCollection) {
-        const activeSessionsRef = window.firebaseCollection(window.firebaseDb, 'quizzes', monitoringQuizId, 'active_sessions');
-        const submissionsRef = window.firebaseCollection(window.firebaseDb, 'quizzes', monitoringQuizId, 'submissions');
-        
-        let monitorDataMap = {};
-        
-        // Lắng nghe học sinh đang làm bài
-        monitorEventSource = window.firebaseOnSnapshot(activeSessionsRef, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                const s = change.doc.data();
-                const now = Date.now() / 1000;
-                let isOnline = false;
-                if (s.updated_at && s.updated_at.seconds) {
-                    isOnline = (now - s.updated_at.seconds) < 40;
-                }
-                
-                monitorDataMap[change.doc.id] = {
-                    session_id: change.doc.id,
-                    student_name: s.student_name || 'Ẩn danh',
-                    answers_count: s.answers_count || 0,
-                    time_remaining: s.time_remaining || 0,
-                    completed: s.completed || false,
-                    is_online: isOnline,
-                    score: null,
-                    total_questions: null
-                };
-            });
-            renderMonitorData(Object.values(monitorDataMap));
-        }, (error) => {
-            console.error("Lỗi onSnapshot (active_sessions):", error);
-            if (error.code === 'permission-denied') {
-                alert("Bạn chưa cấp quyền Read trong Firebase Security Rules. Vui lòng xem hướng dẫn của trợ lý.");
+    // Gọi API lấy dữ liệu giám sát
+    async function fetchMonitorData() {
+        if (!monitoringQuizId) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teacher/monitor/${monitoringQuizId}?teacher_token=${authToken}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status === 'success') {
+                const dataList = Object.values(data.data || {});
+                renderMonitorData(dataList);
             }
-        });
-
-        // Lắng nghe học sinh đã nộp bài
-        window.firebaseSubmissionsUnsub = window.firebaseOnSnapshot(submissionsRef, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
-                const s = change.doc.data();
-                const studentName = s.student_name || 'Ẩn danh';
-                // Tìm session cũ (nếu có) để đè lên, hoặc tạo mới nếu học sinh nộp bài quá nhanh
-                const existingKey = Object.keys(monitorDataMap).find(k => monitorDataMap[k].student_name === studentName) || change.doc.id;
-                
-                monitorDataMap[existingKey] = {
-                    session_id: existingKey,
-                    student_name: studentName,
-                    answers_count: s.total_questions || 0,
-                    time_remaining: 0,
-                    completed: true,
-                    is_online: false,
-                    score: s.score || 0,
-                    total_questions: s.total_questions || 0
-                };
-            });
-            renderMonitorData(Object.values(monitorDataMap));
-        });
-        
-    } else {
-        alert("Firebase SDK chưa được tải. Vui lòng tải lại trang.");
+        } catch(e) {
+            console.error("Monitor fetch error:", e);
+        }
     }
+    
+    // Polling mỗi 3 giây
+    fetchMonitorData();
+    monitorInterval = setInterval(fetchMonitorData, 3000);
 }
 
 function stopMonitoring() {
     if (typeof monitorInterval !== 'undefined') clearInterval(monitorInterval);
-    if (monitorEventSource && typeof monitorEventSource === 'function') {
-        monitorEventSource(); // Unsubscribe active_sessions
-        monitorEventSource = null;
-    }
-    if (window.firebaseSubmissionsUnsub && typeof window.firebaseSubmissionsUnsub === 'function') {
-        window.firebaseSubmissionsUnsub(); // Unsubscribe submissions
-        window.firebaseSubmissionsUnsub = null;
-    }
     monitoringQuizId = null;
     document.getElementById('monitorDashboard').style.display = 'none';
     document.getElementById('teacherDashboard').style.display = 'block';
@@ -1650,18 +1617,66 @@ function renderMonitorData(dataList) {
     });
     
     tbody.innerHTML = dataList.map(s => {
-        let status = s.completed ? '<span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">✅ Đã nộp bài</span>' : 
-                     (s.is_online ? '<span style="background:#dbeafe; color:#1e40af; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🟢 Đang làm</span>' : 
-                     '<span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:12px; font-size:0.85rem; font-weight:bold;">🔴 Mất kết nối</span>');
-        let timeStr = s.time_remaining > 0 ? formatTime(s.time_remaining) : '--';
+        let timeStr = (s.time_elapsed && s.time_elapsed > 0) ? formatTime(s.time_elapsed) : '--';
         let scoreStr = '--';
-        if (s.completed && s.score !== null) {
+        let correctStr = '--';
+        if (s.score !== null) {
             let scaledScore = (s.total_questions > 0) ? ((s.score / s.total_questions) * 10).toFixed(1) : s.score;
-            scoreStr = `<span style="font-weight: 800; color: #16a34a;">${scaledScore}đ</span>`;
+            scoreStr = `<span style="font-weight: 800; color: #16a34a; font-size: 1.1rem;">${scaledScore}đ</span>`;
+            correctStr = `<span style="font-weight:bold; color:var(--primary);">${s.score} / ${s.total_questions}</span>`;
         }
-        return `<tr style="border-bottom: 1px solid var(--border);"><td style="padding: 12px 10px; font-weight: 600;">${escapeHtml(s.student_name)}</td><td style="padding: 12px 10px;">${status}</td><td style="padding: 12px 10px; font-weight:bold; color:var(--primary);">${s.answers_count} câu</td><td style="padding: 12px 10px;">${timeStr}</td><td style="padding: 12px 10px; text-align: center;">${scoreStr}</td></tr>`;
+        
+        const detailsObj = btoa(unescape(encodeURIComponent(JSON.stringify(s))));
+        
+        return `<tr style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'" onclick="showStudentDetails('${detailsObj}')">
+            <td style="padding: 12px 10px; font-weight: 600;">
+                ${escapeHtml(s.student_name)}
+                <div style="font-size: 0.8rem; color: #065f46; margin-top: 4px;">✅ Đã nộp bài</div>
+            </td>
+            <td style="padding: 12px 10px;">${correctStr}</td>
+            <td style="padding: 12px 10px;">${timeStr}</td>
+            <td style="padding: 12px 10px; text-align: center;">${scoreStr}</td>
+        </tr>`;
     }).join('');
     document.getElementById('monitorCount').innerText = `Tổng số: ${dataList.length} học sinh`;
+}
+
+window.showStudentDetails = function(b64data) {
+    try {
+        const s = JSON.parse(decodeURIComponent(escape(atob(b64data))));
+        const modal = document.getElementById('studentDetailsModal');
+        const body = document.getElementById('studentDetailsBody');
+        
+        let status = s.completed ? '<span style="color:#065f46; font-weight:bold;">✅ Đã nộp bài</span>' : 
+                     (s.is_online ? '<span style="color:#1e40af; font-weight:bold;">🟢 Đang làm bài (Online)</span>' : 
+                     '<span style="color:#991b1b; font-weight:bold;">🔴 Mất kết nối (Offline)</span>');
+                     
+        let scoreStr = (s.completed && s.score !== null) ? `<strong style="color: #16a34a; font-size: 1.2rem;">${((s.score / s.total_questions) * 10).toFixed(1)} điểm</strong> (Đúng ${s.score}/${s.total_questions} câu)` : '<em>Chưa có điểm</em>';
+        
+        body.innerHTML = `
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border);">
+                <span style="color: var(--text-muted);">Tên học sinh:</span>
+                <strong style="font-size: 1.1rem;">${escapeHtml(s.student_name)}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border);">
+                <span style="color: var(--text-muted);">Trạng thái:</span>
+                ${status}
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--border);">
+                <span style="color: var(--text-muted);">Thời gian làm bài:</span>
+                <strong>${s.time_elapsed > 0 ? formatTime(s.time_elapsed) : '--'}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; background: #f8fafc; border-radius: 8px; margin-top: 8px; padding: 12px;">
+                <span style="color: var(--text-muted);">Kết quả:</span>
+                ${scoreStr}
+            </div>
+        `;
+        
+        modal.style.display = 'flex';
+    } catch(e) {
+        console.error(e);
+        alert("Lỗi khi mở chi tiết học sinh.");
+    }
 }
 
 async function loadAdminSettings() {

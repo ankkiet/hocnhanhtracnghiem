@@ -3,7 +3,7 @@ import random
 import string
 from typing import Optional, List, Dict, Any
 
-QUIZ_CACHE = {} # Cache in-memory để chống cháy quota Firebase
+from core.state import QUIZ_CACHE
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from firebase_admin import firestore

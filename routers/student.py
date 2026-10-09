@@ -2,9 +2,11 @@ from typing import Optional, Dict, Any
 import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from firebase_admin import firestore
+from firebase_admin import firestore, db as realtime_db
 from services.firebase_service import get_db
 from core.security import get_user_from_token
+from core.state import QUIZ_CACHE, LEADERBOARD_CACHE, SUBMISSIONS_CACHE
+import time
 
 router = APIRouter(prefix="/api", tags=["Student Exam & Progress"])
 
@@ -46,11 +48,17 @@ async def submit_exam(req: SubmitExamRequest):
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
-    quiz_doc = db.collection('quizzes').document(req.quiz_id).get()
-    if not quiz_doc.exists:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+    # SỬ DỤNG CACHE ĐỂ CHẤM ĐIỂM -> TIẾT KIỆM QUOTA
+    now = time.time()
+    if req.quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[req.quiz_id]['time'] < 60:
+        quiz_data = QUIZ_CACHE[req.quiz_id]['data']
+    else:
+        quiz_doc = db.collection('quizzes').document(req.quiz_id).get()
+        if not quiz_doc.exists:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        quiz_data = quiz_doc.to_dict()
+        QUIZ_CACHE[req.quiz_id] = {'time': now, 'data': quiz_data}
         
-    quiz_data = quiz_doc.to_dict()
     questions = quiz_data.get('data', [])
     
     score = 0
@@ -181,6 +189,10 @@ async def submit_exam(req: SubmitExamRequest):
             
     submission_ref.set(submission_data)
     
+    # XÓA CACHE ĐỂ CẬP NHẬT ĐIỂM MỚI NGAY LẬP TỨC
+    LEADERBOARD_CACHE.pop(req.quiz_id, None)
+    SUBMISSIONS_CACHE.pop(req.quiz_id, None)
+    
     return {
         "status": "success",
         "score": round(score, 2),
@@ -203,6 +215,10 @@ async def submit_score_legacy(request: SubmitScoreRequest):
         'time_elapsed': request.time_elapsed,
         'timestamp': firestore.SERVER_TIMESTAMP
     })
+    
+    LEADERBOARD_CACHE.pop(request.quiz_id, None)
+    SUBMISSIONS_CACHE.pop(request.quiz_id, None)
+    
     return {"status": "success"}
 
 @router.post("/student/save_progress", summary="Lưu tiến trình làm bài của học sinh lên Cloud")
@@ -243,7 +259,7 @@ async def get_student_progress(quiz_id: str, student_token: str):
 
 @router.post("/monitor/ping", summary="Nhận tín hiệu Ping từ thiết bị học sinh")
 async def ping_session(req: PingSessionRequest):
-    # Đã tắt tính năng Giám sát Live để tiết kiệm Quota Firebase
+    # Đã tắt tính năng Giám sát Live để tiết kiệm Quota/Tài nguyên. Chỉ lấy lúc nộp bài.
     return {"status": "success"}
 
 @router.get("/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top thành tích")
@@ -251,6 +267,11 @@ async def get_leaderboard(quiz_id: str):
     db = get_db()
     if db is None:
         return {"status": "error"}
+        
+    # SỬ DỤNG CACHE CHO BẢNG XẾP HẠNG (60 giây) -> TIẾT KIỆM QUOTA HÀNG LOẠT
+    now = time.time()
+    if quiz_id in LEADERBOARD_CACHE and now - LEADERBOARD_CACHE[quiz_id]['time'] < 60:
+        return {"status": "success", "data": LEADERBOARD_CACHE[quiz_id]['data']}
         
     subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
     docs = subs_ref.get()
@@ -279,4 +300,8 @@ async def get_leaderboard(quiz_id: str):
             'time_elapsed': time_elapsed
         })
     results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-    return {"status": "success", "data": results[:50]}
+    
+    final_results = results[:50]
+    LEADERBOARD_CACHE[quiz_id] = {'time': now, 'data': final_results}
+    
+    return {"status": "success", "data": final_results}

@@ -57,7 +57,9 @@ def init_firebase():
             print("Đang kết nối Firebase bằng tệp vật lý (Local)...")
             
         if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://hocnhanhtracnghiem-default-rtdb.asia-southeast1.firebasedatabase.app/'
+            })
         db = firestore.client()
         
         try:

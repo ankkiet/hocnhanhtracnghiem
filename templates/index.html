@@ -1136,10 +1136,9 @@
             <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 650px;">
                 <thead>
                     <tr style="border-bottom: 2px solid var(--border); color: #475569; background: #f1f5f9; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <th style="padding: 16px; font-weight: 700; width: 30%;">Họ tên Học sinh</th>
-                        <th style="padding: 16px; font-weight: 700; width: 20%;">Trạng thái</th>
-                        <th style="padding: 16px; font-weight: 700; width: 20%;">Đã chọn</th>
-                        <th style="padding: 16px; font-weight: 700; width: 15%;">Còn lại</th>
+                        <th style="padding: 16px; font-weight: 700; width: 35%;">Họ tên Học sinh</th>
+                        <th style="padding: 16px; font-weight: 700; width: 25%;">Số câu đúng</th>
+                        <th style="padding: 16px; font-weight: 700; width: 25%;">Thời gian làm</th>
                         <th style="padding: 16px; font-weight: 700; width: 15%; text-align: center;">Điểm số</th>
                     </tr>
                 </thead>
@@ -1147,7 +1146,26 @@
             </table>
         </div>
     </div>
-
+    
+    <!-- Modal Chi Tiết Học Sinh -->
+    <div id="studentDetailsModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: #fff; width: 90%; max-width: 500px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
+                    <i class="ri-user-smile-line" style="color: var(--primary);"></i> Chi tiết Học sinh
+                </h3>
+                <button onclick="document.getElementById('studentDetailsModal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+            </div>
+            
+            <div id="studentDetailsBody" style="font-size: 1rem; color: var(--text-dark); display: flex; flex-direction: column; gap: 12px;">
+                <!-- Data will be injected here -->
+            </div>
+            
+            <div style="margin-top: 24px; text-align: right;">
+                <button onclick="document.getElementById('studentDetailsModal').style.display='none'" class="btn-primary" style="padding: 8px 24px; border-radius: 8px;">Đóng</button>
+            </div>
+        </div>
+    </div>
     <div id="timerDisplay" style="display:none; position: fixed; top: 20px; right: 20px; background: var(--danger); color: white; padding: 10px 20px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; box-shadow: var(--shadow); z-index: 1000; transition: all 0.3s;">⏳ 00:00</div>
     
     <!-- BẢNG ĐIỀU KHIỂN AI RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI -->
@@ -1449,6 +1467,6 @@
     <i class="ri-eye-line"></i> <span>Xem trước</span>
 </button>
 
-<script src="script.js?v=20261008_mobile_fix"></script>
+<script src="script.js?v=20261009_final_fix"></script>
 </body>
 </html>
