@@ -202,6 +202,77 @@ function escapeHtml(str) {
               .replace(/'/g, '&#039;');
 }
 
+// Cập nhật tên học sinh lên thanh tiêu đề bài thi (tự động chạy chữ nếu tên quá dài)
+function updateStudentNameDisplay(name) {
+    const el = document.getElementById('studentNameDisplay');
+    if (!el) return;
+    const finalName = (name && typeof name === 'string' && name.trim()) ? name.trim() : (quizProgress.studentName || 'Thí sinh');
+    
+    // Nếu tên dài hơn 12 ký tự -> Chạy chữ mượt mà liên tục (Seamless Loop Ticker)
+    if (finalName.length > 12) {
+        el.innerHTML = `
+            <span class="meta-item-inner" style="display:inline-flex; align-items:center; gap:4px; min-width:0;">
+                <i class="ri-user-line" style="flex-shrink:0;"></i>
+                <span class="student-name-marquee-box" title="${escapeHtml(finalName)}">
+                    <span class="student-name-marquee-track">
+                        ${escapeHtml(finalName)} &nbsp;&nbsp;✦&nbsp;&nbsp; ${escapeHtml(finalName)} &nbsp;&nbsp;✦&nbsp;&nbsp;
+                    </span>
+                </span>
+            </span>
+        `;
+    } else {
+        el.innerHTML = `<i class="ri-user-line"></i> <span>${escapeHtml(finalName)}</span>`;
+    }
+}
+
+// Xóa và ẩn toàn bộ các thành phần hiển thị kết quả / review sau khi nộp bài
+function resetSubmissionReviewUI() {
+    // 1. Ẩn và làm trống bộ lọc câu hỏi sau nộp bài
+    const filterContainer = document.getElementById('reviewFilterBarContainer');
+    if (filterContainer) {
+        filterContainer.style.display = 'none';
+        filterContainer.innerHTML = '';
+    }
+    // 2. Ẩn tabs chuyển đổi kết quả sau nộp bài
+    const tabNav = document.getElementById('resultNavTabs');
+    if (tabNav) {
+        tabNav.style.display = 'none';
+    }
+    // 3. Ẩn và làm trống bảng điểm kết quả
+    const scoreBoard = document.getElementById('score-board');
+    if (scoreBoard) {
+        scoreBoard.style.display = 'none';
+        scoreBoard.innerHTML = '';
+    }
+    // 4. Ẩn bảng xếp hạng
+    const lb = document.getElementById('leaderboard');
+    if (lb) {
+        lb.style.display = 'none';
+    }
+    // 5. Gỡ bỏ trạng thái quiz-completed trên body
+    document.body.classList.remove('quiz-completed');
+    
+    // 6. Đảm bảo layout bài thi hiển thị bình thường
+    const examLayout = document.getElementById('azotaExamLayout');
+    if (examLayout) {
+        examLayout.style.display = '';
+    }
+    const quizContainer = document.getElementById('quiz-container');
+    if (quizContainer) {
+        quizContainer.style.display = '';
+    }
+
+    // 7. Hiển thị lại nút nộp bài nếu đang ở chế độ exam
+    const stickySubmit = document.getElementById('stickySubmitBtn');
+    if (stickySubmit) {
+        stickySubmit.style.display = (currentMode === 'exam') ? 'inline-flex' : 'none';
+    }
+    const mainSubmit = document.getElementById('submitBtn');
+    if (mainSubmit) {
+        mainSubmit.style.display = (currentMode === 'exam') ? 'block' : 'none';
+    }
+}
+
 function initGoogleAuth() {
     console.log("Firebase Authentication initialized.");
 }
@@ -858,9 +929,15 @@ async function initApp() {
                 document.getElementById('studentQCount').innerHTML = `🏷 Số câu: ${currentData.length}` + (result.is_shuffle ? ` <span style="color: var(--success); font-size: 0.85rem; background: #d1fae5; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">🔀 Đã trộn ngẫu nhiên</span>` : '');
                 
                 currentTimeLimit = result.time_limit || 0;
+                const examTimerVal = document.getElementById('examTimerVal');
                 if (currentTimeLimit > 0) {
                     document.getElementById('studentTime').innerText = `⏳ Thời gian: ${currentTimeLimit} phút`;
+                    if (examTimerVal) examTimerVal.innerText = `${currentTimeLimit}:00`;
+                } else {
+                    document.getElementById('studentTime').innerText = `⏳ Thời gian: Tự do`;
+                    if (examTimerVal) examTimerVal.innerText = `Tự do`;
                 }
+                updateStudentNameDisplay('Thí sinh');
                 
                 // Cập nhật thông tin đề thi lên thẻ Chào mừng
                 const welcomeMsg = document.getElementById('welcomeMsgText');
@@ -1040,10 +1117,10 @@ async function startStudentQuiz() {
     saveProgressToLocal();
     
     document.getElementById('welcomeScreen').style.display = 'none';
+    resetSubmissionReviewUI();
     document.getElementById('studentHeader').style.display = 'block';
-    document.getElementById('studentNameDisplay').innerHTML = studentName.length > 16 ? `<marquee scrollamount="3" style="max-width: 120px; vertical-align: bottom; margin-bottom: -3px;">👤 Thí sinh: ${escapeHtml(studentName)}</marquee>` : `👤 Thí sinh: ${escapeHtml(studentName)}`;
+    updateStudentNameDisplay(studentName);
     document.body.classList.add('minimal-mode');
-    document.body.classList.remove('quiz-completed');
     const mobileBar = document.getElementById('azotaMobileExamBar');
     if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) mobileBar.style.setProperty('display', 'flex', 'important');
     if (document.documentElement.requestFullscreen) {
@@ -1076,6 +1153,7 @@ function restartExam() {
 }
 
 async function fetchLatestDataAndRestart(mode) {
+    resetSubmissionReviewUI();
     const urlParams = new URLSearchParams(window.location.search);
     const quizId = urlParams.get('quiz_id') || urlParams.get('id');
     
@@ -1110,8 +1188,16 @@ async function fetchLatestDataAndRestart(mode) {
     quizProgress.completed = false;
     saveProgressToLocal();
     
+    updateStudentNameDisplay(studentName);
+    
     switchMode(mode);
-    if (mode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    if (mode === 'exam' && currentTimeLimit > 0) { 
+        startTimer(currentTimeLimit); 
+    } else {
+        clearInterval(timerInterval);
+        const timerVal = document.getElementById('examTimerVal');
+        if (timerVal) timerVal.innerText = currentTimeLimit > 0 ? `${currentTimeLimit}:00` : 'Tự do';
+    }
     
     if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1125,7 +1211,7 @@ function reviewHistory() {
     currentMode = 'exam'; 
     document.getElementById('modeSwitch').style.display = 'none';
     document.getElementById('studentHeader').style.display = 'block';
-    document.getElementById('studentNameDisplay').innerHTML = studentName.length > 16 ? `<marquee scrollamount="3" style="max-width: 120px; vertical-align: bottom; margin-bottom: -3px;">👤 Thí sinh: ${escapeHtml(studentName)}</marquee>` : `👤 Thí sinh: ${escapeHtml(studentName)}`;
+    updateStudentNameDisplay(studentName);
     document.body.classList.add('minimal-mode');
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
@@ -2502,7 +2588,7 @@ function renderData() {
     container.innerHTML = '';
     if (currentData.length === 0) { container.innerHTML = "<div class='card'>Không tìm thấy câu hỏi nào. Vui lòng kiểm tra lại định dạng file Word.</div>"; return; }
     
-    document.getElementById('score-board').style.display = 'none';
+    resetSubmissionReviewUI();
     
     // Mở rộng Container khi ở chế độ chỉnh sửa
     const mainAppContainer = document.getElementById('mainAppContainer');
@@ -3207,14 +3293,11 @@ function switchMode(mode) {
     document.getElementById('btnExam').className = mode === 'exam' ? 'btn-outline active' : 'btn-outline';
     document.getElementById('btnShuffle').style.display = mode === 'edit' ? 'none' : 'inline-block';
     
-    // Ẩn bảng xếp hạng và Timer dọn dẹp khi chuyển chế độ hoặc làm lại bài
-    const lb = document.getElementById('leaderboard');
-    if (lb) lb.style.display = 'none';
+    // Dọn dẹp các thành phần sau nộp bài và timer khi chuyển chế độ hoặc làm lại bài
+    resetSubmissionReviewUI();
     clearInterval(timerInterval);
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.style.display = 'none';
-
-    document.body.classList.remove('quiz-completed');
     if (isStudentMode) {
         startTime = Date.now(); // Bắt đầu bấm giờ
         quizProgress.completed = false; // Sẵn sàng ghi nhận cho vòng mới
