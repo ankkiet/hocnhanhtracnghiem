@@ -926,7 +926,8 @@ async function initApp() {
                 if (oldHeader) oldHeader.style.display = 'none';
                 document.getElementById('studentHeader').style.display = 'none'; // Chỉ hiển thị sau khi bấm Bắt đầu
                 document.getElementById('studentQuizTitle').innerText = result.title;
-                document.getElementById('studentQCount').innerHTML = `🏷 Số câu: ${currentData.length}`;
+                const sQCount = document.getElementById('studentQCount');
+                if (sQCount) sQCount.style.display = 'none';
                 
                 currentTimeLimit = result.time_limit || 0;
                 const examTimerVal = document.getElementById('examTimerVal');

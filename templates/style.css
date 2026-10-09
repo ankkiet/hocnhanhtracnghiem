@@ -472,7 +472,7 @@ body.minimal-mode #mainAppContainer {
 .student-name-marquee-box {
     display: inline-flex;
     align-items: center;
-    max-width: 140px;
+    max-width: 260px;
     overflow: hidden;
     white-space: nowrap;
     position: relative;
@@ -571,7 +571,7 @@ body.minimal-mode #mainAppContainer {
     }
     
     .student-name-marquee-box {
-        max-width: 105px;
+        max-width: 170px;
     }
     
     .btn-exit-minimal {
