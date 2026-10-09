@@ -602,7 +602,6 @@ function checkAuthState() {
                 userBadge.innerHTML = `
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span style="font-size: 0.9rem; color: #64748b; font-weight: 600;"><i class="ri-user-smile-line"></i> Thí sinh tự do</span>
-                    <button onclick="window.forceShowLogin()" style="background:var(--primary-color); color:white; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.1);"><i class="ri-login-box-line"></i> Đăng nhập</button>
                 </div>`;
             }
         }
@@ -1042,11 +1041,11 @@ async function startStudentQuiz() {
     
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('studentHeader').style.display = 'block';
-    document.getElementById('studentNameDisplay').innerText = `👤 Thí sinh: ${studentName}`;
+    document.getElementById('studentNameDisplay').innerHTML = studentName.length > 16 ? `<marquee scrollamount="3" style="max-width: 120px; vertical-align: bottom; margin-bottom: -3px;">👤 Thí sinh: ${escapeHtml(studentName)}</marquee>` : `👤 Thí sinh: ${escapeHtml(studentName)}`;
     document.body.classList.add('minimal-mode');
     document.body.classList.remove('quiz-completed');
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) mobileBar.style.display = 'flex';
+    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) mobileBar.style.setProperty('display', 'flex', 'important');
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
     }
@@ -1126,7 +1125,7 @@ function reviewHistory() {
     currentMode = 'exam'; 
     document.getElementById('modeSwitch').style.display = 'none';
     document.getElementById('studentHeader').style.display = 'block';
-    document.getElementById('studentNameDisplay').innerText = `👤 Thí sinh: ${studentName}`;
+    document.getElementById('studentNameDisplay').innerHTML = studentName.length > 16 ? `<marquee scrollamount="3" style="max-width: 120px; vertical-align: bottom; margin-bottom: -3px;">👤 Thí sinh: ${escapeHtml(studentName)}</marquee>` : `👤 Thí sinh: ${escapeHtml(studentName)}`;
     document.body.classList.add('minimal-mode');
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
@@ -2770,14 +2769,19 @@ function renderData() {
     const mobileBar = document.getElementById('azotaMobileExamBar');
     if (currentMode === 'edit') {
         const sideCol = document.getElementById('azotaSideExamCol');
-        if (sideCol) sideCol.style.display = 'none';
+        if (sideCol) sideCol.style.setProperty('display', 'none', 'important');
         if (mobileBar) mobileBar.style.display = 'none';
     } else {
         if (currentMode !== 'exam') {
             const sideCol = document.getElementById('azotaSideExamCol');
-            if (sideCol) sideCol.style.display = 'none';
+            if (sideCol) sideCol.style.setProperty('display', 'none', 'important');
+        } else {
+            const sideCol = document.getElementById('azotaSideExamCol');
+            if (sideCol) sideCol.style.setProperty('display', 'block', 'important');
         }
-        if (mobileBar && isStudentMode) mobileBar.style.display = 'flex';
+        if (mobileBar && isStudentMode) {
+            mobileBar.style.setProperty('display', 'flex', 'important');
+        }
     }
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
     renderMath(container);
@@ -4747,9 +4751,9 @@ async function submitExam(isReview = false) {
     const stickySubmit = document.getElementById('stickySubmitBtn');
     if (stickySubmit) stickySubmit.style.display = 'none';
     const sideCol = document.getElementById('azotaSideExamCol');
-    if (sideCol) sideCol.style.display = 'none';
+    if (sideCol) sideCol.style.setProperty('display', 'none', 'important');
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar) mobileBar.style.display = 'none';
+    if (mobileBar) mobileBar.style.setProperty('display', 'none', 'important');
     toggleMobileNavSheet(false);
     document.body.classList.add('quiz-completed');
 

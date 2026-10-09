@@ -151,7 +151,7 @@ input[type="text"]:not(.input):focus, textarea:focus, .editable-box:focus {
 }
 
 .question-title {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 600;
     margin-bottom: 15px;
     word-break: break-word; /* Ngăn text hoặc link quá dài làm vỡ layout */
@@ -439,7 +439,7 @@ body.minimal-mode #mainAppContainer {
 }
 
 .azota-student-title-wrap .quiz-title-text {
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 800;
     color: #0f172a;
     margin: 0;
@@ -567,7 +567,7 @@ body.minimal-mode #mainAppContainer {
         padding: 8px 14px;
         cursor: pointer;
         color: #1e293b;
-        font-size: 1.15rem;
+        font-size: 0.95rem;
         transition: all 0.15s ease;
         touch-action: manipulation;
     }
@@ -912,7 +912,7 @@ body.minimal-mode.quiz-completed #quiz-container {
 .hntn-loading-title {
     margin: 0 0 6px 0;
     color: #0f172a;
-    font-size: 1.15rem;
+    font-size: 0.95rem;
     font-weight: 700;
 }
 
@@ -2131,7 +2131,7 @@ body.minimal-mode.quiz-completed #quiz-container {
   top: 50%;
   transform: translateY(-50%);
   color: #94a3b8;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   pointer-events: none;
 }
 
@@ -2243,7 +2243,7 @@ body.minimal-mode.quiz-completed #quiz-container {
 }
 
 .quiz-card-title, .azota-card-title {
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #0f172a;
   margin: 0;
@@ -2386,10 +2386,10 @@ body.minimal-mode.quiz-completed #quiz-container {
   background: #fff1f2;
   border: 1.5px solid #fecdd3;
   color: #e11d48;
-  padding: 8px 18px;
+  padding: 6px 14px;
   border-radius: 30px;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -4133,7 +4133,6 @@ body.minimal-mode.quiz-completed #quiz-container {
   }
 
   .mode-switch {
-    display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
     margin-bottom: 16px !important;
