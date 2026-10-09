@@ -1,6 +1,9 @@
+import time
 import random
 import string
 from typing import Optional, List, Dict, Any
+
+QUIZ_CACHE = {} # Cache in-memory để chống cháy quota Firebase
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from firebase_admin import firestore
@@ -105,6 +108,7 @@ async def save_quiz(request: SaveQuizRequest):
             raise HTTPException(status_code=413, detail="Dung lượng đề thi quá lớn (vượt quá 1MB). Hệ thống không thể lưu. Vui lòng giảm bớt kích thước ảnh.")
         raise HTTPException(status_code=500, detail=f"Lỗi khi lưu vào cơ sở dữ liệu: {str(e)}")
 
+    QUIZ_CACHE.pop(quiz_id, None) # Xóa cache khi giáo viên cập nhật đề
     return {"status": "success", "quiz_id": quiz_id, "link": f"/?id={quiz_id}"}
 
 @router.get("/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID (Bảo mật chống F12)")
@@ -113,12 +117,18 @@ async def get_quiz(quiz_id: str, teacher_token: Optional[str] = None):
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
-    doc_ref = db.collection('quizzes').document(quiz_id)
-    doc = doc_ref.get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+    now = time.time()
+    if quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[quiz_id]['time'] < 60:
+        quiz_data = QUIZ_CACHE[quiz_id]['data']
+    else:
+        doc_ref = db.collection('quizzes').document(quiz_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+            
+        quiz_data = doc.to_dict()
+        QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
         
-    quiz_data = doc.to_dict()
     stored_creator = quiz_data.get('creator_id')
     
     is_creator = False
