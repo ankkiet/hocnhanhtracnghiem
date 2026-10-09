@@ -926,17 +926,17 @@ async function initApp() {
                 if (oldHeader) oldHeader.style.display = 'none';
                 document.getElementById('studentHeader').style.display = 'none'; // Chỉ hiển thị sau khi bấm Bắt đầu
                 document.getElementById('studentQuizTitle').innerText = result.title;
-                document.getElementById('studentQCount').innerHTML = `🏷 Số câu: ${currentData.length}` + (result.is_shuffle ? ` <span style="color: var(--success); font-size: 0.85rem; background: #d1fae5; padding: 2px 6px; border-radius: 4px; margin-left: 5px;">🔀 Đã trộn ngẫu nhiên</span>` : '');
+                document.getElementById('studentQCount').innerHTML = `🏷 Số câu: ${currentData.length}`;
                 
                 currentTimeLimit = result.time_limit || 0;
                 const examTimerVal = document.getElementById('examTimerVal');
                 if (currentTimeLimit > 0) {
-                    document.getElementById('studentTime').innerText = `⏳ Thời gian: ${currentTimeLimit} phút`;
                     if (examTimerVal) examTimerVal.innerText = `${currentTimeLimit}:00`;
                 } else {
-                    document.getElementById('studentTime').innerText = `⏳ Thời gian: Tự do`;
                     if (examTimerVal) examTimerVal.innerText = `Tự do`;
                 }
+                const sTime = document.getElementById('studentTime');
+                if (sTime) sTime.style.display = 'none';
                 updateStudentNameDisplay('Thí sinh');
                 
                 // Cập nhật thông tin đề thi lên thẻ Chào mừng
