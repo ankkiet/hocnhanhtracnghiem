@@ -243,17 +243,7 @@ async def get_student_progress(quiz_id: str, student_token: str):
 
 @router.post("/monitor/ping", summary="Nhận tín hiệu Ping từ thiết bị học sinh")
 async def ping_session(req: PingSessionRequest):
-    db = get_db()
-    if db is None:
-        return {"status": "error"}
-        
-    db.collection('quizzes').document(req.quiz_id).collection('active_sessions').document(req.session_id).set({
-        'student_name': req.student_name,
-        'answers_count': req.answers_count,
-        'time_remaining': req.time_remaining,
-        'completed': req.completed,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    })
+    # Đã tắt tính năng Giám sát Live để tiết kiệm Quota Firebase
     return {"status": "success"}
 
 @router.get("/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top thành tích")

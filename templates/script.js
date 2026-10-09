@@ -970,22 +970,8 @@ async function initApp() {
 };
 
 function sendPing() {
-    if (!isStudentMode) return;
-    const quizId = getCurrentQuizId();
-    if (!quizId) return;
-    
-    fetch(`${API_BASE_URL}/api/monitor/ping`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            quiz_id: quizId, 
-            session_id: clientSessionId, 
-            student_name: studentName || 'Đang ẩn danh',
-            answers_count: Object.keys(quizProgress.answers || {}).length,
-            time_remaining: quizProgress.timeRemaining || 0,
-            completed: quizProgress.completed || false
-        })
-    }).catch(e => {}); // Lỗi mạng (âm thầm bỏ qua không báo popup)
+    // Đã tắt tính năng giám sát live để tránh quá tải quota Firebase
+    return;
 }
 
 async function startStudentQuiz() {
