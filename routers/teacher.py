@@ -13,7 +13,7 @@ from firebase_admin import firestore, db as realtime_db
 import time
 from services.firebase_service import get_db
 from core.security import get_user_from_token
-from core.state import SUBMISSIONS_CACHE, QUIZ_CACHE
+from core.state import SUBMISSIONS_CACHE, QUIZ_CACHE, SETTINGS_CACHE
 from core.docx_exporter import export_quiz_to_docx
 from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
 from services.r2_service import extract_image_keys_from_data, delete_images_from_r2, list_r2_objects
@@ -241,10 +241,15 @@ async def check_quiz_ai(req: CheckQuizRequest):
         
     verify_teacher_access(req.teacher_token, db)
         
-    settings_doc = db.collection('settings').document('gemini').get()
-    if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
-        raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
-    api_keys = settings_doc.to_dict().get('api_keys')
+    now = time.time()
+    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
+        api_keys = SETTINGS_CACHE['gemini']['data']
+    else:
+        settings_doc = db.collection('settings').document('gemini').get()
+        if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
+            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
+        api_keys = settings_doc.to_dict().get('api_keys')
+        SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
     
     try:
         custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
@@ -492,16 +497,27 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
         
     verify_teacher_access(teacher_token, db)
     
-    quiz_doc = db.collection('quizzes').document(quiz_id).get()
-    if not quiz_doc.exists:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+    now = time.time()
+    if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 300):
+        quiz_data = QUIZ_CACHE[quiz_id]['data']
+    else:
+        quiz_doc = db.collection('quizzes').document(quiz_id).get()
+        if not quiz_doc.exists:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        quiz_data = quiz_doc.to_dict()
+        QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
         
-    quiz_data = quiz_doc.to_dict()
     questions = quiz_data.get('data', [])
     total_q = len(questions)
     
-    # Lấy toàn bộ danh sách bài nộp của học sinh
-    submissions = db.collection('quizzes').document(quiz_id).collection('submissions').get()
+    # Lấy danh sách bài nộp của học sinh (sử dụng cache 60s)
+    if quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 60):
+        submissions = SUBMISSIONS_CACHE[quiz_id]['data']
+    else:
+        subs_docs = db.collection('quizzes').document(quiz_id).collection('submissions').get()
+        submissions = [s.to_dict() for s in subs_docs]
+        SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': submissions}
+        
     sub_count = len(submissions)
     
     if sub_count == 0:
@@ -520,8 +536,7 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
     # Thống kê câu hỏi: {q_idx: {"correct_count": X, "picks": {"A": 0, ...}}}
     q_stats = {i: {"correct": 0, "picks": {}} for i in range(total_q)}
     
-    for s in submissions:
-        data = s.to_dict()
+    for data in submissions:
         raw_score = data.get('score', 0)
         tot = data.get('total_questions', total_q) or total_q
         # Quy đổi điểm về hệ 10

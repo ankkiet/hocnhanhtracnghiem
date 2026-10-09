@@ -25,6 +25,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import time
+from core.state import QUIZ_CACHE
+
 # Khởi tạo Firebase Firestore an toàn
 from services.firebase_service import init_firebase, get_db
 db = init_firebase()
@@ -159,22 +162,33 @@ async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Op
     quiz_desc = None
     if target_quiz_id:
         try:
-            database = get_db()
-            if database is not None:
-                doc = database.collection('quizzes').document(target_quiz_id).get()
-                if doc.exists:
-                    q_data = doc.to_dict()
-                    raw_title = q_data.get('title')
-                    if raw_title:
-                        quiz_title = raw_title.strip()
-                        q_count = len(q_data.get('data', []))
-                        time_limit = q_data.get('time_limit', 0)
-                        desc_parts = [f"Đề thi: {quiz_title}"]
-                        if q_count > 0:
-                            desc_parts.append(f"{q_count} câu hỏi")
-                        if time_limit > 0:
-                            desc_parts.append(f"{time_limit} phút làm bài")
-                        quiz_desc = " • ".join(desc_parts) + ". Hệ thống học nhanh trắc nghiệm HocNhanhTN chuẩn GDPT 2018."
+            now = time.time()
+            if target_quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[target_quiz_id]['time'] < 300):
+                q_data = QUIZ_CACHE[target_quiz_id]['data']
+            else:
+                database = get_db()
+                if database is not None:
+                    doc = database.collection('quizzes').document(target_quiz_id).get()
+                    if doc.exists:
+                        q_data = doc.to_dict()
+                        QUIZ_CACHE[target_quiz_id] = {'time': now, 'data': q_data}
+                    else:
+                        q_data = None
+                else:
+                    q_data = None
+                    
+            if q_data:
+                raw_title = q_data.get('title')
+                if raw_title:
+                    quiz_title = raw_title.strip()
+                    q_count = len(q_data.get('data', []))
+                    time_limit = q_data.get('time_limit', 0)
+                    desc_parts = [f"Đề thi: {quiz_title}"]
+                    if q_count > 0:
+                        desc_parts.append(f"{q_count} câu hỏi")
+                    if time_limit > 0:
+                        desc_parts.append(f"{time_limit} phút làm bài")
+                    quiz_desc = " • ".join(desc_parts) + ". Hệ thống học nhanh trắc nghiệm HocNhanhTN chuẩn GDPT 2018."
         except Exception as e:
             logger.error(f"Lỗi truy vấn metadata đề thi {target_quiz_id}: {e}")
             

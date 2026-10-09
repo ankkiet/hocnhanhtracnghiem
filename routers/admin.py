@@ -1,9 +1,10 @@
-import os
+import time
 from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from services.firebase_service import get_db
-from core.security import get_user_from_token, hash_password, verify_password
+from core.security import get_user_from_token, hash_password, verify_password, invalidate_user_cache
+from core.state import SETTINGS_CACHE
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
 
@@ -71,6 +72,7 @@ async def approve_user(req: ApproveUserRequest):
         
     verify_admin_access(req.admin_token, db)
     db.collection('users').document(req.user_id).update({'status': 'approved'})
+    invalidate_user_cache(req.user_id)
     return {"status": "success"}
 
 @router.post("/delete", summary="Xóa user (Admin)")
@@ -81,6 +83,7 @@ async def delete_user(req: ApproveUserRequest):
         
     verify_admin_access(req.admin_token, db)
     db.collection('users').document(req.user_id).delete()
+    invalidate_user_cache(req.user_id)
     return {"status": "success"}
 
 @router.post("/change_password", summary="Đổi mật khẩu (Admin)")
@@ -97,6 +100,7 @@ async def change_admin_password(req: ChangePasswordRequest):
         
     new_salted = hash_password(req.new_password)
     db.collection('users').document(admin_uid).update({'password': new_salted})
+    invalidate_user_cache(admin_uid)
     return {"status": "success"}
 
 @router.post("/reset_password", summary="Khôi phục mật khẩu user (Admin)")
@@ -109,6 +113,7 @@ async def reset_user_password(req: ResetPasswordRequest):
     
     new_salted = hash_password(req.new_password)
     db.collection('users').document(req.user_id).update({'password': new_salted})
+    invalidate_user_cache(req.user_id)
     return {"status": "success"}
 
 @router.post("/set_api_key", summary="Cài đặt API Key chung (Admin)")
@@ -119,6 +124,7 @@ async def set_api_key(req: SetApiKeyRequest):
         
     verify_admin_access(req.admin_token, db)
     db.collection('settings').document('gemini').set({'api_keys': req.api_keys})
+    SETTINGS_CACHE['gemini'] = {'time': time.time(), 'data': req.api_keys}
     return {"status": "success"}
 
 @router.get("/get_api_key", summary="Lấy API Key chung (Admin)")
@@ -128,8 +134,13 @@ async def get_api_key(admin_token: str):
         raise HTTPException(status_code=500, detail="Lỗi DB")
         
     verify_admin_access(admin_token, db)
+    now = time.time()
+    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
+        return {"status": "success", "api_keys": SETTINGS_CACHE['gemini']['data']}
+        
     settings_doc = db.collection('settings').document('gemini').get()
     api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
+    SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
     return {"status": "success", "api_keys": api_keys}
 
 @router.post("/set_google_client_id", summary="Cài đặt Google Client ID (Admin)")
@@ -139,7 +150,9 @@ async def set_google_client_id(req: SetGoogleClientIdRequest):
         raise HTTPException(status_code=500, detail="Lỗi DB")
         
     verify_admin_access(req.admin_token, db)
-    db.collection('settings').document('google_auth').set({'client_id': req.client_id.strip()}, merge=True)
+    client_id_val = req.client_id.strip()
+    db.collection('settings').document('google_auth').set({'client_id': client_id_val}, merge=True)
+    SETTINGS_CACHE['google_auth'] = {'time': time.time(), 'data': client_id_val}
     return {"status": "success", "message": "Đã lưu Google Client ID thành công"}
 
 @router.get("/get_google_client_id", summary="Lấy Google Client ID (Admin)")
@@ -149,9 +162,15 @@ async def get_google_client_id(admin_token: str):
         raise HTTPException(status_code=500, detail="Lỗi DB")
         
     verify_admin_access(admin_token, db)
+    now = time.time()
+    if 'google_auth' in SETTINGS_CACHE and (now - SETTINGS_CACHE['google_auth']['time'] < 600):
+        return {"status": "success", "client_id": SETTINGS_CACHE['google_auth']['data']}
+        
     doc = db.collection('settings').document('google_auth').get()
     client_id = doc.to_dict().get('client_id', '') if doc.exists else ''
     if not client_id:
+        import os
         client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    SETTINGS_CACHE['google_auth'] = {'time': now, 'data': client_id}
     return {"status": "success", "client_id": client_id}
 

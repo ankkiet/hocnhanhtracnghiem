@@ -5,3 +5,5 @@ active_tasks = {}
 QUIZ_CACHE = {}
 LEADERBOARD_CACHE = {}
 SUBMISSIONS_CACHE = {}
+USER_CACHE = {}
+SETTINGS_CACHE = {}

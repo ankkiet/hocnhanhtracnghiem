@@ -118,7 +118,7 @@ async def get_quiz(quiz_id: str, teacher_token: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
     now = time.time()
-    if quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[quiz_id]['time'] < 60:
+    if quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[quiz_id]['time'] < 300:
         quiz_data = QUIZ_CACHE[quiz_id]['data']
     else:
         doc_ref = db.collection('quizzes').document(quiz_id)

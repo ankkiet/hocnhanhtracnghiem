@@ -189,9 +189,25 @@ async def submit_exam(req: SubmitExamRequest):
             
     submission_ref.set(submission_data)
     
-    # XÓA CACHE ĐỂ CẬP NHẬT ĐIỂM MỚI NGAY LẬP TỨC
-    LEADERBOARD_CACHE.pop(req.quiz_id, None)
-    SUBMISSIONS_CACHE.pop(req.quiz_id, None)
+    # CẬP NHẬT CACHE TRỰC TIẾP TRONG BỘ NHỚ RAM ĐỂ TRÁNH QUOTA READ BỊ DỒN DẬP (THUNDERING HERD)
+    now_ts = time.time()
+    if req.quiz_id in SUBMISSIONS_CACHE:
+        SUBMISSIONS_CACHE[req.quiz_id]['data'].append(submission_data)
+        SUBMISSIONS_CACHE[req.quiz_id]['time'] = now_ts
+        
+    lb_entry = {
+        'student_name': submission_data['student_name'],
+        'score': submission_data['score'],
+        'total_questions': total_questions,
+        'time_elapsed': req.time_elapsed
+    }
+    if req.quiz_id in LEADERBOARD_CACHE:
+        curr_lb = LEADERBOARD_CACHE[req.quiz_id]['data']
+        curr_lb.append(lb_entry)
+        curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
+        LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': curr_lb[:50]}
+    else:
+        LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': [lb_entry]}
     
     return {
         "status": "success",
@@ -208,16 +224,30 @@ async def submit_score_legacy(request: SubmitScoreRequest):
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
     
     doc_ref = db.collection('quizzes').document(request.quiz_id).collection('submissions').document()
-    doc_ref.set({
+    sub_data = {
         'student_name': request.student_name,
         'score': request.score,
         'total_questions': request.total_questions,
         'time_elapsed': request.time_elapsed,
         'timestamp': firestore.SERVER_TIMESTAMP
-    })
+    }
+    doc_ref.set(sub_data)
     
-    LEADERBOARD_CACHE.pop(request.quiz_id, None)
-    SUBMISSIONS_CACHE.pop(request.quiz_id, None)
+    now_ts = time.time()
+    if request.quiz_id in SUBMISSIONS_CACHE:
+        SUBMISSIONS_CACHE[request.quiz_id]['data'].append(sub_data)
+        SUBMISSIONS_CACHE[request.quiz_id]['time'] = now_ts
+        
+    if request.quiz_id in LEADERBOARD_CACHE:
+        curr_lb = LEADERBOARD_CACHE[request.quiz_id]['data']
+        curr_lb.append({
+            'student_name': request.student_name,
+            'score': float(request.score),
+            'total_questions': request.total_questions,
+            'time_elapsed': request.time_elapsed
+        })
+        curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
+        LEADERBOARD_CACHE[request.quiz_id] = {'time': now_ts, 'data': curr_lb[:50]}
     
     return {"status": "success"}
 
@@ -273,11 +303,16 @@ async def get_leaderboard(quiz_id: str):
     if quiz_id in LEADERBOARD_CACHE and now - LEADERBOARD_CACHE[quiz_id]['time'] < 60:
         return {"status": "success", "data": LEADERBOARD_CACHE[quiz_id]['data']}
         
-    subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
-    docs = subs_ref.get()
+    if quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 60):
+        raw_submissions = SUBMISSIONS_CACHE[quiz_id]['data']
+    else:
+        subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
+        docs = subs_ref.get()
+        raw_submissions = [doc.to_dict() for doc in docs]
+        SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': raw_submissions}
+
     results = []
-    for doc in docs:
-        data = doc.to_dict()
+    for data in raw_submissions:
         try:
             score = float(data.get('score', 0))
         except (ValueError, TypeError):

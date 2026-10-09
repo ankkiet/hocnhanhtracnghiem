@@ -29,7 +29,22 @@ from services.ai_service import (
     normalize_question_data
 )
 from services.r2_service import get_stored_image, extract_image_keys_from_data
-from core.state import active_tasks
+from core.state import active_tasks, SETTINGS_CACHE
+
+def get_cached_gemini_keys(db) -> list:
+    """Lấy danh sách Gemini API Keys từ cache bộ nhớ đệm (10 phút) để tránh đọc Firestore liên tục."""
+    if not db:
+        return []
+    now = time.time()
+    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
+        return SETTINGS_CACHE['gemini']['data']
+    try:
+        settings_doc = db.collection('settings').document('gemini').get()
+        api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
+        SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+        return api_keys
+    except Exception:
+        return []
 from core.answer_key_extractor import (
     extract_answer_key_from_doc,
     reconcile_quiz_with_answer_key,
@@ -274,8 +289,7 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
             temp_file_path = temp_file.name
             
         db = get_db()
-        settings_doc = db.collection('settings').document('gemini').get() if db else None
-        api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc and settings_doc.exists else []
+        api_keys = get_cached_gemini_keys(db)
         
         # Nếu người dùng bật AI nhưng hệ thống chưa có API key, tự động chuyển sang phân tích Python nội bộ
         if use_ai and not api_keys:
@@ -311,10 +325,9 @@ async def generate_quiz_ai(req: GenerateQuizRequest, background_tasks: Backgroun
     if db is None:
         raise HTTPException(status_code=500, detail="Lỗi DB")
     
-    settings_doc = db.collection('settings').document('gemini').get()
-    if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
+    api_keys = get_cached_gemini_keys(db)
+    if not api_keys:
         raise HTTPException(status_code=400, detail="Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin.")
-    api_keys = settings_doc.to_dict().get('api_keys')
     
     task_id = str(uuid.uuid4())
     active_tasks[task_id] = {"status": "pending"}

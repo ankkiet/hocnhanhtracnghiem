@@ -4,7 +4,9 @@ import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
+import time
 import jwt
+from core.state import USER_CACHE
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "hocnhanhtn-secret-jwt-key-2026-secure-token-999")
 ALGORITHM = "HS256"
@@ -71,31 +73,64 @@ def check_and_assign_admin(user_data: Dict[str, Any]) -> Dict[str, Any]:
         user_data['status'] = 'approved'
     return user_data
 
+def invalidate_user_cache(user_id_or_token: Optional[str] = None):
+    """Xóa cache người dùng trong bộ nhớ RAM khi có thay đổi quyền, duyệt tài khoản, hoặc đổi mật khẩu."""
+    if not user_id_or_token:
+        USER_CACHE.clear()
+    else:
+        key = str(user_id_or_token).strip()
+        keys_to_del = [
+            k for k, v in list(USER_CACHE.items())
+            if k == key or (isinstance(v, dict) and isinstance(v.get('user'), dict) and v['user'].get('id') == key)
+        ]
+        for k in keys_to_del:
+            USER_CACHE.pop(k, None)
+
 def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
     """
-    Xác thực token người dùng:
-    1. Ưu tiên giải mã JWT.
-    2. Nếu không phải JWT (token cũ là Firestore Doc ID), tra cứu trực tiếp trong Firestore để tương thích ngược.
+    Xác thực token người dùng kèm Cache bộ nhớ đệm (TTL 300 giây):
+    1. Kiểm tra cache RAM trước để KHÔNG tốn lượt đọc Firestore vô ích.
+    2. Ưu tiên giải mã JWT.
+    3. Nếu không phải JWT (token cũ là Firestore Doc ID), tra cứu trực tiếp trong Firestore để tương thích ngược.
     """
     if not token or db is None:
         return None
         
     token = str(token).strip()
+    now = time.time()
+    
+    # 1. Kiểm tra cache theo token
+    if token in USER_CACHE and (now - USER_CACHE[token]['time'] < 300):
+        return USER_CACHE[token]['user'].copy()
+
     payload = decode_access_token(token)
     if payload and "sub" in payload:
-        user_id = payload["sub"]
+        user_id = str(payload["sub"]).strip()
+        
+        # Kiểm tra cache theo user_id
+        if user_id in USER_CACHE and (now - USER_CACHE[user_id]['time'] < 300):
+            cached_user = USER_CACHE[user_id]['user'].copy()
+            USER_CACHE[token] = {'time': now, 'user': cached_user}
+            return cached_user
+            
         doc = db.collection('users').document(user_id).get()
         if doc.exists:
             user_data = doc.to_dict()
             user_data['id'] = doc.id
-            return check_and_assign_admin(user_data)
+            final_user = check_and_assign_admin(user_data)
+            USER_CACHE[user_id] = {'time': now, 'user': final_user}
+            USER_CACHE[token] = {'time': now, 'user': final_user}
+            return final_user.copy()
             
     try:
         doc = db.collection('users').document(token).get()
         if doc.exists:
             user_data = doc.to_dict()
             user_data['id'] = doc.id
-            return check_and_assign_admin(user_data)
+            final_user = check_and_assign_admin(user_data)
+            USER_CACHE[token] = {'time': now, 'user': final_user}
+            USER_CACHE[final_user['id']] = {'time': now, 'user': final_user}
+            return final_user.copy()
     except Exception:
         pass
         

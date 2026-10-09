@@ -7,14 +7,17 @@ import httpx
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
 
+import time
 from services.firebase_service import get_db
+from core.state import SETTINGS_CACHE
 from core.security import (
     hash_password,
     verify_password,
     is_legacy_hash,
     create_access_token,
     ADMIN_EMAILS,
-    check_and_assign_admin
+    check_and_assign_admin,
+    invalidate_user_cache
 )
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -37,17 +40,24 @@ class GoogleAuthRequest(BaseModel):
     access_token: Optional[str] = None
 
 def get_current_google_client_id(db) -> str:
-    """Lấy Google Client ID từ cấu hình Firestore hoặc biến môi trường."""
+    """Lấy Google Client ID từ cấu hình Firestore (có cache 10 phút) hoặc biến môi trường."""
+    now = time.time()
+    if 'google_auth' in SETTINGS_CACHE and (now - SETTINGS_CACHE['google_auth']['time'] < 600):
+        return SETTINGS_CACHE['google_auth']['data']
+
     if db:
         try:
             doc = db.collection('settings').document('google_auth').get()
             if doc.exists:
                 cid = doc.to_dict().get('client_id', '').strip()
                 if cid:
+                    SETTINGS_CACHE['google_auth'] = {'time': now, 'data': cid}
                     return cid
         except Exception:
             pass
-    return os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    cid = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    SETTINGS_CACHE['google_auth'] = {'time': now, 'data': cid}
+    return cid
 
 async def verify_google_payload(credential: Optional[str], access_token: Optional[str], expected_client_id: str = "") -> dict:
     """Xác thực token Google (Firebase ID Token hoặc Google OAuth2 Token) và lấy thông tin người dùng."""
@@ -184,6 +194,7 @@ async def google_login(req: GoogleAuthRequest):
             user_data['status'] = 'approved'
 
         db.collection('users').document(user_id).update(update_fields)
+        invalidate_user_cache(user_id)
 
         if is_super_admin:
             final_role = 'admin'
@@ -341,6 +352,7 @@ async def select_role(req: SelectRoleRequest):
         # Giáo viên: BẮT BUỘC chờ Quản trị viên duyệt
         update_payload['status'] = 'pending'
         db.collection('users').document(req.user_id).update(update_payload)
+        invalidate_user_cache(req.user_id)
         return {
             "status": "pending_approval",
             "user_id": req.user_id,
@@ -356,6 +368,7 @@ async def select_role(req: SelectRoleRequest):
         # Học sinh: Kích hoạt ngay lập tức
         update_payload['status'] = 'approved'
         db.collection('users').document(req.user_id).update(update_payload)
+        invalidate_user_cache(req.user_id)
         token_payload = {
             "sub": req.user_id,
             "username": email,
@@ -578,6 +591,7 @@ async def login(req: LoginRequest):
         user_data['role'] = 'admin'
         user_data['status'] = 'approved'
         db.collection('users').document(user_doc.id).update({'role': 'admin', 'status': 'approved'})
+        invalidate_user_cache(user_doc.id)
         
     if user_data.get('status') != 'approved':
         raise HTTPException(status_code=403, detail="Tài khoản đang chờ Quản trị viên phê duyệt.")

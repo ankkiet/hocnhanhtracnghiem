@@ -165,6 +165,10 @@ let authToken = localStorage.getItem('auth_token');
 let authRole = localStorage.getItem('auth_role');
 let authName = localStorage.getItem('auth_name');
 
+function getTeacherTokenParam() {
+    return (authRole === 'teacher' || authRole === 'admin') && authToken ? authToken : '';
+}
+
 // Sinh ID ngẫu nhiên cho phiên làm việc để phục vụ Giám sát thi
 let clientSessionId = sessionStorage.getItem('client_session_id');
 if (!clientSessionId) {
@@ -923,7 +927,7 @@ async function initApp() {
         document.getElementById('btnEdit').style.display = 'none'; 
         document.getElementById('quiz-container').innerHTML = renderHntnInlineLoader('Đang tải dữ liệu bài thi...', 'Vui lòng chờ trong giây lát...', 85);
         try {
-            const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
+            const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
             const result = await response.json();
             if (result.status === 'success') {
                 document.getElementById('quiz-container').innerHTML = '';
@@ -1104,7 +1108,7 @@ async function startStudentQuiz() {
         
         if (quizId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
+                const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
                 const result = await response.json();
                 if (result.status === 'success') {
                     serverData = normalizeImageUrls(result.data);
@@ -1156,9 +1160,7 @@ async function startStudentQuiz() {
     if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    sendPing();
     clearInterval(heartbeatInterval);
-    heartbeatInterval = setInterval(sendPing, 10000); // Gửi tín hiệu mỗi 10 giây
 }
 
 function restartPractice() {
@@ -1179,7 +1181,7 @@ async function fetchLatestDataAndRestart(mode) {
     
     if (quizId) {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken || ''}`);
+            const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
             const result = await response.json();
             if (result.status === 'success') {
                 serverData = normalizeImageUrls(result.data);
@@ -1251,7 +1253,20 @@ function reviewHistory() {
     submitExam(true); // Gọi chấm điểm nhưng truyền cờ isReview = true để không gửi server
 }
 
-async function saveProgressToLocal() {
+let cloudSyncTimer = null;
+function debouncedSyncCloud(quizId) {
+    if (authRole !== 'student' || !authToken || !quizId) return;
+    if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(() => {
+        fetch(`${API_BASE_URL}/api/student/save_progress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ student_token: authToken, quiz_id: quizId, progress_data: quizProgress })
+        }).catch(e => console.log("Lỗi đồng bộ cloud"));
+    }, 4000); // Debounce 4 giây gom nhiều thao tác chọn đáp án thành 1 lần lưu
+}
+
+async function saveProgressToLocal(syncCloud = true) {
     const urlParams = new URLSearchParams(window.location.search);
     let quizId = urlParams.get('quiz_id') || urlParams.get('id');
     
@@ -1266,18 +1281,10 @@ async function saveProgressToLocal() {
     if (quizId) {
         localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
         
-        // Đồng bộ ngầm lên Cloud Server nếu là học sinh đang đăng nhập
-        if (authRole === 'student' && authToken) {
-            fetch(`${API_BASE_URL}/api/student/save_progress`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ student_token: authToken, quiz_id: quizId, progress_data: quizProgress })
-            }).catch(e => console.log("Lỗi đồng bộ cloud")); // Không dùng await để tránh giật lag UI
-        }
-        
-        // Gửi Ping Real-time ngay lập tức khi học sinh thao tác
-        if (isStudentMode && !quizProgress.completed) {
-            sendPing();
+        // Chỉ đồng bộ ngầm lên Cloud Server khi có thay đổi đáp án thực tế (syncCloud = true)
+        // Tuyệt đối KHÔNG đồng bộ Cloud theo nhịp đếm giây đồng hồ để tránh đốt Quota Firestore
+        if (syncCloud && authRole === 'student' && authToken && !quizProgress.completed) {
+            debouncedSyncCloud(quizId);
         }
     }
 }
@@ -1705,9 +1712,10 @@ function startMonitoring(quizId, title) {
         }
     }
     
-    // Polling mỗi 3 giây
+    // Polling định kỳ mỗi 15 giây (tiết kiệm 80% request và quota)
     fetchMonitorData();
-    monitorInterval = setInterval(fetchMonitorData, 3000);
+    window.refreshMonitorNow = fetchMonitorData;
+    monitorInterval = setInterval(fetchMonitorData, 15000);
 }
 
 function stopMonitoring() {
@@ -3966,7 +3974,7 @@ function startTimer(minutes) {
         timeRemaining--;
         if (isStudentMode) {
             quizProgress.timeRemaining = timeRemaining;
-            if (timeRemaining % 5 === 0) saveProgressToLocal(); // Cứ 5 giây lưu đồng hồ 1 lần
+            if (timeRemaining % 5 === 0) saveProgressToLocal(false); // Cứ 5 giây lưu đồng hồ vào LocalStorage, KHÔNG gọi Cloud
         }
         if (timeRemaining < 0) {
             clearInterval(timerInterval);
