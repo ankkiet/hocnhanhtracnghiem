@@ -949,12 +949,13 @@ async function initApp() {
                 const sQCount = document.getElementById('studentQCount');
                 if (sQCount) sQCount.style.display = 'none';
                 
-                currentTimeLimit = result.time_limit || 0;
+                currentTimeLimit = parseInt(result.time_limit, 10) || 0;
+                currentDataMode = result.mode || 'practice';
                 const examTimerVal = document.getElementById('examTimerVal');
                 if (currentTimeLimit > 0) {
                     if (examTimerVal) examTimerVal.innerText = `${currentTimeLimit}:00`;
                 } else {
-                    if (examTimerVal) examTimerVal.innerText = `Tự do`;
+                    if (examTimerVal) examTimerVal.innerText = `00:00`;
                 }
                 const sTime = document.getElementById('studentTime');
                 if (sTime) sTime.style.display = 'none';
@@ -1115,7 +1116,7 @@ async function startStudentQuiz() {
                     serverData.forEach((q, i) => { q._originalIndex = i; });
                     isShuffleEnabled = result.is_shuffle;
                     quizProgress.quizUpdatedAt = result.updated_at || 0;
-                    currentTimeLimit = result.time_limit || 0;
+                    currentTimeLimit = parseInt(result.time_limit, 10) || 0;
                     currentDataMode = result.mode || 'practice';
                 }
             } catch(e) { console.error(e); }
@@ -1149,7 +1150,7 @@ async function startStudentQuiz() {
     }
     
     switchMode(currentDataMode); 
-    if (currentDataMode === 'exam' && currentTimeLimit > 0) { startTimer(currentTimeLimit); }
+    startTimer(currentTimeLimit);
     
     // Đảm bảo WebLLM được nạp ngầm qua Web Worker (nếu bật tính năng)
     if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
@@ -1223,13 +1224,7 @@ async function fetchLatestDataAndRestart(mode) {
     }
     updateNavProgressBadge();
     
-    if (mode === 'exam' && currentTimeLimit > 0) { 
-        startTimer(currentTimeLimit); 
-    } else {
-        clearInterval(timerInterval);
-        const timerVal = document.getElementById('examTimerVal');
-        if (timerVal) timerVal.innerText = currentTimeLimit > 0 ? `${currentTimeLimit}:00` : 'Tự do';
-    }
+    startTimer(currentTimeLimit);
     
     if (container) container.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3947,49 +3942,125 @@ function scrollToQuestionInEditor(qIndex) {
 
 function startTimer(minutes) {
     clearInterval(timerInterval);
-    let timeRemaining = minutes * 60;
+    const limitMinutes = parseInt(minutes, 10) || 0;
     
-    if (isStudentMode && quizProgress && quizProgress.timeRemaining !== undefined && quizProgress.timeRemaining !== null && !quizProgress.completed) {
-        timeRemaining = quizProgress.timeRemaining; // Phục hồi đồng hồ
-    }
     const timerDisplay = document.getElementById('timerDisplay');
     const stickyTimer = document.getElementById('examStickyTimer');
-    if (timerDisplay) timerDisplay.style.display = 'none';
-    if (stickyTimer) stickyTimer.style.display = 'flex';
+    const examTimerVal = document.getElementById('examTimerVal');
     
-    function updateDisplay() {
-        const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
-        const s = (timeRemaining % 60).toString().padStart(2, '0');
-        if (timerDisplay) timerDisplay.innerText = `⏳ ${m}:${s}`;
-        const examTimerVal = document.getElementById('examTimerVal');
-        if (examTimerVal) examTimerVal.innerText = `${m}:${s}`;
-        if (timeRemaining <= 60) {
-            if (timerDisplay) timerDisplay.style.animation = "pulse-red 1s infinite";
-            if (stickyTimer) stickyTimer.style.animation = "pulse-red 1s infinite";
+    if (isStudentMode) {
+        if (timerDisplay) timerDisplay.style.display = 'none';
+        if (stickyTimer) {
+            stickyTimer.style.setProperty('display', 'inline-flex', 'important');
+            stickyTimer.style.animation = 'none';
+        }
+    } else {
+        if (timerDisplay) timerDisplay.style.display = 'block';
+        if (stickyTimer) {
+            stickyTimer.style.setProperty('display', 'inline-flex', 'important');
+            stickyTimer.style.animation = 'none';
         }
     }
-    updateDisplay();
     
-    timerInterval = setInterval(() => {
-        timeRemaining--;
-        if (isStudentMode) {
-            quizProgress.timeRemaining = timeRemaining;
-            if (timeRemaining % 5 === 0) saveProgressToLocal(false); // Cứ 5 giây lưu đồng hồ vào LocalStorage, KHÔNG gọi Cloud
+    if (!startTime) startTime = Date.now();
+    
+    if (limitMinutes > 0) {
+        // --- CHẾ ĐỘ 1: ĐẾM NGƯỢC (COUNTDOWN KHI CÓ GIỚI HẠN THỜI GIAN) ---
+        const totalSeconds = limitMinutes * 60;
+        let timeRemaining = totalSeconds;
+        
+        // Phục hồi thời gian còn lại nếu học sinh đang làm dở bài và chưa nộp
+        if (isStudentMode && quizProgress && typeof quizProgress.timeRemaining === 'number' && quizProgress.timeRemaining > 0 && !quizProgress.completed) {
+            timeRemaining = Math.min(quizProgress.timeRemaining, totalSeconds);
         }
-        if (timeRemaining < 0) {
-            clearInterval(timerInterval);
-            showToast("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.", "warning");
-            submitExam();
-            return;
+        
+        function updateDisplayCountdown() {
+            const h = Math.floor(timeRemaining / 3600);
+            const m = Math.floor((timeRemaining % 3600) / 60).toString().padStart(2, '0');
+            const s = (timeRemaining % 60).toString().padStart(2, '0');
+            const displayStr = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+            
+            if (timerDisplay) timerDisplay.innerText = `⏳ ${displayStr}`;
+            if (examTimerVal) examTimerVal.innerText = displayStr;
+            
+            if (timeRemaining <= 60 && timeRemaining > 0) {
+                if (timerDisplay) timerDisplay.style.animation = "pulse-red 1s infinite";
+                if (stickyTimer) stickyTimer.style.animation = "pulse-red 1s infinite";
+            } else {
+                if (stickyTimer) stickyTimer.style.animation = "none";
+                if (timerDisplay) timerDisplay.style.animation = "none";
+            }
         }
-        updateDisplay();
-    }, 1000);
+        
+        updateDisplayCountdown();
+        
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            if (isStudentMode) {
+                quizProgress.timeRemaining = timeRemaining;
+                quizProgress.timeElapsed = Math.max(0, totalSeconds - Math.max(0, timeRemaining));
+                if (timeRemaining % 5 === 0) saveProgressToLocal(false); // Lưu LocalStorage ngầm, không gọi Cloud
+            }
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                timeRemaining = 0;
+                updateDisplayCountdown();
+                showToast("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.", "warning");
+                submitExam();
+                return;
+            }
+            updateDisplayCountdown();
+        }, 1000);
+    } else {
+        // --- CHẾ ĐỘ 2: BẤM GIỜ ĐẾM TIẾN (STOPWATCH KHI KHÔNG GIỚI HẠN THỜI GIAN) ---
+        let timeElapsed = 0;
+        if (isStudentMode && quizProgress && typeof quizProgress.timeElapsed === 'number' && quizProgress.timeElapsed > 0 && !quizProgress.completed) {
+            timeElapsed = quizProgress.timeElapsed;
+        } else if (startTime > 0) {
+            timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+        }
+        
+        function updateDisplayCountUp() {
+            const h = Math.floor(timeElapsed / 3600);
+            const m = Math.floor((timeElapsed % 3600) / 60).toString().padStart(2, '0');
+            const s = (timeElapsed % 60).toString().padStart(2, '0');
+            const displayStr = h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+            
+            if (timerDisplay) timerDisplay.innerText = `⏱️ ${displayStr}`;
+            if (examTimerVal) examTimerVal.innerText = displayStr;
+        }
+        
+        updateDisplayCountUp();
+        
+        timerInterval = setInterval(() => {
+            timeElapsed++;
+            if (isStudentMode) {
+                quizProgress.timeElapsed = timeElapsed;
+                if (timeElapsed % 5 === 0) saveProgressToLocal(false);
+            }
+            updateDisplayCountUp();
+        }, 1000);
+    }
 }
 
 function formatTime(seconds) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m} phút ${s} giây`;
+    const total = Math.max(0, parseInt(seconds, 10) || 0);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) return `${h} giờ ${m} phút ${s} giây`;
+    if (m > 0) return `${m} phút ${s} giây`;
+    return `${s} giây`;
+}
+
+function formatTimeCompact(seconds) {
+    const total = Math.max(0, parseInt(seconds, 10) || 0);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (h > 0) return `${h}h ${m}p ${s.toString().padStart(2, '0')}s`;
+    if (m > 0) return `${m}p ${s.toString().padStart(2, '0')}s`;
+    return `${s}s`;
 }
 
 
@@ -4270,11 +4341,11 @@ async function fetchLeaderboard(quizId) {
                     return t > 0 ? ((item.score / t) * 10).toFixed(1) + 'đ' : item.score + 'đ';
                 };
                 podiumEl.innerHTML = `
-                    <div class="azota-podium-slot rank-1" style="margin: 0 auto; min-width: 220px;">
+                    <div class="azota-podium-slot rank-1" style="margin: 0 auto; min-width: 180px;">
                         <div class="azota-podium-avatar"><span class="azota-podium-crown">👑</span>🥇</div>
                         <div class="azota-podium-name" title="${escapeHtml(rank1.student_name)}">${escapeHtml(rank1.student_name)}</div>
                         <div class="azota-podium-score">${getLBScore(rank1)}</div>
-                        <div class="azota-podium-time">${formatTime(rank1.time_elapsed)}</div>
+                        <div class="azota-podium-time" title="${formatTime(rank1.time_elapsed)}">${formatTimeCompact(rank1.time_elapsed)}</div>
                         <div class="azota-podium-bar">Quán quân</div>
                     </div>
                 `;
@@ -4289,10 +4360,10 @@ async function fetchLeaderboard(quizId) {
                 <table class="azota-lb-table">
                     <thead>
                         <tr>
-                            <th style="width: 75px; text-align: center;">Hạng</th>
-                            <th>Thí sinh</th>
-                            <th style="width: 140px; text-align: center;">Điểm số</th>
-                            <th style="width: 160px; text-align: right;">Thời gian</th>
+                            <th class="col-rank" style="text-align: center;">Hạng</th>
+                            <th class="col-name">Thí sinh</th>
+                            <th class="col-score" style="text-align: center;">Điểm số</th>
+                            <th class="col-time" style="text-align: right;">Thời gian</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -4308,19 +4379,21 @@ async function fetchLeaderboard(quizId) {
             
             tableHtml += `
                 <tr class="${isMe ? 'is-current-user' : ''}">
-                    <td style="text-align: center;">
+                    <td class="col-rank" style="text-align: center;">
                         <span class="azota-lb-rank-badge ${rank <= 3 ? 'top' : ''}">${medal}</span>
                     </td>
-                    <td>
-                        <span style="font-weight: 700; color: #1e293b;">${escapeHtml(item.student_name)}</span>
+                    <td class="col-name">
+                        <span class="lb-student-name">${escapeHtml(item.student_name)}</span>
                         ${isMe ? '<span class="azota-lb-you-tag">Bạn</span>' : ''}
                     </td>
-                    <td style="text-align: center;">
-                        <span style="font-weight: 800; color: #2563eb; font-size: 1.05rem;">${item.score}</span>
-                        <span style="font-size: 0.82rem; color: #64748b;"> / ${itemTotalQ} (${scaledScoreItem}đ)</span>
+                    <td class="col-score" style="text-align: center;">
+                        <span class="lb-score-main">${item.score}</span>
+                        <span class="lb-score-sub">/${itemTotalQ} (${scaledScoreItem}đ)</span>
                     </td>
-                    <td style="text-align: right; color: #64748b; font-size: 0.9rem;">
-                        <i class="ri-time-line" style="vertical-align: middle;"></i> ${formatTime(item.time_elapsed)}
+                    <td class="col-time" style="text-align: right;">
+                        <span class="lb-time-text" title="${formatTime(item.time_elapsed)}">
+                            <i class="ri-time-line"></i> ${formatTimeCompact(item.time_elapsed)}
+                        </span>
                     </td>
                 </tr>
             `;
@@ -4455,10 +4528,10 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 <span class="big-num">${scaledScore}</span>
                 <span class="scale">Điểm / 10</span>
             </div>
-            <h2 style="color: var(--azota-primary); margin: 0 0 8px 0; font-size: 1.6rem; font-weight: 800;">
+            <h2 class="azota-result-title">
                 ${score >= totalQues * 0.8 ? '🎉 Kết Quả Xuất Sắc!' : (score >= totalQues * 0.5 ? '👏 Bạn Đã Hoàn Thành Bài Thi!' : '💪 Cần Cố Gắng Thêm Lần Sau!')}
             </h2>
-            <p style="color: #64748b; font-size: 1.05rem; margin: 0 0 20px 0;">
+            <p class="azota-result-subtitle">
                 Bạn đạt <b>${score}</b> trên tổng số <b>${totalQues}</b> điểm của đề thi.
             </p>
 
@@ -4475,26 +4548,27 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                     <div class="val">${skippedCount}</div>
                     <div class="desc"><i class="ri-question-line"></i> Chưa làm</div>
                 </div>
-                <div class="azota-res-tile blue">
-                    <div class="val">${formatTime(totalTimeElapsed)}</div>
+                <div class="azota-res-tile blue tile-time">
+                    <div class="val" title="${formatTime(totalTimeElapsed)}">${formatTimeCompact(totalTimeElapsed)}</div>
                     <div class="desc"><i class="ri-time-line"></i> Thời gian</div>
                 </div>
             </div>
 
             <!-- Các nút hành động chính -->
-            <!-- Các nút hành động chính -->
             <div class="result-action-btns">
                 <button type="button" class="btn-primary result-btn-primary" onclick="switchResultView('review')">
-                    <i class="ri-file-list-3-line"></i> Xem chi tiết đáp án & lời giải
+                    <i class="ri-file-list-3-line"></i> <span>Xem chi tiết đáp án & lời giải</span>
                 </button>
-                <button type="button" class="btn-outline result-btn-lb" onclick="switchResultView('leaderboard')">
-                    <i class="ri-trophy-fill"></i> Bảng xếp hạng phòng thi
-                </button>
-                <button type="button" class="btn-outline result-btn-retry" onclick="${currentMode === 'practice' ? 'restartPractice()' : 'restartExam()'}">
-                    <i class="ri-refresh-line"></i> Làm lại đề này
-                </button>
+                <div class="result-btn-row">
+                    <button type="button" class="btn-outline result-btn-lb" onclick="switchResultView('leaderboard')">
+                        <i class="ri-trophy-fill"></i> <span>Bảng xếp hạng</span>
+                    </button>
+                    <button type="button" class="btn-outline result-btn-retry" onclick="${currentMode === 'practice' ? 'restartPractice()' : 'restartExam()'}">
+                        <i class="ri-refresh-line"></i> <span>Làm lại đề</span>
+                    </button>
+                </div>
                 <button type="button" class="btn-outline result-btn-exit" onclick="exitMinimalMode()">
-                    <i class="ri-logout-box-r-line"></i> Thoát
+                    <i class="ri-logout-box-r-line"></i> <span>Thoát phòng thi</span>
                 </button>
             </div>
         </div>
@@ -4506,12 +4580,12 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         filterContainer.style.display = 'block';
         filterContainer.innerHTML = `
             <div class="azota-review-filter-bar">
-                <span class="filter-title"><i class="ri-filter-3-line"></i> Lọc câu hỏi:</span>
+                <span class="filter-title"><i class="ri-filter-3-line"></i> Lọc:</span>
                 <button type="button" class="azota-filter-tab active" data-filter="all" onclick="filterReviewQuestions('all')">
                     Tất cả <span class="tab-count">${totalQues}</span>
                 </button>
                 <button type="button" class="azota-filter-tab tab-wrong" data-filter="wrong" onclick="filterReviewQuestions('wrong')">
-                    <i class="ri-close-circle-fill" style="color: #ef4444;"></i> Câu làm sai <span class="tab-count">${wrongCount}</span>
+                    <i class="ri-close-circle-fill" style="color: #ef4444;"></i> Câu sai <span class="tab-count">${wrongCount}</span>
                 </button>
                 <button type="button" class="azota-filter-tab tab-correct" data-filter="correct" onclick="filterReviewQuestions('correct')">
                     <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Câu đúng <span class="tab-count">${correctCount}</span>
@@ -4629,22 +4703,27 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
             const correctMap = (typeof correctAnswer === 'object' && correctAnswer) ? correctAnswer : {};
             const userMap = (typeof userAnswer === 'object' && userAnswer) ? userAnswer : {};
             
-            cardHtml += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">`;
+            cardHtml += `<div class="review-tf-list">`;
             ['a', 'b', 'c', 'd'].forEach((char, oIndex) => {
                 let optText = (q.options && q.options[oIndex]) ? q.options[oIndex].replace(/^[a-d][\.\:\)]\s*/, '') : `Ý kiến ${char.toUpperCase()}`;
                 let isCorrectVal = correctMap[char];
                 let userVal = userMap[char];
                 let isMatch = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
+                let tfState = (userVal === undefined) ? 'is-skipped' : (isMatch ? 'is-correct' : 'is-wrong');
                 
                 cardHtml += `
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #ffffff; border: 1.5px solid ${userVal === undefined ? '#e2e8f0' : (isMatch ? '#86efac' : '#fca5a5')}; border-radius: 12px; gap: 10px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 220px; font-size: 0.96rem; color: #1e293b; line-height: 1.5;">
-                            <b style="color: var(--azota-primary); margin-right: 6px;">${char})</b> ${optText}
+                    <div class="review-tf-item ${tfState}">
+                        <div class="review-tf-text">
+                            <b class="review-tf-char">${char})</b> <span>${optText}</span>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; flex-shrink: 0;">
-                            <span style="color: #64748b;">Bạn chọn: <b style="color: ${userVal === undefined ? '#64748b' : (isMatch ? '#16a34a' : '#dc2626')};">${userVal === true ? 'Đúng' : (userVal === false ? 'Sai' : 'Chưa chọn')}</b></span>
-                            <span style="background: #f0fdf4; color: #166534; padding: 3px 10px; border-radius: 6px; font-weight: 700; border: 1px solid #bbf7d0;">Đáp án: ${isCorrectVal === true ? 'Đúng' : 'Sai'}</span>
-                            <span style="font-size: 1.1rem;">${userVal === undefined ? '⚠️' : (isMatch ? '✅' : '❌')}</span>
+                        <div class="review-tf-badges">
+                            <span class="review-tf-user-pick ${userVal === undefined ? 'skipped' : (isMatch ? 'correct' : 'wrong')}">
+                                Bạn chọn: <b>${userVal === true ? 'Đúng' : (userVal === false ? 'Sai' : 'Chưa chọn')}</b>
+                            </span>
+                            <span class="review-tf-correct-ans">
+                                Đáp án: <b>${isCorrectVal === true ? 'Đúng' : 'Sai'}</b>
+                            </span>
+                            <span class="review-tf-icon">${userVal === undefined ? '⚠️' : (isMatch ? '✅' : '❌')}</span>
                         </div>
                     </div>
                 `;
@@ -4656,15 +4735,15 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
             const isMatch = (status === 'correct');
             
             cardHtml += `
-                <div style="margin-bottom: 16px; padding: 14px 18px; background: #ffffff; border-radius: 12px; border: 1.5px solid ${isMatch ? '#86efac' : '#e2e8f0'};">
-                    <div style="margin-bottom: 8px;">
-                        <span style="color: #64748b; font-weight: 600;">Câu trả lời của bạn:</span> 
-                        <span style="font-weight: 800; font-size: 1.05rem; color: ${isMatch ? '#16a34a' : '#dc2626'};">${escapeHtml(uStr) || '(Chưa điền câu trả lời)'}</span>
-                        ${isMatch ? ' ✅' : (uStr ? ' ❌' : ' ⚠️')}
+                <div class="review-sa-box ${isMatch ? 'is-correct' : (uStr ? 'is-wrong' : 'is-skipped')}">
+                    <div class="review-sa-row">
+                        <span class="review-sa-label">Câu trả lời của bạn:</span> 
+                        <span class="review-sa-val ${isMatch ? 'correct' : (uStr ? 'wrong' : 'skipped')}">${escapeHtml(uStr) || '(Chưa điền)'}</span>
+                        <span class="review-sa-icon">${isMatch ? '✅' : (uStr ? '❌' : '⚠️')}</span>
                     </div>
-                    <div>
-                        <span style="color: #64748b; font-weight: 600;">Đáp án chính xác:</span> 
-                        <span style="font-weight: 800; font-size: 1.05rem; color: #15803d; text-decoration: underline;">${escapeHtml(cStr)}</span>
+                    <div class="review-sa-row">
+                        <span class="review-sa-label">Đáp án chính xác:</span> 
+                        <span class="review-sa-val correct highlight">${escapeHtml(cStr)}</span>
                     </div>
                 </div>
             `;
@@ -4693,7 +4772,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 cardHtml += `
                     <div class="${optClass}">
                         <div class="review-opt-badge">${char}</div>
-                        <div style="flex: 1; word-break: break-word;">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</div>
+                        <div class="review-opt-content">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</div>
                         ${tagHtml}
                     </div>
                 `;
@@ -4748,7 +4827,18 @@ async function submitExam(isReview = false) {
     if (timerDisplay) timerDisplay.style.display = 'none';
     
     let sessionTime = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
-    let totalTimeElapsed = isReview ? (quizProgress.timeElapsed || 0) : ((quizProgress.timeElapsed || 0) + sessionTime);
+    let totalTimeElapsed = 0;
+    if (isReview) {
+        totalTimeElapsed = (quizProgress && quizProgress.timeElapsed) || 0;
+    } else {
+        if (currentTimeLimit > 0 && quizProgress && typeof quizProgress.timeRemaining === 'number') {
+            totalTimeElapsed = Math.max(1, (currentTimeLimit * 60) - Math.max(0, quizProgress.timeRemaining));
+        } else if (quizProgress && typeof quizProgress.timeElapsed === 'number' && quizProgress.timeElapsed > 0) {
+            totalTimeElapsed = quizProgress.timeElapsed;
+        } else {
+            totalTimeElapsed = sessionTime > 0 ? sessionTime : 1;
+        }
+    }
     let score = 0;
     
     // 1. Thu thập câu trả lời của học sinh (hỗ trợ cả Luyện tập và Thi thử)

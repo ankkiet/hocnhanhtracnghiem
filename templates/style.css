@@ -2799,10 +2799,25 @@ body.minimal-mode.quiz-completed #quiz-container {
   background: #ffffff;
   border: 1px solid var(--azota-border);
   border-radius: 20px;
-  padding: 40px 32px;
+  padding: 36px 28px;
   text-align: center;
   box-shadow: var(--azota-shadow-hover);
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+}
+
+.azota-result-title {
+  color: var(--azota-primary);
+  margin: 0 0 8px 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.azota-result-subtitle {
+  color: #64748b;
+  font-size: 1.05rem;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
 }
 
 .azota-score-circle {
@@ -2836,37 +2851,63 @@ body.minimal-mode.quiz-completed #quiz-container {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  margin: 28px 0;
+  margin: 24px 0;
 }
 
 @media (max-width: 768px) {
   .azota-result-card {
-    padding: 24px 16px !important;
-    border-radius: 18px !important;
-    margin-bottom: 20px !important;
+    padding: 20px 14px !important;
+    border-radius: 16px !important;
+    margin-bottom: 16px !important;
+  }
+  .azota-result-title {
+    font-size: 1.25rem !important;
+    line-height: 1.35 !important;
+    margin-bottom: 6px !important;
+  }
+  .azota-result-subtitle {
+    font-size: 0.9rem !important;
+    margin-bottom: 16px !important;
+    line-height: 1.45 !important;
   }
   .azota-score-circle {
-    width: 110px !important;
-    height: 110px !important;
-    margin: 0 auto 16px auto !important;
-    border-width: 5px !important;
+    width: 96px !important;
+    height: 96px !important;
+    margin: 0 auto 12px auto !important;
+    border-width: 4px !important;
   }
   .azota-score-circle .big-num {
-    font-size: 2.2rem !important;
+    font-size: 2rem !important;
+  }
+  .azota-score-circle .scale {
+    font-size: 0.76rem !important;
   }
   .azota-result-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px !important;
-    margin: 20px 0 !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    margin: 16px 0 !important;
   }
   .azota-res-tile {
-    padding: 12px 8px !important;
+    padding: 10px 6px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    min-height: 72px !important;
   }
   .azota-res-tile .val {
-    font-size: 1.4rem !important;
+    font-size: 1.35rem !important;
+    line-height: 1.15 !important;
+  }
+  .azota-res-tile.tile-time .val {
+    font-size: 1.15rem !important;
+    white-space: nowrap !important;
   }
   .azota-res-tile .desc {
-    font-size: 0.74rem !important;
+    font-size: 0.72rem !important;
+    margin-top: 3px !important;
+    white-space: nowrap !important;
   }
 }
 
@@ -3809,11 +3850,14 @@ body:not(.quiz-completed) #score-board {
   font-size: 0.8rem;
   font-weight: 700;
   flex-shrink: 0;
-  align-self: center;
+  align-self: flex-start;
+  margin-top: 1px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   white-space: nowrap;
+  box-sizing: border-box !important;
+  max-width: 100% !important;
 }
 
 .review-opt-tag.tag-correct {
@@ -3867,32 +3911,484 @@ body:not(.quiz-completed) #score-board {
   color: #1e293b;
 }
 
-/* RESPONSIVE POLISH */
+/* ========================================================
+   POST-SUBMISSION REVIEW - SEMANTIC & RESPONSIVE DESIGN
+   ======================================================== */
+
+/* TRUE / FALSE QUESTION ITEMS */
+.review-tf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.review-tf-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.review-tf-item.is-correct {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.review-tf-item.is-wrong {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.review-tf-item.is-skipped {
+  border-color: #e2e8f0;
+  background: #ffffff;
+}
+
+.review-tf-text {
+  flex: 1;
+  font-size: 0.96rem;
+  color: #1e293b;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.review-tf-char {
+  color: var(--azota-primary);
+  margin-right: 6px;
+}
+
+.review-tf-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  flex-shrink: 0;
+}
+
+.review-tf-user-pick {
+  color: #64748b;
+}
+
+.review-tf-user-pick.correct b { color: #16a34a; }
+.review-tf-user-pick.wrong b { color: #dc2626; }
+.review-tf-user-pick.skipped b { color: #64748b; }
+
+.review-tf-correct-ans {
+  background: #f0fdf4;
+  color: #166534;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
+  font-size: 0.82rem;
+}
+
+.review-tf-icon {
+  font-size: 1.05rem;
+}
+
+/* SHORT ANSWER QUESTION ITEMS */
+.review-sa-box {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-sa-box.is-correct { border-color: #86efac; background: #f0fdf4; }
+.review-sa-box.is-wrong { border-color: #fca5a5; background: #fef2f2; }
+
+.review-sa-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-sa-label {
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.review-sa-val {
+  font-weight: 800;
+  font-size: 1.02rem;
+  word-break: break-word;
+}
+
+.review-sa-val.correct { color: #16a34a; }
+.review-sa-val.wrong { color: #dc2626; }
+.review-sa-val.skipped { color: #64748b; }
+.review-sa-val.highlight { text-decoration: underline; color: #15803d; }
+.review-sa-icon { font-size: 1.05rem; }
+
+/* MCQ OPTIONS CONTENT */
+.review-opt-content {
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.55;
+}
+
+/* LEADERBOARD TABLE COLUMNS */
+.col-rank { width: 56px; }
+.col-name { min-width: 140px; }
+.col-score { width: 130px; }
+.col-time { width: 120px; }
+.lb-student-name { font-weight: 700; color: #1e293b; }
+.lb-score-main { font-weight: 800; color: #2563eb; font-size: 1.02rem; }
+.lb-score-sub { font-size: 0.82rem; color: #64748b; }
+.lb-time-text { font-size: 0.88rem; color: #64748b; white-space: nowrap; }
+
+/* KHI HOÀN THÀNH BÀI: ẨN ĐỒNG HỒ TRÊN HEADER ĐỂ TRÁNH RỐI MẮT */
+body.quiz-completed #examStickyTimer,
+body.quiz-completed .exam-sticky-timer {
+  display: none !important;
+}
+
+/* ========================================================
+   RESPONSIVE POLISH CHO ĐIỆN THOẠI (MOBILE ≤ 640px)
+   ======================================================== */
 @media (max-width: 640px) {
+  /* 1. Nav Tabs */
+  .azota-result-nav-tabs {
+    margin: 12px 0 16px 0 !important;
+    gap: 6px !important;
+    padding: 4px !important;
+    border-radius: 12px !important;
+    max-width: 100% !important;
+  }
+  .azota-res-tab-btn {
+    padding: 9px 8px !important;
+    font-size: 0.84rem !important;
+    gap: 4px !important;
+    border-radius: 9px !important;
+  }
+  .azota-res-tab-badge {
+    padding: 2px 6px !important;
+    font-size: 0.72rem !important;
+    border-radius: 8px !important;
+  }
+
+  /* 2. Review Filter Chips (Vuốt ngang mượt mà, không bao giờ vỡ dòng) */
+  .azota-review-filter-bar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 4px 2px !important;
+    gap: 6px !important;
+    margin: 12px 0 14px 0 !important;
+    border-radius: 10px !important;
+  }
+  .azota-review-filter-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .azota-review-filter-bar .filter-title {
+    display: none !important;
+  }
+  .azota-filter-tab {
+    padding: 7px 11px !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
+  }
+  .azota-filter-tab .tab-count {
+    font-size: 0.72rem !important;
+    padding: 1px 5px !important;
+  }
+
+  /* 3. Thẻ câu hỏi Review (Vừa vặn, thẩm mĩ, không bung) */
+  .review-question-card {
+    padding: 14px 12px !important;
+    border-radius: 12px !important;
+    margin-bottom: 14px !important;
+    border-left-width: 4px !important;
+  }
+  .review-q-header {
+    margin-bottom: 10px !important;
+    gap: 6px !important;
+  }
+  .review-q-number {
+    font-size: 0.95rem !important;
+    gap: 6px !important;
+  }
+  .review-status-badge {
+    padding: 3px 8px !important;
+    font-size: 0.75rem !important;
+    gap: 3px !important;
+  }
+  .review-q-text {
+    font-size: 0.95rem !important;
+    line-height: 1.55 !important;
+    margin-bottom: 12px !important;
+  }
+
+  /* 4. MCQ Options trên điện thoại (Tối ưu 100% diện tích đọc đề) */
+  .review-opt-list {
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+  }
+  .review-opt-item {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    padding: 9px 10px !important;
+    gap: 8px !important;
+    border-radius: 10px !important;
+  }
+  .review-opt-badge {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    font-size: 0.82rem !important;
+    border-radius: 6px !important;
+  }
+  .review-opt-content {
+    flex: 1 1 calc(100% - 36px) !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  .review-opt-tag {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: fit-content !important;
+    max-width: calc(100% - 34px) !important;
+    margin-left: 34px !important;
+    margin-right: 0 !important;
+    margin-top: 3px !important;
+    padding: 3px 9px !important;
+    font-size: 0.74rem !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    align-self: flex-start !important;
+  }
+
+  /* 5. Đúng / Sai trên điện thoại */
+  .review-tf-item {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 9px 10px !important;
+    gap: 6px !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+  .review-tf-text {
+    width: 100% !important;
+    font-size: 0.88rem !important;
+    line-height: 1.45 !important;
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+  }
+  .review-tf-badges {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    font-size: 0.78rem !important;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 5px !important;
+    box-sizing: border-box !important;
+  }
+  .review-tf-correct-ans,
+  .review-tf-user-pick {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
+  /* 6. Trả lời ngắn trên điện thoại */
+  .review-sa-box {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    font-size: 0.88rem !important;
+    gap: 6px !important;
+  }
+  .review-sa-val {
+    font-size: 0.92rem !important;
+  }
+
+  /* 7. Banner tóm tắt câu trả lời */
+  .review-quick-banner {
+    padding: 8px 10px !important;
+    font-size: 0.84rem !important;
+    border-radius: 8px !important;
+    margin-bottom: 12px !important;
+    gap: 6px !important;
+    line-height: 1.4 !important;
+  }
+  .review-quick-banner i {
+    font-size: 1rem !important;
+    margin-top: 1px !important;
+  }
+
+  /* 8. Lời giải chi tiết */
+  .review-explain-box {
+    padding: 12px 12px !important;
+    border-radius: 10px !important;
+    margin-top: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .review-explain-title {
+    font-size: 0.88rem !important;
+    margin-bottom: 6px !important;
+    gap: 6px !important;
+  }
+  .review-explain-body {
+    font-size: 0.88rem !important;
+    line-height: 1.55 !important;
+  }
+
+  /* 9. Bảng xếp hạng & Bục vinh danh */
   .azota-leaderboard-card {
-    padding: 20px 14px;
-    border-radius: 16px;
+    padding: 14px 10px !important;
+    border-radius: 14px !important;
+    margin-bottom: 16px !important;
+  }
+  .azota-lb-header {
+    padding-bottom: 10px !important;
+    margin-bottom: 12px !important;
+    gap: 6px !important;
+  }
+  .azota-lb-title {
+    font-size: 0.95rem !important;
+    gap: 6px !important;
+  }
+  .azota-lb-title i {
+    font-size: 1.15rem !important;
+  }
+  .azota-lb-badge {
+    padding: 2px 7px !important;
+    font-size: 0.72rem !important;
   }
   .azota-lb-podium {
-    gap: 8px;
+    gap: 5px !important;
+    margin: 8px auto 14px auto !important;
   }
   .azota-podium-avatar {
-    width: 48px !important;
-    height: 48px !important;
-    font-size: 1.1rem !important;
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 0.9rem !important;
+  }
+  .azota-podium-crown {
+    top: -12px !important;
+    font-size: 1rem !important;
   }
   .azota-podium-slot.rank-1 .azota-podium-avatar {
-    width: 56px !important;
-    height: 56px !important;
+    width: 48px !important;
+    height: 48px !important;
   }
   .azota-podium-name {
-    max-width: 85px;
-    font-size: 0.82rem;
+    max-width: 65px !important;
+    font-size: 0.74rem !important;
   }
-  .review-question-card {
-    padding: 16px 14px;
-    border-radius: 14px;
+  .azota-podium-score {
+    font-size: 0.88rem !important;
   }
+  .azota-podium-time {
+    font-size: 0.68rem !important;
+  }
+  .azota-podium-slot.rank-1 .azota-podium-bar {
+    height: 48px !important;
+    font-size: 0.85rem !important;
+  }
+  .azota-podium-slot.rank-2 .azota-podium-bar {
+    height: 36px !important;
+    font-size: 0.78rem !important;
+  }
+  .azota-podium-slot.rank-3 .azota-podium-bar {
+    height: 28px !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* 10. Bảng xếp hạng danh sách trên điện thoại */
+  .azota-lb-table {
+    min-width: 100% !important;
+    font-size: 0.82rem !important;
+  }
+  .azota-lb-table th {
+    padding: 7px 4px !important;
+    font-size: 0.7rem !important;
+  }
+  .azota-lb-table td {
+    padding: 8px 4px !important;
+    font-size: 0.8rem !important;
+  }
+  .col-rank { width: 34px !important; }
+  .col-score { width: 75px !important; }
+  .col-time { width: 68px !important; }
+  .azota-lb-rank-badge {
+    width: 22px !important;
+    height: 22px !important;
+    font-size: 0.76rem !important;
+  }
+  .lb-score-main {
+    font-size: 0.9rem !important;
+  }
+  .lb-score-sub {
+    font-size: 0.7rem !important;
+    display: block !important;
+  }
+  .lb-time-text {
+    font-size: 0.72rem !important;
+  }
+}
+
+/* ========================================================
+   CHỐNG TRÀN VÀ PHÌNH NGANG CHO TOÀN BỘ PHẦN TỬ TRÊN MOBILE
+   ======================================================== */
+.review-question-card,
+.azota-result-card,
+.azota-leaderboard-card,
+#quiz-container,
+.review-q-text,
+.review-explain-box,
+.review-opt-content {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+.review-question-card img,
+.review-q-text img,
+.review-explain-box img,
+.review-opt-content img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 8px;
+  display: block;
+  margin: 6px 0;
+}
+
+.katex-display,
+.MathJax_Display {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 2px 0 !important;
 }
 
 
@@ -4241,50 +4737,90 @@ body:not(.quiz-completed) #score-board {
     flex-wrap: wrap;
     margin-top: 24px;
 }
+.result-btn-row {
+    display: flex;
+    gap: 12px;
+}
 .result-action-btns button {
-    padding: 12px 22px;
+    padding: 12px 20px;
     font-weight: 700;
-    border-radius: 10px;
+    border-radius: 12px;
     margin: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 1rem;
-    transition: all 0.2s;
+    font-size: 0.95rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .result-action-btns .result-btn-primary {
-    background: #1976d2;
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
     color: #fff;
     border: none;
+    box-shadow: 0 4px 14px rgba(25, 118, 210, 0.3);
 }
-.result-action-btns .result-btn-primary:hover { background: #1565c0; }
-
+.result-action-btns .result-btn-primary:hover {
+    background: #1565c0;
+    box-shadow: 0 6px 18px rgba(25, 118, 210, 0.4);
+    transform: translateY(-1px);
+}
 .result-action-btns .result-btn-lb {
-    border-color: #eab308; color: #ca8a04; background: #fefce8;
+    border: 1.5px solid #fde047;
+    color: #a16207;
+    background: #fefce8;
 }
-.result-action-btns .result-btn-lb:hover { background: #fef08a; }
-
+.result-action-btns .result-btn-lb:hover {
+    background: #fef08a;
+    transform: translateY(-1px);
+}
 .result-action-btns .result-btn-retry {
-    border-color: #cbd5e1; color: #334155; background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    color: #334155;
+    background: #f8fafc;
 }
-.result-action-btns .result-btn-retry:hover { background: #f1f5f9; }
-
+.result-action-btns .result-btn-retry:hover {
+    background: #f1f5f9;
+    transform: translateY(-1px);
+}
 .result-action-btns .result-btn-exit {
-    border-color: #cbd5e1; color: #64748b; background: transparent;
+    border: 1.5px solid #e2e8f0;
+    color: #64748b;
+    background: transparent;
 }
-.result-action-btns .result-btn-exit:hover { background: #f1f5f9; }
+.result-action-btns .result-btn-exit:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
     .result-action-btns {
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: column !important;
+        gap: 8px !important;
+        margin-top: 16px !important;
     }
-    .result-action-btns button {
-        width: 100%;
-        padding: 14px;
-        font-size: 1.05rem;
+    .result-action-btns .result-btn-primary {
+        width: 100% !important;
+        padding: 13px !important;
+        font-size: 0.95rem !important;
+        border-radius: 12px !important;
+    }
+    .result-btn-row {
+        display: flex !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    .result-btn-row button {
+        flex: 1 1 50% !important;
+        padding: 11px 6px !important;
+        font-size: 0.86rem !important;
+        border-radius: 10px !important;
+    }
+    .result-action-btns .result-btn-exit {
+        width: 100% !important;
+        padding: 10px !important;
+        font-size: 0.86rem !important;
+        border-radius: 10px !important;
     }
 }
 
