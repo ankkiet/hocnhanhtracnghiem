@@ -456,7 +456,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, query, doc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+        import { initializeFirestore, collection, onSnapshot, query, doc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyBNZKHspA74knftwTqM0DLgfsH1NCHHMSM",
@@ -470,7 +470,11 @@
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        // Bắt buộc dùng Long-Polling thay vì WebSocket để tránh lỗi kết nối mạng / Firewall
+        const db = initializeFirestore(app, {
+            experimentalForceLongPolling: true,
+            useFetchStreams: false
+        });
         const googleProvider = new GoogleAuthProvider();
         googleProvider.setCustomParameters({ prompt: 'select_account' });
 
