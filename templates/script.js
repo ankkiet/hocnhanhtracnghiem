@@ -271,6 +271,22 @@ function resetSubmissionReviewUI() {
     if (mainSubmit) {
         mainSubmit.style.display = (currentMode === 'exam') ? 'block' : 'none';
     }
+
+    // 8. Phục hồi thanh điều hướng và nút "Câu tiếp" trên mobile
+    const mobileBar = document.getElementById('azotaMobileExamBar');
+    if (mobileBar) {
+        if (currentMode !== 'edit') {
+            mobileBar.style.setProperty('display', 'flex', 'important');
+        } else {
+            mobileBar.style.setProperty('display', 'none', 'important');
+        }
+    }
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        mobileNextBtn.style.display = 'inline-flex';
+        mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+    }
+    toggleMobileNavSheet(false);
 }
 
 function initGoogleAuth() {
@@ -1192,6 +1208,19 @@ async function fetchLatestDataAndRestart(mode) {
     updateStudentNameDisplay(studentName);
     
     switchMode(mode);
+    document.body.classList.add('minimal-mode');
+    document.body.classList.remove('quiz-completed');
+    const mobileBar = document.getElementById('azotaMobileExamBar');
+    if (mobileBar && (mode === 'exam' || mode === 'practice')) {
+        mobileBar.style.setProperty('display', 'flex', 'important');
+    }
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        mobileNextBtn.style.display = 'inline-flex';
+        mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+    }
+    updateNavProgressBadge();
+    
     if (mode === 'exam' && currentTimeLimit > 0) { 
         startTimer(currentTimeLimit); 
     } else {
@@ -2866,8 +2895,13 @@ function renderData() {
             const sideCol = document.getElementById('azotaSideExamCol');
             if (sideCol) sideCol.style.setProperty('display', 'block', 'important');
         }
-        if (mobileBar && isStudentMode) {
+        if (mobileBar && currentMode !== 'edit') {
             mobileBar.style.setProperty('display', 'flex', 'important');
+        }
+        const mobileNextBtn = document.getElementById('mobileNextBtn');
+        if (mobileNextBtn) {
+            mobileNextBtn.style.display = 'inline-flex';
+            mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-right-line"></i>';
         }
     }
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
@@ -2885,6 +2919,13 @@ function renderPracticeQuestion() {
 
     practiceAnswered = false;
     window.currentPracticeTF = {};
+    const mobileBar = document.getElementById('azotaMobileExamBar');
+    if (mobileBar) mobileBar.style.setProperty('display', 'flex', 'important');
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        mobileNextBtn.style.display = 'inline-flex';
+        mobileNextBtn.innerHTML = (currentQuestionIndex === currentData.length - 1) ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+    }
     const q = currentData[currentQuestionIndex];
     const qType = getRealQuestionType(q);
     const box = document.createElement('div');

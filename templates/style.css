@@ -615,6 +615,10 @@ body.minimal-mode #mainAppContainer {
         box-sizing: border-box;
     }
     
+    body.quiz-completed .azota-mobile-exam-bar {
+        display: none !important;
+    }
+    
     .btn-mobile-nav-toggle {
         display: flex;
         align-items: center;
