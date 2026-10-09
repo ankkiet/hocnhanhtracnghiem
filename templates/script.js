@@ -599,7 +599,11 @@ function checkAuthState() {
             // Khách tự do vào làm bài
             const userBadge = document.getElementById('azotaUserBadge');
             if (userBadge) {
-                userBadge.innerHTML = `<span style="font-size: 0.9rem; color: #64748b; font-weight: 600;"><i class="ri-user-smile-line"></i> Thí sinh tự do</span>`;
+                userBadge.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size: 0.9rem; color: #64748b; font-weight: 600;"><i class="ri-user-smile-line"></i> Thí sinh tự do</span>
+                    <button onclick="window.forceShowLogin()" style="background:var(--primary-color); color:white; border:none; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.1);"><i class="ri-login-box-line"></i> Đăng nhập</button>
+                </div>`;
             }
         }
 
@@ -4888,3 +4892,28 @@ function showNextQuestionButton() {
         mobileNextBtn.innerHTML = isLast ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
     }
 }
+
+// Hàm hiển thị màn hình đăng nhập cho thí sinh tự do khi đang ở trang làm bài
+window.forceShowLogin = function() {
+    const mainApp = document.getElementById('mainApp');
+    if (mainApp) mainApp.style.setProperty('display', 'none', 'important');
+    
+    const azotaNavLinks = document.getElementById('azotaNavLinks');
+    if (azotaNavLinks) azotaNavLinks.style.display = 'flex'; // Cho phép chuyển qua lại Đăng nhập / Đăng ký
+    
+    const authBox = document.getElementById('authBox');
+    if (authBox) {
+        authBox.classList.remove('hidden');
+        authBox.style.setProperty('display', 'flex', 'important');
+        authBox.style.justifyContent = 'center';
+        authBox.style.alignItems = 'center';
+        authBox.style.minHeight = '85vh';
+        authBox.style.width = '100%';
+    }
+    
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+    
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+};
