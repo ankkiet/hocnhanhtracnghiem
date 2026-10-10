@@ -232,9 +232,9 @@ if os.path.exists(templates_dir):
 
 if __name__ == "__main__":
     import uvicorn
-    HOST = os.getenv("HOST", "0.0.0.0")
+    HOST = os.getenv("HOST", "127.0.0.1")
     PORT = int(os.getenv("PORT", "8000"))
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     reload_mode = (ENVIRONMENT == "development")
-    logger.info(f"App startup in {ENVIRONMENT} mode on {HOST}:{PORT}")
+    logger.info(f"App startup in {ENVIRONMENT} mode on http://{HOST}:{PORT}")
     uvicorn.run("main:app", host=HOST, port=PORT, reload=reload_mode)
