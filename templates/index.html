@@ -48,6 +48,60 @@
         display: none !important;
       }
 
+      #authContainer.modal-mode {
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(15, 23, 42, 0.75) !important;
+        backdrop-filter: blur(5px) !important;
+        -webkit-backdrop-filter: blur(5px) !important;
+        z-index: 999999 !important;
+        padding: 20px 10px !important;
+        box-sizing: border-box !important;
+        overflow-y: auto !important;
+      }
+
+      #authContainer.modal-mode .form {
+        position: relative !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+        animation: authModalFadeIn 0.22s ease-out forwards;
+      }
+
+      @keyframes authModalFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-16px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .styled-auth-wrapper:not(.modal-mode) .btn-close-auth-modal {
+        display: none !important;
+      }
+      .btn-close-auth-modal {
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 4px;
+        line-height: 1;
+        transition: color 0.15s ease;
+        z-index: 10;
+      }
+      .btn-close-auth-modal:hover {
+        color: #ef4444;
+      }
+
       .styled-auth-wrapper .form {
         display: flex;
         flex-direction: column !important;
@@ -501,6 +555,9 @@
 <div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
     <!-- Form Đăng nhập (Sign In) -->
     <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ đăng nhập">
+            <i class="ri-close-line"></i>
+        </button>
         <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
             <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
         </div>
@@ -564,6 +621,9 @@
 
     <!-- Form Đăng ký (Sign Up) -->
     <form class="form" id="registerForm" style="display: none !important;" onsubmit="event.preventDefault(); handleRegister();">
+        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+            <i class="ri-close-line"></i>
+        </button>
         <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
             <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
         </div>
@@ -637,6 +697,9 @@
 
     <!-- Form Hoàn tất đăng ký tài khoản Google (Sign Up with Google) -->
     <form class="form" id="roleSelectionCard" style="display: none !important;" onsubmit="event.preventDefault(); submitUserProfileAndRole();">
+        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+            <i class="ri-close-line"></i>
+        </button>
         <div class="auth-brand-header" style="text-align: center; margin-bottom: 10px;">
             <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 44px; max-width: 200px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
         </div>
@@ -748,6 +811,9 @@
 
     <!-- Card Thông báo Tài khoản Giáo viên đang chờ duyệt (Pending Approval) -->
     <div class="form" id="pendingApprovalCard" style="display: none !important; text-align: center;">
+        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+            <i class="ri-close-line"></i>
+        </button>
         <div style="margin: 10px auto 14px auto; width: 64px; height: 64px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.2);">
             <i class="ri-hourglass-2-fill"></i>
         </div>
@@ -885,8 +951,21 @@
         <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với HocNhanhTN!</h2>
         <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
         
-        <div style="max-width: 420px; margin: 0 auto 20px auto;">
+        <div style="max-width: 420px; margin: 0 auto 16px auto;">
             <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên của bạn (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+        </div>
+
+        <!-- Banner thông báo cho Thí sinh tự do -->
+        <div id="guestNoticeStrip" style="display:none; max-width: 460px; margin: 0 auto 18px auto; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; font-size: 0.88rem; color: #92400e; text-align: left; line-height: 1.45;">
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <i class="ri-information-line" style="font-size: 20px; color: #d97706; flex-shrink: 0;"></i>
+                    <span>Bài thi tự do sẽ tự xóa sau 24h. <b>Đăng nhập</b> để lưu kết quả vĩnh viễn!</span>
+                </div>
+                <button type="button" onclick="openExamLoginModal()" style="background: #2563eb; color: #fff; border: none; font-size: 0.82rem; font-weight: 700; padding: 6px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; flex-shrink: 0; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+                    Đăng nhập ngay
+                </button>
+            </div>
         </div>
 
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
@@ -923,6 +1002,9 @@
                 <div id="examStickyTimer" class="exam-sticky-timer">
                     <i class="ri-timer-line"></i> <span id="examTimerVal">--:--</span>
                 </div>
+                <button id="stickyGuestLoginBtn" type="button" class="btn-outline" onclick="openExamLoginModal()" style="display:none; padding: 7px 14px; font-size: 0.85rem; font-weight: 700; border-radius: 8px; border-color: #2563eb; color: #2563eb; background: #fff; align-items: center; gap: 5px; cursor: pointer;" title="Đăng nhập để lưu điểm vĩnh viễn">
+                    <i class="ri-login-box-line"></i> Đăng nhập
+                </button>
                 <button id="stickySubmitBtn" class="btn-azota-submit-big desktop-only-submit" style="width: auto; padding: 10px 22px; margin: 0; font-size: 0.95rem;" onclick="submitExam()">
                     <i class="ri-send-plane-fill"></i> Nộp bài
                 </button>
@@ -1102,65 +1184,130 @@
         <div id="teacherQuizList" style="display:none; overflow-x: auto; margin-top: 15px;"></div>
     </div>
 
-    <!-- Bảng Giám sát thi của Giáo viên -->
-    <div id="monitorDashboard" class="card" style="display:none; margin-top: 24px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow-md); background: #ffffff;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 48px; height: 48px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem;">
-                    <i class="ri-radar-line"></i>
+    <!-- Bảng Thống kê Điểm thi & Quản lý Kết quả Học sinh (Kết hợp Điểm & Giám sát) -->
+    <div id="quizStatsDashboard" class="card azota-stats-dashboard" style="display:none; margin-top: 20px; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow-md); background: #ffffff; padding: 24px;">
+        <!-- Header -->
+        <div class="stats-dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 48px; height: 48px; background: #eff6ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem; flex-shrink: 0;">
+                    <i class="ri-bar-chart-grouped-fill"></i>
                 </div>
                 <div>
-                    <h2 id="monitorQuizTitle" style="color: var(--text-dark); margin: 0; font-size: 1.25rem; font-weight: 800; line-height: 1.2;">Đang giám sát...</h2>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
-                        <span class="live-indicator"></span>
-                        <span style="font-size: 0.85rem; color: var(--success); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Trực tiếp (Live)</span>
+                    <h2 id="quizStatsTitle" style="color: var(--text-dark); margin: 0; font-size: 1.3rem; font-weight: 800; line-height: 1.3;">Thống kê điểm thi</h2>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: 0.85rem; color: var(--text-muted); flex-wrap: wrap;">
+                        <span id="quizStatsSubtitle"><i class="ri-file-list-3-line"></i> Kết quả thi</span>
+                        <span>•</span>
+                        <span id="quizStatsUpdatedTime"><i class="ri-time-line"></i> Cập nhật lúc: --</span>
+                        <span style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;"><i class="ri-shield-check-line"></i> Tải theo yêu cầu (Tiết kiệm Quota)</span>
                     </div>
                 </div>
             </div>
-            <button class="btn-outline" style="border-radius: 8px; font-weight: 600; padding: 8px 16px;" onclick="stopMonitoring()">
-                <i class="ri-arrow-left-line"></i> Đóng giám sát
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-outline" style="border-radius: 8px; font-weight: 600; padding: 8px 14px; font-size: 0.9rem;" onclick="refreshQuizStatsNow()" id="btnRefreshStats" title="Tải lại dữ liệu mới nhất từ hệ thống">
+                    <i class="ri-refresh-line"></i> <span>Làm mới</span>
+                </button>
+                <button class="btn-outline" style="border-radius: 8px; font-weight: 600; padding: 8px 16px; font-size: 0.9rem;" onclick="closeQuizStats()">
+                    <i class="ri-arrow-left-line"></i> <span>Quay lại</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div id="statsSummaryCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 22px;">
+            <div class="stat-kpi-card" style="background: #f8fafc; padding: 14px; border-radius: 10px; text-align: center; border: 1px solid var(--border);">
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;"><i class="ri-group-line"></i> Tổng bài nộp</div>
+                <div id="kpiTotalSubs" style="font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-top: 4px;">0</div>
+            </div>
+            <div class="stat-kpi-card" style="background: #f8fafc; padding: 14px; border-radius: 10px; text-align: center; border: 1px solid var(--border);">
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;"><i class="ri-calculator-line"></i> Điểm trung bình</div>
+                <div id="kpiAvgScore" style="font-size: 1.6rem; font-weight: 800; color: #0284c7; margin-top: 4px;">--</div>
+            </div>
+            <div class="stat-kpi-card" style="background: #f8fafc; padding: 14px; border-radius: 10px; text-align: center; border: 1px solid var(--border);">
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;"><i class="ri-trophy-line"></i> Điểm cao nhất</div>
+                <div id="kpiMaxScore" style="font-size: 1.6rem; font-weight: 800; color: #16a34a; margin-top: 4px;">--</div>
+            </div>
+            <div class="stat-kpi-card" style="background: #f8fafc; padding: 14px; border-radius: 10px; text-align: center; border: 1px solid var(--border);">
+                <div style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;"><i class="ri-arrow-down-circle-line"></i> Điểm thấp nhất</div>
+                <div id="kpiMinScore" style="font-size: 1.6rem; font-weight: 800; color: #dc2626; margin-top: 4px;">--</div>
+            </div>
+        </div>
+
+        <!-- Sub-Tabs Navigation -->
+        <div class="stats-sub-tabs" style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px;">
+            <button id="tabBtnStatsStudents" class="azota-tab-btn active" style="padding: 10px 18px; font-weight: 700; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="switchStatsSubTab('students')">
+                <i class="ri-user-star-line"></i> Bảng điểm từng học sinh (<span id="statsTabStudentCount">0</span>)
+            </button>
+            <button id="tabBtnStatsAnalytics" class="azota-tab-btn" style="padding: 10px 18px; font-weight: 700; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="switchStatsSubTab('analytics')">
+                <i class="ri-pie-chart-2-line"></i> Phổ điểm & Phân tích đề
             </button>
         </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <i class="ri-group-line" style="color: var(--text-muted); font-size: 1.2rem;"></i>
-                <span id="monitorCount" style="font-weight: 700; color: var(--text-dark); font-size: 1.05rem;">Tổng số: 0 học sinh</span>
+
+        <!-- Loading State Area -->
+        <div id="quizStatsLoading" style="display: none; padding: 30px 20px;"></div>
+
+        <!-- Tab Content 1: Bảng điểm từng học sinh -->
+        <div id="statsTabContentStudents">
+            <!-- Search & Toolbar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+                <div style="position: relative; max-width: 340px; width: 100%;">
+                    <i class="ri-search-line" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" id="statsStudentSearchInput" placeholder="Tìm kiếm theo tên học sinh..." style="width: 100%; padding: 8px 12px 8px 36px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.9rem;" oninput="filterStatsStudentsTable()">
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    <i class="ri-information-line"></i> Bấm vào dòng bất kỳ hoặc nút "Chi tiết" để xem chi tiết bài làm
+                </div>
             </div>
-            <span style="font-size: 0.85rem; color: var(--text-muted);"><i class="ri-shield-check-line"></i> Dữ liệu được bảo mật thời gian thực</span>
+
+            <!-- Table -->
+            <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); background: #fff;">
+                <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 680px;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border); color: #475569; background: #f1f5f9; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <th style="padding: 14px 12px; font-weight: 700; width: 6%; text-align: center;">STT</th>
+                            <th style="padding: 14px 12px; font-weight: 700; width: 28%;">Họ tên Học sinh</th>
+                            <th style="padding: 14px 12px; font-weight: 700; width: 18%; text-align: center;">Điểm số (Thang 10)</th>
+                            <th style="padding: 14px 12px; font-weight: 700; width: 16%; text-align: center;">Số câu đúng</th>
+                            <th style="padding: 14px 12px; font-weight: 700; width: 16%; text-align: center;">Thời gian làm</th>
+                            <th style="padding: 14px 12px; font-weight: 700; width: 16%; text-align: center;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="statsStudentsTableBody"></tbody>
+                </table>
+            </div>
         </div>
-        
-        <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); background: #fff;">
-            <table style="width:100%; border-collapse: collapse; text-align:left; min-width: 650px;">
-                <thead>
-                    <tr style="border-bottom: 2px solid var(--border); color: #475569; background: #f1f5f9; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <th style="padding: 16px; font-weight: 700; width: 35%;">Họ tên Học sinh</th>
-                        <th style="padding: 16px; font-weight: 700; width: 25%;">Số câu đúng</th>
-                        <th style="padding: 16px; font-weight: 700; width: 25%;">Thời gian làm</th>
-                        <th style="padding: 16px; font-weight: 700; width: 15%; text-align: center;">Điểm số</th>
-                    </tr>
-                </thead>
-                <tbody id="monitorTableBody"></tbody>
-            </table>
+
+        <!-- Tab Content 2: Phổ điểm & Phân tích đề -->
+        <div id="statsTabContentAnalytics" style="display: none;">
+            <div id="statsAnalyticsContainer"></div>
         </div>
     </div>
     
-    <!-- Modal Chi Tiết Học Sinh -->
-    <div id="studentDetailsModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div class="modal-content" style="background: #fff; width: 90%; max-width: 500px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px;">
-                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-dark); display: flex; align-items: center; gap: 8px;">
-                    <i class="ri-user-smile-line" style="color: var(--primary);"></i> Chi tiết Học sinh
-                </h3>
-                <button onclick="document.getElementById('studentDetailsModal').style.display='none'" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+    <!-- Modal Chi Tiết Học Sinh (Chi tiết bài làm từng câu) -->
+    <div id="studentDetailsModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+        <div class="modal-content" style="background: #fff; width: 95%; max-width: 820px; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 40px; height: 40px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <i class="ri-user-star-line"></i>
+                    </div>
+                    <div>
+                        <h3 id="studentDetailsHeaderName" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--text-dark);">
+                            Chi tiết bài làm học sinh
+                        </h3>
+                        <div id="studentDetailsHeaderSub" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+                            Xem kết quả từng câu hỏi & bài làm đã nộp
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeStudentDetailsModal()" style="background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px 8px; border-radius: 8px;">&times;</button>
             </div>
             
-            <div id="studentDetailsBody" style="font-size: 1rem; color: var(--text-dark); display: flex; flex-direction: column; gap: 12px;">
-                <!-- Data will be injected here -->
+            <div id="studentDetailsBody" style="font-size: 1rem; color: var(--text-dark);">
+                <!-- Chi tiết bài làm của học sinh sẽ được render tại đây -->
             </div>
             
-            <div style="margin-top: 24px; text-align: right;">
-                <button onclick="document.getElementById('studentDetailsModal').style.display='none'" class="btn-primary" style="padding: 8px 24px; border-radius: 8px;">Đóng</button>
+            <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); text-align: right;">
+                <button onclick="closeStudentDetailsModal()" class="btn-primary" style="padding: 8px 24px; border-radius: 8px; font-weight: 600;">Đóng</button>
             </div>
         </div>
     </div>
@@ -1198,8 +1345,8 @@
         </button>
         <button type="button" id="tabBtnLeaderboard" class="azota-res-tab-btn" onclick="switchResultView('leaderboard')">
             <i class="ri-trophy-fill" style="color: #eab308;"></i> 
-            <span class="tab-label-text">Bảng xếp hạng</span>
-            <span class="azota-res-tab-badge" id="tabLbCount">0 thí sinh</span>
+            <span class="tab-label-text">Bảng xếp hạng (Top 5)</span>
+            <span class="azota-res-tab-badge" id="tabLbCount">Top 5</span>
         </button>
     </div>
 
@@ -1215,11 +1362,11 @@
                 </button>
                 <div class="azota-lb-title" style="margin-bottom: 0;">
                     <i class="ri-trophy-fill" style="color: #eab308; font-size: 1.6rem;"></i>
-                    <span>BẢNG XẾP HẠNG THÀNH TÍCH PHÒNG THI</span>
+                    <span>BẢNG XẾP HẠNG TOP 5 CAO ĐIỂM NHẤT</span>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span id="lbTotalParticipants" class="azota-lb-badge">0 thí sinh</span>
+                <span id="lbTotalParticipants" class="azota-lb-badge">Top 5</span>
                 <button type="button" class="azota-lb-refresh-btn" id="lbRefreshBtn" onclick="const p=new URLSearchParams(window.location.search); fetchLeaderboard(p.get('quiz_id')||p.get('id'))" title="Tải lại bảng xếp hạng">
                     <i class="ri-refresh-line"></i>
                 </button>

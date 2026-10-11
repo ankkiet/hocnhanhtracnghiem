@@ -498,5 +498,186 @@ BẢNG ĐÁP ÁN:
         self.assertEqual(res_horiz, {"a": True, "b": False, "c": False, "d": True})
 
 
+    def test_quiz_analytics_student_details_and_force_refresh(self):
+        """Kiểm tra quiz_analytics trả về đúng thông tin chi tiết từng học sinh và hỗ trợ force_refresh."""
+        from routers.teacher import get_quiz_analytics
+
+        mock_db = MagicMock()
+        sub1 = MagicMock()
+        sub1.id = "sub_doc_1"
+        sub1.to_dict.return_value = {
+            'student_name': 'Trần Văn Bình',
+            'score': 2.0,
+            'total_questions': 2,
+            'time_elapsed': 120,
+            'timestamp': None,
+            'answers': {'0': 'A', '1': 'B'},
+            'results': [
+                {'question_index': 0, 'user_answer': 'A', 'correct_answer': 'A', 'is_correct': True, 'earned': 1.0},
+                {'question_index': 1, 'user_answer': 'B', 'correct_answer': 'B', 'is_correct': True, 'earned': 1.0}
+            ]
+        }
+        
+        mock_quiz_doc = MagicMock()
+        mock_quiz_doc.exists = True
+        mock_quiz_doc.to_dict.return_value = {
+            'title': 'Đề kiểm tra 15 phút',
+            'data': [
+                {
+                    'question': 'Câu 1: Thủ đô của Việt Nam là gì?',
+                    'type': 'mcq',
+                    'options': ['A. Hà Nội', 'B. Đà Nẵng', 'C. TP.HCM', 'D. Huế'],
+                    'correct_answer': 'A',
+                    'group_title': 'Phần Lịch sử - Địa lý',
+                    'image': 'https://example.com/map.jpg'
+                },
+                {
+                    'question': 'Câu 2: 1 + 1 = ?',
+                    'type': 'mcq',
+                    'options': ['A. 1', 'B. 2', 'C. 3', 'D. 4'],
+                    'correct_answer': 'B',
+                    'explain': '1 cộng 1 bằng 2.'
+                }
+            ]
+        }
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_quiz_doc
+        mock_db.collection.return_value.document.return_value.collection.return_value.get.return_value = [sub1]
+
+        with patch('routers.teacher.get_db', return_value=mock_db), \
+             patch('routers.teacher.verify_teacher_access', return_value=True):
+            import asyncio
+            res = asyncio.run(get_quiz_analytics(quiz_id='quiz_test_123', teacher_token='valid_token', force_refresh=True))
+
+        self.assertEqual(res['status'], 'success')
+        self.assertEqual(res['total_submissions'], 1)
+        self.assertEqual(len(res['students']), 1)
+        stu = res['students'][0]
+        self.assertEqual(stu['student_name'], 'Trần Văn Bình')
+        self.assertEqual(stu['scaled_score'], 10.0)
+        self.assertEqual(len(stu['results']), 2)
+        
+        # Kiểm tra questions_brief có group_title và image
+        q_brief = res['questions_brief']
+        self.assertEqual(len(q_brief), 2)
+        self.assertEqual(q_brief[0]['group_title'], 'Phần Lịch sử - Địa lý')
+        self.assertEqual(q_brief[0]['image'], 'https://example.com/map.jpg')
+
+    def test_submit_exam_shuffled_mcq_content_match(self):
+        """Kiểm tra chấm thi chuẩn xác khi đáp án bị xáo trộn vị trí A, B, C, D"""
+        from routers.student import submit_exam, SubmitExamRequest
+
+        mock_db = MagicMock()
+        mock_quiz_doc = MagicMock()
+        mock_quiz_doc.exists = True
+        mock_quiz_doc.to_dict.return_value = {
+            'title': 'Đề xáo trộn đáp án',
+            'data': [
+                {
+                    'question': 'Kỹ thuật điện là',
+                    'type': 'mcq',
+                    'options': [
+                        'A. một lĩnh vực kĩ thuật liên quan đến nghiên cứu và ứng dụng...',
+                        'B. lĩnh vực công nghệ liên quan đến nghiên cứu động cơ đốt trong...',
+                        'C. ngành kĩ thuật điện tử trong cơ khí...',
+                        'D. ngành công nghệ cao xây dựng...'
+                    ],
+                    'correct_answer': 'A. một lĩnh vực kĩ thuật liên quan đến nghiên cứu và ứng dụng...'
+                }
+            ]
+        }
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_quiz_doc
+
+        req = SubmitExamRequest(
+            quiz_id='shuffled_quiz_999',
+            student_name='Đinh Bảo Trân',
+            time_elapsed=120,
+            answers={
+                # Học sinh nhìn thấy đáp án A nằm ở vị trí B do xáo trộn
+                '0': 'B. một lĩnh vực kĩ thuật liên quan đến nghiên cứu và ứng dụng...'
+            }
+        )
+
+        with patch('routers.student.get_db', return_value=mock_db):
+            import asyncio
+            res = asyncio.run(submit_exam(req))
+
+        self.assertEqual(res['status'], 'success')
+        self.assertEqual(res['score'], 1.0)
+        self.assertTrue(res['results'][0]['is_correct'])
+
+    def test_guest_submissions_cleanup_after_24h(self):
+        """Kiểm tra thí sinh tự do quá 24h sẽ tự động bị xóa khỏi Firestore và không thống kê"""
+        import datetime
+        from routers.teacher import get_quiz_analytics
+
+        mock_db = MagicMock()
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        
+        # 1. Học sinh chính thức (nộp từ 3 ngày trước): KHÔNG bị xóa
+        reg_sub = MagicMock()
+        reg_sub.to_dict.return_value = {
+            'student_name': 'Học sinh chính thức',
+            'student_id': 'student_user_123',
+            'is_guest': False,
+            'score': 10.0,
+            'total_questions': 1,
+            'timestamp': now_utc - datetime.timedelta(days=3),
+            'answers': {'0': 'A'}
+        }
+
+        # 2. Thí sinh tự do mới nộp (2 giờ trước): KHÔNG bị xóa, vẫn hiển thị
+        fresh_guest = MagicMock()
+        fresh_guest.to_dict.return_value = {
+            'student_name': 'Khách mới nộp',
+            'is_guest': True,
+            'score': 8.0,
+            'total_questions': 1,
+            'timestamp': now_utc - datetime.timedelta(hours=2),
+            'expire_at': now_utc + datetime.timedelta(hours=22),
+            'answers': {'0': 'A'}
+        }
+
+        # 3. Thí sinh tự do cũ (nộp từ 25 giờ trước): BỊ XÓA khỏi Firestore và BỎ QUA
+        expired_guest = MagicMock()
+        expired_guest.to_dict.return_value = {
+            'student_name': 'Khách quá hạn',
+            'is_guest': True,
+            'score': 5.0,
+            'total_questions': 1,
+            'timestamp': now_utc - datetime.timedelta(hours=25),
+            'expire_at': now_utc - datetime.timedelta(hours=1),
+            'answers': {'0': 'B'}
+        }
+        expired_guest.reference = MagicMock()
+
+        mock_quiz_doc = MagicMock()
+        mock_quiz_doc.exists = True
+        mock_quiz_doc.to_dict.return_value = {
+            'title': 'Đề kiểm tra dọn dẹp',
+            'data': [{'question': 'Câu 1', 'type': 'mcq', 'options': ['A', 'B'], 'correct_answer': 'A'}]
+        }
+
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_quiz_doc
+        mock_db.collection.return_value.document.return_value.collection.return_value.get.return_value = [
+            reg_sub, fresh_guest, expired_guest
+        ]
+
+        with patch('routers.teacher.get_db', return_value=mock_db), \
+             patch('routers.teacher.verify_teacher_access', return_value=True):
+            import asyncio
+            res = asyncio.run(get_quiz_analytics(quiz_id='clean_quiz_1', teacher_token='valid_token', force_refresh=True))
+
+        # Chỉ có 2 học sinh được giữ lại (học sinh chính thức + khách mới)
+        self.assertEqual(res['total_submissions'], 2)
+        names = [s['student_name'] for s in res['students']]
+        self.assertIn('Học sinh chính thức', names)
+        self.assertIn('Khách mới nộp', names)
+        self.assertNotIn('Khách quá hạn', names)
+
+        # Kiểm tra reference.delete() đã được gọi cho thí sinh tự do quá 24h
+        expired_guest.reference.delete.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()
+

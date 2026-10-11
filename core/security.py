@@ -113,14 +113,20 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
             USER_CACHE[token] = {'time': now, 'user': cached_user}
             return cached_user
             
-        doc = db.collection('users').document(user_id).get()
-        if doc.exists:
-            user_data = doc.to_dict()
-            user_data['id'] = doc.id
-            final_user = check_and_assign_admin(user_data)
-            USER_CACHE[user_id] = {'time': now, 'user': final_user}
-            USER_CACHE[token] = {'time': now, 'user': final_user}
-            return final_user.copy()
+        try:
+            doc = db.collection('users').document(user_id).get()
+            if doc.exists:
+                user_data = doc.to_dict()
+                user_data['id'] = doc.id
+                final_user = check_and_assign_admin(user_data)
+                USER_CACHE[user_id] = {'time': now, 'user': final_user}
+                USER_CACHE[token] = {'time': now, 'user': final_user}
+                return final_user.copy()
+        except Exception as e:
+            if "403" in str(e) or "PermissionDenied" in str(e):
+                logger.error(f"Lỗi quyền Firebase Firestore 403 PermissionDenied khi đọc users/{user_id}: {e}")
+                raise e
+            pass
             
     try:
         doc = db.collection('users').document(token).get()

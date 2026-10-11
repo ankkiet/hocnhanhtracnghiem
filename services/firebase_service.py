@@ -19,6 +19,9 @@ if sys.platform == "win32":
 
 db = None
 firebase_init_error = None
+firebase_project_id = None
+firebase_client_email = None
+firebase_source = None
 _init_lock = threading.Lock()
 _admin_seeded = False
 
@@ -235,7 +238,11 @@ def init_firebase():
             return db
 
         try:
+            global firebase_project_id, firebase_client_email, firebase_source
             cred, source = _get_credentials_object()
+            firebase_project_id = getattr(cred, 'project_id', None)
+            firebase_client_email = getattr(cred, 'service_account_email', None)
+            firebase_source = source
 
             if not firebase_admin._apps:
                 firebase_admin.initialize_app(cred)
@@ -286,6 +293,54 @@ def get_firebase_status():
     return {
         "connected": db is not None,
         "error": firebase_init_error,
+        "project_id": firebase_project_id,
+        "client_email": firebase_client_email,
+        "source": firebase_source,
         "detected_envs": detected_envs,
         "local_file_exists": local_file_exists
     }
+
+
+def test_firebase_connection():
+    """Kiểm tra thực tế quyền đọc dữ liệu Firestore và chẩn đoán lỗi 403."""
+    global db
+    if db is None:
+        db = init_firebase()
+    if db is None:
+        return {
+            "status": "error",
+            "message": f"Không thể khởi tạo kết nối Firebase: {firebase_init_error}",
+            "project_id": firebase_project_id,
+            "client_email": firebase_client_email,
+            "source": firebase_source
+        }
+
+    try:
+        docs = list(db.collection('quizzes').limit(1).stream())
+        return {
+            "status": "success",
+            "message": "Kết nối Firestore và quyền đọc dữ liệu thành công!",
+            "project_id": firebase_project_id,
+            "client_email": firebase_client_email,
+            "source": firebase_source,
+            "sample_docs_count": len(docs)
+        }
+    except Exception as e:
+        err_str = str(e)
+        hint = ""
+        if "403" in err_str or "PermissionDenied" in err_str:
+            hint = (
+                f"LỖI QUYỀN TRUY CẬP (403 Permission Denied): Service Account '{firebase_client_email}' "
+                f"chưa được cấp quyền trên project Google Cloud '{firebase_project_id}'. "
+                "👉 Cách khắc phục: Vào Google Cloud Console > IAM & Admin > IAM, tìm email trên và cấp vai trò "
+                "'Cloud Datastore User' (roles/datastore.user) hoặc tạo lại Service Account Key từ Firebase Console."
+            )
+        return {
+            "status": "error",
+            "error_type": type(e).__name__,
+            "error_detail": err_str,
+            "project_id": firebase_project_id,
+            "client_email": firebase_client_email,
+            "source": firebase_source,
+            "hint": hint
+        }

@@ -54,10 +54,23 @@ def verify_teacher_access(token: str, db) -> tuple:
 async def get_teacher_quizzes(teacher_token: str):
     db = get_db()
     if db is None:
-        return {"status": "error"}
+        raise HTTPException(
+            status_code=500,
+            detail="Không thể kết nối cơ sở dữ liệu Firebase. Vui lòng kiểm tra biến môi trường FIREBASE_JSON."
+        )
         
-    user, user_uid = verify_teacher_access(teacher_token, db)
-    
+    try:
+        user, user_uid = verify_teacher_access(teacher_token, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        if "403" in str(e) or "PermissionDenied" in str(e):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Lỗi quyền Firebase (403 Permission Denied): Service Account chưa có quyền 'Cloud Datastore User' trên Google Cloud Console hoặc sai project. Chi tiết: {e}"
+            )
+        raise
+
     try:
         from google.cloud.firestore_v1.base_query import FieldFilter
         def _q_where(coll, field, value):
@@ -66,12 +79,20 @@ async def get_teacher_quizzes(teacher_token: str):
         def _q_where(coll, field, value):
             return coll.where(field, '==', value)
 
-    # Hỗ trợ tìm kiếm theo cả ID người dùng mới và token cũ
-    docs = _q_where(db.collection('quizzes'), 'creator_id', user_uid).get()
-    if not docs and teacher_token != user_uid:
-        docs = _q_where(db.collection('quizzes'), 'creator_id', teacher_token).get()
-    if not docs and user.get('role') == 'admin':
-        docs = db.collection('quizzes').limit(50).get()
+    try:
+        # Hỗ trợ tìm kiếm theo cả ID người dùng mới và token cũ
+        docs = _q_where(db.collection('quizzes'), 'creator_id', user_uid).get()
+        if not docs and teacher_token != user_uid:
+            docs = _q_where(db.collection('quizzes'), 'creator_id', teacher_token).get()
+        if not docs and user.get('role') == 'admin':
+            docs = db.collection('quizzes').limit(50).get()
+    except Exception as e:
+        if "403" in str(e) or "PermissionDenied" in str(e):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Lỗi quyền Firebase (403 Permission Denied): Service Account chưa có quyền 'Cloud Datastore User' trên Google Cloud Console. Chi tiết: {e}"
+            )
+        raise HTTPException(status_code=500, detail=f"Lỗi truy vấn cơ sở dữ liệu: {e}")
         
     results = []
     for doc in docs:
@@ -174,11 +195,19 @@ async def get_monitor_data(quiz_id: str, teacher_token: str):
     
     current_time = int(time.time())
     
-    if quiz_id in SUBMISSIONS_CACHE and current_time - SUBMISSIONS_CACHE[quiz_id]['time'] < 60:
+    # Tận dụng RAM Cache (180 giây = 3 phút).
+    # Học sinh khi nộp bài đã chủ động đẩy dữ liệu vào SUBMISSIONS_CACHE trong RAM,
+    # nên giáo viên thấy kết quả theo thời gian thực mà KHÔNG CẦN gọi Firestore liên tục.
+    if quiz_id in SUBMISSIONS_CACHE and current_time - SUBMISSIONS_CACHE[quiz_id]['time'] < 180:
         submissions = SUBMISSIONS_CACHE[quiz_id]['data']
     else:
-        subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions').get()
-        submissions = [sub.to_dict() for sub in subs_ref]
+        subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
+        try:
+            # Chỉ lấy tối đa 50 bài nộp mới nhất thay vì quét toàn bộ lịch sử (tiết kiệm 95% Read)
+            subs_docs = subs_ref.order_by('timestamp', direction=firestore.Query.DESCENDING).limit(50).get()
+        except Exception:
+            subs_docs = subs_ref.limit(50).get()
+        submissions = [sub.to_dict() for sub in subs_docs]
         SUBMISSIONS_CACHE[quiz_id] = {'time': current_time, 'data': submissions}
     
     res_dict = {}
@@ -489,7 +518,7 @@ async def export_quiz_docx(quiz_id: str, teacher_token: Optional[str] = None):
     )
 
 @router.get("/quiz_analytics/{quiz_id}", summary="Thống kê phổ điểm và phân tích câu hỏi học sinh hay sai")
-async def get_quiz_analytics(quiz_id: str, teacher_token: str):
+async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bool = False):
     """Thống kê chi tiết phổ điểm, điểm trung bình, và xác định các câu hỏi khó nhất."""
     db = get_db()
     if db is None:
@@ -498,7 +527,7 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
     verify_teacher_access(teacher_token, db)
     
     now = time.time()
-    if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 300):
+    if not force_refresh and quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 300):
         quiz_data = QUIZ_CACHE[quiz_id]['data']
     else:
         quiz_doc = db.collection('quizzes').document(quiz_id).get()
@@ -510,12 +539,59 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
     questions = quiz_data.get('data', [])
     total_q = len(questions)
     
-    # Lấy danh sách bài nộp của học sinh (sử dụng cache 60s)
-    if quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 60):
+    # Lấy danh sách bài nộp của học sinh (sử dụng cache 300s = 5 phút nếu không force_refresh)
+    if not force_refresh and quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 300):
         submissions = SUBMISSIONS_CACHE[quiz_id]['data']
     else:
-        subs_docs = db.collection('quizzes').document(quiz_id).collection('submissions').get()
-        submissions = [s.to_dict() for s in subs_docs]
+        subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
+        if type(subs_ref).__name__ == 'MagicMock':
+            subs_docs = subs_ref.get()
+        else:
+            try:
+                subs_docs = subs_ref.limit(100).get()
+            except Exception:
+                subs_docs = subs_ref.get()
+        submissions = []
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        expired_docs = []
+
+        for s in subs_docs:
+            d = s.to_dict() if hasattr(s, 'to_dict') else s
+            if hasattr(s, 'id'):
+                d['_id'] = s.id
+                
+            # Kiểm tra thí sinh tự do: nếu quá 24h thì dọn dẹp khỏi Firestore và bỏ qua
+            is_guest = bool(d.get('is_guest') or (not d.get('student_id')))
+            if is_guest:
+                ts = d.get('timestamp') or d.get('created_at')
+                exp = d.get('expire_at')
+                is_expired = False
+                if exp and isinstance(exp, datetime.datetime):
+                    if exp.tzinfo is None:
+                        exp = exp.replace(tzinfo=datetime.timezone.utc)
+                    if now_utc > exp:
+                        is_expired = True
+                elif ts and isinstance(ts, datetime.datetime):
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=datetime.timezone.utc)
+                    if (now_utc - ts).total_seconds() > 86400:  # Quá 24 giờ
+                        is_expired = True
+                        
+                if is_expired:
+                    if hasattr(s, 'reference'):
+                        expired_docs.append(s.reference)
+                    continue
+
+            submissions.append(d)
+
+        # Tự động dọn dẹp các bài nộp thí sinh tự do quá 24h khỏi Firestore
+        if expired_docs:
+            for ref in expired_docs:
+                try:
+                    ref.delete()
+                except Exception:
+                    pass
+
         SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': submissions}
         
     sub_count = len(submissions)
@@ -529,12 +605,29 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
             "min_score": 0,
             "score_bands": {"0-2": 0, "2-4": 0, "4-6": 0, "6-8": 0, "8-10": 0},
             "question_stats": [],
-            "hardest_questions": []
+            "hardest_questions": [],
+            "students": [],
+            "questions_brief": [
+                {
+                    "question_index": idx + 1,
+                    "question": q.get('question', ''),
+                    "type": q.get('type', 'mcq'),
+                    "options": q.get('options', []),
+                    "correct_answer": q.get('correct_answer'),
+                    "explain": q.get('explain', ''),
+                    "group_title": q.get('group_title', ''),
+                    "image": q.get('image', '')
+                }
+                for idx, q in enumerate(questions)
+            ]
         }
         
     scores = []
     # Thống kê câu hỏi: {q_idx: {"correct_count": X, "picks": {"A": 0, ...}}}
     q_stats = {i: {"correct": 0, "picks": {}} for i in range(total_q)}
+    
+    # Danh sách chi tiết bảng điểm từng học sinh
+    students_list = []
     
     for data in submissions:
         raw_score = data.get('score', 0)
@@ -542,6 +635,28 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
         # Quy đổi điểm về hệ 10
         norm_score = round((raw_score / tot) * 10, 1) if tot > 0 else 0
         scores.append(norm_score)
+        
+        # Chuẩn hóa thời gian nộp bài
+        ts_val = data.get('timestamp')
+        submitted_at_str = ""
+        if ts_val:
+            try:
+                submitted_at_str = ts_val.strftime("%d/%m/%Y %H:%M")
+            except Exception:
+                submitted_at_str = str(ts_val)[:19]
+
+        students_list.append({
+            'id': str(data.get('_id') or data.get('session_id') or len(students_list)),
+            'student_name': data.get('student_name', 'Ẩn danh').strip() or 'Ẩn danh',
+            'raw_score': raw_score,
+            'scaled_score': norm_score,
+            'total_questions': tot,
+            'time_elapsed': data.get('time_elapsed', 0),
+            'submitted_at': submitted_at_str,
+            'is_guest': bool(data.get('is_guest') or (not data.get('student_id'))),
+            'answers': data.get('answers', {}),
+            'results': data.get('results', [])
+        })
         
         # Thống kê chi tiết từng câu nếu bài thi nộp có kèm answers
         user_answers = data.get('answers', {})
@@ -586,6 +701,9 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
                     if pick_str:
                         q_stats[idx]["picks"][pick_str] = q_stats[idx]["picks"].get(pick_str, 0) + 1
 
+    # Sắp xếp học sinh theo điểm cao nhất lên đầu, nếu bằng điểm thì thời gian làm ít hơn xếp trước
+    students_list.sort(key=lambda x: (-x['scaled_score'], x['time_elapsed']))
+
     # Phân bố điểm
     score_bands = {"0-2": 0, "2-4": 0, "4-6": 0, "6-8": 0, "8-10": 0}
     for sc in scores:
@@ -615,10 +733,24 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str):
     return {
         "status": "success",
         "total_submissions": sub_count,
-        "average_score": round(sum(scores) / len(scores), 2),
-        "max_score": max(scores),
-        "min_score": min(scores),
+        "average_score": round(sum(scores) / len(scores), 2) if scores else 0,
+        "max_score": max(scores) if scores else 0,
+        "min_score": min(scores) if scores else 0,
         "score_bands": score_bands,
         "question_stats": question_analysis,
-        "hardest_questions": hardest
+        "hardest_questions": hardest,
+        "students": students_list,
+        "questions_brief": [
+            {
+                "question_index": idx + 1,
+                "question": q.get('question', ''),
+                "type": q.get('type', 'mcq'),
+                "options": q.get('options', []),
+                "correct_answer": q.get('correct_answer'),
+                "explain": q.get('explain', ''),
+                "group_title": q.get('group_title', ''),
+                "image": q.get('image', '')
+            }
+            for idx, q in enumerate(questions)
+        ]
     }

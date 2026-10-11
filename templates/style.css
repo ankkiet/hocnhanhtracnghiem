@@ -4374,12 +4374,16 @@ body.quiz-completed .exam-sticky-timer {
 .review-question-card img,
 .review-q-text img,
 .review-explain-box img,
-.review-opt-content img {
+.review-opt-content img,
+#studentDetailsBody img,
+.student-detail-card img {
   max-width: 100% !important;
+  max-height: 380px !important;
   height: auto !important;
   border-radius: 8px;
   display: block;
-  margin: 6px 0;
+  margin: 8px auto;
+  object-fit: contain;
 }
 
 .katex-display,
@@ -4679,7 +4683,8 @@ body.quiz-completed .exam-sticky-timer {
     min-height: 36px !important;
   }
 
-  #monitorDashboard {
+  #monitorDashboard,
+  #quizStatsDashboard {
     padding: 16px 14px !important;
     margin-top: 14px !important;
     border-radius: 14px !important;

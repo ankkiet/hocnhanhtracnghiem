@@ -134,6 +134,13 @@ def health_check():
     return {"status": "ok", "message": "HocnhanhTN backend is awake and active"}
 
 
+@app.get("/api/firebase/debug", summary="Kiểm tra trạng thái & quyền truy cập Firebase Firestore")
+def debug_firebase():
+    """Endpoint chẩn đoán chi tiết lỗi kết nối Firebase và lỗi 403 Permission Denied."""
+    from services.firebase_service import test_firebase_connection
+    return test_firebase_connection()
+
+
 # ==========================================
 # GẮN GIAO DIỆN WEB (STATIC FILES CHO FRONTEND & DYNAMIC OPEN GRAPH METADATA)
 # ==========================================

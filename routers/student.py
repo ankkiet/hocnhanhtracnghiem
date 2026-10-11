@@ -1,3 +1,5 @@
+import time
+import datetime
 from typing import Optional, Dict, Any
 import re
 from fastapi import APIRouter, HTTPException
@@ -6,7 +8,6 @@ from firebase_admin import firestore, db as realtime_db
 from services.firebase_service import get_db
 from core.security import get_user_from_token
 from core.state import QUIZ_CACHE, LEADERBOARD_CACHE, SUBMISSIONS_CACHE
-import time
 
 router = APIRouter(prefix="/api", tags=["Student Exam & Progress"])
 
@@ -179,13 +180,22 @@ async def submit_exam(req: SubmitExamRequest):
         'total_questions': total_questions,
         'time_elapsed': req.time_elapsed,
         'answers': req.answers,
+        'results': results,
         'timestamp': firestore.SERVER_TIMESTAMP
     }
     
+    is_guest = True
     if req.student_token:
         user = get_user_from_token(req.student_token, db)
         if user:
             submission_data['student_id'] = user['id']
+            is_guest = False
+            
+    submission_data['is_guest'] = is_guest
+    if is_guest:
+        # Thí sinh tự do: Đặt thời hạn tự hủy sau 24h (hỗ trợ Firestore TTL Policy và dọn dẹp tự động)
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        submission_data['expire_at'] = now_utc + datetime.timedelta(hours=24)
             
     submission_ref.set(submission_data)
     
@@ -205,7 +215,7 @@ async def submit_exam(req: SubmitExamRequest):
         curr_lb = LEADERBOARD_CACHE[req.quiz_id]['data']
         curr_lb.append(lb_entry)
         curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-        LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': curr_lb[:50]}
+        LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
     else:
         LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': [lb_entry]}
     
@@ -247,7 +257,7 @@ async def submit_score_legacy(request: SubmitScoreRequest):
             'time_elapsed': request.time_elapsed
         })
         curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-        LEADERBOARD_CACHE[request.quiz_id] = {'time': now_ts, 'data': curr_lb[:50]}
+        LEADERBOARD_CACHE[request.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
     
     return {"status": "success"}
 
@@ -292,22 +302,26 @@ async def ping_session(req: PingSessionRequest):
     # Đã tắt tính năng Giám sát Live để tiết kiệm Quota/Tài nguyên. Chỉ lấy lúc nộp bài.
     return {"status": "success"}
 
-@router.get("/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top thành tích")
+@router.get("/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng top 5 thành tích cao nhất")
 async def get_leaderboard(quiz_id: str):
     db = get_db()
     if db is None:
         return {"status": "error"}
         
-    # SỬ DỤNG CACHE CHO BẢNG XẾP HẠNG (60 giây) -> TIẾT KIỆM QUOTA HÀNG LOẠT
+    # SỬ DỤNG CACHE CHO BẢNG XẾP HẠNG (300 giây = 5 phút) -> TIẾT KIỆM QUOTA HÀNG LOẠT
     now = time.time()
-    if quiz_id in LEADERBOARD_CACHE and now - LEADERBOARD_CACHE[quiz_id]['time'] < 60:
-        return {"status": "success", "data": LEADERBOARD_CACHE[quiz_id]['data']}
+    if quiz_id in LEADERBOARD_CACHE and now - LEADERBOARD_CACHE[quiz_id]['time'] < 300:
+        return {"status": "success", "data": LEADERBOARD_CACHE[quiz_id]['data'][:5]}
         
-    if quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 60):
+    if quiz_id in SUBMISSIONS_CACHE and (now - SUBMISSIONS_CACHE[quiz_id]['time'] < 300):
         raw_submissions = SUBMISSIONS_CACHE[quiz_id]['data']
     else:
         subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
-        docs = subs_ref.get()
+        try:
+            # CHỈ LẤY ĐÚNG 5 BÀI ĐIỂM CAO NHẤT TỪ FIRESTORE (tiết kiệm 99% Read)
+            docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(5).get()
+        except Exception:
+            docs = subs_ref.limit(5).get()
         raw_submissions = [doc.to_dict() for doc in docs]
         SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': raw_submissions}
 
@@ -336,7 +350,7 @@ async def get_leaderboard(quiz_id: str):
         })
     results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
     
-    final_results = results[:50]
+    final_results = results[:5]
     LEADERBOARD_CACHE[quiz_id] = {'time': now, 'data': final_results}
     
     return {"status": "success", "data": final_results}
