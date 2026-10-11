@@ -127,10 +127,12 @@ app.include_router(admin_router)
 app.include_router(document_router)
 
 
-@app.get("/api/health", summary="Kiểm tra trạng thái máy chủ (Health Check & Keep-Alive)")
-@app.get("/ping", summary="Ping đánh thức máy chủ")
+@app.api_route("/api/keep-alive", methods=["GET", "HEAD", "POST"], summary="Đánh thức máy chủ từ Cron-job (Keep-Alive)")
+@app.api_route("/keep-alive", methods=["GET", "HEAD", "POST"], summary="Đánh thức máy chủ từ Cron-job (Keep-Alive)")
+@app.api_route("/api/health", methods=["GET", "HEAD", "POST"], summary="Kiểm tra trạng thái máy chủ (Health Check & Keep-Alive)")
+@app.api_route("/ping", methods=["GET", "HEAD", "POST"], summary="Ping đánh thức máy chủ")
 def health_check():
-    """Endpoint siêu nhẹ để Frontend đánh thức máy chủ (chống ngủ đông) hoặc giám sát Uptime."""
+    """Endpoint siêu nhẹ để Frontend & Cron-job đánh thức máy chủ (chống ngủ đông) hoặc giám sát Uptime."""
     return {"status": "ok", "message": "HocnhanhTN backend is awake and active"}
 
 
