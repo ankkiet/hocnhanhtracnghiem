@@ -29,6 +29,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=20261009_clean_3">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5865046257484388" crossorigin="anonymous"></script>
     <style id="styled-wrapper-css">
       #authContainer {
         display: flex;
@@ -968,13 +971,38 @@
             </div>
         </div>
 
+        <!-- Badge Trạng thái Vé 12h làm bài không giới hạn -->
+        <div id="adPassBadgeContainer" style="max-width: 460px; margin: 0 auto 16px auto; display: none;">
+            <div id="adPassActiveBadge" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 10px; padding: 10px 14px; font-size: 0.9rem; align-items: center; justify-content: center; gap: 8px;">
+                <i class="ri-checkbox-circle-fill" style="color: #10b981; font-size: 1.15rem;"></i>
+                <span>Đã kích hoạt quyền làm bài không giới hạn (Còn lại: <b id="adPassTimeRemaining">12 giờ</b>)</span>
+            </div>
+            <div id="adPassInactiveBadge" style="display: none; background: #f8fafc; border: 1px dashed #cbd5e1; color: #475569; border-radius: 10px; padding: 8px 12px; font-size: 0.85rem; align-items: center; justify-content: center; gap: 6px;">
+                <i class="ri-shield-star-line" style="color: #f59e0b; font-size: 1.1rem;"></i>
+                <span>Xem 1 quảng cáo ngắn để mở khóa làm bài 12h không gián đoạn</span>
+            </div>
+        </div>
+
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
-            <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="startStudentQuiz()">
+            <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="handleStartQuizWithAdCheck()">
                 <i class="ri-rocket-line"></i> Bắt đầu làm bài thi
             </button>
             <button id="viewLbBtn" class="btn-outline" style="font-size: 1.15rem; padding: 14px 24px; border-radius: 10px; font-weight: 600; background: white; border-color: #eab308; color: #ca8a04;" onclick="showLeaderboardOnly()">
                 <i class="ri-trophy-fill"></i> Xem BXH
             </button>
+        </div>
+
+        <!-- Khung Quảng cáo Giao diện chờ (Google AdSense) -->
+        <div id="lobbyAdBox" style="margin: 20px auto 10px auto; max-width: 728px; min-height: 90px; text-align: center; overflow: hidden;">
+            <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Quảng cáo hỗ trợ duy trì máy chủ</div>
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-5865046257484388"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+            <script>
+                 (adsbygoogle = window.adsbygoogle || []).push({});
+            </script>
         </div>
         
         <!-- Khung hiển thị Lịch sử -->
@@ -1613,6 +1641,75 @@
 <button id="indexMobileFloatToggle" class="index-mobile-float-toggle" onclick="toggleIndexMobileEditorTab()" style="display:none;" title="Chuyển đổi Soạn thảo / Xem trước">
     <i class="ri-eye-line"></i> <span>Xem trước</span>
 </button>
+
+<!-- MODAL XEM QUẢNG CÁO MỞ KHÓA 12H LÀM BÀI -->
+<div id="rewardAdModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 99999; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px);">
+    <div class="modal-content" style="max-width: 480px; width: 92%; border-radius: 16px; padding: 28px 24px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3); background: #ffffff; border: 1px solid #e2e8f0; position: relative;">
+        <!-- Nút đóng -->
+        <button type="button" onclick="closeRewardAdModal()" style="position: absolute; top: 14px; right: 14px; background: transparent; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Đóng">
+            <i class="ri-close-line"></i>
+        </button>
+
+        <!-- Trạng thái 1: Lời ngỏ xem quảng cáo -->
+        <div id="rewardAdPromptView">
+            <div style="width: 68px; height: 68px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; box-shadow: 0 4px 14px rgba(37,99,235,0.18);">
+                <i class="ri-gift-line"></i>
+            </div>
+            <h3 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0 0 8px;">Mở khóa 12h làm bài thi</h3>
+            <p style="font-size: 0.95rem; color: #64748b; line-height: 1.55; margin: 0 0 20px;">
+                <b>HocNhanhTN</b> là hệ thống phục vụ cộng đồng hoàn toàn miễn phí. Hãy xem một đoạn quảng cáo ngắn (~30s) để duy trì máy chủ và mở khóa quyền <b>làm mọi đề thi không giới hạn trong 12 giờ</b> tới.
+            </p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-bottom: 20px; text-align: left; font-size: 0.88rem; color: #475569;">
+                <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                    <i class="ri-check-line" style="color: #10b981; font-weight: 700;"></i>
+                    <span><b>Hoàn toàn không quảng cáo</b> trong lúc làm bài thi.</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <i class="ri-check-line" style="color: #10b981; font-weight: 700;"></i>
+                    <span>Tự do làm lại, đổi đề không giới hạn trong 12 tiếng.</span>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" id="btnWatchAdNow" onclick="startWatchingAdProcess()" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 1.05rem; cursor: pointer; box-shadow: 0 4px 14px rgba(37,99,235,0.3); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="ri-play-circle-line" style="font-size: 1.25rem;"></i> Xem quảng cáo & Mở khóa ngay
+                </button>
+                <button type="button" onclick="bypassAdOnceForEmergency()" style="background: transparent; color: #64748b; border: 1px solid #cbd5e1; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
+                    Em đang thi gấp / Bỏ qua lần này
+                </button>
+            </div>
+        </div>
+
+        <!-- Trạng thái 2: Đang xem quảng cáo / Đếm ngược 30s -->
+        <div id="rewardAdWatchingView" style="display: none;">
+            <div style="width: 64px; height: 64px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 30px;">
+                <i class="ri-time-line"></i>
+            </div>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 6px;">Đang phát quảng cáo hỗ trợ</h3>
+            <p style="font-size: 0.9rem; color: #64748b; margin: 0 0 16px;">Vui lòng giữ màn hình trong giây lát. Hệ thống sẽ mở khóa tự động...</p>
+            
+            <!-- Bộ đếm ngược số giây -->
+            <div style="font-size: 2.2rem; font-weight: 800; color: #2563eb; margin-bottom: 12px;" id="adCountdownText">30s</div>
+            
+            <!-- Thanh Progress Bar -->
+            <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin-bottom: 20px;">
+                <div id="adProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 1s linear;"></div>
+            </div>
+
+            <!-- Khung quảng cáo video / display của Google trong Modal nếu có -->
+            <div id="modalAdContainer" style="min-height: 100px; max-width: 100%; margin-bottom: 15px; overflow: hidden; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center;">
+                <ins class="adsbygoogle"
+                     style="display:block; width:100%; height:100%;"
+                     data-ad-client="ca-pub-5865046257484388"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+            </div>
+
+            <button type="button" id="btnFinishAd" onclick="finishRewardAndEnterQuiz()" disabled style="background: #94a3b8; color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: not-allowed; width: 100%;">
+                Vui lòng xem hết để mở khóa...
+            </button>
+        </div>
+    </div>
+</div>
 
 <script src="script.js?v=20261009_clean_3"></script>
 </body>

@@ -9,8 +9,8 @@ export default {
       if (match) targetQuizId = match[1];
     }
 
-    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ)
-    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map)$/i)) {
+    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt)
+    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt)$/i)) {
       return env.ASSETS.fetch(request);
     }
 

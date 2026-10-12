@@ -236,6 +236,15 @@ def get_editor_page():
         return FileResponse(editor_path)
     raise HTTPException(status_code=404, detail="Không tìm thấy trang editor.html")
 
+@app.get("/ads.txt", summary="Tệp xác thực quyền sở hữu tài khoản Google AdSense", include_in_schema=False)
+def get_ads_txt():
+    ads_file_path = os.path.join(os.path.dirname(__file__), "ads.txt")
+    if not os.path.exists(ads_file_path):
+        ads_file_path = os.path.join(templates_dir, "ads.txt")
+    if os.path.exists(ads_file_path):
+        return FileResponse(ads_file_path, media_type="text/plain")
+    return HTMLResponse("google.com, pub-5865046257484388, DIRECT, f08c47fec0942fa0", media_type="text/plain")
+
 if os.path.exists(templates_dir):
     app.mount("/", StaticFiles(directory=templates_dir, html=True), name="static")
 

@@ -1265,6 +1265,7 @@ async function initApp() {
                 isStudentMode = true;
                 currentDataMode = result.mode || 'practice';
                 document.getElementById('welcomeScreen').style.display = 'block'; // Hiển thị khung nhập tên
+                updateAdPassUI(); // Cập nhật trạng thái vé 12h làm bài
 
                 // Kích hoạt nạp ngầm mô hình WebLLM qua Web Worker ngay khi học sinh vào phòng thi (nếu bật tính năng)
                 if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
@@ -1299,6 +1300,172 @@ function sendPing() {
             completed: false
         })
     }).catch(e => console.error("Ping error:", e));
+}
+
+// =========================================================================
+// HỆ THỐNG MỞ KHÓA 12H LÀM BÀI QUA QUẢNG CÁO (REWARDED ADS)
+// =========================================================================
+const AD_PASS_STORAGE_KEY = 'hocnhanhtn_pass_until';
+const AD_PASS_DURATION_MS = 12 * 60 * 60 * 1000; // 12 tiếng = 43,200,000 ms
+let adCountdownTimer = null;
+
+// Kiểm tra vé 12h còn hiệu lực không
+function hasValid12hPass() {
+    try {
+        const expiresAt = localStorage.getItem(AD_PASS_STORAGE_KEY);
+        if (!expiresAt) return false;
+        const expireTs = parseInt(expiresAt, 10);
+        return (!isNaN(expireTs) && Date.now() < expireTs);
+    } catch (e) {
+        return false;
+    }
+}
+
+// Cấp quyền 12h vào localStorage
+function grant12hPass() {
+    try {
+        const expireTime = Date.now() + AD_PASS_DURATION_MS;
+        localStorage.setItem(AD_PASS_STORAGE_KEY, expireTime.toString());
+        updateAdPassUI();
+    } catch (e) {
+        console.error("Lỗi lưu vé 12h:", e);
+    }
+}
+
+// Lấy chuỗi thời gian còn lại (VD: "11 giờ 45 phút")
+function getRemainingPassTimeStr() {
+    try {
+        const expiresAt = localStorage.getItem(AD_PASS_STORAGE_KEY);
+        if (!expiresAt) return "";
+        const diffMs = parseInt(expiresAt, 10) - Date.now();
+        if (diffMs <= 0) return "";
+        const hours = Math.floor(diffMs / (3600 * 1000));
+        const minutes = Math.floor((diffMs % (3600 * 1000)) / (60 * 1000));
+        if (hours > 0) return `${hours} giờ ${minutes} phút`;
+        return `${minutes} phút`;
+    } catch (e) {
+        return "";
+    }
+}
+
+// Cập nhật giao diện badge trên màn hình chờ
+function updateAdPassUI() {
+    const container = document.getElementById('adPassBadgeContainer');
+    const activeBadge = document.getElementById('adPassActiveBadge');
+    const inactiveBadge = document.getElementById('adPassInactiveBadge');
+    const timeRemainingEl = document.getElementById('adPassTimeRemaining');
+    if (!container) return;
+
+    container.style.display = 'block';
+    if (hasValid12hPass()) {
+        if (timeRemainingEl) timeRemainingEl.innerText = getRemainingPassTimeStr() || "12 giờ";
+        if (activeBadge) activeBadge.style.display = 'inline-flex';
+        if (inactiveBadge) inactiveBadge.style.display = 'none';
+    } else {
+        if (activeBadge) activeBadge.style.display = 'none';
+        if (inactiveBadge) inactiveBadge.style.display = 'inline-flex';
+    }
+}
+
+// Mở modal
+function openRewardAdModal() {
+    const modal = document.getElementById('rewardAdModal');
+    const promptView = document.getElementById('rewardAdPromptView');
+    const watchingView = document.getElementById('rewardAdWatchingView');
+    if (!modal) return;
+    if (promptView) promptView.style.display = 'block';
+    if (watchingView) watchingView.style.display = 'none';
+    modal.style.display = 'flex';
+}
+
+// Đóng modal
+function closeRewardAdModal() {
+    const modal = document.getElementById('rewardAdModal');
+    if (modal) modal.style.display = 'none';
+    if (adCountdownTimer) {
+        clearInterval(adCountdownTimer);
+        adCountdownTimer = null;
+    }
+}
+
+// Xử lý khi bấm nút "Bắt đầu làm bài thi"
+function handleStartQuizWithAdCheck() {
+    // Nếu học sinh đã có vé 12h hợp lệ -> Cho vào làm bài ngay lập tức
+    if (hasValid12hPass()) {
+        startStudentQuiz();
+        return;
+    }
+    // Nếu chưa có vé -> Mở popup xem quảng cáo
+    openRewardAdModal();
+}
+
+// Khi học sinh chọn xem quảng cáo
+function startWatchingAdProcess() {
+    const promptView = document.getElementById('rewardAdPromptView');
+    const watchingView = document.getElementById('rewardAdWatchingView');
+    if (promptView) promptView.style.display = 'none';
+    if (watchingView) watchingView.style.display = 'block';
+
+    // Đẩy quảng cáo AdSense vào khung modal nếu có
+    try {
+        if (window.adsbygoogle && Array.isArray(window.adsbygoogle)) {
+            window.adsbygoogle.push({});
+        }
+    } catch(e) {}
+
+    let totalSeconds = 30;
+    let secondsLeft = totalSeconds;
+    const countdownText = document.getElementById('adCountdownText');
+    const progressBar = document.getElementById('adProgressBar');
+    const finishBtn = document.getElementById('btnFinishAd');
+
+    if (countdownText) countdownText.innerText = `${secondsLeft}s`;
+    if (progressBar) progressBar.style.width = '0%';
+    if (finishBtn) {
+        finishBtn.disabled = true;
+        finishBtn.style.cursor = 'not-allowed';
+        finishBtn.style.background = '#94a3b8';
+        finishBtn.innerText = 'Vui lòng xem hết để mở khóa...';
+    }
+
+    if (adCountdownTimer) clearInterval(adCountdownTimer);
+    adCountdownTimer = setInterval(() => {
+        secondsLeft--;
+        const progressPercent = Math.round(((totalSeconds - secondsLeft) / totalSeconds) * 100);
+        
+        if (countdownText) countdownText.innerText = `${secondsLeft}s`;
+        if (progressBar) progressBar.style.width = `${progressPercent}%`;
+
+        if (secondsLeft <= 0) {
+            clearInterval(adCountdownTimer);
+            adCountdownTimer = null;
+            if (countdownText) countdownText.innerText = '✓ Hoàn thành!';
+            if (progressBar) progressBar.style.width = '100%';
+            if (finishBtn) {
+                finishBtn.disabled = false;
+                finishBtn.style.cursor = 'pointer';
+                finishBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                finishBtn.innerText = '✓ Đã mở khóa 12h! Bấm để vào làm bài ngay';
+            }
+            // Tự động chuyển vào làm bài sau 1.2 giây
+            setTimeout(() => {
+                finishRewardAndEnterQuiz();
+            }, 1200);
+        }
+    }, 1000);
+}
+
+// Hoàn thành nhận thưởng và vào làm bài
+function finishRewardAndEnterQuiz() {
+    grant12hPass();
+    closeRewardAdModal();
+    startStudentQuiz();
+}
+
+// Bỏ qua khẩn cấp (cho học sinh đang thi gấp)
+function bypassAdOnceForEmergency() {
+    closeRewardAdModal();
+    startStudentQuiz();
 }
 
 async function startStudentQuiz() {
@@ -5006,6 +5173,7 @@ function hideLeaderboardOnly() {
     if (azotaFooter) azotaFooter.style.display = 'block';
 
     document.getElementById('welcomeScreen').style.display = 'block';
+    updateAdPassUI();
 }
 
 // --- HÀM TẢI LẠI BẢNG XẾP HẠNG KHI BẤM NÚT REFRESH ---
