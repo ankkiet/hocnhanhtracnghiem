@@ -41,7 +41,8 @@
       .minimal-mode .google-auto-placed,
       .azota-student-header .google-auto-placed,
       #studentHeader ins.adsbygoogle,
-      #quiz-container ins.adsbygoogle {
+      #quiz-container ins.adsbygoogle,
+      .minimal-mode #globalAppFooter {
           display: none !important;
           visibility: hidden !important;
           height: 0 !important;
@@ -57,6 +58,17 @@
         padding: 20px 10px;
         box-sizing: border-box;
         width: 100%;
+        gap: 36px;
+        flex-wrap: wrap;
+      }
+
+      #landingShowcase {
+        max-width: 500px;
+        padding: 12px;
+      }
+
+      #authContainer.modal-mode #landingShowcase {
+        display: none !important;
       }
 
       #authContainer[style*="display: none"],
@@ -570,8 +582,53 @@
 
 <body>
 
-<!-- Màn hình Đăng nhập / Đăng ký -->
+<!-- Màn hình Đăng nhập / Đăng ký & Trang chủ Giới thiệu -->
 <div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
+    <!-- KHỐI GIỚI THIỆU TÍNH NĂNG GIÁO DỤC CHO BOT GOOGLE VÀ KHÁCH VÀO TRANG CHỦ -->
+    <div id="landingShowcase" style="text-align: left;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 99px; font-size: 0.82rem; font-weight: 700; margin-bottom: 14px; border: 1px solid #dbeafe;">
+            <i class="ri-sparkling-fill"></i> Chuẩn Chương trình GDPT 2018
+        </div>
+        <h1 style="font-size: 1.85rem; font-weight: 800; color: #0f172a; line-height: 1.35; margin: 0 0 14px 0;">
+            Hệ thống Học Nhanh Trắc Nghiệm Thông Minh
+        </h1>
+        <p style="color: #475569; font-size: 0.98rem; line-height: 1.6; margin: 0 0 20px 0;">
+            Nền tảng chuyển đổi số giáo dục phi lợi nhuận, hỗ trợ học sinh ôn tập trắc nghiệm tốc độ cao và giúp thầy cô số hóa đề thi Word/PDF sang dạng thi trực tuyến chỉ trong vài giây.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;">
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #dbeafe; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="ri-file-word-line"></i>
+                </div>
+                <div>
+                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Số hóa đề thi tự động từ Word & PDF</strong>
+                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Giữ nguyên vẹn công thức Toán/Lý/Hóa LaTeX, bảng biểu và hình ảnh minh họa.</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="ri-timer-flash-line"></i>
+                </div>
+                <div>
+                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Làm bài thi trực tuyến mượt mà</strong>
+                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Giao diện tối giản, tự động bấm giờ, đảo câu hỏi & đáp án thông minh.</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+                    <i class="ri-bar-chart-box-line"></i>
+                </div>
+                <div>
+                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Chấm điểm tức thì & Phân tích phổ điểm</strong>
+                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Xem chi tiết câu đúng/sai, lời giải giải thích rõ ràng giúp học sinh tiến bộ.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Form Đăng nhập (Sign In) -->
     <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
         <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ đăng nhập">
@@ -1008,12 +1065,14 @@
             </button>
         </div>
 
-        <!-- Khung Quảng cáo Giao diện chờ (Google AdSense - Chỉ xuất hiện khi mở link làm bài) -->
+        <!-- Khung Quảng cáo Giao diện chờ (Banner_Man_Hinh_Cho - Chỉ xuất hiện khi mở link làm bài) -->
         <div id="lobbyAdBox" style="display: none; margin: 20px auto 10px auto; max-width: 728px; min-height: 90px; text-align: center; overflow: hidden;">
             <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Quảng cáo hỗ trợ duy trì máy chủ</div>
+            <!-- Banner_Man_Hinh_Cho -->
             <ins class="adsbygoogle"
                  style="display:block"
                  data-ad-client="ca-pub-5865046257484388"
+                 data-ad-slot="8354968825"
                  data-ad-format="auto"
                  data-full-width-responsive="true"></ins>
         </div>
@@ -1621,16 +1680,132 @@
             </button>
         </div>
     </div>
+</div>
 
-    <!-- FOOTER BRANDING -->
-    <footer class="app-footer" style="text-align: center; padding: 36px 16px 28px; color: #64748b; font-size: 0.85rem; border-top: 1px solid #e2e8f0; margin-top: 48px;">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
-            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 24px; height: 24px; border-radius: 6px; object-fit: contain; vertical-align: middle;">
-            <strong style="color: #0f172a; font-size: 0.95rem;">HocNhanhTN</strong>
+<!-- FOOTER CHUNG TOÀN HỆ THỐNG (HIỂN THỊ CẢ KHI CHƯA ĐĂNG NHẬP CHO BOT GOOGLE & NGƯỜI DÙNG) -->
+<footer id="globalAppFooter" class="app-footer" style="text-align: center; padding: 40px 16px 32px; color: #64748b; font-size: 0.88rem; border-top: 1px solid #e2e8f0; margin-top: 48px; background: #ffffff;">
+    <div style="max-width: 960px; margin: 0 auto;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 26px; height: 26px; border-radius: 6px; object-fit: contain; vertical-align: middle;">
+            <strong style="color: #0f172a; font-size: 1.05rem;">HocNhanhTN</strong>
         </div>
-        <p style="margin: 0 0 6px 0; color: #475569; font-weight: 500;">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên</p>
-        <p style="margin: 0; color: #94a3b8; font-size: 0.78rem;">&copy; HocNhanhTN. Tối ưu theo Chương trình GDPT 2018.</p>
-    </footer>
+        <p style="margin: 0 0 14px 0; color: #475569; font-weight: 500; font-size: 0.95rem;">Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên • Chuẩn GDPT 2018</p>
+        
+        <!-- LIÊN KẾT PHÁP LÝ & BẢO MẬT CHUẨN GOOGLE ADSENSE -->
+        <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; font-size: 0.88rem;">
+            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Chính sách bảo mật (Privacy Policy)</a>
+            <span style="color: #cbd5e1;">•</span>
+            <a href="javascript:void(0)" onclick="openLegalModal('terms')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Điều khoản sử dụng (Terms of Service)</a>
+            <span style="color: #cbd5e1;">•</span>
+            <a href="javascript:void(0)" onclick="openLegalModal('about')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Về chúng tôi (About Us)</a>
+            <span style="color: #cbd5e1;">•</span>
+            <a href="javascript:void(0)" onclick="openLegalModal('contact')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Liên hệ hỗ trợ (Contact)</a>
+        </div>
+
+        <p style="margin: 0; color: #94a3b8; font-size: 0.8rem; line-height: 1.5;">
+            &copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ ôn thi trắc nghiệm học sinh THCS & THPT. Mọi quyền được bảo lưu.
+        </p>
+    </div>
+</footer>
+
+<!-- MODAL NỘI DUNG PHÁP LÝ & CHÍNH SÁCH BẢO MẬT (CHUẨN ADSENSE) -->
+<div id="legalModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 999999; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
+    <div class="modal-content" style="max-width: 720px; width: 92%; max-height: 86vh; display: flex; flex-direction: column; border-radius: 16px; padding: 0; overflow: hidden; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
+        <!-- Modal Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="ri-shield-check-line" style="color: #2563eb; font-size: 1.4rem;"></i>
+                <h3 id="legalModalTitle" style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700;">Chính sách & Điều khoản</h3>
+            </div>
+            <button type="button" onclick="closeLegalModal()" style="background: transparent; border: none; font-size: 22px; color: #64748b; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                <i class="ri-close-line"></i>
+            </button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div style="display: flex; background: #f1f5f9; padding: 6px 16px; gap: 8px; border-bottom: 1px solid #e2e8f0; overflow-x: auto;">
+            <button type="button" class="legal-tab-btn active" id="tabBtnPrivacy" onclick="switchLegalTab('privacy')" style="padding: 8px 14px; border: none; background: #ffffff; color: #2563eb; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Chính sách bảo mật</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnTerms" onclick="switchLegalTab('terms')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Điều khoản dịch vụ</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnAbout" onclick="switchLegalTab('about')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Về HocNhanhTN</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnContact" onclick="switchLegalTab('contact')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Liên hệ</button>
+        </div>
+
+        <!-- Modal Body Scrollable -->
+        <div style="padding: 24px; overflow-y: auto; text-align: left; line-height: 1.65; color: #334155; font-size: 0.92rem; flex: 1;">
+            <!-- Tab 1: Privacy Policy -->
+            <div id="legalContentPrivacy">
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Chính sách bảo mật quyền riêng tư (Privacy Policy)</h4>
+                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 16px;"><i>Cập nhật lần cuối: Tháng 10 năm 2026</i></p>
+                <p>HocNhanhTN (tại <code>https://hocnhanhtn.pages.dev/</code>) tôn trọng và cam kết bảo vệ quyền riêng tư của tất cả học sinh, giáo viên và người dùng khi truy cập nền tảng.</p>
+                
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">1. Thu thập và sử dụng dữ liệu</h5>
+                <p>Chúng tôi chỉ thu thập các thông tin tối thiểu cần thiết để phục vụ mục đích học tập và làm bài kiểm tra:</p>
+                <ul>
+                    <li>Họ và tên thí sinh (được lưu tạm thời để chấm điểm và hiển thị trên Bảng xếp hạng bài thi).</li>
+                    <li>Địa chỉ Email và tài khoản đăng nhập (đối với giáo viên quản lý đề thi và học sinh đăng ký lưu lịch sử học tập dài hạn).</li>
+                </ul>
+
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">2. Tệp Cookie & Quảng cáo của bên thứ ba (Google AdSense)</h5>
+                <p>Để duy trì hệ thống máy chủ phục vụ cộng đồng học sinh miễn phí, trang web có hợp tác với mạng lưới quảng cáo của <b>Google AdSense</b>:</p>
+                <ul>
+                    <li><b>Google và các đối tác bên thứ ba</b> sử dụng tệp cookie (chẳng hạn như cookie DoubleClick/DART) để phân phát quảng cáo dựa trên các lượt truy cập trước đó của người dùng vào trang web này hoặc các trang web khác trên Internet.</li>
+                    <li>Người dùng có thể chọn không tham gia sử dụng cookie để phân phát quảng cáo dựa trên mối quan tâm bằng cách truy cập <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">Cài đặt quảng cáo của Google (Google Ads Settings)</a> hoặc trang <a href="http://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">AboutAds.info</a>.</li>
+                </ul>
+
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">3. Bảo vệ quyền riêng tư của trẻ em (COPPA / GDPT)</h5>
+                <p>HocNhanhTN là nền tảng giáo dục. Chúng tôi không bao giờ chủ đích thu thập dữ liệu định danh nhạy cảm hoặc bất kỳ thông tin riêng tư nào từ trẻ em dưới 13 tuổi. Trong phòng thi trực tuyến, chúng tôi cam kết không hiển thị các quảng cáo có nội dung phản cảm, không phù hợp với lứa tuổi học sinh.</p>
+
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">4. Quyền của người dùng đối với dữ liệu</h5>
+                <p>Người dùng có toàn quyền yêu cầu xem, chỉnh sửa hoặc xóa vĩnh viễn thông tin tài khoản và lịch sử bài thi của mình bất kỳ lúc nào bằng cách liên hệ với Quản trị viên.</p>
+            </div>
+
+            <!-- Tab 2: Terms of Service -->
+            <div id="legalContentTerms" style="display: none;">
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Điều khoản dịch vụ & Sử dụng (Terms of Service)</h4>
+                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 16px;"><i>Áp dụng từ: Năm 2026</i></p>
+                
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">1. Mục đích sử dụng</h5>
+                <p>HocNhanhTN cung cấp công cụ số hóa đề thi, tổ chức kiểm tra trắc nghiệm và ôn luyện trực tuyến phục vụ học sinh & giáo viên. Người dùng cam kết sử dụng nền tảng cho mục đích giáo dục lành mạnh, trung thực trong thi cử và tôn trọng pháp luật.</p>
+
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">2. Quyền sở hữu nội dung</h5>
+                <p>Giáo viên và tác giả biên soạn đề thi chịu trách nhiệm về tính chính xác và bản quyền của tài liệu tải lên. HocNhanhTN không sở hữu bản quyền các câu hỏi do người dùng tải lên và có quyền gỡ bỏ nội dung nếu phát hiện vi phạm bản quyền hoặc thuần phong mỹ tục.</p>
+
+                <h5 style="color: #0f172a; margin: 16px 0 6px;">3. Vận hành phi lợi nhuận</h5>
+                <p>Dịch vụ được cung cấp miễn phí. Quảng cáo hiển thị trên trang web (chỉ tại màn hình chờ) nhằm mục đích duy trì hạ tầng máy chủ và chi phí phát sinh để đảm bảo hệ thống luôn hoạt động ổn định cho học sinh cả nước.</p>
+            </div>
+
+            <!-- Tab 3: About Us -->
+            <div id="legalContentAbout" style="display: none;">
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Về Dự án HocNhanhTN (About Us)</h4>
+                <p><b>HocNhanhTN</b> là dự án công nghệ giáo dục phi lợi nhuận được phát triển với sứ mệnh giúp việc ôn thi trắc nghiệm của học sinh trở nên nhẹ nhàng, hiệu quả và công bằng hơn.</p>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin: 16px 0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 700; color: #0f172a;">Các tính năng trọng tâm:</p>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li><b>Số hóa đề thi thông minh:</b> Chuyển đổi đề thi trắc nghiệm từ tệp Word (.docx) và PDF chuẩn GDPT 2018 chỉ trong vài giây.</li>
+                        <li><b>Phòng thi trực tuyến tốc độ cao:</b> Giao diện làm bài thi tối giản, tự động bấm giờ, đảo câu hỏi & đáp án ngẫu nhiên.</li>
+                        <li><b>Chấm điểm & Thống kê phổ điểm tức thì:</b> Phân tích chi tiết câu đúng/sai, lời giải chi tiết giúp học sinh tiến bộ nhanh chóng.</li>
+                    </ul>
+                </div>
+                <p>Chúng tôi luôn nỗ lực tối ưu để nền tảng chạy mượt mà ngay cả trên điện thoại di động và đường truyền mạng yếu.</p>
+            </div>
+
+            <!-- Tab 4: Contact Us -->
+            <div id="legalContentContact" style="display: none;">
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Liên hệ & Hỗ trợ (Contact Us)</h4>
+                <p>Nếu bạn có bất kỳ câu hỏi nào về chính sách, kỹ thuật, báo cáo lỗi câu hỏi hoặc đề nghị hợp tác giáo dục, vui lòng liên hệ với chúng tôi qua các kênh sau:</p>
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin: 16px 0;">
+                    <p style="margin: 0 0 8px 0;"><b>📧 Email Quản trị viên:</b> <a href="mailto:kiet0905478167@gmail.com" style="color: #2563eb; font-weight: 600;">kiet0905478167@gmail.com</a></p>
+                    <p style="margin: 0 0 8px 0;"><b>🌐 Website chính thức:</b> <code>https://hocnhanhtn.pages.dev/</code></p>
+                    <p style="margin: 0;"><b>⏰ Thời gian phản hồi:</b> Trong vòng 24 - 48 giờ làm việc.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 12px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; text-align: right;">
+            <button type="button" onclick="closeLegalModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Đã hiểu & Đóng</button>
+        </div>
+    </div>
 </div>
 
 <!-- FLOATING TOAST CONTAINER -->
@@ -1816,9 +1991,11 @@
 
             <!-- Khung quảng cáo video / display của Google trong Modal nếu có -->
             <div id="modalAdContainer" style="min-height: 100px; max-width: 100%; margin-bottom: 15px; overflow: hidden; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center;">
+                <!-- Banner_Man_Hinh_Cho -->
                 <ins class="adsbygoogle"
-                     style="display:block; width:100%; height:100%;"
+                     style="display:block; width:100%; min-height:90px;"
                      data-ad-client="ca-pub-5865046257484388"
+                     data-ad-slot="8354968825"
                      data-ad-format="auto"
                      data-full-width-responsive="true"></ins>
             </div>

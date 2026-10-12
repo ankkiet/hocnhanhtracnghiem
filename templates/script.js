@@ -6784,3 +6784,51 @@ window.forceShowLogin = function() {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
 };
+
+// =========================================================================
+// ĐIỀU KHIỂN MODAL PHÁP LÝ & BẢO MẬT (PRIVACY POLICY, TERMS, ABOUT, CONTACT)
+// =========================================================================
+function openLegalModal(tab = 'privacy') {
+    const modal = document.getElementById('legalModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    switchLegalTab(tab);
+}
+
+function closeLegalModal() {
+    const modal = document.getElementById('legalModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchLegalTab(tabName) {
+    const tabs = ['privacy', 'terms', 'about', 'contact'];
+    const titleMap = {
+        'privacy': 'Chính sách bảo mật (Privacy Policy)',
+        'terms': 'Điều khoản dịch vụ & Sử dụng (Terms)',
+        'about': 'Giới thiệu về Dự án HocNhanhTN (About)',
+        'contact': 'Liên hệ & Đóng góp ý kiến (Contact)'
+    };
+
+    const titleEl = document.getElementById('legalModalTitle');
+    if (titleEl && titleMap[tabName]) {
+        titleEl.innerText = titleMap[tabName];
+    }
+
+    tabs.forEach(t => {
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const content = document.getElementById(`legalContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        
+        if (btn) {
+            if (t === tabName) {
+                btn.style.background = '#ffffff';
+                btn.style.color = '#2563eb';
+            } else {
+                btn.style.background = 'transparent';
+                btn.style.color = '#64748b';
+            }
+        }
+        if (content) {
+            content.style.display = (t === tabName) ? 'block' : 'none';
+        }
+    });
+}
