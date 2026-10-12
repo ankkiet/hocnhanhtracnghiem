@@ -566,10 +566,19 @@ async def login(req: LoginRequest):
             return coll.where(field, '==', value)
 
     username = req.username.strip().lower()
-    users = _query_where(db.collection('users'), 'username', username).get()
-    if not users:
-        # Thử tìm theo email nếu người dùng nhập email
-        users = _query_where(db.collection('users'), 'email', username).get()
+    try:
+        users = _query_where(db.collection('users'), 'username', username).get()
+        if not users:
+            # Thử tìm theo email nếu người dùng nhập email
+            users = _query_where(db.collection('users'), 'email', username).get()
+    except Exception as e:
+        logger.error(f"Lỗi truy vấn người dùng từ Firestore khi đăng nhập: {e}")
+        if "403" in str(e) or "PermissionDenied" in str(e):
+            raise HTTPException(
+                status_code=503, 
+                detail="Lỗi kết nối Firebase (403 Permission Denied). Service account trên Koyeb chưa được cấp quyền hoặc key đã bị hết hạn."
+            )
+        raise HTTPException(status_code=500, detail=f"Lỗi cơ sở dữ liệu: {e}")
         
     if not users:
         raise HTTPException(status_code=400, detail="Sai tài khoản hoặc mật khẩu")
