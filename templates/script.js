@@ -940,9 +940,20 @@ function checkAuthState() {
             document.getElementById('studentDashboard').style.display = 'block';
             const navCreate = document.getElementById('navTabCreate');
             if (navCreate) navCreate.style.display = 'none';
+            const navStudio = document.getElementById('navTabStudio');
+            if (navStudio) navStudio.style.display = 'none';
+            const navDash = document.getElementById('navTabDashboard');
+            if (navDash) navDash.innerHTML = '<i class="ri-dashboard-3-line"></i> Góc học tập & Lịch sử';
+            loadStudentHistory();
         } else if (authRole === 'teacher') {
             document.getElementById('studentDashboard').style.display = 'none';
             document.getElementById('teacherDashboard').style.display = 'block';
+            const navCreate = document.getElementById('navTabCreate');
+            if (navCreate) navCreate.style.display = 'inline-flex';
+            const navStudio = document.getElementById('navTabStudio');
+            if (navStudio) navStudio.style.display = 'inline-flex';
+            const navDash = document.getElementById('navTabDashboard');
+            if (navDash) navDash.innerHTML = '<i class="ri-dashboard-3-line"></i> Đề thi của tôi';
             loadTeacherQuizzes();
         }
         initApp();
@@ -991,6 +1002,7 @@ function showDashboardView() {
     if (authRole === 'student') {
         document.getElementById('studentDashboard').style.display = 'block';
         document.getElementById('creationHub').style.display = 'none';
+        loadStudentHistory();
     } else {
         document.getElementById('teacherDashboard').style.display = 'block';
         document.getElementById('creationHub').style.display = 'none';
@@ -1316,7 +1328,10 @@ let isAdSenseScriptLoaded = false;
 function loadAdSenseScriptOnlyForQuiz() {
     const quizId = getCurrentQuizId();
     if (!quizId) return; // Tuyệt đối không nạp nếu ở trang chủ, đăng nhập, v.v.
-    if (isAdSenseScriptLoaded || document.getElementById('adsense-sdk-script')) return;
+    if (isAdSenseScriptLoaded || document.getElementById('adsense-sdk-script') || document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
+        isAdSenseScriptLoaded = true;
+        return;
+    }
 
     try {
         const script = document.createElement('script');
@@ -1384,6 +1399,11 @@ function updateAdPassUI() {
     if (!quizId) {
         if (container) container.style.display = 'none';
         if (lobbyBox) lobbyBox.style.display = 'none';
+        try {
+            document.querySelectorAll('.google-auto-placed, ins.adsbygoogle:not(#modalAdContainer ins):not(#lobbyAdBox ins)').forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+            });
+        } catch(e) {}
         return;
     }
 
@@ -1839,6 +1859,592 @@ function renderFilteredQuizzes() {
     });
 
     grid.innerHTML = cardsHtml;
+}
+
+// ========================================================
+// STUDENT LEARNING & EXAM HISTORY MODULE
+// ========================================================
+let rawStudentHistory = [];
+let studentHistoryFilter = 'all';
+let currentHistReviewDetail = null;
+let currentHistReviewFilter = 'all';
+
+async function syncLocalCompletedQuizzesToCloud() {
+    if (!authToken || authRole !== 'student') return;
+    const itemsToSync = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('quiz_progress_')) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const prog = JSON.parse(raw);
+                    const qid = key.replace('quiz_progress_', '');
+                    if (prog.history && Array.isArray(prog.history) && prog.history.length > 0) {
+                        prog.history.forEach(h => {
+                            itemsToSync.push({
+                                quiz_id: qid,
+                                quiz_title: prog.title || `Đề thi #${qid}`,
+                                score: parseFloat(h.score || 0),
+                                total_questions: parseInt(h.total || 10),
+                                time_elapsed: parseInt(h.timeElapsed || 0),
+                                submitted_at: h.date || '',
+                                answers: prog.answers || {}
+                            });
+                        });
+                    } else if (prog.completed) {
+                        itemsToSync.push({
+                            quiz_id: qid,
+                            quiz_title: prog.title || `Đề thi #${qid}`,
+                            score: parseFloat(prog.score || 0),
+                            total_questions: parseInt(prog.totalQuestions || 10),
+                            time_elapsed: parseInt(prog.timeElapsed || 0),
+                            submitted_at: prog.updatedAt || '',
+                            answers: prog.answers || {}
+                        });
+                    }
+                }
+            }
+        }
+    } catch(e) {}
+
+    if (itemsToSync.length > 0) {
+        try {
+            await fetch(`${API_BASE_URL}/api/student/sync_history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    student_token: authToken,
+                    history_items: itemsToSync
+                })
+            });
+        } catch(err) {
+            console.warn("Lỗi đồng bộ lịch sử cũ:", err);
+        }
+    }
+}
+
+async function loadStudentHistory(forceRefresh = false) {
+    if (!authToken || authRole !== 'student') return;
+    
+    const greetingEl = document.getElementById('studentGreetingName');
+    if (greetingEl) greetingEl.innerText = authName || 'Học sinh';
+
+    const container = document.getElementById('studentHistoryList');
+    if (!container) return;
+
+    if (forceRefresh || rawStudentHistory.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                <div class="hntn-spinner" style="width: 36px; height: 36px; margin: 0 auto 12px auto; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: hntnSpin 0.8s linear infinite;"></div>
+                <div style="font-weight: 600; font-size: 0.95rem;">Đang tải lịch sử làm bài...</div>
+            </div>
+        `;
+    }
+
+    if (!window._hasSyncedLocalHistory) {
+        window._hasSyncedLocalHistory = true;
+        await syncLocalCompletedQuizzesToCloud();
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/student/history?student_token=${encodeURIComponent(authToken)}`);
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            rawStudentHistory = data.data || [];
+            
+            // Tính toán KPIs
+            const totalTests = rawStudentHistory.length;
+            let sumScaled = 0;
+            let maxScaled = 0;
+            let passedCount = 0;
+
+            let highCount = 0;
+            let passCount = 0;
+            let lowCount = 0;
+
+            rawStudentHistory.forEach(item => {
+                const totalQ = item.total_questions || 1;
+                const scaled = totalQ > 0 ? ((item.score / totalQ) * 10) : 0;
+                sumScaled += scaled;
+                if (scaled > maxScaled) maxScaled = scaled;
+                if (scaled >= 5.0) passedCount++;
+
+                if (scaled >= 8.0) highCount++;
+                else if (scaled >= 5.0) passCount++;
+                else lowCount++;
+            });
+
+            const avgScaled = totalTests > 0 ? (sumScaled / totalTests).toFixed(1) : '--';
+            const maxScaledStr = totalTests > 0 ? maxScaled.toFixed(1) : '--';
+            const passedRate = totalTests > 0 ? Math.round((passedCount / totalTests) * 100) + '%' : '--%';
+
+            // Cập nhật thẻ KPI
+            const elTotal = document.getElementById('statStudentTotalTests');
+            const elAvg = document.getElementById('statStudentAvgScore');
+            const elMax = document.getElementById('statStudentMaxScore');
+            const elRate = document.getElementById('statStudentPassedRate');
+            if (elTotal) elTotal.innerText = totalTests;
+            if (elAvg) elAvg.innerText = avgScaled;
+            if (elMax) elMax.innerText = maxScaledStr;
+            if (elRate) elRate.innerText = passedRate;
+
+            // Cập nhật tab số lượng
+            const elAll = document.getElementById('filterCountStudentAll');
+            const elHigh = document.getElementById('filterCountStudentHigh');
+            const elPass = document.getElementById('filterCountStudentPass');
+            const elLow = document.getElementById('filterCountStudentLow');
+            if (elAll) elAll.innerText = totalTests;
+            if (elHigh) elHigh.innerText = highCount;
+            if (elPass) elPass.innerText = passCount;
+            if (elLow) elLow.innerText = lowCount;
+
+            renderStudentHistoryList();
+            if (forceRefresh) {
+                showToast("Đã làm mới lịch sử bài thi thành công!", "success");
+            }
+        } else {
+            container.innerHTML = `<div class="student-history-empty"><p style="color: #ef4444;">Không thể tải lịch sử làm bài: ${escapeHtml(data.detail || data.message || 'Lỗi server')}</p></div>`;
+        }
+    } catch(err) {
+        console.error("Lỗi khi tải lịch sử học sinh:", err);
+        container.innerHTML = `<div class="student-history-empty"><p style="color: #ef4444;">Lỗi kết nối khi tải lịch sử làm bài. Vui lòng thử lại sau.</p></div>`;
+    }
+}
+
+function setStudentHistoryFilter(filter) {
+    studentHistoryFilter = filter;
+    document.querySelectorAll('.azota-filter-tabs .azota-tab-btn').forEach(btn => {
+        if (btn.getAttribute('data-filter') === filter) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    renderStudentHistoryList();
+}
+
+function filterStudentHistory() {
+    renderStudentHistoryList();
+}
+
+function formatHistoryDateTime(dateStr) {
+    if (!dateStr) return '--';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    } catch(e) {
+        return dateStr;
+    }
+}
+
+function renderStudentHistoryList() {
+    const container = document.getElementById('studentHistoryList');
+    if (!container) return;
+
+    const searchInput = document.getElementById('studentHistorySearchInput');
+    const qSearch = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+    let list = rawStudentHistory.slice();
+
+    // Lọc theo search
+    if (qSearch) {
+        list = list.filter(item => {
+            const title = (item.quiz_title || '').toLowerCase();
+            const qid = (item.quiz_id || '').toLowerCase();
+            return title.includes(qSearch) || qid.includes(qSearch);
+        });
+    }
+
+    // Lọc theo tab
+    if (studentHistoryFilter !== 'all') {
+        list = list.filter(item => {
+            const totalQ = item.total_questions || 1;
+            const scaled = (item.score / totalQ) * 10;
+            if (studentHistoryFilter === 'high') return scaled >= 8.0;
+            if (studentHistoryFilter === 'pass') return scaled >= 5.0 && scaled < 8.0;
+            if (studentHistoryFilter === 'low') return scaled < 5.0;
+            return true;
+        });
+    }
+
+    if (list.length === 0) {
+        container.innerHTML = `
+            <div class="student-history-empty">
+                <div class="student-history-empty-icon">
+                    <i class="ri-file-search-line"></i>
+                </div>
+                <h3 style="margin: 0 0 6px 0; font-size: 1.15rem; color: #1e293b; font-weight: 700;">
+                    ${qSearch || studentHistoryFilter !== 'all' ? 'Không tìm thấy bài thi phù hợp' : 'Bạn chưa có bài thi nào được ghi nhận'}
+                </h3>
+                <p style="margin: 0 0 16px 0; font-size: 0.92rem; color: #64748b; max-width: 440px; margin-left: auto; margin-right: auto;">
+                    ${qSearch || studentHistoryFilter !== 'all' ? 'Hãy thử đổi từ khóa tìm kiếm hoặc bấm tab Tất cả.' : 'Hãy nhập mã đề thi ở phía trên hoặc dán link do giáo viên gửi để bắt đầu làm bài và lưu điểm số vào đây nhé!'}
+                </p>
+                ${(qSearch || studentHistoryFilter !== 'all') ? `<button class="btn-outline" style="background: white;" onclick="document.getElementById('studentHistorySearchInput').value=''; setStudentHistoryFilter('all');"><i class="ri-refresh-line"></i> Đặt lại bộ lọc</button>` : ''}
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    list.forEach(item => {
+        const totalQ = item.total_questions || 1;
+        const scaledScore = totalQ > 0 ? ((item.score / totalQ) * 10).toFixed(1) : "0.0";
+        const scaledNum = parseFloat(scaledScore);
+
+        let badgeClass = 'medium';
+        if (scaledNum >= 8.0) badgeClass = 'high';
+        else if (scaledNum < 5.0) badgeClass = 'low';
+
+        const title = escapeHtml(item.quiz_title || `Đề thi #${item.quiz_id}`);
+        const dateStr = formatHistoryDateTime(item.submitted_at || item.timestamp);
+        const timeStr = formatTime(item.time_elapsed || 0);
+        const scoreFraction = `${item.score} / ${totalQ} câu`;
+
+        html += `
+            <div class="student-history-card">
+                <div class="student-history-left">
+                    <div class="student-score-badge ${badgeClass}" title="Điểm quy đổi thang 10">
+                        <span class="score-num">${scaledScore}</span>
+                        <span class="score-scale">/ 10 điểm</span>
+                    </div>
+                    <div class="student-history-info">
+                        <div class="student-history-title" title="${title}">${title}</div>
+                        <div class="student-history-meta">
+                            <span style="background: #f1f5f9; padding: 2px 7px; border-radius: 6px; font-weight: 700; color: #475569; font-size: 0.8rem; border: 1px solid #e2e8f0;">
+                                <i class="ri-hashtag"></i> ${escapeHtml(item.quiz_id)}
+                            </span>
+                            <span><i class="ri-checkbox-circle-line" style="color: #10b981;"></i> Đạt: <b>${scoreFraction}</b></span>
+                            <span><i class="ri-timer-line" style="color: #0284c7;"></i> Làm trong: <b>${timeStr}</b></span>
+                            <span><i class="ri-calendar-line"></i> Nộp lúc: ${dateStr}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="student-history-actions">
+                    <button class="btn-history-action btn-history-review" onclick="openStudentHistoryReview('${item.id}')" title="Xem lại bài làm và lời giải">
+                        <i class="ri-file-list-3-line"></i> <span>Xem lại bài làm</span>
+                    </button>
+                    <button class="btn-history-action btn-history-retry" onclick="retakeHistoryQuiz('${escapeHtml(item.quiz_id)}')" title="Làm lại đề thi này">
+                        <i class="ri-refresh-line"></i> <span>Làm lại đề</span>
+                    </button>
+                    <button class="btn-history-action btn-history-delete" onclick="deleteStudentHistoryItem('${item.id}')" title="Xóa bài thi này khỏi lịch sử">
+                        <i class="ri-delete-bin-line"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function retakeHistoryQuiz(quizId) {
+    if (!quizId) return;
+    window.location.href = `/?id=${encodeURIComponent(quizId)}`;
+}
+
+async function openStudentHistoryReview(historyId) {
+    const modal = document.getElementById('studentHistoryReviewModal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    const titleEl = document.getElementById('histReviewModalTitle');
+    const subEl = document.getElementById('histReviewModalSub');
+    const kpiEl = document.getElementById('histReviewKpiSummary');
+    const filterEl = document.getElementById('histReviewFilterBar');
+    const container = document.getElementById('histReviewQuestionsContainer');
+    const btnRetake = document.getElementById('btnHistReviewRetake');
+
+    if (titleEl) titleEl.innerText = "Đang tải dữ liệu bài thi...";
+    if (subEl) subEl.innerHTML = "";
+    if (kpiEl) kpiEl.innerHTML = "";
+    if (filterEl) filterEl.innerHTML = "";
+    if (container) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                <div class="hntn-spinner" style="width: 36px; height: 36px; margin: 0 auto 12px auto; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: hntnSpin 0.8s linear infinite;"></div>
+                <div>Đang tải chi tiết bài làm...</div>
+            </div>
+        `;
+    }
+
+    try {
+        let item = rawStudentHistory.find(x => x.id === historyId);
+        if (!item || !item.results || item.results.length === 0) {
+            const res = await fetch(`${API_BASE_URL}/api/student/history/${historyId}?student_token=${encodeURIComponent(authToken)}`);
+            const d = await res.json();
+            if (res.ok && d.status === 'success') {
+                item = d.data;
+            }
+        }
+
+        if (!item) {
+            if (container) container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px;">Không tìm thấy thông tin bài thi.</div>`;
+            return;
+        }
+
+        currentHistReviewDetail = item;
+        currentHistReviewFilter = 'all';
+
+        const qTitle = item.quiz_title || `Đề thi #${item.quiz_id}`;
+        if (titleEl) titleEl.innerText = qTitle;
+        if (subEl) {
+            subEl.innerHTML = `
+                Mã đề: <b>${escapeHtml(item.quiz_id)}</b> • 
+                Thời gian nộp: <b>${formatHistoryDateTime(item.submitted_at || item.timestamp)}</b> • 
+                Thời gian làm bài: <b>${formatTime(item.time_elapsed || 0)}</b>
+            `;
+        }
+
+        if (btnRetake) {
+            btnRetake.onclick = () => retakeHistoryQuiz(item.quiz_id);
+        }
+
+        renderHistReviewContent();
+    } catch(err) {
+        console.error("Lỗi xem chi tiết bài làm:", err);
+        if (container) {
+            container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 30px;">Lỗi khi tải chi tiết bài làm. Vui lòng thử lại.</div>`;
+        }
+    }
+}
+
+function closeStudentHistoryReviewModal() {
+    const modal = document.getElementById('studentHistoryReviewModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function setHistReviewFilter(filter) {
+    currentHistReviewFilter = filter;
+    renderHistReviewContent();
+}
+
+function renderHistReviewContent() {
+    if (!currentHistReviewDetail) return;
+    const item = currentHistReviewDetail;
+    const results = item.results || [];
+    const totalQues = item.total_questions || results.length || 1;
+    const score = item.score || 0;
+    const scaledScore = totalQues > 0 ? ((score / totalQues) * 10).toFixed(1) : "0.0";
+
+    let correctCount = 0;
+    let wrongCount = 0;
+    let skippedCount = 0;
+
+    results.forEach(r => {
+        if (r.is_correct) correctCount++;
+        else if (r.user_answer === null || r.user_answer === undefined || r.user_answer === '') skippedCount++;
+        else wrongCount++;
+    });
+
+    // Render KPI
+    const kpiEl = document.getElementById('histReviewKpiSummary');
+    if (kpiEl) {
+        kpiEl.innerHTML = `
+            <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.8rem; color: #64748b; font-weight: 600;">Điểm số (Thang 10)</div>
+                <div style="font-size: 1.55rem; font-weight: 900; color: #2563eb; margin-top: 2px;">${scaledScore}</div>
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.8rem; color: #047857; font-weight: 600;">Số câu đúng</div>
+                <div style="font-size: 1.55rem; font-weight: 900; color: #10b981; margin-top: 2px;">${correctCount}</div>
+            </div>
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.8rem; color: #b91c1c; font-weight: 600;">Số câu sai</div>
+                <div style="font-size: 1.55rem; font-weight: 900; color: #ef4444; margin-top: 2px;">${wrongCount}</div>
+            </div>
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
+                <div style="font-size: 0.8rem; color: #b45309; font-weight: 600;">Chưa trả lời</div>
+                <div style="font-size: 1.55rem; font-weight: 900; color: #f59e0b; margin-top: 2px;">${skippedCount}</div>
+            </div>
+        `;
+    }
+
+    // Render Filter
+    const filterEl = document.getElementById('histReviewFilterBar');
+    if (filterEl) {
+        filterEl.innerHTML = `
+            <span style="font-weight: 700; font-size: 0.88rem; color: #475569; display: flex; align-items: center; gap: 4px;">
+                <i class="ri-filter-3-line"></i> Lọc:
+            </span>
+            <button class="azota-filter-tab ${currentHistReviewFilter === 'all' ? 'active' : ''}" onclick="setHistReviewFilter('all')">
+                Tất cả (${results.length})
+            </button>
+            <button class="azota-filter-tab ${currentHistReviewFilter === 'correct' ? 'active' : ''}" onclick="setHistReviewFilter('correct')">
+                <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Câu đúng (${correctCount})
+            </button>
+            <button class="azota-filter-tab ${currentHistReviewFilter === 'wrong' ? 'active' : ''}" onclick="setHistReviewFilter('wrong')">
+                <i class="ri-close-circle-fill" style="color: #ef4444;"></i> Câu sai (${wrongCount})
+            </button>
+            <button class="azota-filter-tab ${currentHistReviewFilter === 'skipped' ? 'active' : ''}" onclick="setHistReviewFilter('skipped')">
+                <i class="ri-question-fill" style="color: #f59e0b;"></i> Chưa làm (${skippedCount})
+            </button>
+        `;
+    }
+
+    // Render Questions
+    const container = document.getElementById('histReviewQuestionsContainer');
+    if (!container) return;
+
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: #64748b; background: #f8fafc; border-radius: 10px; border: 1px dashed #cbd5e1;">
+                <p style="margin: 0;">Bài thi này được đồng bộ từ bản ghi trước đây, chi tiết từng câu hỏi không còn được lưu trữ đầy đủ.</p>
+                <button class="btn-primary" style="margin-top: 14px;" onclick="retakeHistoryQuiz('${escapeHtml(item.quiz_id)}')">
+                    <i class="ri-refresh-line"></i> Làm lại đề thi này ngay
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    let qHtml = '';
+    results.forEach((r, idx) => {
+        let status = 'wrong';
+        if (r.is_correct) status = 'correct';
+        else if (r.user_answer === null || r.user_answer === undefined || r.user_answer === '') status = 'skipped';
+
+        if (currentHistReviewFilter !== 'all' && currentHistReviewFilter !== status) {
+            return;
+        }
+
+        const qNum = idx + 1;
+        const qText = formatRichContent(r.question || `Câu hỏi ${qNum}`);
+        const userAns = r.user_answer;
+        const correctAns = r.correct_answer;
+        const explain = r.explain;
+        const earned = r.earned !== undefined ? r.earned : (r.is_correct ? 1.0 : 0.0);
+
+        let statusBadge = '';
+        if (status === 'correct') {
+            statusBadge = `<span style="background: #ecfdf5; color: #047857; font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid #a7f3d0;"><i class="ri-checkbox-circle-fill"></i> Chính xác (+${earned}đ)</span>`;
+        } else if (status === 'skipped') {
+            statusBadge = `<span style="background: #fffbeb; color: #b45309; font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid #fde68a;"><i class="ri-question-fill"></i> Chưa trả lời (0đ)</span>`;
+        } else {
+            statusBadge = `<span style="background: #fef2f2; color: #b91c1c; font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid #fecaca;"><i class="ri-close-circle-fill"></i> Sai (0đ)</span>`;
+        }
+
+        // Render options if available
+        let optionsHtml = '';
+        if (Array.isArray(r.options) && r.options.length > 0) {
+            optionsHtml = '<div style="display: flex; flex-direction: column; gap: 8px; margin: 12px 0;">';
+            r.options.forEach((opt, optIdx) => {
+                const optLetter = String.fromCharCode(65 + optIdx);
+                const optText = formatRichContent(opt);
+                
+                let isUserChoice = false;
+                if (typeof userAns === 'string') {
+                    isUserChoice = (userAns.trim() === String(opt).trim() || userAns.toUpperCase().startsWith(optLetter));
+                }
+
+                let isCorrectOption = false;
+                if (typeof correctAns === 'string') {
+                    isCorrectOption = (correctAns.trim() === String(opt).trim() || correctAns.toUpperCase().startsWith(optLetter));
+                }
+
+                let optBorder = '1px solid #e2e8f0';
+                let optBg = '#ffffff';
+                let optIcon = '';
+
+                if (isCorrectOption) {
+                    optBorder = '2px solid #10b981';
+                    optBg = '#f0fdf4';
+                    optIcon = '<i class="ri-checkbox-circle-fill" style="color: #10b981; margin-left: auto;"></i>';
+                }
+                if (isUserChoice && !isCorrectOption) {
+                    optBorder = '2px solid #ef4444';
+                    optBg = '#fef2f2';
+                    optIcon = '<i class="ri-close-circle-fill" style="color: #ef4444; margin-left: auto;"></i>';
+                }
+
+                optionsHtml += `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; border: ${optBorder}; background: ${optBg}; font-size: 0.95rem;">
+                        <span style="font-weight: 700; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;">${optLetter}</span>
+                        <div style="flex: 1;">${optText}</div>
+                        ${optIcon}
+                    </div>
+                `;
+            });
+            optionsHtml += '</div>';
+        } else {
+            let formattedUserAns = (typeof userAns === 'object' && userAns !== null) ? JSON.stringify(userAns) : String(userAns || 'Chưa trả lời');
+            let formattedCorrectAns = (typeof correctAns === 'object' && correctAns !== null) ? JSON.stringify(correctAns) : String(correctAns || '--');
+            optionsHtml = `
+                <div style="margin: 10px 0; padding: 10px 12px; background: #f8fafc; border-radius: 8px; font-size: 0.92rem; border: 1px solid #e2e8f0;">
+                    <div><b>Bạn đã chọn:</b> <span style="color: ${status === 'correct' ? '#10b981' : '#ef4444'}; font-weight: 600;">${escapeHtml(formattedUserAns)}</span></div>
+                    <div style="margin-top: 4px;"><b>Đáp án đúng:</b> <span style="color: #10b981; font-weight: 700;">${escapeHtml(formattedCorrectAns)}</span></div>
+                </div>
+            `;
+        }
+
+        let explainHtml = '';
+        if (explain && String(explain).trim()) {
+            explainHtml = `
+                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; color: #92400e; margin-top: 10px;">
+                    <div style="font-weight: 700; display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+                        <i class="ri-lightbulb-fill" style="color: #f59e0b;"></i> Lời giải thích / Hướng dẫn:
+                    </div>
+                    <div>${formatRichContent(explain)}</div>
+                </div>
+            `;
+        }
+
+        let imgHtml = '';
+        if (r.image) {
+            imgHtml = `<div style="margin: 8px 0;"><img src="${escapeHtml(r.image)}" alt="Hình câu hỏi" class="quiz-image" style="max-height: 250px; border-radius: 8px; border: 1px solid #e2e8f0;"></div>`;
+        }
+
+        qHtml += `
+            <div style="background: #ffffff; border: 1.5px solid ${status === 'correct' ? '#bbf7d0' : (status === 'skipped' ? '#fde68a' : '#fecaca')}; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span style="font-weight: 800; font-size: 1rem; color: #1e293b;">Câu ${qNum}:</span>
+                    ${statusBadge}
+                </div>
+                <div style="font-size: 1rem; color: #0f172a; line-height: 1.5;">${qText}</div>
+                ${imgHtml}
+                ${optionsHtml}
+                ${explainHtml}
+            </div>
+        `;
+    });
+
+    container.innerHTML = qHtml || `<div style="text-align: center; padding: 24px; color: #64748b;">Không có câu hỏi nào theo bộ lọc đã chọn.</div>`;
+    
+    if (window.renderMath) {
+        renderMath(container);
+    }
+}
+
+async function deleteStudentHistoryItem(historyId) {
+    if (!historyId || !authToken) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa bài thi này khỏi lịch sử không?")) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/student/history/${historyId}?student_token=${encodeURIComponent(authToken)}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            showToast("Đã xóa bài thi khỏi lịch sử thành công!", "success");
+            rawStudentHistory = rawStudentHistory.filter(x => x.id !== historyId);
+            loadStudentHistory(false);
+        } else {
+            alert("Lỗi khi xóa bài thi: " + (data.detail || data.message || "Lỗi không xác định"));
+        }
+    } catch(err) {
+        console.error("Lỗi khi xóa:", err);
+        alert("Lỗi kết nối khi xóa bài thi.");
+    }
 }
 
 async function loadTeacherQuizzes() {
@@ -6028,7 +6634,11 @@ async function submitExam(isReview = false) {
 }
 
 function exitMinimalMode() {
-    if (confirm("Bạn có muốn tạm dừng và thoát khỏi giao diện làm bài không? (Tiến trình của bạn vẫn được bảo lưu)")) {
+    const isCompleted = document.body.classList.contains('quiz-completed');
+    const msg = isCompleted 
+        ? "Bạn có muốn quay về Trang chủ & Bảng điểm không?" 
+        : "Bạn có muốn tạm dừng và thoát khỏi giao diện làm bài không? (Tiến trình của bạn vẫn được bảo lưu)";
+    if (confirm(msg)) {
         document.body.classList.remove('minimal-mode');
         document.body.classList.remove('quiz-completed');
         const mobileBar = document.getElementById('azotaMobileExamBar');
@@ -6037,7 +6647,11 @@ function exitMinimalMode() {
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(err => console.log(err));
         }
-        window.location.reload(); // Tải lại trang để reset giao diện và đưa về màn hình Welcome
+        if (isCompleted) {
+            window.location.href = '/';
+        } else {
+            window.location.reload();
+        }
     }
 }
 

@@ -29,6 +29,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=20261009_clean_3">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <!-- Google AdSense (Bắt buộc trong <head> để Google xác minh trang web) -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5865046257484388" crossorigin="anonymous"></script>
+    <style>
+      /* Ngăn chặn triệt để Google Auto Ads tự ý chèn vào trang đăng nhập, trang giáo viên & phòng thi */
+      #authContainer .google-auto-placed,
+      #teacherDashboard .google-auto-placed,
+      #studentHeader .google-auto-placed,
+      #quiz-container .google-auto-placed,
+      .minimal-mode .google-auto-placed,
+      .azota-student-header .google-auto-placed,
+      #studentHeader ins.adsbygoogle,
+      #quiz-container ins.adsbygoogle {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+          pointer-events: none !important;
+      }
+    </style>
     <style id="styled-wrapper-css">
       #authContainer {
         display: flex;
@@ -919,7 +938,7 @@
             <button class="azota-nav-tab" id="navTabCreate" onclick="showCreateView()">
                 <i class="ri-add-circle-line"></i> Tạo đề mới
             </button>
-            <button class="azota-nav-tab" onclick="openStudioNewQuiz()">
+            <button class="azota-nav-tab" id="navTabStudio" onclick="openStudioNewQuiz()">
                 <i class="ri-code-box-line"></i> Studio Soạn thảo
             </button>
             <button class="azota-nav-tab" id="navTabAdmin" style="display:none;" onclick="showAdminView()">
@@ -1042,19 +1061,85 @@
         <button id="btnShuffle" class="btn-primary" onclick="shuffleQuiz()" style="display: none;"><i class="ri-shuffle-line"></i> Trộn đề</button>
     </div>
 
-    <!-- Bảng điều khiển Học sinh (Khi chưa có link) -->
-    <div id="studentDashboard" class="card azota-result-card" style="display:none; text-align: center; max-width: 650px; margin: 20px auto;">
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: #eff6ff; color: #1976d2; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 16px auto;">
-            <i class="ri-graduation-cap-line"></i>
+    <!-- Bảng điều khiển Học sinh: Vào thi & Lịch sử làm bài -->
+    <div id="studentDashboard" class="student-dashboard-card" style="display:none; margin-top: 10px;">
+        
+        <!-- Header: Lời chào và Ô nhập mã đề thi nhanh -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 22px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; box-shadow: 0 2px 8px rgba(37,99,235,0.15);">
+                    <i class="ri-graduation-cap-fill"></i>
+                </div>
+                <div>
+                    <h2 style="color: var(--azota-primary); margin: 0; font-size: 1.45rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                        <span>Góc Học Tập & Lịch Sử Làm Bài</span>
+                    </h2>
+                    <p style="color: #64748b; font-size: 0.92rem; margin: 3px 0 0 0;">
+                        Xin chào <b id="studentGreetingName" style="color: #0f172a;">Học sinh</b>! Dưới đây là bảng điểm và lịch sử các bài thi bạn đã hoàn thành.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Hộp nhập mã đề thi nhanh -->
+            <div style="display: flex; gap: 8px; flex-grow: 1; max-width: 440px; min-width: 280px; align-items: center;">
+                <div style="position: relative; flex: 1;">
+                    <i class="ri-key-2-line" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem;"></i>
+                    <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: AAA-111) hoặc link..." style="width: 100%; margin: 0; padding: 10px 14px 10px 36px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.95rem; box-sizing: border-box;">
+                </div>
+                <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap; border-radius: 8px; padding: 10px 18px; font-weight: 700; background: #1976d2; margin: 0; height: 42px;">
+                    <i class="ri-arrow-right-line"></i> Vào thi
+                </button>
+            </div>
         </div>
-        <h2 style="color: var(--azota-primary); margin-top: 0; font-size: 1.6rem;">Khu vực Làm bài Thi</h2>
-        <p style="color: #64748b; font-size: 1rem; margin-bottom: 24px;">Nhập mã đề thi hoặc dán đường link do thầy cô cung cấp để tham gia phòng thi.</p>
-        <div style="display: flex; max-width: 480px; margin: 0 auto; gap: 10px;">
-            <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: c8ecabf5...) hoặc dán Link" style="flex-grow: 1; margin: 0; border-radius: 10px; border: 1.5px solid #cbd5e1; padding: 12px 16px; font-size: 1rem;">
-            <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap; border-radius: 10px; padding: 12px 22px; font-weight: 700; background: #1976d2;">
-                <i class="ri-arrow-right-line"></i> Vào thi
+
+        <!-- Stats Strip: Thống kê thành tích học sinh -->
+        <div class="azota-stats-strip">
+            <div class="azota-stat-box">
+                <div class="val" id="statStudentTotalTests" style="color: #2563eb;">0</div>
+                <div class="lbl">Bài thi đã làm</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statStudentAvgScore" style="color: #0284c7;">--</div>
+                <div class="lbl">Điểm trung bình (Thang 10)</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statStudentMaxScore" style="color: #10b981;">--</div>
+                <div class="lbl">Điểm cao nhất</div>
+            </div>
+            <div class="azota-stat-box">
+                <div class="val" id="statStudentPassedRate" style="color: #8b5cf6;">--%</div>
+                <div class="lbl">Tỷ lệ đạt (≥ 5.0đ)</div>
+            </div>
+        </div>
+
+        <!-- Toolbar: Search + Filter Tabs -->
+        <div class="azota-toolbar" style="margin-top: 18px;">
+            <div class="azota-search-box">
+                <i class="ri-search-line"></i>
+                <input type="text" id="studentHistorySearchInput" class="azota-search-input" placeholder="Tìm kiếm bài thi theo tên hoặc mã đề..." oninput="filterStudentHistory()">
+            </div>
+            <div class="azota-filter-tabs">
+                <button class="azota-tab-btn active" data-filter="all" onclick="setStudentHistoryFilter('all')">
+                    Tất cả (<span id="filterCountStudentAll">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="high" onclick="setStudentHistoryFilter('high')">
+                    Giỏi (≥ 8.0) (<span id="filterCountStudentHigh">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="pass" onclick="setStudentHistoryFilter('pass')">
+                    Đạt (5.0 - 7.9) (<span id="filterCountStudentPass">0</span>)
+                </button>
+                <button class="azota-tab-btn" data-filter="low" onclick="setStudentHistoryFilter('low')">
+                    Cần cố gắng (&lt; 5.0) (<span id="filterCountStudentLow">0</span>)
+                </button>
+            </div>
+            <button class="btn-outline" onclick="loadStudentHistory(true)" style="padding: 8px 14px; font-size: 0.88rem; border-radius: 8px; margin: 0; background: white;" title="Tải lại lịch sử">
+                <i class="ri-refresh-line"></i> Làm mới
             </button>
         </div>
+
+        <!-- Container danh sách lịch sử bài thi -->
+        <div id="studentHistoryList" style="margin-top: 16px;"></div>
+
     </div>
 
     <!-- CREATION HUB (3 BENTO CARDS) -->
@@ -1330,6 +1415,46 @@
             
             <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); text-align: right;">
                 <button onclick="closeStudentDetailsModal()" class="btn-primary" style="padding: 8px 24px; border-radius: 8px; font-weight: 600;">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Xem lại chi tiết bài thi từ Lịch sử (Dành cho Học sinh) -->
+    <div id="studentHistoryReviewModal" class="modal-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+        <div class="modal-content" style="background: #fff; width: 95%; max-width: 860px; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                        <i class="ri-file-list-3-line"></i>
+                    </div>
+                    <div>
+                        <h3 id="histReviewModalTitle" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--text-dark);">
+                            Chi tiết bài thi đã làm
+                        </h3>
+                        <div id="histReviewModalSub" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 3px;">
+                            Thời gian nộp: -- • Thời gian làm bài: --
+                        </div>
+                    </div>
+                </div>
+                <button onclick="closeStudentHistoryReviewModal()" style="background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 4px 8px; border-radius: 8px;">&times;</button>
+            </div>
+            
+            <!-- Tóm tắt KPI điểm số của bài thi -->
+            <div id="histReviewKpiSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px;"></div>
+            
+            <!-- Thanh lọc câu hỏi trong bài làm -->
+            <div id="histReviewFilterBar" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;"></div>
+
+            <!-- Danh sách từng câu hỏi & đáp án -->
+            <div id="histReviewQuestionsContainer" style="display: flex; flex-direction: column; gap: 16px;"></div>
+            
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <button id="btnHistReviewRetake" class="btn-primary" style="padding: 10px 20px; border-radius: 8px; font-weight: 600; background: #16a34a;">
+                    <i class="ri-refresh-line"></i> Làm lại đề này
+                </button>
+                <button onclick="closeStudentHistoryReviewModal()" class="btn-outline" style="padding: 10px 22px; border-radius: 8px; font-weight: 600;">
+                    Đóng
+                </button>
             </div>
         </div>
     </div>

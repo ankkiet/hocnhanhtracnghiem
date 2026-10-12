@@ -1,6 +1,6 @@
 import time
 import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -17,6 +17,20 @@ class SubmitExamRequest(BaseModel):
     student_token: Optional[str] = None
     answers: Dict[str, Any] = {}
     time_elapsed: int = 0
+
+class SyncHistoryItem(BaseModel):
+    quiz_id: str
+    quiz_title: Optional[str] = "Đề thi trắc nghiệm"
+    score: float
+    total_questions: int
+    time_elapsed: int
+    submitted_at: Optional[str] = None
+    results: Optional[List[Dict[str, Any]]] = None
+    answers: Optional[Dict[str, Any]] = None
+
+class SyncHistoryRequest(BaseModel):
+    student_token: str
+    history_items: List[SyncHistoryItem]
 
 class SubmitScoreRequest(BaseModel):
     quiz_id: str
@@ -163,6 +177,11 @@ async def submit_exam(req: SubmitExamRequest):
             
         results.append({
             "question_index": idx,
+            "question": q.get('question', ''),
+            "options": q.get('options', []),
+            "type": q_type,
+            "image": q.get('image', ''),
+            "group_title": q.get('group_title', ''),
             "user_answer": user_ans,
             "correct_answer": correct_ans,
             "is_correct": is_correct,
@@ -174,16 +193,25 @@ async def submit_exam(req: SubmitExamRequest):
     
     # Lưu bản ghi nộp bài đã được xác thực an toàn vào Firestore
     submission_ref = db.collection('quizzes').document(req.quiz_id).collection('submissions').document()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_iso = now_utc.isoformat()
+    quiz_title = quiz_data.get('title') or f"Đề thi #{req.quiz_id}"
+
     submission_data = {
+        'id': submission_ref.id,
+        'quiz_id': req.quiz_id,
+        'quiz_title': quiz_title,
         'student_name': req.student_name.strip() or 'Ẩn danh',
         'score': round(score, 2),
         'total_questions': total_questions,
         'time_elapsed': req.time_elapsed,
         'answers': req.answers,
         'results': results,
+        'submitted_at': now_iso,
         'timestamp': firestore.SERVER_TIMESTAMP
     }
     
+    user = None
     is_guest = True
     if req.student_token:
         user = get_user_from_token(req.student_token, db)
@@ -194,10 +222,28 @@ async def submit_exam(req: SubmitExamRequest):
     submission_data['is_guest'] = is_guest
     if is_guest:
         # Thí sinh tự do: Đặt thời hạn tự hủy sau 24h (hỗ trợ Firestore TTL Policy và dọn dẹp tự động)
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
         submission_data['expire_at'] = now_utc + datetime.timedelta(hours=24)
             
     submission_ref.set(submission_data)
+
+    # Lưu bản ghi vào lịch sử cá nhân của học sinh nếu đã đăng nhập tài khoản
+    if not is_guest and user:
+        try:
+            user_history_ref = db.collection('users').document(user['id']).collection('history').document(submission_ref.id)
+            user_history_ref.set({
+                'id': submission_ref.id,
+                'quiz_id': req.quiz_id,
+                'quiz_title': quiz_title,
+                'score': round(score, 2),
+                'total_questions': total_questions,
+                'time_elapsed': req.time_elapsed,
+                'submitted_at': now_iso,
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'results': results,
+                'answers': req.answers
+            })
+        except Exception:
+            pass
     
     # CẬP NHẬT CACHE TRỰC TIẾP TRONG BỘ NHỚ RAM ĐỂ TRÁNH QUOTA READ BỊ DỒN DẬP (THUNDERING HERD)
     now_ts = time.time()
@@ -224,7 +270,8 @@ async def submit_exam(req: SubmitExamRequest):
         "score": round(score, 2),
         "total_questions": total_questions,
         "time_elapsed": req.time_elapsed,
-        "results": results
+        "results": results,
+        "submission_id": submission_ref.id
     }
 
 @router.post("/submit_score", summary="Lưu điểm của học sinh (Tương thích ngược)")
@@ -354,3 +401,195 @@ async def get_leaderboard(quiz_id: str):
     LEADERBOARD_CACHE[quiz_id] = {'time': now, 'data': final_results}
     
     return {"status": "success", "data": final_results}
+
+@router.get("/student/history", summary="Lấy danh sách lịch sử làm bài và điểm số của học sinh")
+async def get_student_history(student_token: str):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+    
+    if not student_token or not student_token.strip():
+        raise HTTPException(status_code=401, detail="Thiếu mã đăng nhập học sinh")
+        
+    user = get_user_from_token(student_token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ hoặc đã hết hạn")
+        
+    user_id = user['id']
+    history_coll = db.collection('users').document(user_id).collection('history')
+    
+    try:
+        docs = history_coll.limit(100).get()
+    except Exception:
+        docs = []
+        
+    items = []
+    seen_ids = set()
+    for doc in docs:
+        d = doc.to_dict()
+        d['id'] = doc.id
+        if 'timestamp' in d and hasattr(d['timestamp'], 'isoformat'):
+            d['timestamp'] = d['timestamp'].isoformat()
+        items.append(d)
+        seen_ids.add(doc.id)
+            
+    # Hỗ trợ tự động đọc thêm từ subcollection progress nếu history chưa có bài thi nào
+    if len(items) == 0:
+        try:
+            progress_docs = db.collection('users').document(user_id).collection('progress').limit(50).get()
+            for pdoc in progress_docs:
+                pdata = pdoc.to_dict().get('progress_data', {})
+                q_id = pdoc.id
+                hist_list = pdata.get('history') or []
+                if hist_list:
+                    for h_idx, h in enumerate(hist_list):
+                        p_score = float(h.get('score', 0))
+                        p_total = int(h.get('total', 10))
+                        items.append({
+                            'id': f"prog_{q_id}_{h_idx}",
+                            'quiz_id': q_id,
+                            'quiz_title': pdata.get('title') or f"Đề thi #{q_id}",
+                            'score': p_score,
+                            'total_questions': p_total,
+                            'time_elapsed': int(h.get('timeElapsed', 0)),
+                            'submitted_at': h.get('date', ''),
+                            'results': []
+                        })
+                elif pdata.get('completed'):
+                    items.append({
+                        'id': f"prog_{q_id}",
+                        'quiz_id': q_id,
+                        'quiz_title': pdata.get('title') or f"Đề thi #{q_id}",
+                        'score': float(pdata.get('score', 0)),
+                        'total_questions': int(pdata.get('total', 10)),
+                        'time_elapsed': int(pdata.get('timeElapsed', 0)),
+                        'submitted_at': pdata.get('updatedAt', ''),
+                        'results': []
+                    })
+        except Exception:
+            pass
+
+    def _sort_key(item):
+        s_at = str(item.get('submitted_at') or '')
+        ts = str(item.get('timestamp') or '')
+        return s_at or ts
+
+    items.sort(key=_sort_key, reverse=True)
+    
+    return {
+        "status": "success",
+        "data": items,
+        "total": len(items)
+    }
+
+@router.get("/student/history/{history_id}", summary="Lấy chi tiết một bài thi đã nộp trong lịch sử")
+async def get_student_history_detail(history_id: str, student_token: str):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+        
+    user = get_user_from_token(student_token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ")
+        
+    user_id = user['id']
+    doc_ref = db.collection('users').document(user_id).collection('history').document(history_id)
+    doc = doc_ref.get()
+    
+    if not doc.exists:
+        # Nếu là bản ghi dạng prog_{quiz_id} thì thử lấy từ progress
+        if history_id.startswith("prog_"):
+            parts = history_id.split("_")
+            q_id = parts[1] if len(parts) > 1 else ""
+            if q_id:
+                p_doc = db.collection('users').document(user_id).collection('progress').document(q_id).get()
+                if p_doc.exists:
+                    pdata = p_doc.to_dict().get('progress_data', {})
+                    return {
+                        "status": "success",
+                        "data": {
+                            "id": history_id,
+                            "quiz_id": q_id,
+                            "quiz_title": pdata.get('title') or f"Đề thi #{q_id}",
+                            "score": float(pdata.get('score', 0)),
+                            "total_questions": int(pdata.get('total', 10)),
+                            "time_elapsed": int(pdata.get('timeElapsed', 0)),
+                            "results": [],
+                            "answers": pdata.get('answers', {})
+                        }
+                    }
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài thi trong lịch sử")
+        
+    data = doc.to_dict()
+    data['id'] = doc.id
+    if 'timestamp' in data and hasattr(data['timestamp'], 'isoformat'):
+        data['timestamp'] = data['timestamp'].isoformat()
+        
+    return {
+        "status": "success",
+        "data": data
+    }
+
+@router.delete("/student/history/{history_id}", summary="Xóa bài thi khỏi lịch sử học sinh")
+async def delete_student_history(history_id: str, student_token: str):
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+        
+    user = get_user_from_token(student_token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ")
+        
+    user_id = user['id']
+    doc_ref = db.collection('users').document(user_id).collection('history').document(history_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        doc_ref.delete()
+        
+    return {"status": "success", "message": "Đã xóa bài thi khỏi lịch sử"}
+
+@router.post("/student/sync_history", summary="Đồng bộ lịch sử từ bộ nhớ máy lên tài khoản học sinh")
+async def sync_student_history(req: SyncHistoryRequest):
+    db = get_db()
+    if db is None:
+        return {"status": "error", "message": "Chưa kết nối CSDL"}
+        
+    user = get_user_from_token(req.student_token, db)
+    if not user:
+        return {"status": "error", "message": "Không tìm thấy người dùng"}
+        
+    user_id = user['id']
+    hist_coll = db.collection('users').document(user_id).collection('history')
+    
+    # Lấy danh sách quiz_id hiện có để tránh lưu trùng lặp
+    existing_docs = hist_coll.limit(100).get()
+    existing_keys = set()
+    for ed in existing_docs:
+        ed_data = ed.to_dict()
+        existing_keys.add(f"{ed_data.get('quiz_id')}_{ed_data.get('score')}")
+        
+    saved_count = 0
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    for item in req.history_items:
+        key = f"{item.quiz_id}_{round(float(item.score), 2)}"
+        if key in existing_keys:
+            continue
+            
+        doc_ref = hist_coll.document()
+        doc_data = {
+            'id': doc_ref.id,
+            'quiz_id': item.quiz_id,
+            'quiz_title': item.quiz_title or f"Đề thi #{item.quiz_id}",
+            'score': round(float(item.score), 2),
+            'total_questions': int(item.total_questions),
+            'time_elapsed': int(item.time_elapsed),
+            'submitted_at': item.submitted_at or now_utc.isoformat(),
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'results': item.results or [],
+            'answers': item.answers or {}
+        }
+        doc_ref.set(doc_data)
+        existing_keys.add(key)
+        saved_count += 1
+        
+    return {"status": "success", "saved_count": saved_count}
