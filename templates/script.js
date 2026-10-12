@@ -208,6 +208,7 @@ function renderMath(targetElement) {
 window.onload = async function() {
     initGoogleAuth();
     checkAuthState();
+    updateAdPassUI();
 };
 
 function escapeHtml(str) {
@@ -1304,10 +1305,32 @@ function sendPing() {
 
 // =========================================================================
 // HỆ THỐNG MỞ KHÓA 12H LÀM BÀI QUA QUẢNG CÁO (REWARDED ADS)
+// CHỈ KÍCH HOẠT KHI HỌC SINH TRUY CẬP VÀO LINK LÀM BÀI THI
 // =========================================================================
 const AD_PASS_STORAGE_KEY = 'hocnhanhtn_pass_until';
 const AD_PASS_DURATION_MS = 12 * 60 * 60 * 1000; // 12 tiếng = 43,200,000 ms
 let adCountdownTimer = null;
+let isAdSenseScriptLoaded = false;
+
+// Nạp Google AdSense SDK theo nhu cầu - CHỈ KHI Ở LINK LÀM BÀI
+function loadAdSenseScriptOnlyForQuiz() {
+    const quizId = getCurrentQuizId();
+    if (!quizId) return; // Tuyệt đối không nạp nếu ở trang chủ, đăng nhập, v.v.
+    if (isAdSenseScriptLoaded || document.getElementById('adsense-sdk-script')) return;
+
+    try {
+        const script = document.createElement('script');
+        script.id = 'adsense-sdk-script';
+        script.async = true;
+        script.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5865046257484388";
+        script.crossOrigin = "anonymous";
+        document.head.appendChild(script);
+        isAdSenseScriptLoaded = true;
+        console.log("Đã kích hoạt AdSense cho link làm đề thi:", quizId);
+    } catch (e) {
+        console.warn("Không thể tải AdSense SDK:", e);
+    }
+}
 
 // Kiểm tra vé 12h còn hiệu lực không
 function hasValid12hPass() {
@@ -1348,15 +1371,33 @@ function getRemainingPassTimeStr() {
     }
 }
 
-// Cập nhật giao diện badge trên màn hình chờ
+// Cập nhật giao diện badge & banner quảng cáo trên màn hình chờ
 function updateAdPassUI() {
+    const quizId = getCurrentQuizId();
     const container = document.getElementById('adPassBadgeContainer');
+    const lobbyBox = document.getElementById('lobbyAdBox');
     const activeBadge = document.getElementById('adPassActiveBadge');
     const inactiveBadge = document.getElementById('adPassInactiveBadge');
     const timeRemainingEl = document.getElementById('adPassTimeRemaining');
-    if (!container) return;
 
-    container.style.display = 'block';
+    // NẾU KHÔNG PHẢI LINK LÀM BÀI -> ẨN TOÀN BỘ QUẢNG CÁO & VÉ
+    if (!quizId) {
+        if (container) container.style.display = 'none';
+        if (lobbyBox) lobbyBox.style.display = 'none';
+        return;
+    }
+
+    // CHỈ KHI Ở LINK LÀM BÀI: Tải SDK và hiển thị
+    loadAdSenseScriptOnlyForQuiz();
+
+    if (container) container.style.display = 'block';
+    if (lobbyBox) {
+        lobbyBox.style.display = 'block';
+        try {
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        } catch(e) {}
+    }
+
     if (hasValid12hPass()) {
         if (timeRemainingEl) timeRemainingEl.innerText = getRemainingPassTimeStr() || "12 giờ";
         if (activeBadge) activeBadge.style.display = 'inline-flex';
@@ -1367,8 +1408,12 @@ function updateAdPassUI() {
     }
 }
 
-// Mở modal
+// Mở modal (chỉ khi có quizId)
 function openRewardAdModal() {
+    const quizId = getCurrentQuizId();
+    if (!quizId) return; // Không mở nếu không ở link bài thi
+
+    loadAdSenseScriptOnlyForQuiz();
     const modal = document.getElementById('rewardAdModal');
     const promptView = document.getElementById('rewardAdPromptView');
     const watchingView = document.getElementById('rewardAdWatchingView');
