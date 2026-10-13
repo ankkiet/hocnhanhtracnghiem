@@ -49,6 +49,110 @@ let authRole = localStorage.getItem('auth_role') || '';
 let testPracticeAnswers = {};
 let testExamAnswers = {};
 
+// ========================================================
+// HOCNHANHTN LOADER SYSTEM FOR STUDIO
+// ========================================================
+function hidePageInitialLoader() {
+    const initialLoader = document.getElementById('pageInitialLoader');
+    if (initialLoader && !initialLoader.classList.contains('hntn-loaded')) {
+        initialLoader.classList.add('hntn-loaded');
+        setTimeout(() => {
+            if (initialLoader.parentNode) initialLoader.remove();
+        }, 500);
+    }
+}
+window.hidePageInitialLoader = hidePageInitialLoader;
+
+// An toàn: Tự động tắt preloader khi tải trang xong hoặc sau tối đa 5 giây
+window.addEventListener('load', () => {
+    setTimeout(hidePageInitialLoader, 250);
+});
+setTimeout(hidePageInitialLoader, 5000);
+
+function resetHntnLoader(container) {
+    if (!container) return;
+    const svg = container.querySelector('.hntn-loader-svg');
+    if (svg && svg.parentNode) {
+        const clone = svg.cloneNode(true);
+        svg.parentNode.replaceChild(clone, svg);
+    }
+}
+window.resetHntnLoader = resetHntnLoader;
+
+function showStudioLoader(options = {}) {
+    const title = (typeof options === 'string') ? options : (options.title || "Đang xử lý...");
+    const subtitle = (typeof options === 'string') ? "" : (options.subtitle || "Vui lòng chờ trong giây lát...");
+    const showProgress = (typeof options === 'object' && options.showProgress === true);
+    const progress = (typeof options === 'object' && typeof options.progress === 'number') ? options.progress : 0;
+
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (!overlay) return;
+
+    const titleEl = document.getElementById('studioLoadingStatus');
+    const subEl = document.getElementById('studioLoadingSub');
+    const progText = document.getElementById('studioProgressPercent');
+    const progBar = document.getElementById('studioProgressBar');
+    const progBg = document.getElementById('studioProgressBarBg');
+
+    if (titleEl) titleEl.innerText = title;
+    if (subEl) {
+        subEl.innerText = subtitle;
+        subEl.style.display = subtitle ? 'block' : 'none';
+    }
+
+    if (progBg) progBg.style.display = showProgress ? 'block' : 'none';
+    if (progText) {
+        progText.style.display = showProgress ? 'block' : 'none';
+        progText.innerText = `${Math.round(progress)}%`;
+    }
+    if (progBar && showProgress) {
+        progBar.style.width = `${Math.round(progress)}%`;
+    }
+
+    resetHntnLoader(overlay);
+    overlay.style.display = 'flex';
+}
+
+function updateStudioLoader(options = {}) {
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (!overlay || overlay.style.display === 'none') return;
+
+    if (options.title) {
+        const titleEl = document.getElementById('studioLoadingStatus');
+        if (titleEl) titleEl.innerText = options.title;
+    }
+    if (options.subtitle !== undefined) {
+        const subEl = document.getElementById('studioLoadingSub');
+        if (subEl) {
+            subEl.innerText = options.subtitle;
+            subEl.style.display = options.subtitle ? 'block' : 'none';
+        }
+    }
+    if (typeof options.progress === 'number') {
+        const progText = document.getElementById('studioProgressPercent');
+        const progBar = document.getElementById('studioProgressBar');
+        const progBg = document.getElementById('studioProgressBarBg');
+        if (progBg) progBg.style.display = 'block';
+        if (progText) {
+            progText.style.display = 'block';
+            progText.innerText = `${Math.round(options.progress)}%`;
+        }
+        if (progBar) progBar.style.width = `${Math.round(options.progress)}%`;
+    }
+}
+
+function hideStudioLoader() {
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+window.showStudioLoader = showStudioLoader;
+window.updateStudioLoader = updateStudioLoader;
+window.hideStudioLoader = hideStudioLoader;
+window.showGlobalLoader = showStudioLoader;
+window.updateGlobalLoader = updateStudioLoader;
+window.hideGlobalLoader = hideStudioLoader;
+
 // Khởi chạy khi DOM sẵn sàng
 document.addEventListener('DOMContentLoaded', () => {
     initStudio();
@@ -73,24 +177,23 @@ async function initStudio() {
         document.getElementById('studioQuizTitle').value = titleParam;
     }
 
-    if (taskId) {
-        // Người dùng vừa bấm phân tích file hoặc sinh đề AI ở trang chủ -> Đã chuyển ngay sang Studio!
-        await pollStudioTask(taskId, titleParam, modeParam);
-    } else if (quizId) {
-        // Tải từ cơ sở dữ liệu nếu có ID trên URL
-        await loadQuizById(quizId);
-    } else {
-        // Tải từ Session Storage (hoặc bản lưu nháp trước đó)
-        loadQuizFromSession();
-    }
-}
-
-function resetHntnLoader(container) {
-    if (!container) return;
-    const svg = container.querySelector('.hntn-loader-svg');
-    if (svg && svg.parentNode) {
-        const clone = svg.cloneNode(true);
-        svg.parentNode.replaceChild(clone, svg);
+    try {
+        if (taskId) {
+            // Người dùng vừa bấm phân tích file hoặc sinh đề AI ở trang chủ -> Đã chuyển ngay sang Studio!
+            hidePageInitialLoader();
+            await pollStudioTask(taskId, titleParam, modeParam);
+        } else if (quizId) {
+            // Tải từ cơ sở dữ liệu nếu có ID trên URL
+            hidePageInitialLoader();
+            await loadQuizById(quizId);
+        } else {
+            // Tải từ Session Storage (hoặc bản lưu nháp trước đó)
+            loadQuizFromSession();
+            hidePageInitialLoader();
+        }
+    } catch(err) {
+        console.error("Lỗi nạp Studio:", err);
+        hidePageInitialLoader();
     }
 }
 
@@ -100,6 +203,10 @@ async function pollStudioTask(taskId, initialTitle, mode) {
     const progressPercent = document.getElementById('studioProgressPercent');
     const statusTitle = document.getElementById('studioLoadingStatus');
     const statusSub = document.getElementById('studioLoadingSub');
+    const progBg = document.getElementById('studioProgressBarBg');
+
+    if (progBg) progBg.style.display = 'block';
+    if (progressPercent) progressPercent.style.display = 'block';
 
     if (overlay) {
         resetHntnLoader(overlay);
@@ -231,7 +338,10 @@ function renderMathJax(targetElement) {
 // TẢI DỮ LIỆU ĐỀ THI
 // ----------------------------------------------------
 async function loadQuizById(quizId) {
-    showToast("⏳ Đang tải dữ liệu bài thi...");
+    showStudioLoader({
+        title: "Đang tải dữ liệu bài thi...",
+        subtitle: "Đang nạp toàn bộ câu hỏi, hình ảnh và công thức toán học..."
+    });
     try {
         const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken}`);
         const result = await response.json();
@@ -270,6 +380,8 @@ async function loadQuizById(quizId) {
     } catch(e) {
         console.error(e);
         alert("Lỗi tải đề thi từ máy chủ.");
+    } finally {
+        hideStudioLoader();
     }
 }
 
@@ -1135,8 +1247,15 @@ async function runAICheck() {
     const btn = document.getElementById('btnAICheck');
     const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
     
-    btn.innerText = "⏳ Đang quét đề thi (10-20s)...";
-    btn.disabled = true;
+    if (btn) {
+        btn.innerText = "⏳ Đang quét đề thi (10-20s)...";
+        btn.disabled = true;
+    }
+
+    showStudioLoader({
+        title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
+        subtitle: "Đang phân tích từng câu hỏi, kiểm tra tính đúng đắn của đáp án và công thức (10-20s)..."
+    });
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
@@ -1249,8 +1368,11 @@ async function runAICheck() {
     } catch(e) {
         alert("Lỗi kết nối tới máy chủ khi gọi AI.");
     } finally {
-        btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
-        btn.disabled = false;
+        hideStudioLoader();
+        if (btn) {
+            btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
+            btn.disabled = false;
+        }
     }
 }
 
@@ -1713,7 +1835,10 @@ async function exportWordDocument() {
         return;
     }
     // Tự động lưu cập nhật mới nhất trước khi tải file Word
-    showToast("⏳ Đang đồng bộ bản mới nhất...");
+    showStudioLoader({
+        title: "📄 Đang xuất file Word đề thi...",
+        subtitle: "Đang đồng bộ bản mới nhất và kết xuất định dạng in ấn..."
+    });
     try {
         const payload = {
             quiz_id: editingQuizId,
@@ -1731,6 +1856,9 @@ async function exportWordDocument() {
             body: JSON.stringify(payload)
         });
     } catch(e) {}
+    finally {
+        setTimeout(hideStudioLoader, 1200);
+    }
     window.open(`${API_BASE_URL}/api/teacher/export_docx/${editingQuizId}?teacher_token=${authToken}`, '_blank');
 }
 
@@ -1769,8 +1897,16 @@ async function confirmPublishQuiz() {
     const isShuffle = document.getElementById('modalQuizShuffle').checked;
 
     const btn = document.getElementById('btnConfirmPublish');
-    btn.innerText = "⏳ Đang lưu đề thi...";
-    btn.disabled = true;
+    if (btn) {
+        btn.innerText = "⏳ Đang lưu đề thi...";
+        btn.disabled = true;
+    }
+
+    closePublishModal();
+    showStudioLoader({
+        title: "🚀 Đang lưu & xuất bản đề thi...",
+        subtitle: "Đang đồng bộ dữ liệu câu hỏi, hình ảnh và công thức lên máy chủ..."
+    });
 
     try {
         const payload = {
@@ -1801,8 +1937,8 @@ async function confirmPublishQuiz() {
             document.getElementById('studioQuizTitle').value = title;
             saveDraftToSession();
 
-            closePublishModal();
-            
+            hideStudioLoader();
+
             // Hiển thị nút Copy Link trên Studio navbar
             const btnCopy = document.getElementById('btnStudioCopyLink');
             if (btnCopy) btnCopy.style.display = 'inline-flex';
@@ -1813,14 +1949,19 @@ async function confirmPublishQuiz() {
 
             showSuccessModal(result.quiz_id);
         } else {
+            hideStudioLoader();
             alert("Lỗi lưu đề thi: " + (result.detail || "Không rõ nguyên nhân"));
         }
     } catch(e) {
+        hideStudioLoader();
         console.error(e);
         alert("Lỗi khi kết nối với máy chủ!");
     } finally {
-        btn.innerText = "🚀 Lưu & Xuất bản ngay";
-        btn.disabled = false;
+        hideStudioLoader();
+        if (btn) {
+            btn.innerText = "🚀 Lưu & Xuất bản ngay";
+            btn.disabled = false;
+        }
     }
 }
 
@@ -1932,8 +2073,12 @@ async function handleDiscardOrDelete() {
         );
         if (!confirmDel) return;
 
+        showStudioLoader({
+            title: "🗑️ Đang chuyển đề thi vào thùng rác...",
+            subtitle: "Đang cập nhật trạng thái đề thi trên máy chủ..."
+        });
+
         try {
-            showToast("⏳ Đang chuyển đề thi vào thùng rác...");
             const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_action`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1944,9 +2089,11 @@ async function handleDiscardOrDelete() {
                 alert("Đã đưa đề thi vào thùng rác!");
                 window.location.href = "index.html";
             } else {
+                hideStudioLoader();
                 alert("Lỗi khi xóa: " + (data.detail || "Không thể xóa đề thi"));
             }
         } catch(e) {
+            hideStudioLoader();
             alert("Lỗi kết nối máy chủ");
         }
         return;
@@ -1960,7 +2107,10 @@ async function handleDiscardOrDelete() {
     );
     if (!confirmDiscard) return;
 
-    showToast("⏳ Đang dọn sạch dữ liệu và hình ảnh tạm thời...");
+    showStudioLoader({
+        title: "🧹 Đang dọn sạch dữ liệu và hình ảnh tạm...",
+        subtitle: "Đang giải phóng dung lượng bộ nhớ và Cloudflare R2..."
+    });
     await discardCurrentDraft();
     window.location.href = "index.html";
 }
@@ -1980,7 +2130,10 @@ async function handleBackToDashboard() {
         );
         if (!confirmExit) return;
 
-        showToast("⏳ Đang dọn sạch dữ liệu tạm thời...");
+        showStudioLoader({
+            title: "🧹 Đang dọn sạch dữ liệu tạm thời...",
+            subtitle: "Đang chuẩn bị đưa bạn quay lại bảng điều khiển..."
+        });
         await discardCurrentDraft();
         window.location.href = "index.html";
         return;

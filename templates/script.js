@@ -45,6 +45,7 @@ let isStudentMode = false;
 let currentDataMode = 'practice';
 let isShuffleEnabled = false;
 let quizProgress = {};
+let currentQuizServerUpdatedAt = 0;
 let adminApiKeys = [];
 let isShowingTrash = false;
 
@@ -102,6 +103,45 @@ function getHntnLoaderSvgHtml(uniqueId = 'hntn_' + Math.random().toString(36).su
                 <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
                 <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
             </filter>
+            <style>
+                @keyframes fadeAndSlideDownDisappear {
+                    0% { opacity: 1; transform: translateY(0px); }
+                    35% { opacity: 1; transform: translateY(0px); }
+                    60% { opacity: 0.5; transform: translateY(35px); }
+                    90%, 100% { opacity: 0; transform: translateY(90px); visibility: hidden; }
+                }
+                .disappearing-elements {
+                    animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                }
+                @keyframes checkmarkKickUp {
+                    0% { transform: translateY(0px) rotate(0deg); }
+                    10% { transform: translateY(6px) rotate(-2deg); }
+                    24% { transform: translateY(-24px) rotate(5deg) scale(1.05); }
+                    40% { transform: translateY(-4px) rotate(1deg); }
+                    55%, 100% { transform: translateY(0px) rotate(0deg); }
+                }
+                @keyframes capKickedJumpSpin {
+                    0% { transform: translateY(0px) rotate(0deg) scale(1); }
+                    10% { transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98); }
+                    26% { transform: translateY(-56px) rotate(90deg) scale(1.12); }
+                    48% { transform: translateY(-44px) rotate(240deg) scale(1.08); }
+                    68% { transform: translateY(3px) rotate(360deg) scale(0.97, 1.03); }
+                    78% { transform: translateY(-5px) rotate(360deg) scale(1.01); }
+                    88%, 100% { transform: translateY(0px) rotate(360deg) scale(1); }
+                }
+                .tick-interactive-group {
+                    transform-box: view-box;
+                    transform-origin: 250px 280px;
+                    animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+                    animation-delay: 1.1s;
+                }
+                .cap-kicked-group {
+                    transform-box: view-box;
+                    transform-origin: 250px 185px;
+                    animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+                    animation-delay: 1.1s;
+                }
+            </style>
         </defs>
         <g id="loaderGroup_${uniqueId}">
             <g class="disappearing-elements">
@@ -150,9 +190,96 @@ function resetHntnLoader(container) {
         svg.parentNode.replaceChild(clone, svg);
     }
 }
+
+function showGlobalLoader(options = {}) {
+    const title = (typeof options === 'string') ? options : (options.title || "Đang xử lý...");
+    const subtitle = (typeof options === 'string') ? "" : (options.subtitle || "Vui lòng chờ trong giây lát...");
+    const showProgress = (typeof options === 'object' && options.showProgress === true);
+    const progress = (typeof options === 'object' && typeof options.progress === 'number') ? options.progress : 0;
+    
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay) return;
+    
+    const titleEl = document.getElementById('loadingStatusText');
+    const subEl = document.getElementById('loadingStatusSub');
+    const progText = document.getElementById('progressText');
+    const progBar = document.getElementById('progressBar');
+    const progContainer = document.getElementById('progressBarContainer') || (progBar ? progBar.parentElement : null);
+    
+    if (titleEl) titleEl.innerHTML = title;
+    if (subEl) {
+        subEl.innerHTML = subtitle;
+        subEl.style.display = subtitle ? 'block' : 'none';
+    }
+    
+    if (progContainer) {
+        progContainer.style.display = showProgress ? 'block' : 'none';
+    }
+    if (progText) {
+        progText.style.display = showProgress ? 'block' : 'none';
+        progText.innerText = `${Math.round(progress)}%`;
+    }
+    if (progBar && showProgress) {
+        progBar.style.width = `${Math.round(progress)}%`;
+    }
+    
+    resetHntnLoader(overlay);
+    overlay.style.display = 'flex';
+}
+
+function updateGlobalLoader(options = {}) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (!overlay || overlay.style.display === 'none') return;
+    
+    if (options.title) {
+        const titleEl = document.getElementById('loadingStatusText');
+        if (titleEl) titleEl.innerHTML = options.title;
+    }
+    if (options.subtitle !== undefined) {
+        const subEl = document.getElementById('loadingStatusSub');
+        if (subEl) {
+            subEl.innerHTML = options.subtitle;
+            subEl.style.display = options.subtitle ? 'block' : 'none';
+        }
+    }
+    if (typeof options.progress === 'number') {
+        const progText = document.getElementById('progressText');
+        const progBar = document.getElementById('progressBar');
+        const progContainer = document.getElementById('progressBarContainer') || (progBar ? progBar.parentElement : null);
+        if (progContainer) progContainer.style.display = 'block';
+        if (progText) {
+            progText.style.display = 'block';
+            progText.innerText = `${Math.round(options.progress)}%`;
+        }
+        if (progBar) {
+            progBar.style.width = `${Math.round(options.progress)}%`;
+        }
+    }
+}
+
+function hideGlobalLoader() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function hidePageInitialLoader() {
+    const preloader = document.getElementById('pageInitialLoader');
+    if (!preloader) return;
+    preloader.classList.add('hntn-loaded');
+    setTimeout(() => {
+        if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
+    }, 450);
+}
+
 window.getHntnLoaderSvgHtml = getHntnLoaderSvgHtml;
 window.renderHntnInlineLoader = renderHntnInlineLoader;
 window.resetHntnLoader = resetHntnLoader;
+window.showGlobalLoader = showGlobalLoader;
+window.updateGlobalLoader = updateGlobalLoader;
+window.hideGlobalLoader = hideGlobalLoader;
+window.hidePageInitialLoader = hidePageInitialLoader;
 
 // Khởi tạo bộ nhớ tạm để thu gọn mã Base64 ảnh trong Code Editor
 let globalEditorImageStorage = {};
@@ -209,6 +336,7 @@ window.onload = async function() {
     initGoogleAuth();
     checkAuthState();
     updateAdPassUI();
+    setTimeout(hidePageInitialLoader, 6000);
 };
 
 function escapeHtml(str) {
@@ -604,6 +732,11 @@ async function submitUserProfileAndRole() {
         btn.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Đang lưu thông tin...`;
     }
     
+    showGlobalLoader({
+        title: "Đang lưu hồ sơ tài khoản...",
+        subtitle: "Đang đồng bộ vai trò và thông tin cá nhân lên hệ thống..."
+    });
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/select_role`, {
             method: 'POST',
@@ -618,6 +751,7 @@ async function submitUserProfileAndRole() {
             })
         });
         const data = await res.json();
+        hideGlobalLoader();
         if (res.ok) {
             if (data.status === 'success') {
                 localStorage.setItem('auth_token', data.token);
@@ -638,6 +772,7 @@ async function submitUserProfileAndRole() {
             alert("Lỗi: " + (data.detail || "Không thể lưu thông tin tài khoản"));
         }
     } catch(err) {
+        hideGlobalLoader();
         console.error(err);
         alert("Lỗi kết nối khi lưu thông tin");
     } finally {
@@ -668,9 +803,15 @@ async function checkCurrentApprovalStatus() {
         btn.disabled = true;
     }
     
+    showGlobalLoader({
+        title: "Đang kiểm tra phê duyệt...",
+        subtitle: "Đang xác thực trạng thái tài khoản từ máy chủ..."
+    });
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/check_approval_status?user_id=${currentPendingUserId}`);
         const data = await res.json();
+        hideGlobalLoader();
         if (res.ok) {
             if (data.status === 'approved') {
                 localStorage.setItem('auth_token', data.token);
@@ -689,6 +830,7 @@ async function checkCurrentApprovalStatus() {
             alert("Lỗi kiểm tra trạng thái: " + (data.detail || "Không rõ nguyên nhân"));
         }
     } catch(err) {
+        hideGlobalLoader();
         alert("Lỗi kết nối máy chủ khi kiểm tra trạng thái");
     } finally {
         if (btn) {
@@ -717,10 +859,20 @@ async function triggerGoogleSignIn() {
             return;
         }
 
+        showGlobalLoader({
+            title: "Đang kết nối Google & Firebase...",
+            subtitle: "Vui lòng chọn tài khoản trên cửa sổ đăng nhập Google..."
+        });
+
         // Mở popup đăng nhập bằng tài khoản Google chính chủ Firebase
         const result = await window.signInWithPopup(window.firebaseAuth, window.googleProvider);
         const user = result.user;
         const idToken = await user.getIdToken();
+
+        updateGlobalLoader({
+            title: "Đang xác thực tài khoản...",
+            subtitle: "Đang đồng bộ hồ sơ người dùng với máy chủ..."
+        });
 
         // Gửi token về Backend để đồng bộ tài khoản và tạo JWT Token
         const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
@@ -730,6 +882,7 @@ async function triggerGoogleSignIn() {
         });
 
         const data = await res.json();
+        hideGlobalLoader();
         if (res.ok) {
             if (data.status === 'success') {
                 localStorage.setItem('auth_token', data.token);
@@ -757,6 +910,7 @@ async function triggerGoogleSignIn() {
             alert("Lỗi máy chủ xác thực: " + (data.detail || "Không thể xác minh tài khoản."));
         }
     } catch (err) {
+        hideGlobalLoader();
         console.error("Firebase Google Sign-In Error:", err);
         if (err.code === 'auth/popup-closed-by-user') {
             return; // Người dùng chủ động đóng popup
@@ -904,6 +1058,7 @@ function checkAuthState() {
         hideRoleScreens();
         if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
         if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+        hidePageInitialLoader();
     } else if (authRole === 'admin') {
         if (authBox) {
             authBox.classList.add('hidden');
@@ -919,6 +1074,7 @@ function checkAuthState() {
         }
         loadAdminUsers();
         loadAdminSettings();
+        hidePageInitialLoader();
     } else {
         if (authBox) {
             authBox.classList.add('hidden');
@@ -956,6 +1112,7 @@ function checkAuthState() {
             if (navDash) navDash.innerHTML = '<i class="ri-dashboard-3-line"></i> Đề thi của tôi';
             loadTeacherQuizzes();
         }
+        hidePageInitialLoader();
         initApp();
     }
 }
@@ -1051,6 +1208,11 @@ async function handleLogin() {
     const p = pInput ? pInput.value.trim() : '';
     if(!u || !p) return alert("Vui lòng nhập đầy đủ email/tên đăng nhập và mật khẩu");
     
+    showGlobalLoader({
+        title: "Đang đăng nhập...",
+        subtitle: "Đang xác thực thông tin tài khoản với máy chủ..."
+    });
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
             method: 'POST',
@@ -1058,6 +1220,7 @@ async function handleLogin() {
             body: JSON.stringify({username: u, password: p})
         });
         const data = await res.json();
+        hideGlobalLoader();
         if(res.ok && data.status === 'success') {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('auth_role', data.role);
@@ -1075,6 +1238,7 @@ async function handleLogin() {
             }
         }
     } catch(e) { 
+        hideGlobalLoader();
         console.error(e);
         alert(`Lỗi kết nối máy chủ! Backend đang trỏ tới: ${API_BASE_URL}\nHãy đảm bảo bạn đã chạy lệnh: uvicorn main:app --reload`); 
     }
@@ -1087,6 +1251,11 @@ async function handleRegister() {
     const r = document.getElementById('regRole').value;
     if(!u || !p || !fn) return alert("Vui lòng nhập đủ thông tin");
     
+    showGlobalLoader({
+        title: "Đang tạo tài khoản...",
+        subtitle: "Hệ thống đang ghi nhận thông tin đăng ký..."
+    });
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: 'POST',
@@ -1094,6 +1263,7 @@ async function handleRegister() {
             body: JSON.stringify({username: u, password: p, full_name: fn, role: r})
         });
         const data = await res.json();
+        hideGlobalLoader();
         if(res.ok && data.status === 'success') {
             alert(data.message || "Đăng ký thành công!");
             if (r === 'teacher') {
@@ -1102,7 +1272,10 @@ async function handleRegister() {
                 toggleAuth('login');
             }
         } else { alert("Lỗi: " + (data.detail || "Đăng ký thất bại.")); }
-    } catch(e) { alert("Lỗi kết nối máy chủ"); }
+    } catch(e) { 
+        hideGlobalLoader();
+        alert("Lỗi kết nối máy chủ"); 
+    }
 }
 
 function logout() {
@@ -1152,6 +1325,7 @@ async function initApp() {
                 currentData.forEach((q, i) => { q._originalIndex = i; });
                 serverData = JSON.parse(JSON.stringify(currentData));
                 const serverUpdatedAt = result.updated_at || 0;
+                currentQuizServerUpdatedAt = serverUpdatedAt;
                 
                 // Cập nhật tiêu đề trang web
                 if (result.title) {
@@ -1197,41 +1371,103 @@ async function initApp() {
                 isShuffleEnabled = result.is_shuffle;
                 
                 // KHÔI PHỤC TIẾN TRÌNH TỪ CLOUD HOẶC LOCAL STORAGE
-                let loadedProgress = null;
+                let localProgress = null;
+                const localP = localStorage.getItem(`quiz_progress_${quizId}`);
+                if (localP) { try { localProgress = JSON.parse(localP); } catch(e){} }
                 
-                // 1. Thử lấy từ Server Cloud trước
+                let cloudProgress = null;
                 if (authRole === 'student' && authToken) {
                     try {
                         const pRes = await fetch(`${API_BASE_URL}/api/student/get_progress/${quizId}?student_token=${authToken}`);
                         const pData = await pRes.json();
                         if (pData.status === 'success' && pData.data) {
-                            loadedProgress = pData.data;
-                            localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(loadedProgress)); // Backup xuống local
+                            cloudProgress = pData.data;
                         }
                     } catch(e) { console.log("Lỗi tải tiến trình cloud", e); }
                 }
                 
-                // 2. Nếu Cloud không có (hoặc rớt mạng), lấy từ bộ nhớ Local
-                if (!loadedProgress) {
-                    const localP = localStorage.getItem(`quiz_progress_${quizId}`);
-                    if (localP) { try { loadedProgress = JSON.parse(localP); } catch(e){} }
+                let loadedProgress = null;
+                if (localProgress && cloudProgress) {
+                    const localAnswersCount = Object.keys(localProgress.answers || {}).length;
+                    const cloudAnswersCount = Object.keys(cloudProgress.answers || {}).length;
+                    loadedProgress = (localAnswersCount >= cloudAnswersCount) ? localProgress : cloudProgress;
+                } else {
+                    loadedProgress = localProgress || cloudProgress;
                 }
                 
                 if (loadedProgress) {
                     try {
+                        let localTs = loadedProgress.quizUpdatedAt || 0;
+                        if (localTs > 0 && serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
+                            alert("⚠️ Đề thi đã được giáo viên cập nhật nội dung/đáp án mới!\nTiến trình làm bài cũ của bạn sẽ được làm mới lại để đảm bảo tính chính xác.");
+                            let oldHistory = loadedProgress.history || [];
+                            let sName = loadedProgress.studentName || "";
+                            loadedProgress = { history: oldHistory, studentName: sName, quizUpdatedAt: serverUpdatedAt, timeLimit: currentTimeLimit };
+                            localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(loadedProgress));
+                        } else {
+                            if (!loadedProgress.quizUpdatedAt) loadedProgress.quizUpdatedAt = serverUpdatedAt;
+                        }
+                        
                         quizProgress = loadedProgress;
                         
-                        let localTs = quizProgress.quizUpdatedAt || 0;
-                        if (serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
-                            alert("⚠️ Đề thi đã được giáo viên cập nhật nội dung/đáp án mới!\nTiến trình làm bài cũ của bạn sẽ được làm mới lại để đảm bảo tính chính xác.");
+                        // KIỂM TRA ĐIỀU KIỆN RESET THEO YÊU CẦU:
+                        // 1. Nếu đề có giới hạn thời gian: chỉ reset khi hết thời gian làm bài kể cả thoát ra
+                        // 2. Nếu đề không để thời gian: chỉ reset sau 3 tiếng kể từ khi nhấn vào làm đề
+                        let isExpired = false;
+                        let expireReason = '';
+                        if (!quizProgress.completed && quizProgress.startedAt) {
+                            const elapsedMs = Date.now() - quizProgress.startedAt;
+                            if (currentTimeLimit > 0) {
+                                const totalAllowedMs = currentTimeLimit * 60 * 1000;
+                                if (elapsedMs >= totalAllowedMs) {
+                                    isExpired = true;
+                                    expireReason = 'time_limit';
+                                }
+                            } else {
+                                const threeHoursMs = 3 * 3600 * 1000; // 3 tiếng
+                                if (elapsedMs >= threeHoursMs) {
+                                    isExpired = true;
+                                    expireReason = 'three_hours';
+                                }
+                            }
+                        }
+                        
+                        if (isExpired) {
+                            // Đã hết thời gian cho phép -> Reset tiến trình đang dở
                             let oldHistory = quizProgress.history || [];
                             let sName = quizProgress.studentName || "";
-                            quizProgress = { history: oldHistory, studentName: sName, quizUpdatedAt: serverUpdatedAt };
-                            // Bỏ qua shuffledData cũ để hệ thống dùng currentData (data mới nhất)
+                            quizProgress = { 
+                                history: oldHistory, 
+                                studentName: sName, 
+                                quizUpdatedAt: serverUpdatedAt, 
+                                timeLimit: currentTimeLimit 
+                            };
+                            localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
+                            if (expireReason === 'time_limit') {
+                                showToast("⏳ Đã hết thời gian làm bài (tính cả khi bạn thoát ra). Bài thi đã được làm mới.", "warning");
+                            } else {
+                                showToast("⏳ Đã quá 3 tiếng kể từ khi bắt đầu làm đề tự do. Tiến trình làm bài đã được làm mới.", "warning");
+                            }
                         } else {
-                            if (quizProgress.studentName) document.getElementById('studentNameInput').value = quizProgress.studentName;
+                            // Tiến trình còn hiệu lực -> Phục hồi
+                            if (quizProgress.studentName) {
+                                studentName = quizProgress.studentName;
+                                const sNameInput = document.getElementById('studentNameInput');
+                                if (sNameInput) sNameInput.value = studentName;
+                            }
                             if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
                             if (!quizProgress.quizUpdatedAt) quizProgress.quizUpdatedAt = serverUpdatedAt;
+                            
+                            // Cập nhật lại thời gian chính xác cho timer theo thời gian thực
+                            if (!quizProgress.completed && quizProgress.startedAt) {
+                                const elapsedSec = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+                                if (currentTimeLimit > 0) {
+                                    quizProgress.timeRemaining = Math.max(0, (currentTimeLimit * 60) - elapsedSec);
+                                    quizProgress.timeElapsed = Math.min(currentTimeLimit * 60, elapsedSec);
+                                } else {
+                                    quizProgress.timeElapsed = elapsedSec;
+                                }
+                            }
                         }
                         
                         if (quizProgress.history && quizProgress.history.length > 0) {
@@ -1251,7 +1487,7 @@ async function initApp() {
                                 hHtml += `<button class="btn-outline" style="font-size: 1rem; padding: 8px 15px; margin-right: 10px; background: white;" onclick="reviewHistory()">🔍 Xem lại bài làm gần nhất</button>`;
                                 document.getElementById('startBtn').innerText = "🔄 Làm lại vòng mới";
                                 document.getElementById('startBtn').style.backgroundColor = "var(--text-muted)";
-                            } else if (Object.keys(quizProgress.answers || {}).length > 0) {
+                            } else if (!isExpired && quizProgress.startedAt) {
                                 document.getElementById('startBtn').innerText = "🚀 Tiếp tục làm bài đang dở";
                             }
                             histSec.innerHTML = hHtml;
@@ -1265,10 +1501,10 @@ async function initApp() {
                             `;
                             document.getElementById('startBtn').innerText = "🔄 Làm lại bài mới (Xóa dữ liệu cũ)";
                             document.getElementById('startBtn').style.backgroundColor = "var(--text-muted)";
-                        } else if (Object.keys(quizProgress.answers || {}).length > 0) {
+                        } else if (!isExpired && quizProgress.startedAt) {
                             document.getElementById('startBtn').innerText = "🚀 Tiếp tục làm bài đang dở";
                         }
-                    } catch(e){}
+                    } catch(e){ console.error("Lỗi phục hồi tiến trình:", e); }
                 }
                 
                 if ((!quizProgress || !quizProgress.shuffledData) && isShuffleEnabled) {
@@ -1277,6 +1513,20 @@ async function initApp() {
                 
                 isStudentMode = true;
                 currentDataMode = result.mode || 'practice';
+                
+                // TỰ ĐỘNG KHÔI PHỤC KHI LỠ THOÁT RA (NẾU ĐANG LÀM DỞ, CHƯA HẾT HẠN VÀ KHÔNG BẤM NÚT THOÁT CHỦ ĐỘNG):
+                const canAutoResume = quizProgress && !quizProgress.completed && quizProgress.startedAt && !quizProgress.paused;
+                if (canAutoResume) {
+                    hidePageInitialLoader();
+                    updateAdPassUI();
+                    if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
+                        window.WebLLMTutor.preload();
+                    }
+                    startStudentQuiz(true); // Tự động vào thẳng lại bài thi đang làm dở
+                    showToast("🔄 Đã tự động khôi phục bài thi đang làm dở của bạn!", "info");
+                    return;
+                }
+                
                 document.getElementById('welcomeScreen').style.display = 'block'; // Hiển thị khung nhập tên
                 updateAdPassUI(); // Cập nhật trạng thái vé 12h làm bài
 
@@ -1284,8 +1534,13 @@ async function initApp() {
                 if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
                     window.WebLLMTutor.preload();
                 }
-            } else { document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; }
+                hidePageInitialLoader();
+            } else { 
+                hidePageInitialLoader();
+                document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; 
+            }
         } catch (e) {
+            hidePageInitialLoader();
             document.getElementById('quiz-container').innerHTML = `<p style='text-align:center; color: var(--danger);'><b>Không thể truy cập:</b> ${e.message || "Lỗi máy chủ"}</p>`;
             if (e.message) alert(e.message);
         }
@@ -1317,15 +1572,19 @@ function sendPing() {
 
 // =========================================================================
 // HỆ THỐNG MỞ KHÓA 12H LÀM BÀI QUA QUẢNG CÁO (REWARDED ADS)
-// CHỈ KÍCH HOẠT KHI HỌC SINH TRUY CẬP VÀO LINK LÀM BÀI THI
+// CỜ BẬT/TẮT: Tạm tắt (false) trong giai đoạn chờ Google AdSense xét duyệt.
+// Sau khi được duyệt, chỉ cần đổi thành true để tự động kích hoạt lại 100%!
 // =========================================================================
+window.ENABLE_REWARD_ADS = false;
+
 const AD_PASS_STORAGE_KEY = 'hocnhanhtn_pass_until';
 const AD_PASS_DURATION_MS = 12 * 60 * 60 * 1000; // 12 tiếng = 43,200,000 ms
 let adCountdownTimer = null;
 let isAdSenseScriptLoaded = false;
 
-// Nạp Google AdSense SDK theo nhu cầu - CHỈ KHI Ở LINK LÀM BÀI
+// Nạp Google AdSense SDK theo nhu cầu - CHỈ KHI Ở LINK LÀM BÀI & KHI BẬT QUẢNG CÁO
 function loadAdSenseScriptOnlyForQuiz() {
+    if (!window.ENABLE_REWARD_ADS) return; // Tạm tắt khi chưa được Google duyệt
     const quizId = getCurrentQuizId();
     if (!quizId) return; // Tuyệt đối không nạp nếu ở trang chủ, đăng nhập, v.v.
     if (isAdSenseScriptLoaded || document.getElementById('adsense-sdk-script') || document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
@@ -1349,6 +1608,7 @@ function loadAdSenseScriptOnlyForQuiz() {
 
 // Kiểm tra vé 12h còn hiệu lực không
 function hasValid12hPass() {
+    if (!window.ENABLE_REWARD_ADS) return true; // Khi tắt quảng cáo, luôn coi như có quyền truy cập
     try {
         const expiresAt = localStorage.getItem(AD_PASS_STORAGE_KEY);
         if (!expiresAt) return false;
@@ -1395,8 +1655,8 @@ function updateAdPassUI() {
     const inactiveBadge = document.getElementById('adPassInactiveBadge');
     const timeRemainingEl = document.getElementById('adPassTimeRemaining');
 
-    // NẾU KHÔNG PHẢI LINK LÀM BÀI -> ẨN TOÀN BỘ QUẢNG CÁO & VÉ
-    if (!quizId) {
+    // NẾU TÍNH NĂNG ĐANG TẮT HOẶC KHÔNG PHẢI LINK LÀM BÀI -> ẨN TOÀN BỘ QUẢNG CÁO & VÉ
+    if (!window.ENABLE_REWARD_ADS || !quizId) {
         if (container) container.style.display = 'none';
         if (lobbyBox) lobbyBox.style.display = 'none';
         try {
@@ -1407,7 +1667,7 @@ function updateAdPassUI() {
         return;
     }
 
-    // CHỈ KHI Ở LINK LÀM BÀI: Tải SDK và hiển thị
+    // CHỈ KHI BẬT QUẢNG CÁO VÀ Ở LINK LÀM BÀI: Tải SDK và hiển thị
     loadAdSenseScriptOnlyForQuiz();
 
     if (container) container.style.display = 'block';
@@ -1428,8 +1688,9 @@ function updateAdPassUI() {
     }
 }
 
-// Mở modal (chỉ khi có quizId)
+// Mở modal (chỉ khi có quizId và tính năng bật)
 function openRewardAdModal() {
+    if (!window.ENABLE_REWARD_ADS) return;
     const quizId = getCurrentQuizId();
     if (!quizId) return; // Không mở nếu không ở link bài thi
 
@@ -1455,6 +1716,11 @@ function closeRewardAdModal() {
 
 // Xử lý khi bấm nút "Bắt đầu làm bài thi"
 function handleStartQuizWithAdCheck() {
+    // NẾU TÍNH NĂNG QUẢNG CÁO ĐANG TẠM ẨN -> CHO HỌC SINH VÀO LÀM BÀI NGAY LẬP TỨC 100%
+    if (!window.ENABLE_REWARD_ADS) {
+        startStudentQuiz();
+        return;
+    }
     // Nếu học sinh đã có vé 12h hợp lệ -> Cho vào làm bài ngay lập tức
     if (hasValid12hPass()) {
         startStudentQuiz();
@@ -1533,18 +1799,33 @@ function bypassAdOnceForEmergency() {
     startStudentQuiz();
 }
 
-async function startStudentQuiz() {
-    const nameInput = document.getElementById('studentNameInput').value.trim();
-    studentName = nameInput;
+async function startStudentQuiz(isResume = false) {
+    const nameInput = document.getElementById('studentNameInput');
+    const inputVal = nameInput ? nameInput.value.trim() : '';
+    if (inputVal) {
+        studentName = inputVal;
+    } else if (quizProgress && quizProgress.studentName) {
+        studentName = quizProgress.studentName;
+    } else if (authName) {
+        studentName = authName;
+    } else {
+        studentName = 'Thí sinh';
+    }
     
     const quizId = getCurrentQuizId();
 
     // Nếu bấm nút khi đã hoàn thành -> Có nghĩa là muốn Xóa lịch sử làm lại từ đầu
-    if (quizProgress.completed) {
+    if (quizProgress && quizProgress.completed && !isResume) {
         const startBtn = document.getElementById('startBtn');
-        const originalText = startBtn.innerText;
-        startBtn.innerText = "⏳ Đang tải dữ liệu mới...";
-        startBtn.disabled = true;
+        const originalText = startBtn ? startBtn.innerText : '';
+        if (startBtn) {
+            startBtn.innerText = "⏳ Đang tải dữ liệu mới...";
+            startBtn.disabled = true;
+        }
+        showGlobalLoader({
+            title: "Đang tải dữ liệu bài thi mới...",
+            subtitle: "Đang nạp câu hỏi và thiết lập lại lượt thi mới..."
+        });
         
         if (quizId) {
             try {
@@ -1562,19 +1843,40 @@ async function startStudentQuiz() {
         }
 
         let oldHistory = quizProgress.history || [];
-        let updatedTs = quizProgress.quizUpdatedAt;
-        quizProgress = { history: oldHistory, quizUpdatedAt: updatedTs };
+        let updatedTs = quizProgress.quizUpdatedAt || currentQuizServerUpdatedAt;
+        quizProgress = { 
+            history: oldHistory, 
+            quizUpdatedAt: updatedTs,
+            startedAt: Date.now(),
+            timeLimit: currentTimeLimit,
+            studentName: studentName,
+            answers: {},
+            completed: false,
+            paused: false
+        };
         currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
         if (isShuffleEnabled) shuffleQuiz(true);
+        quizProgress.shuffledData = currentData;
         
-        startBtn.innerText = originalText;
-        startBtn.disabled = false;
+        hideGlobalLoader();
+        if (startBtn) {
+            startBtn.innerText = originalText;
+            startBtn.disabled = false;
+        }
+    } else {
+        // Lần đầu vào hoặc tiếp tục bài làm đang dở
+        if (!quizProgress.startedAt) {
+            quizProgress.startedAt = Date.now();
+        }
+        quizProgress.timeLimit = currentTimeLimit;
+        quizProgress.quizUpdatedAt = quizProgress.quizUpdatedAt || currentQuizServerUpdatedAt;
+        quizProgress.completed = false;
+        quizProgress.paused = false;
+        if (!quizProgress.answers) quizProgress.answers = {};
+        if (!quizProgress.shuffledData) quizProgress.shuffledData = currentData;
     }
     
     quizProgress.studentName = studentName;
-    if (!quizProgress.shuffledData) quizProgress.shuffledData = currentData;
-    if (!quizProgress.answers) quizProgress.answers = {};
-    quizProgress.completed = false;
     saveProgressToLocal();
     
     document.getElementById('welcomeScreen').style.display = 'none';
@@ -1583,12 +1885,15 @@ async function startStudentQuiz() {
     updateStudentNameDisplay(studentName);
     document.body.classList.add('minimal-mode');
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) mobileBar.style.setProperty('display', 'flex', 'important');
+    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) {
+        mobileBar.style.setProperty('display', 'flex', 'important');
+    }
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
     }
     
-    switchMode(currentDataMode); 
+    const isContinuing = Boolean(quizProgress.startedAt && (!quizProgress.completed || isResume));
+    switchMode(currentDataMode, isContinuing); 
     startTimer(currentTimeLimit);
     
     // Đảm bảo WebLLM được nạp ngầm qua Web Worker (nếu bật tính năng)
@@ -1613,8 +1918,7 @@ function restartExam() {
 
 async function fetchLatestDataAndRestart(mode) {
     resetSubmissionReviewUI();
-    const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    const quizId = getCurrentQuizId();
     
     const container = document.getElementById('quiz-container');
     if (container) container.innerHTML = renderHntnInlineLoader('Đang tải dữ liệu mới nhất...', 'Hệ thống đang đồng bộ với máy chủ...', 85);
@@ -1634,8 +1938,17 @@ async function fetchLatestDataAndRestart(mode) {
     }
     
     let oldHistory = quizProgress.history || [];
-    let updatedTs = quizProgress.quizUpdatedAt;
-    quizProgress = { history: oldHistory, studentName: studentName, quizUpdatedAt: updatedTs };
+    let updatedTs = quizProgress.quizUpdatedAt || currentQuizServerUpdatedAt;
+    quizProgress = { 
+        history: oldHistory, 
+        studentName: studentName, 
+        quizUpdatedAt: updatedTs,
+        startedAt: Date.now(),
+        timeLimit: currentTimeLimit,
+        answers: {},
+        completed: false,
+        paused: false
+    };
     currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
     
     if (isShuffleEnabled) {
@@ -1643,13 +1956,11 @@ async function fetchLatestDataAndRestart(mode) {
     }
     
     quizProgress.shuffledData = currentData;
-    quizProgress.answers = {};
-    quizProgress.completed = false;
     saveProgressToLocal();
     
     updateStudentNameDisplay(studentName);
     
-    switchMode(mode);
+    switchMode(mode, false);
     document.body.classList.add('minimal-mode');
     document.body.classList.remove('quiz-completed');
     const mobileBar = document.getElementById('azotaMobileExamBar');
@@ -1701,18 +2012,11 @@ function debouncedSyncCloud(quizId) {
 }
 
 async function saveProgressToLocal(syncCloud = true) {
-    const urlParams = new URLSearchParams(window.location.search);
-    let quizId = urlParams.get('quiz_id') || urlParams.get('id');
-    
-    // Hỗ trợ link dạng /AAA-111 (Yêu cầu cấu hình Server Route, Frontend xử lý dự phòng)
-    if (!quizId) {
-        const path = window.location.pathname.replace(/^\/|\/$/g, '');
-        if (path && path.length >= 5 && path.length <= 10 && !path.includes('.html')) {
-            quizId = path;
-        }
-    }
-    
+    const quizId = getCurrentQuizId();
     if (quizId) {
+        if (!quizProgress.quizUpdatedAt && currentQuizServerUpdatedAt) {
+            quizProgress.quizUpdatedAt = currentQuizServerUpdatedAt;
+        }
         localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
         
         // Chỉ đồng bộ ngầm lên Cloud Server khi có thay đổi đáp án thực tế (syncCloud = true)
@@ -1934,12 +2238,7 @@ async function loadStudentHistory(forceRefresh = false) {
     if (!container) return;
 
     if (forceRefresh || rawStudentHistory.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
-                <div class="hntn-spinner" style="width: 36px; height: 36px; margin: 0 auto 12px auto; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: hntnSpin 0.8s linear infinite;"></div>
-                <div style="font-weight: 600; font-size: 0.95rem;">Đang tải lịch sử làm bài...</div>
-            </div>
-        `;
+        container.innerHTML = renderHntnInlineLoader('Đang tải lịch sử làm bài...', 'Hệ thống đang đồng bộ dữ liệu từ đám mây...', 75);
     }
 
     if (!window._hasSyncedLocalHistory) {
@@ -2169,12 +2468,7 @@ async function openStudentHistoryReview(historyId) {
     if (kpiEl) kpiEl.innerHTML = "";
     if (filterEl) filterEl.innerHTML = "";
     if (container) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
-                <div class="hntn-spinner" style="width: 36px; height: 36px; margin: 0 auto 12px auto; border: 3px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: hntnSpin 0.8s linear infinite;"></div>
-                <div>Đang tải chi tiết bài làm...</div>
-            </div>
-        `;
+        container.innerHTML = renderHntnInlineLoader('Đang tải chi tiết bài làm...', 'Hệ thống đang nạp câu hỏi và lời giải chi tiết...', 75);
     }
 
     try {
@@ -2448,6 +2742,10 @@ async function deleteStudentHistoryItem(historyId) {
 }
 
 async function loadTeacherQuizzes() {
+    const grid = document.getElementById('teacherQuizGrid');
+    if (grid && (!rawTeacherQuizzes || rawTeacherQuizzes.length === 0)) {
+        grid.innerHTML = renderHntnInlineLoader('Đang tải danh sách đề thi...', 'Hệ thống đang đồng bộ dữ liệu giáo viên...', 80);
+    }
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/quizzes?teacher_token=${authToken}`);
         const data = await res.json();
@@ -3332,6 +3630,11 @@ async function handleQuizAction(quizId, action) {
     
     if (msg && !confirm(msg)) return;
     
+    showGlobalLoader({
+        title: "Đang cập nhật đề thi...",
+        subtitle: "Hệ thống đang lưu thay đổi vào cơ sở dữ liệu..."
+    });
+
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_action`, {
             method: 'POST',
@@ -3339,6 +3642,7 @@ async function handleQuizAction(quizId, action) {
             body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, action: action })
         });
         const data = await res.json();
+        hideGlobalLoader();
         if (res.ok && data.status === 'success') {
             if (action === 'trash') alert("Đã đưa vào thùng rác!");
             if (action === 'permanent') alert("Đã xóa vĩnh viễn!");
@@ -3348,6 +3652,7 @@ async function handleQuizAction(quizId, action) {
             alert("Lỗi: " + data.detail);
         }
     } catch(e) {
+        hideGlobalLoader();
         alert("Lỗi kết nối máy chủ");
     }
 }
@@ -3365,14 +3670,21 @@ function openStudioNewQuiz() {
 }
 
 async function toggleQuizStatus(quizId, newStatus) {
+    showGlobalLoader({
+        title: "Đang đổi trạng thái đề thi...",
+        subtitle: "Hệ thống đang lưu cài đặt..."
+    });
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/toggle_publish`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, status: newStatus })
         });
+        hideGlobalLoader();
         if (res.ok) loadTeacherQuizzes();
-    } catch(e) {}
+    } catch(e) {
+        hideGlobalLoader();
+    }
 }
 
 // Các hàm tương thích ngược với Giám sát cũ (đã được hợp nhất vào openQuizStats)
@@ -3495,6 +3807,10 @@ async function saveAdminApiKeys(successMsg) {
 }
 
 async function loadAdminUsers() {
+    const listEl = document.getElementById('adminUserList');
+    if (listEl) {
+        listEl.innerHTML = renderHntnInlineLoader('Đang tải danh sách tài khoản...', 'Hệ thống đang truy vấn cơ sở dữ liệu...', 80);
+    }
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/users?admin_token=${authToken}`);
         const data = await res.json();
@@ -3535,14 +3851,21 @@ async function loadAdminUsers() {
                 </tr>`;
             });
             html += `</table>`;
-            document.getElementById('adminUserList').innerHTML = html;
+            if (listEl) listEl.innerHTML = html;
         }
-    } catch(e) { alert("Lỗi tải danh sách người dùng"); }
+    } catch(e) { 
+        alert("Lỗi tải danh sách người dùng"); 
+    }
 }
 
 async function approveUser(uid) {
+    showGlobalLoader({
+        title: "Đang phê duyệt tài khoản...",
+        subtitle: "Hệ thống đang mở khóa quyền giáo viên..."
+    });
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/approve`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({admin_token: authToken, user_id: uid}) });
+        hideGlobalLoader();
         if(res.ok) {
             alert("✅ Đã phê duyệt tài khoản thành công!");
             loadAdminUsers();
@@ -3550,22 +3873,34 @@ async function approveUser(uid) {
             alert("Lỗi khi duyệt tài khoản");
         }
     } catch(e) {
+        hideGlobalLoader();
         alert("Lỗi kết nối máy chủ");
     }
 }
 
 async function deleteUser(uid) {
     if(!confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) return;
+    showGlobalLoader({
+        title: "Đang xóa tài khoản...",
+        subtitle: "Đang gỡ bỏ hồ sơ khỏi hệ thống..."
+    });
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/delete`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({admin_token: authToken, user_id: uid}) });
+        hideGlobalLoader();
         if(res.ok) loadAdminUsers();
-    } catch(e) {}
+    } catch(e) {
+        hideGlobalLoader();
+    }
 }
 
 async function resetUserPassword(uid, username) {
     const newPwd = prompt(`Nhập mật khẩu mới cho tài khoản "${username}":`);
     if (newPwd === null) return; // Nhấn Hủy
     
+    showGlobalLoader({
+        title: "Đang cập nhật mật khẩu...",
+        subtitle: "Hệ thống đang mã hóa và lưu mật khẩu mới..."
+    });
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/reset_password`, {
             method: 'POST',
@@ -3573,12 +3908,14 @@ async function resetUserPassword(uid, username) {
             body: JSON.stringify({ admin_token: authToken, user_id: uid, new_password: newPwd.trim() })
         });
         const data = await res.json();
+        hideGlobalLoader();
         if (res.ok && data.status === 'success') {
             alert(`Đã đổi mật khẩu cho tài khoản "${username}" thành công!`);
         } else {
             alert("Lỗi: " + data.detail);
         }
     } catch(e) {
+        hideGlobalLoader();
         alert("Lỗi kết nối máy chủ");
     }
 }
@@ -3811,6 +4148,11 @@ async function confirmPublish() {
     btn.innerText = "⏳ Đang xử lý...";
     btn.disabled = true;
     
+    showGlobalLoader({
+        title: "Đang lưu & xuất bản đề thi...",
+        subtitle: "Đang đồng bộ dữ liệu đề thi lên cơ sở dữ liệu..."
+    });
+
     try {
         const payload = { 
             title: title, data: currentData, mode: mode, time_limit: timeLimit, 
@@ -3831,6 +4173,7 @@ async function confirmPublish() {
             body: payloadString
         });
         const result = await response.json();
+        hideGlobalLoader();
         if (result.status === 'success') {
             closePublishModal();
             const shareLink = window.location.origin + window.location.pathname + "?id=" + result.quiz_id;
@@ -3841,8 +4184,13 @@ async function confirmPublish() {
             if (confirm("Đã xuất bản thành công! Bạn có muốn quay về màn hình Quản lý không?")) {
                 backToDashboard();
             }
+        } else {
+            alert("Lỗi lưu đề thi: " + (result.detail || result.message || "Không thể lưu đề"));
         }
-    } catch (e) { alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); }
+    } catch (e) { 
+        hideGlobalLoader();
+        alert("Lỗi khi kết nối với máy chủ cơ sở dữ liệu!"); 
+    }
     btn.innerText = "🚀 Lưu & Xuất bản";
     btn.disabled = false;
 }
@@ -3873,8 +4221,15 @@ function normalizeImageUrls(data) {
 async function checkQuizWithAI() {
     const btn = document.getElementById('btnAICheck');
     const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
-    btn.innerText = "⏳ Đang rà soát và thống kê toàn bộ đề thi (10-20s)...";
-    btn.disabled = true;
+    if (btn) {
+        btn.innerText = "⏳ Đang rà soát và thống kê toàn bộ đề thi (10-20s)...";
+        btn.disabled = true;
+    }
+
+    showGlobalLoader({
+        title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
+        subtitle: "Đang phân tích từng câu hỏi, kiểm tra tính đúng đắn của đáp án và công thức (10-20s)..."
+    });
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
@@ -3990,9 +4345,13 @@ async function checkQuizWithAI() {
         }
     } catch(e) {
         alert("Lỗi kết nối tới máy chủ khi gọi AI.");
+    } finally {
+        hideGlobalLoader();
+        if (btn) {
+            btn.innerText = "🤖 AI Kiểm tra lỗi & Phân tích Đề thi";
+            btn.disabled = false;
+        }
     }
-    btn.innerText = "🤖 AI Kiểm tra lỗi & Phân tích Đề thi";
-    btn.disabled = false;
 }
 
 function renderAIFeedbackList() {
@@ -4396,7 +4755,8 @@ function renderData() {
         currentData.forEach((q, qIndex) => {
             let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
             
-            let isAnswered = quizProgress && quizProgress.answers && (quizProgress.answers[qIndex] !== undefined && quizProgress.answers[qIndex] !== '');
+            let ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : undefined;
+            let isAnswered = ansVal !== undefined && ansVal !== '' && (typeof ansVal !== 'object' || Object.keys(ansVal).length > 0);
             if (isAnswered) answeredCount++;
             let isFlagged = !!flaggedQuestions[qIndex];
 
@@ -4463,7 +4823,8 @@ function renderData() {
                 boxHtml += `<div class="azota-opt-list">`;
                 (q.options || []).forEach((opt, oIndex) => {
                     let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
-                    let isChecked = quizProgress && quizProgress.answers && quizProgress.answers[qIndex] === opt;
+                    let savedOpt = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : null;
+                    let isChecked = Boolean(savedOpt && (savedOpt === opt || matchOptionToTarget(opt, oIndex, savedOpt)));
                     boxHtml += `
                         <label class="option-practice azota-opt-item ${isChecked ? 'selected' : ''}" id="exam_opt_${qIndex}_${oIndex}">
                             <input type="radio" name="exam_${qIndex}" value="${escapeHtml(opt)}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''} style="display:none;">
@@ -4746,6 +5107,14 @@ function checkPracticeAnswer(oIndex) {
     
     if (isCorrect) practiceScore++;
     
+    if (isStudentMode) {
+        if (!quizProgress.answers) quizProgress.answers = {};
+        quizProgress.answers[currentQuestionIndex] = q.options[oIndex];
+        quizProgress.practiceIndex = currentQuestionIndex;
+        quizProgress.practiceScore = practiceScore;
+        saveProgressToLocal();
+    }
+    
     q.options.forEach((opt, idx) => {
         const lbl = document.getElementById(`pract_opt_${idx}`);
         lbl.querySelector('input').disabled = true;
@@ -4817,6 +5186,14 @@ function checkPracticeTF() {
     practiceScore += earned;
     practiceScore = Math.round(practiceScore * 100) / 100;
     
+    if (isStudentMode) {
+        if (!quizProgress.answers) quizProgress.answers = {};
+        quizProgress.answers[currentQuestionIndex] = userAnswers;
+        quizProgress.practiceIndex = currentQuestionIndex;
+        quizProgress.practiceScore = practiceScore;
+        saveProgressToLocal();
+    }
+    
     const feedback = document.getElementById('pract_feedback');
     feedback.innerHTML = `<span style="color: ${matchCount === 4 ? 'var(--success)' : '#d97706'}; font-weight:700;">
         ${matchCount === 4 ? '🎉 Đúng toàn bộ 4 ý (+1.0 điểm)!' : `📝 Bạn đúng ${matchCount}/4 ý (+${earned} điểm)`}
@@ -4852,6 +5229,14 @@ function checkPracticeShortAnswer() {
     const checkBtn = document.getElementById('pract_sa_check_btn');
     if (checkBtn) checkBtn.disabled = true;
     
+    if (isStudentMode) {
+        if (!quizProgress.answers) quizProgress.answers = {};
+        quizProgress.answers[currentQuestionIndex] = userVal;
+        quizProgress.practiceIndex = currentQuestionIndex;
+        quizProgress.practiceScore = practiceScore;
+        saveProgressToLocal();
+    }
+    
     const feedback = document.getElementById('pract_feedback');
     feedback.innerHTML = isCorrect ? 
         `<span style="color:var(--success); font-weight:700;">✅ Trả lời chính xác (+1.0 điểm)!</span>` : 
@@ -4868,6 +5253,10 @@ function checkPracticeShortAnswer() {
 
 function nextPracticeQuestion() {
     currentQuestionIndex++;
+    if (isStudentMode && quizProgress) {
+        quizProgress.practiceIndex = currentQuestionIndex;
+        saveProgressToLocal();
+    }
     renderPracticeQuestion();
 }
 
@@ -4932,7 +5321,7 @@ function shuffleQuiz(noRender = false) {
 }
 
 
-function switchMode(mode) {
+function switchMode(mode, isResuming = false) {
     currentMode = mode;
     document.getElementById('btnEdit').className = mode === 'edit' ? 'btn-outline active' : 'btn-outline';
     document.getElementById('btnPractice').className = mode === 'practice' ? 'btn-outline active' : 'btn-outline';
@@ -4945,11 +5334,21 @@ function switchMode(mode) {
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.style.display = 'none';
     if (isStudentMode) {
-        startTime = Date.now(); // Bắt đầu bấm giờ
-        quizProgress.completed = false; // Sẵn sàng ghi nhận cho vòng mới
+        if (!isResuming || !quizProgress.startedAt) {
+            startTime = Date.now();
+            quizProgress.startedAt = startTime;
+        } else {
+            startTime = quizProgress.startedAt;
+        }
+        quizProgress.completed = false;
     }
-    currentQuestionIndex = 0;
-    practiceScore = 0;
+    if (!isResuming) {
+        currentQuestionIndex = 0;
+        practiceScore = 0;
+    } else {
+        currentQuestionIndex = quizProgress.practiceIndex || 0;
+        practiceScore = quizProgress.practiceScore || 0;
+    }
     if (window.ENABLE_WEBLLM && mode === 'practice' && window.WebLLMTutor) {
         window.WebLLMTutor.preload();
     }
@@ -5563,15 +5962,23 @@ function startTimer(minutes) {
         }
     }
     
-    if (!startTime) startTime = Date.now();
+    if (isStudentMode && quizProgress && quizProgress.startedAt) {
+        startTime = quizProgress.startedAt;
+    } else if (!startTime) {
+        startTime = Date.now();
+        if (isStudentMode && quizProgress) quizProgress.startedAt = startTime;
+    }
     
     if (limitMinutes > 0) {
         // --- CHẾ ĐỘ 1: ĐẾM NGƯỢC (COUNTDOWN KHI CÓ GIỚI HẠN THỜI GIAN) ---
+        // QUY TẮC: Thời gian tính theo thời gian thực (wall-clock) kể cả khi thoát ra
         const totalSeconds = limitMinutes * 60;
         let timeRemaining = totalSeconds;
         
-        // Phục hồi thời gian còn lại nếu học sinh đang làm dở bài và chưa nộp
-        if (isStudentMode && quizProgress && typeof quizProgress.timeRemaining === 'number' && quizProgress.timeRemaining > 0 && !quizProgress.completed) {
+        if (isStudentMode && quizProgress && quizProgress.startedAt && !quizProgress.completed) {
+            const elapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+            timeRemaining = Math.max(0, totalSeconds - elapsed);
+        } else if (isStudentMode && quizProgress && typeof quizProgress.timeRemaining === 'number' && quizProgress.timeRemaining > 0 && !quizProgress.completed) {
             timeRemaining = Math.min(quizProgress.timeRemaining, totalSeconds);
         }
         
@@ -5595,8 +6002,19 @@ function startTimer(minutes) {
         
         updateDisplayCountdown();
         
+        if (timeRemaining <= 0) {
+            showToast("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.", "warning");
+            submitExam();
+            return;
+        }
+        
         timerInterval = setInterval(() => {
-            timeRemaining--;
+            if (isStudentMode && quizProgress && quizProgress.startedAt) {
+                const elapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+                timeRemaining = Math.max(0, totalSeconds - elapsed);
+            } else {
+                timeRemaining--;
+            }
             if (isStudentMode) {
                 quizProgress.timeRemaining = timeRemaining;
                 quizProgress.timeElapsed = Math.max(0, totalSeconds - Math.max(0, timeRemaining));
@@ -5614,9 +6032,11 @@ function startTimer(minutes) {
         }, 1000);
     } else {
         // --- CHẾ ĐỘ 2: BẤM GIỜ ĐẾM TIẾN (STOPWATCH KHI KHÔNG GIỚI HẠN THỜI GIAN) ---
+        // QUY TẮC: Chỉ reset sau 3 tiếng kể từ khi nhấn vào làm đề nếu đề không để thời gian (3 tiếng = 10800s)
+        const THREE_HOURS_SEC = 3 * 3600;
         let timeElapsed = 0;
-        if (isStudentMode && quizProgress && typeof quizProgress.timeElapsed === 'number' && quizProgress.timeElapsed > 0 && !quizProgress.completed) {
-            timeElapsed = quizProgress.timeElapsed;
+        if (isStudentMode && quizProgress && quizProgress.startedAt && !quizProgress.completed) {
+            timeElapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
         } else if (startTime > 0) {
             timeElapsed = Math.floor((Date.now() - startTime) / 1000);
         }
@@ -5633,11 +6053,29 @@ function startTimer(minutes) {
         
         updateDisplayCountUp();
         
+        if (timeElapsed >= THREE_HOURS_SEC) {
+            showToast("⏳ Đã quá 3 tiếng kể từ khi bắt đầu làm đề! Hệ thống tự động nộp bài.", "warning");
+            submitExam();
+            return;
+        }
+        
         timerInterval = setInterval(() => {
-            timeElapsed++;
+            if (isStudentMode && quizProgress && quizProgress.startedAt) {
+                timeElapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+            } else {
+                timeElapsed++;
+            }
             if (isStudentMode) {
                 quizProgress.timeElapsed = timeElapsed;
                 if (timeElapsed % 5 === 0) saveProgressToLocal(false);
+            }
+            if (timeElapsed >= THREE_HOURS_SEC) {
+                clearInterval(timerInterval);
+                timeElapsed = THREE_HOURS_SEC;
+                updateDisplayCountUp();
+                showToast("⏳ Đã quá 3 tiếng kể từ khi bắt đầu làm đề! Hệ thống tự động nộp bài.", "warning");
+                submitExam();
+                return;
             }
             updateDisplayCountUp();
         }, 1000);
@@ -6443,20 +6881,28 @@ async function submitExam(isReview = false) {
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.style.display = 'none';
     
-    let sessionTime = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
-    let totalTimeElapsed = 0;
-    if (isReview) {
-        totalTimeElapsed = (quizProgress && quizProgress.timeElapsed) || 0;
-    } else {
-        if (currentTimeLimit > 0 && quizProgress && typeof quizProgress.timeRemaining === 'number') {
-            totalTimeElapsed = Math.max(1, (currentTimeLimit * 60) - Math.max(0, quizProgress.timeRemaining));
-        } else if (quizProgress && typeof quizProgress.timeElapsed === 'number' && quizProgress.timeElapsed > 0) {
-            totalTimeElapsed = quizProgress.timeElapsed;
-        } else {
-            totalTimeElapsed = sessionTime > 0 ? sessionTime : 1;
-        }
+    if (!isReview) {
+        showGlobalLoader({
+            title: "Đang nộp bài & chấm điểm...",
+            subtitle: "Hệ thống đang so khớp kết quả và lưu bài thi..."
+        });
     }
-    let score = 0;
+
+    try {
+        let sessionTime = startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        let totalTimeElapsed = 0;
+        if (isReview) {
+            totalTimeElapsed = (quizProgress && quizProgress.timeElapsed) || 0;
+        } else {
+            if (currentTimeLimit > 0 && quizProgress && typeof quizProgress.timeRemaining === 'number') {
+                totalTimeElapsed = Math.max(1, (currentTimeLimit * 60) - Math.max(0, quizProgress.timeRemaining));
+            } else if (quizProgress && typeof quizProgress.timeElapsed === 'number' && quizProgress.timeElapsed > 0) {
+                totalTimeElapsed = quizProgress.timeElapsed;
+            } else {
+                totalTimeElapsed = sessionTime > 0 ? sessionTime : 1;
+            }
+        }
+        let score = 0;
     
     // 1. Thu thập câu trả lời của học sinh (hỗ trợ cả Luyện tập và Thi thử)
     let userAnswers = {};
@@ -6625,12 +7071,15 @@ async function submitExam(isReview = false) {
     await fetchLeaderboard(quizId);
     switchResultView('review');
 
-    showToast("🎉 Đã nộp bài thành công!", "success");
+        showToast("🎉 Đã nộp bài thành công!", "success");
 
-    // 7. Cuộn trang mượt mà lên đầu để xem kết quả
-    const quizContainer = document.getElementById('quiz-container');
-    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 7. Cuộn trang mượt mà lên đầu để xem kết quả
+        const quizContainer = document.getElementById('quiz-container');
+        if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+        hideGlobalLoader();
+    }
 }
 
 function exitMinimalMode() {
@@ -6650,6 +7099,10 @@ function exitMinimalMode() {
         if (isCompleted) {
             window.location.href = '/';
         } else {
+            if (quizProgress && !quizProgress.completed) {
+                quizProgress.paused = true;
+                saveProgressToLocal();
+            }
             window.location.reload();
         }
     }
@@ -6832,3 +7285,35 @@ function switchLegalTab(tabName) {
         }
     });
 }
+
+// =========================================================================
+// BẢO LƯU TIẾN TRÌNH TỨC THÌ KHI HỌC SINH TẮT TRÌNH DUYỆT HOẶC ĐỔI TRANG
+// =========================================================================
+window.addEventListener('beforeunload', () => {
+    if (isStudentMode && quizProgress && !quizProgress.completed && quizProgress.startedAt) {
+        const quizId = getCurrentQuizId();
+        if (quizId) {
+            if (currentTimeLimit > 0) {
+                const elapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+                quizProgress.timeRemaining = Math.max(0, (currentTimeLimit * 60) - elapsed);
+                quizProgress.timeElapsed = Math.min(currentTimeLimit * 60, elapsed);
+            } else {
+                quizProgress.timeElapsed = Math.floor((Date.now() - quizProgress.startedAt) / 1000);
+            }
+            try {
+                localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
+            } catch(e) {}
+        }
+    }
+});
+
+window.addEventListener('pagehide', () => {
+    if (isStudentMode && quizProgress && !quizProgress.completed && quizProgress.startedAt) {
+        const quizId = getCurrentQuizId();
+        if (quizId) {
+            try {
+                localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
+            } catch(e) {}
+        }
+    }
+});

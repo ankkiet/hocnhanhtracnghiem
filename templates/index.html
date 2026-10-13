@@ -577,10 +577,260 @@
         window.signInWithPopup = signInWithPopup;
         console.log("🔥 Firebase Web App & Firestore đã được khởi tạo thành công!");
     </script>
+
+    <!-- CRITICAL STYLES CHO HIỆU ỨNG LOADING HOCNHANHTN BAN ĐẦU (Chuẩn hieuung.html) -->
+    <style id="hntn-critical-preloader-css">
+        #pageInitialLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.72) !important;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 10000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s ease;
+        }
+        #pageInitialLoader.hntn-loaded {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .hntn-loading-card, .hntn-preloader-card {
+            background: #ffffff !important;
+            border-radius: 24px !important;
+            padding: 38px 32px 32px 32px !important;
+            width: 100% !important;
+            max-width: 460px !important;
+            text-align: center !important;
+            box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.8) !important;
+            position: relative !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+        }
+        .hntn-loading-card::before, .hntn-preloader-card::before {
+            content: '' !important;
+            display: block !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 4px !important;
+            background: linear-gradient(90deg, #00d2ff, #2d79f3, #2d4af3) !important;
+        }
+        .hntn-loader-wrapper {
+            position: relative;
+            width: 124px;
+            height: 124px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hntn-loader-glow {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(45, 121, 243, 0.22) 0%, rgba(0, 229, 255, 0.1) 50%, transparent 70%);
+            border-radius: 50%;
+            animation: hntnGlowPulse 2.2s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes hntnGlowPulse {
+            0%, 100% { transform: scale(0.92); opacity: 0.5; }
+            50% { transform: scale(1.22); opacity: 0.85; }
+        }
+        .hntn-loader-svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            display: block;
+            filter: drop-shadow(0 6px 14px rgba(45, 121, 243, 0.18));
+        }
+        @keyframes fadeAndSlideDownDisappear {
+            0% { opacity: 1; transform: translateY(0px); }
+            35% { opacity: 1; transform: translateY(0px); }
+            60% { opacity: 0.5; transform: translateY(35px); }
+            90%, 100% { opacity: 0; transform: translateY(90px); visibility: hidden; }
+        }
+        .disappearing-elements {
+            animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes checkmarkKickUp {
+            0% { transform: translateY(0px) rotate(0deg); }
+            10% { transform: translateY(6px) rotate(-2deg); }
+            24% { transform: translateY(-24px) rotate(5deg) scale(1.05); }
+            40% { transform: translateY(-4px) rotate(1deg); }
+            55%, 100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes capKickedJumpSpin {
+            0% { transform: translateY(0px) rotate(0deg) scale(1); }
+            10% { transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98); }
+            26% { transform: translateY(-56px) rotate(90deg) scale(1.12); }
+            48% { transform: translateY(-44px) rotate(240deg) scale(1.08); }
+            68% { transform: translateY(3px) rotate(360deg) scale(0.97, 1.03); }
+            78% { transform: translateY(-5px) rotate(360deg) scale(1.01); }
+            88%, 100% { transform: translateY(0px) rotate(360deg) scale(1); }
+        }
+        .tick-interactive-group {
+            transform-box: view-box;
+            transform-origin: 250px 280px;
+            animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+            animation-delay: 1.1s;
+        }
+        .cap-kicked-group {
+            transform-box: view-box;
+            transform-origin: 250px 185px;
+            animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+            animation-delay: 1.1s;
+        }
+        .hntn-loading-title {
+            color: #0f172a !important;
+            font-size: 1.05rem !important;
+            font-weight: 700 !important;
+            margin: 0 0 6px 0 !important;
+            letter-spacing: normal !important;
+            text-shadow: none !important;
+        }
+        .hntn-loading-sub {
+            color: #64748b !important;
+            font-size: 0.88rem !important;
+            margin: 0 !important;
+            max-width: 380px;
+            line-height: 1.5;
+        }
+    </style>
 </head>
 
-
 <body>
+
+<!-- MÀN HÌNH TẢI TRANG KHỞI ĐỘNG (PAGE INITIAL PRELOADER) -->
+<div id="pageInitialLoader" class="hntn-page-preloader">
+    <div class="hntn-loading-card hntn-preloader-card">
+        <div class="hntn-loader-wrapper">
+            <div class="hntn-loader-glow"></div>
+            <svg class="hntn-loader-svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="preloaderPrimaryGrad" x1="0%" x2="100%" y1="100%" y2="0%">
+                        <stop offset="0%" stop-color="#2d4af3"></stop>
+                        <stop offset="50%" stop-color="#2d79f3"></stop>
+                        <stop offset="100%" stop-color="#00d2ff"></stop>
+                    </linearGradient>
+                    <linearGradient id="preloaderBookLeftGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00b4ff"></stop>
+                        <stop offset="100%" stop-color="#3b46e8"></stop>
+                    </linearGradient>
+                    <linearGradient id="preloaderBookRightGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00e5ff"></stop>
+                        <stop offset="100%" stop-color="#2b59f5"></stop>
+                    </linearGradient>
+                    <linearGradient id="preloaderCapGrad" x1="0%" x2="100%" y1="0%" y2="100%">
+                        <stop offset="0%" stop-color="#00d2ff"></stop>
+                        <stop offset="50%" stop-color="#2d79f3"></stop>
+                        <stop offset="100%" stop-color="#1d4ed8"></stop>
+                    </linearGradient>
+                    <filter id="preloaderSoftGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                        <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                    </filter>
+                    <style>
+                        @keyframes fadeAndSlideDownDisappear {
+                            0% { opacity: 1; transform: translateY(0px); }
+                            35% { opacity: 1; transform: translateY(0px); }
+                            60% { opacity: 0.5; transform: translateY(35px); }
+                            90%, 100% { opacity: 0; transform: translateY(90px); visibility: hidden; }
+                        }
+                        .disappearing-elements {
+                            animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                        }
+                        @keyframes checkmarkKickUp {
+                            0% { transform: translateY(0px) rotate(0deg); }
+                            10% { transform: translateY(6px) rotate(-2deg); }
+                            24% { transform: translateY(-24px) rotate(5deg) scale(1.05); }
+                            40% { transform: translateY(-4px) rotate(1deg); }
+                            55%, 100% { transform: translateY(0px) rotate(0deg); }
+                        }
+                        @keyframes capKickedJumpSpin {
+                            0% { transform: translateY(0px) rotate(0deg) scale(1); }
+                            10% { transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98); }
+                            26% { transform: translateY(-56px) rotate(90deg) scale(1.12); }
+                            48% { transform: translateY(-44px) rotate(240deg) scale(1.08); }
+                            68% { transform: translateY(3px) rotate(360deg) scale(0.97, 1.03); }
+                            78% { transform: translateY(-5px) rotate(360deg) scale(1.01); }
+                            88%, 100% { transform: translateY(0px) rotate(360deg) scale(1); }
+                        }
+                        .tick-interactive-group {
+                            transform-box: view-box;
+                            transform-origin: 250px 280px;
+                            animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+                            animation-delay: 1.1s;
+                        }
+                        .cap-kicked-group {
+                            transform-box: view-box;
+                            transform-origin: 250px 185px;
+                            animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+                            animation-delay: 1.1s;
+                        }
+                    </style>
+                </defs>
+                <g id="preloader-dynamic-loader">
+                    <g class="disappearing-elements">
+                        <path d="M 250 372 L 140 334 C 134 332 130 326 130 320 L 130 216 C 130 210 137 206 143 208 L 148 210 L 148 316 L 250 352 L 352 316 L 352 210 L 357 208 C 363 206 370 210 370 216 L 370 320 C 370 326 366 332 360 334 Z" fill="url(#preloaderBookLeftGrad)"></path>
+                        <path d="M 250 354 L 158 322 C 153 320 150 315 150 310 L 150 196 C 150 190 157 186 162 188 L 168 190 L 168 306 L 250 335 L 332 306 L 332 190 L 338 188 C 343 186 350 190 350 196 L 350 310 C 350 315 347 320 342 322 Z" fill="url(#preloaderBookRightGrad)"></path>
+                        <path d="M 250 336 L 178 310 L 178 198 L 188 202 L 188 298 L 250 320 L 312 298 L 312 202 L 322 198 L 322 310 Z" fill="#2d6ef3" opacity="0.95"></path>
+                        <path d="M 176 194 C 176 190 180 186 186 188 L 206 195 L 206 312 L 176 302 Z" fill="url(#preloaderPrimaryGrad)"></path>
+                        <path d="M 294 228 L 324 216 L 324 302 L 294 312 Z" fill="url(#preloaderBookRightGrad)"></path>
+                        <path d="M 366 128 Q 366 146 384 146 Q 366 146 366 164 Q 366 146 348 146 Q 366 146 366 128 Z" fill="#00e5ff"></path>
+                        <path d="M 326 128 Q 326 138 336 138 Q 326 138 326 148 Q 326 138 316 138 Q 326 138 326 128 Z" fill="#38bdf8"></path>
+                        <path d="M 364 178 Q 364 188 374 188 Q 364 188 364 198 Q 364 188 354 188 Q 364 188 364 178 Z" fill="#38bdf8"></path>
+                    </g>
+                    <g class="tick-interactive-group">
+                        <path d="M 186 260 L 230 262 L 250 300 C 251 302 254 302 255 300 L 358 160 C 362 154 358 146 350 152 L 250 274 L 226 246 C 224 244 220 244 218 246 L 186 256 Z" fill="url(#preloaderPrimaryGrad)" filter="url(#preloaderSoftGlow)"></path>
+                        <path d="M 250 300 L 358 160 C 362 154 358 146 350 152 L 250 274 Z" fill="#00f5ff" opacity="0.6"></path>
+                    </g>
+                    <g class="cap-kicked-group">
+                        <polygon fill="url(#preloaderCapGrad)" filter="url(#preloaderSoftGlow)" points="250,138 324,168 250,198 176,168"></polygon>
+                        <polygon fill="#1e40af" opacity="0.9" points="250,198 324,168 324,178 250,208 176,178 176,168"></polygon>
+                        <path d="M 210 184 L 210 224 C 210 236 226 244 250 244 C 274 244 290 236 290 224 L 290 184 C 278 193 264 198 250 198 C 236 198 222 193 210 184 Z" fill="#1d4ed8"></path>
+                        <path d="M 292 180 L 302 186 L 302 204 L 298 204 L 298 186 Z" fill="#00e5ff"></path>
+                        <circle cx="250" cy="168" fill="#00f5ff" r="4.5"></circle>
+                    </g>
+                </g>
+            </svg>
+        </div>
+        <h3 id="preloaderStatusTitle" class="hntn-loading-title">
+            HocNhanhTN
+        </h3>
+        <p id="preloaderStatusSub" class="hntn-loading-sub">
+            Đang khởi tạo hệ thống và tải dữ liệu...
+        </p>
+    </div>
+</div>
+
+<script>
+    (function() {
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var qId = params.get('quiz_id') || params.get('id');
+            var path = window.location.pathname || '';
+            if (qId || path.indexOf('/quiz/') !== -1) {
+                var sub = document.getElementById('preloaderStatusSub');
+                if (sub) sub.innerText = "Đang tải dữ liệu bài thi trắc nghiệm...";
+            }
+        } catch(e) {}
+    })();
+</script>
 
 <!-- Màn hình Đăng nhập / Đăng ký & Trang chủ Giới thiệu -->
 <div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
@@ -1057,7 +1307,7 @@
         </div>
 
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px;">
-            <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="handleStartQuizWithAdCheck()">
+            <button id="startBtn" class="btn-primary" style="font-size: 1.15rem; padding: 14px 38px; border-radius: 10px; font-weight: 700; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); box-shadow: 0 4px 14px rgba(25, 118, 210, 0.35);" onclick="startStudentQuiz()">
                 <i class="ri-rocket-line"></i> Bắt đầu làm bài thi
             </button>
             <button id="viewLbBtn" class="btn-outline" style="font-size: 1.15rem; padding: 14px 24px; border-radius: 10px; font-weight: 600; background: white; border-color: #eab308; color: #ca8a04;" onclick="showLeaderboardOnly()">
@@ -1840,6 +2090,45 @@
                         <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
                         <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
                     </filter>
+                    <style>
+                        @keyframes fadeAndSlideDownDisappear {
+                            0% { opacity: 1; transform: translateY(0px); }
+                            35% { opacity: 1; transform: translateY(0px); }
+                            60% { opacity: 0.5; transform: translateY(35px); }
+                            90%, 100% { opacity: 0; transform: translateY(90px); visibility: hidden; }
+                        }
+                        .disappearing-elements {
+                            animation: fadeAndSlideDownDisappear 1.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                        }
+                        @keyframes checkmarkKickUp {
+                            0% { transform: translateY(0px) rotate(0deg); }
+                            10% { transform: translateY(6px) rotate(-2deg); }
+                            24% { transform: translateY(-24px) rotate(5deg) scale(1.05); }
+                            40% { transform: translateY(-4px) rotate(1deg); }
+                            55%, 100% { transform: translateY(0px) rotate(0deg); }
+                        }
+                        @keyframes capKickedJumpSpin {
+                            0% { transform: translateY(0px) rotate(0deg) scale(1); }
+                            10% { transform: translateY(4px) rotate(-1deg) scale(1.01, 0.98); }
+                            26% { transform: translateY(-56px) rotate(90deg) scale(1.12); }
+                            48% { transform: translateY(-44px) rotate(240deg) scale(1.08); }
+                            68% { transform: translateY(3px) rotate(360deg) scale(0.97, 1.03); }
+                            78% { transform: translateY(-5px) rotate(360deg) scale(1.01); }
+                            88%, 100% { transform: translateY(0px) rotate(360deg) scale(1); }
+                        }
+                        .tick-interactive-group {
+                            transform-box: view-box;
+                            transform-origin: 250px 280px;
+                            animation: checkmarkKickUp 2.2s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+                            animation-delay: 1.1s;
+                        }
+                        .cap-kicked-group {
+                            transform-box: view-box;
+                            transform-origin: 250px 185px;
+                            animation: capKickedJumpSpin 2.2s cubic-bezier(0.34, 1.25, 0.64, 1) infinite;
+                            animation-delay: 1.1s;
+                        }
+                    </style>
                 </defs>
                 <g id="hocnhanhtn-dynamic-loader">
                     <!-- 1. CÁC THÀNH PHẦN TRÔI XUỐNG VÀ BIẾN MẤT VĨNH VIỄN SAU 1 GIÂY -->
@@ -1875,11 +2164,11 @@
             </svg>
         </div>
         <div id="progressText" class="hntn-progress-percent">0%</div>
-        <div class="hntn-progress-bar-bg progress-bar-container">
+        <div id="progressBarContainer" class="hntn-progress-bar-bg progress-bar-container">
             <div id="progressBar" class="hntn-progress-bar-fill progress-bar-fill"></div>
         </div>
-        <h3 id="loadingStatusText" class="hntn-loading-title">⚙️ Đang tải file lên...</h3>
-        <p id="loadingStatusSub" class="hntn-loading-sub">Quá trình này có thể mất đến 30 giây đối với tài liệu hoặc đề thi dài.</p>
+        <h3 id="loadingStatusText" class="hntn-loading-title">⚙️ Đang xử lý...</h3>
+        <p id="loadingStatusSub" class="hntn-loading-sub">Vui lòng chờ trong giây lát...</p>
     </div>
 </div>
 
@@ -1937,7 +2226,8 @@
 </button>
 
 <!-- MODAL XEM QUẢNG CÁO MỞ KHÓA 12H LÀM BÀI -->
-<div id="rewardAdModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 99999; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px);">
+<!-- MODAL XEM QUẢNG CÁO MỞ KHÓA 12H LÀM BÀI (ĐANG TẠM ẨN 100% TRONG GIAI ĐOẠN CHỜ ADSENSE DUYỆT) -->
+<div id="rewardAdModal" class="modal-overlay" style="display: none !important; align-items: center; justify-content: center; z-index: 99999; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px);">
     <div class="modal-content" style="max-width: 480px; width: 92%; border-radius: 16px; padding: 28px 24px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3); background: #ffffff; border: 1px solid #e2e8f0; position: relative;">
         <!-- Nút đóng -->
         <button type="button" onclick="closeRewardAdModal()" style="position: absolute; top: 14px; right: 14px; background: transparent; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;" title="Đóng">
@@ -2007,6 +2297,9 @@
     </div>
 </div>
 
-<script src="script.js?v=20261009_clean_3"></script>
+<script>
+    window.ENABLE_REWARD_ADS = false;
+</script>
+<script src="script.js?v=20261013_no_ads_v3"></script>
 </body>
 </html>
