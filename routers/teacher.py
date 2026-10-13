@@ -64,12 +64,12 @@ async def get_teacher_quizzes(teacher_token: str):
     except HTTPException:
         raise
     except Exception as e:
-        if "403" in str(e) or "PermissionDenied" in str(e):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Lỗi quyền Firebase (403 Permission Denied): Service Account chưa có quyền 'Cloud Datastore User' trên Google Cloud Console hoặc sai project. Chi tiết: {e}"
-            )
-        raise
+        logger.warning(f"Lỗi xác thực giáo viên ban đầu: {e}. Đang thử làm mới kết nối DB...")
+        db = get_db(force_refresh=True)
+        try:
+            user, user_uid = verify_teacher_access(teacher_token, db)
+        except Exception:
+            raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
 
     try:
         from google.cloud.firestore_v1.base_query import FieldFilter
@@ -79,20 +79,29 @@ async def get_teacher_quizzes(teacher_token: str):
         def _q_where(coll, field, value):
             return coll.where(field, '==', value)
 
+    def _fetch_quizzes(db_inst):
+        q_docs = _q_where(db_inst.collection('quizzes'), 'creator_id', user_uid).get()
+        if not q_docs and teacher_token != user_uid:
+            q_docs = _q_where(db_inst.collection('quizzes'), 'creator_id', teacher_token).get()
+        if not q_docs and user.get('role') == 'admin':
+            q_docs = db_inst.collection('quizzes').limit(50).get()
+        return q_docs
+
     try:
-        # Hỗ trợ tìm kiếm theo cả ID người dùng mới và token cũ
-        docs = _q_where(db.collection('quizzes'), 'creator_id', user_uid).get()
-        if not docs and teacher_token != user_uid:
-            docs = _q_where(db.collection('quizzes'), 'creator_id', teacher_token).get()
-        if not docs and user.get('role') == 'admin':
-            docs = db.collection('quizzes').limit(50).get()
+        docs = _fetch_quizzes(db)
     except Exception as e:
-        if "403" in str(e) or "PermissionDenied" in str(e):
-            raise HTTPException(
-                status_code=403,
-                detail=f"Lỗi quyền Firebase (403 Permission Denied): Service Account chưa có quyền 'Cloud Datastore User' trên Google Cloud Console. Chi tiết: {e}"
-            )
-        raise HTTPException(status_code=500, detail=f"Lỗi truy vấn cơ sở dữ liệu: {e}")
+        err_str = str(e)
+        logger.warning(f"Lỗi truy vấn danh sách đề ({err_str}). Đang kích hoạt Self-Healing để làm mới token và tái kết nối...")
+        try:
+            db = get_db(force_refresh=True)
+            docs = _fetch_quizzes(db)
+        except Exception as retry_err:
+            if "403" in str(retry_err) or "PermissionDenied" in str(retry_err):
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Cơ sở dữ liệu tạm thời chưa sẵn sàng hoặc Service Account cần kiểm tra lại quyền. Chi tiết: {retry_err}"
+                )
+            raise HTTPException(status_code=500, detail=f"Lỗi truy vấn cơ sở dữ liệu: {retry_err}")
         
     results = []
     for doc in docs:

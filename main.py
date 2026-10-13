@@ -1,5 +1,15 @@
 import sys
 import os
+
+# CẤU HÌNH GRPC KEEPALIVE CHỐNG RỚT MẠNG / IDLE TIMEOUT TRÊN KOYEB / DOCKER CLOUD
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_TIME_MS", "30000")       # Ping mỗi 30 giây
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_TIMEOUT_MS", "10000")    # Timeout 10 giây
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS", "1")
+os.environ.setdefault("GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA", "0")
+os.environ.setdefault("GRPC_ARG_HTTP2_MIN_TIME_BETWEEN_PINGS_MS", "10000")
+os.environ.setdefault("GRPC_ARG_HTTP2_MIN_PING_INTERVAL_WITHOUT_DATA_MS", "5000")
+os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "1")
+
 import re
 import html
 import logging

@@ -102,8 +102,8 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
     token = str(token).strip()
     now = time.time()
     
-    # 1. Kiểm tra cache theo token
-    if token in USER_CACHE and (now - USER_CACHE[token]['time'] < 300):
+    # 1. Kiểm tra cache theo token (TTL 1800s = 30 phút để tiết kiệm tối đa lượt đọc Firestore)
+    if token in USER_CACHE and (now - USER_CACHE[token]['time'] < 1800):
         return USER_CACHE[token]['user'].copy()
 
     payload = decode_access_token(token)
@@ -111,7 +111,7 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
         user_id = str(payload["sub"]).strip()
         
         # Kiểm tra cache theo user_id
-        if user_id in USER_CACHE and (now - USER_CACHE[user_id]['time'] < 300):
+        if user_id in USER_CACHE and (now - USER_CACHE[user_id]['time'] < 1800):
             cached_user = USER_CACHE[user_id]['user'].copy()
             USER_CACHE[token] = {'time': now, 'user': cached_user}
             return cached_user
@@ -127,18 +127,22 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
                 return final_user.copy()
         except Exception as e:
             logger.warning(f"Không thể đọc users/{user_id} từ Firestore ({e}). Tự động phục hồi thông tin từ JWT token.")
-            # Fallback an toàn từ JWT Token đã được xác thực bảo mật bằng SECRET_KEY
-            fallback_user = {
-                "id": user_id,
-                "username": payload.get("username", user_id),
-                "role": payload.get("role", "teacher" if "teacher" in token else "student"),
-                "full_name": payload.get("full_name", payload.get("username", user_id)),
-                "is_approved": True
-            }
-            final_user = check_and_assign_admin(fallback_user)
-            USER_CACHE[user_id] = {'time': now, 'user': final_user}
-            USER_CACHE[token] = {'time': now, 'user': final_user}
-            return final_user.copy()
+
+        # PHỤC HỒI AN TOÀN TỪ JWT TOKEN ĐÃ ĐƯỢC KÝ ĐIỆN TỬ BỞI SECRET_KEY:
+        # Nếu JWT Token hợp lệ còn thời hạn, luôn tin cậy payload để chống lỗi 403 Session Expired
+        payload_role = payload.get("role") or ("teacher" if "teacher" in str(token).lower() else "student")
+        fallback_user = {
+            "id": user_id,
+            "username": payload.get("username", user_id),
+            "role": payload_role,
+            "full_name": payload.get("full_name", payload.get("username", user_id)),
+            "status": "approved",
+            "is_approved": True
+        }
+        final_user = check_and_assign_admin(fallback_user)
+        USER_CACHE[user_id] = {'time': now, 'user': final_user}
+        USER_CACHE[token] = {'time': now, 'user': final_user}
+        return final_user.copy()
             
     try:
         doc = db.collection('users').document(token).get()

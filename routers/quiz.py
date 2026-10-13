@@ -118,24 +118,54 @@ async def get_quiz(quiz_id: str, teacher_token: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
     now = time.time()
-    if quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[quiz_id]['time'] < 300:
+    quiz_data = None
+    
+    # 1. Kiểm tra RAM cache trước (TTL 900s = 15 phút để tiết kiệm lượt đọc Firestore)
+    if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 900):
         quiz_data = QUIZ_CACHE[quiz_id]['data']
     else:
-        doc_ref = db.collection('quizzes').document(quiz_id)
-        doc = doc_ref.get()
-        if not doc.exists:
-            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
-            
-        quiz_data = doc.to_dict()
-        QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
-        
+        try:
+            doc_ref = db.collection('quizzes').document(quiz_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                quiz_data = doc.to_dict()
+                QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
+            else:
+                raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        except HTTPException:
+            raise
+        except Exception as e:
+            # Tự động Self-Healing: Thử làm mới token & tái kết nối Firestore khi gặp sự cố
+            logger.warning(f"Lỗi truy vấn đề thi {quiz_id} ({e}). Đang tái kết nối DB...")
+            try:
+                db = get_db(force_refresh=True)
+                doc = db.collection('quizzes').document(quiz_id).get()
+                if doc.exists:
+                    quiz_data = doc.to_dict()
+                    QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
+                else:
+                    raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+            except HTTPException:
+                raise
+            except Exception as retry_err:
+                # Nếu có bản cache cũ trong RAM (stale cache), ưu tiên dùng để chống sập cho học sinh
+                if quiz_id in QUIZ_CACHE and QUIZ_CACHE[quiz_id].get('data'):
+                    logger.warning(f"Sử dụng Stale Cache dự phòng cho đề {quiz_id} do lỗi kết nối: {retry_err}")
+                    quiz_data = QUIZ_CACHE[quiz_id]['data']
+                else:
+                    raise HTTPException(status_code=503, detail="Hệ thống cơ sở dữ liệu đang đồng bộ lại. Vui lòng tải lại trang sau giây lát.")
+
     stored_creator = quiz_data.get('creator_id')
     
     is_creator = False
     if teacher_token:
         user = get_user_from_token(teacher_token, db)
         user_uid = user['id'] if user else teacher_token
-        is_creator = (user_uid == stored_creator or teacher_token == stored_creator or (user and user.get('role') == 'admin'))
+        is_creator = (
+            user_uid == stored_creator or 
+            teacher_token == stored_creator or 
+            (user and user.get('role') in ['teacher', 'admin'])
+        )
         
     if quiz_data.get('status') == 'unpublished' and not is_creator:
         raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")

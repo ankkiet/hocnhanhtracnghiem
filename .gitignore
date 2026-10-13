@@ -32,6 +32,8 @@ scratch/
 backup_bgd_feature/
 
 # Firebase configs
+*firebase-adminsdk*.json
+*serviceAccountKey*.json
 firebase-adminsdk.json
 
 # Uploads

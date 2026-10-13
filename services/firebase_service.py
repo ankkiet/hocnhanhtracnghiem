@@ -1,5 +1,16 @@
 import os
 import sys
+
+# CẤU HÌNH GRPC KEEPALIVE CHỐNG RỚT MẠNG / IDLE TIMEOUT TRÊN KOYEB / DOCKER CLOUD
+# Ngăn chặn Envoy Proxy và NAT Gateway ngắt kết nối TCP âm thầm sau thời gian Idle
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_TIME_MS", "30000")       # Ping mỗi 30 giây
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_TIMEOUT_MS", "10000")    # Timeout 10 giây
+os.environ.setdefault("GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS", "1")
+os.environ.setdefault("GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA", "0")
+os.environ.setdefault("GRPC_ARG_HTTP2_MIN_TIME_BETWEEN_PINGS_MS", "10000")
+os.environ.setdefault("GRPC_ARG_HTTP2_MIN_PING_INTERVAL_WITHOUT_DATA_MS", "5000")
+os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "1")
+
 import json
 import base64
 import logging
@@ -150,6 +161,16 @@ def _get_credentials_object():
         os.path.join(base_dir, "secrets", "firebase-adminsdk.json")
     ]
 
+    # Quét tự động bất kỳ tệp JSON nào có chứa firebase-adminsdk trong thư mục gốc
+    try:
+        for f in os.listdir(base_dir):
+            if f.endswith('.json') and ('firebase-adminsdk' in f.lower() or 'serviceaccount' in f.lower()):
+                full_p = os.path.join(base_dir, f)
+                if full_p not in file_candidates:
+                    file_candidates.append(full_p)
+    except Exception:
+        pass
+
     for file_path in file_candidates:
         if os.path.isfile(file_path):
             logger.info(f"Đang kết nối Firebase bằng tệp vật lý: {file_path}")
@@ -227,6 +248,58 @@ def _seed_default_admins(db_client):
         logger.warning(f"Lưu ý: Chưa thể đồng bộ tài khoản admin ngay lúc này ({e}), cơ sở dữ liệu vẫn sẵn sàng hoạt động.")
 
 
+def reconnect_firebase():
+    """
+    Làm mới OAuth token của Service Account và tái tạo hoàn toàn Firestore Client (Self-Healing).
+    Được gọi khi token hết hạn sau 1 giờ hoặc khi kết nối gRPC bị Envoy/NAT proxy ngắt sau thời gian idle.
+    """
+    global db, firebase_init_error
+    with _init_lock:
+        try:
+            logger.info("Đang tự động làm mới OAuth Token & tái kết nối Firebase Firestore...")
+            app = firebase_admin.get_app() if firebase_admin._apps else None
+            if app:
+                # 1. Thử làm mới OAuth Token của Google Service Account
+                try:
+                    from google.auth.transport.requests import Request
+                    cred = app.credential.get_credential()
+                    if hasattr(cred, 'refresh'):
+                        cred.refresh(Request())
+                        logger.info("Đã làm mới OAuth2 Access Token thành công.")
+                except Exception as ref_err:
+                    logger.warning(f"Lưu ý: Không thể refresh token trực tiếp ({ref_err}), sẽ thử nạp lại credentials.")
+
+                # 2. Xóa sạch cache client nội bộ trong firebase_admin._FirestoreService
+                try:
+                    from firebase_admin import _utils
+                    fs_service = _utils.get_app_service(app, firestore._FIRESTORE_ATTRIBUTE, firestore._FirestoreService)
+                    if hasattr(fs_service, '_clients'):
+                        fs_service._clients.clear()
+                except Exception:
+                    pass
+
+                # 3. Đóng client cũ nếu có
+                if db is not None:
+                    try:
+                        if hasattr(db, 'close'):
+                            db.close()
+                    except Exception:
+                        pass
+
+                # 4. Tạo Firestore Client mới tinh
+                db = firestore.client(app=app)
+                firebase_init_error = None
+                logger.info("Đã tái tạo kết nối Firestore Client mới thành công!")
+                return db
+            else:
+                db = None
+                return init_firebase()
+        except Exception as e:
+            logger.error(f"Lỗi khi tái kết nối Firebase ({e})")
+            firebase_init_error = str(e)
+            return db
+
+
 def init_firebase():
     """Khởi tạo kết nối Firebase Firestore an toàn, chống crash và hỗ trợ đa nền tảng (Koyeb/Docker/Local)."""
     global db, firebase_init_error
@@ -267,11 +340,39 @@ def init_firebase():
             return None
 
 
-def get_db():
-    """Lấy đối tượng Firestore Client, tự động tái kết nối nếu chưa khởi tạo."""
-    if db is None:
+def get_db(force_refresh: bool = False):
+    """
+    Lấy đối tượng Firestore Client.
+    Hỗ trợ tham số force_refresh=True để chủ động làm mới token và tái kết nối gRPC.
+    """
+    global db
+    if force_refresh or db is None:
+        if force_refresh and db is not None:
+            return reconnect_firebase()
         return init_firebase()
     return db
+
+
+def execute_with_firebase_retry(query_func, *args, **kwargs):
+    """
+    Thực thi an toàn một hàm truy vấn Firestore với cơ chế tự động phục hồi (Self-Healing):
+    Nếu gặp lỗi 403 / PermissionDenied / Unavailable / Stale socket sau 1 khoảng thời gian,
+    hàm sẽ tự động làm mới OAuth Token, tái tạo Client và thử lại (Retry) 1 lần nữa một cách trong suốt.
+    """
+    current_db = get_db()
+    if current_db is None:
+        raise RuntimeError("Chưa kết nối cơ sở dữ liệu Firebase Firestore")
+
+    try:
+        return query_func(current_db, *args, **kwargs)
+    except Exception as e:
+        err_msg = str(e)
+        if any(err_key in err_msg for err_key in ["403", "PermissionDenied", "Unavailable", "503", "TransportError", "broken stream", "channel closed"]):
+            logger.warning(f"Phát hiện sự cố kết nối/quyền Firestore ({e}). Đang tự động phục hồi kết nối và thử lại...")
+            new_db = get_db(force_refresh=True)
+            if new_db is not None:
+                return query_func(new_db, *args, **kwargs)
+        raise
 
 
 def get_firebase_error():
