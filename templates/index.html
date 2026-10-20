@@ -88,7 +88,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261009_clean_3">
+    <link rel="stylesheet" href="style.css?v=20261020_mobile_nav_v6">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     
     <!-- Google AdSense (Bắt buộc trong <head> để Google xác minh trang web) -->
@@ -897,34 +897,220 @@
 <!-- Màn hình Đăng nhập / Đăng ký & Trang chủ Giới thiệu -->
 
 <!-- THANH ĐIỀU HƯỚNG CÔNG KHAI DÀNH CHO KHÁCH & GOOGLE ADSENSE (PUBLIC NAVBAR) -->
-<header id="publicHeader" style="background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1000; padding: 12px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-        <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
-            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="height: 36px; width: auto; object-fit: contain;">
-            <span style="font-size: 1.3rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">HocNhanh<span style="color: #2563eb;">TN</span></span>
+<!-- THANH ĐIỀU HƯỚNG CÔNG KHAI DÀNH CHO KHÁCH & GOOGLE ADSENSE (PUBLIC NAVBAR) -->
+<header id="publicHeader" class="public-navbar">
+    <div class="public-header-inner">
+        <a href="/" class="public-header-brand">
+            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="public-header-logo">
+            <span class="public-brand-title">HocNhanh<span style="color: #2563eb;">TN</span></span>
         </a>
         
-        <nav class="public-nav-menu" style="display: flex; align-items: center; gap: 24px;">
-            <a href="/" style="color: #0f172a; text-decoration: none; font-weight: 700; font-size: 0.92rem;">Trang chủ</a>
-            <a href="#landingWorkflow" style="color: #475569; text-decoration: none; font-weight: 600; font-size: 0.92rem; transition: color 0.15s;">Quy trình số hóa</a>
-            <a href="#landingFeatures" style="color: #475569; text-decoration: none; font-weight: 600; font-size: 0.92rem; transition: color 0.15s;">Tính năng nổi bật</a>
-            <a href="#landingFAQ" style="color: #475569; text-decoration: none; font-weight: 600; font-size: 0.92rem; transition: color 0.15s;">Hỏi đáp (FAQ)</a>
-            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #475569; text-decoration: none; font-weight: 600; font-size: 0.92rem; transition: color 0.15s;">Chính sách</a>
+        <nav class="public-nav-menu">
+            <a href="/" class="active">Trang chủ</a>
+            <a href="#landingWorkflow">Quy trình số hóa</a>
+            <a href="#landingFeatures">Tính năng nổi bật</a>
+            <a href="#landingFAQ">Hỏi đáp (FAQ)</a>
+            <a href="javascript:void(0)" onclick="openLegalModal('privacy')">Chính sách</a>
         </nav>
 
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <button type="button" onclick="startDemoQuiz()" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 9px 18px; border-radius: 9px; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;">
-                <i class="ri-play-circle-line" style="font-size: 1.15rem;"></i> Làm thử đề mẫu
+        <div class="public-header-actions">
+            <button type="button" class="btn-public-demo" onclick="startDemoQuiz()">
+                <i class="ri-play-circle-line"></i>
+                <span class="demo-text-desktop">Làm thử đề mẫu</span>
+                <span class="demo-text-mobile">Làm thử</span>
             </button>
-            <button type="button" onclick="focusLoginForm()" style="background: #2563eb; color: #ffffff; border: none; padding: 9px 20px; border-radius: 9px; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
+            <button type="button" class="btn-public-login" onclick="focusLoginForm()">
                 Đăng nhập
             </button>
         </div>
     </div>
 </header>
 <style>
-@media (max-width: 820px) {
-    .public-nav-menu { display: none !important; }
+.public-navbar {
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding: 10px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box;
+    width: 100%;
+}
+.public-header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.public-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    flex-shrink: 0;
+    min-width: 0;
+}
+.public-header-logo {
+    width: 34px !important;
+    height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+    display: block !important;
+}
+.public-brand-title {
+    font-size: 1.22rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.public-nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+}
+.public-nav-menu a {
+    color: #475569;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition: color 0.15s;
+    white-space: nowrap;
+}
+.public-nav-menu a:hover,
+.public-nav-menu a.active {
+    color: #2563eb;
+}
+.public-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.btn-public-demo {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 8px 16px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    line-height: 1.2;
+}
+.btn-public-demo:hover {
+    background: #dbeafe;
+}
+.btn-public-login {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    line-height: 1.2;
+}
+.btn-public-login:hover {
+    background: #1d4ed8;
+}
+.demo-text-mobile {
+    display: none;
+}
+.demo-text-desktop {
+    display: inline;
+}
+
+@media (max-width: 840px) {
+    .public-nav-menu {
+        display: none !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .public-navbar {
+        padding: 8px 12px !important;
+        height: 52px !important;
+    }
+    .public-header-inner {
+        gap: 8px !important;
+        height: 100% !important;
+    }
+    .public-header-logo {
+        width: 30px !important;
+        height: 30px !important;
+        max-width: 30px !important;
+        max-height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+    }
+    .public-brand-title {
+        font-size: 1.05rem !important;
+    }
+    .public-header-actions {
+        gap: 6px !important;
+    }
+    .btn-public-demo {
+        padding: 6px 10px !important;
+        font-size: 0.8rem !important;
+        border-radius: 8px !important;
+        gap: 4px !important;
+    }
+    .btn-public-demo i {
+        font-size: 1rem !important;
+    }
+    .demo-text-desktop {
+        display: none !important;
+    }
+    .demo-text-mobile {
+        display: inline !important;
+    }
+    .btn-public-login {
+        padding: 6px 12px !important;
+        font-size: 0.8rem !important;
+        border-radius: 8px !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .public-brand-title {
+        font-size: 0.95rem !important;
+    }
+    .public-header-actions {
+        gap: 4px !important;
+    }
+    .btn-public-demo {
+        padding: 5px 8px !important;
+        font-size: 0.75rem !important;
+    }
+    .btn-public-login {
+        padding: 5px 9px !important;
+        font-size: 0.75rem !important;
+    }
 }
 </style>
 
@@ -1058,165 +1244,6 @@
         <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
             <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
         </div>
-
-<!-- KHỐI NỘI DUNG MỞ RỘNG ĐÁP ỨNG TIÊU CHUẨN DUYỆT GOOGLE ADSENSE (HIGH VALUE CONTENT & NAVIGATION) -->
-<div id="publicLandingExtras" style="max-width: 1200px; margin: 0 auto; padding: 40px 20px 60px;">
-    
-    <!-- PHẦN 1: QUY TRÌNH 3 BƯỚC SỐ HÓA ĐỀ THI -->
-    <section id="landingWorkflow" style="margin-bottom: 70px; text-align: center;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #dbeafe;">
-            <i class="ri-flow-chart"></i> Quy trình công nghệ
-        </div>
-        <h2 style="font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Số Hóa Đề Thi Trắc Nghiệm Chỉ Với 3 Bước Đơn Giản</h2>
-        <p style="color: #64748b; font-size: 1rem; max-width: 680px; margin: 0 auto 40px; line-height: 1.6;">
-            HocNhanhTN giúp giáo viên chuyển đổi mọi tệp Word (.docx) và PDF chứa công thức toán học sang phòng thi trực tuyến trong tích tắc.
-        </p>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; text-align: left;">
-            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
-                    1
-                </div>
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Tải Lên Tệp Đề Thi Word / PDF</h3>
-                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    Giáo viên chỉ cần kéo thả tệp Word (.docx) hoặc PDF biên soạn theo cấu trúc trắc nghiệm chuẩn của Bộ GD&ĐT. Không cần định dạng lại thủ công.
-                </p>
-            </div>
-
-            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
-                    2
-                </div>
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Tự Động Bóc Tách Công Thức & Ảnh</h3>
-                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    Thuật toán AI tự động nhận diện câu hỏi, các đáp án A/B/C/D, bóc tách công thức Toán/Lý/Hóa LaTeX nguyên vẹn và tải ảnh minh họa lên đám mây.
-                </p>
-            </div>
-
-            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
-                    3
-                </div>
-                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Chia Sẻ & Chấm Điểm Tự Động</h3>
-                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    Hệ thống sinh mã đề và liên kết phòng thi trực tuyến. Học sinh làm bài trên điện thoại hoặc máy tính, hệ thống tự chấm và xếp hạng ngay khi nộp bài.
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- PHẦN 2: TÍNH NĂNG NỔI BẬT CHUẨN GDPT 2018 -->
-    <section id="landingFeatures" style="margin-bottom: 70px;">
-        <div style="text-align: center; margin-bottom: 40px;">
-            <div style="display: inline-flex; align-items: center; gap: 8px; background: #fdf2f8; color: #db2777; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #fce7f3;">
-                <i class="ri-award-line"></i> Tiêu chuẩn chất lượng
-            </div>
-            <h2 style="font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Tính Năng Nổi Bật Đáp Ứng GDPT 2018</h2>
-            <p style="color: #64748b; font-size: 1rem; max-width: 680px; margin: 0 auto; line-height: 1.6;">
-                Nền tảng tối ưu trải nghiệm học tập công bằng, hiện đại cho học sinh mọi miền tổ quốc.
-            </p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #2563eb; flex-shrink: 0;"><i class="ri-shuffle-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Tự Động Đảo Câu Hỏi & Đáp Án</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Mỗi học sinh vào phòng thi sẽ nhận một thứ tự câu hỏi và hoán vị đáp án ngẫu nhiên, nâng cao tính trung thực.</p>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #0284c7; flex-shrink: 0;"><i class="ri-function-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Công Thức Toán MathJax Sắc Nét</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Hiển thị mượt mà tích phân, căn thức, ma trận, công thức hóa học và vector trên mọi thiết bị di động.</p>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #16a34a; flex-shrink: 0;"><i class="ri-speed-up-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Tốc Độ Tải Siêu Tốc & Nhẹ</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Giao diện tối giản, tối ưu hóa băng thông giúp học sinh ở vùng sâu vùng xa mạng yếu vẫn làm bài mượt mà.</p>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #ea580c; flex-shrink: 0;"><i class="ri-book-read-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Hai Chế Độ: Luyện Tập & Thi Thật</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Chế độ Luyện tập cho xem đáp án giải thích ngay sau mỗi câu; chế độ Thi thật bấm giờ nghiêm ngặt và chấm điểm cuối giờ.</p>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #7c3aed; flex-shrink: 0;"><i class="ri-bar-chart-grouped-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Bảng Xếp Hạng & Thống Kê Phổ Điểm</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Giáo viên có ngay báo cáo phổ điểm của lớp, danh sách câu hỏi học sinh hay làm sai để củng cố kiến thức kịp thời.</p>
-                </div>
-            </div>
-
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
-                <div style="font-size: 26px; color: #059669; flex-shrink: 0;"><i class="ri-heart-pulse-line"></i></div>
-                <div>
-                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Hoàn Toàn Miễn Phí & Phi Lợi Nhuận</h4>
-                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Dự án cam kết phục vụ cộng đồng học sinh và giáo viên cả nước miễn phí, không thu phí bản quyền ôn luyện.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- PHẦN 3: CÂU HỎI THƯỜNG GẶP (FAQ) - ĐÁP ỨNG TIÊU CHUẨN NỘI DUNG ADSENSE -->
-    <section id="landingFAQ" style="margin-bottom: 40px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 40px;">
-        <div style="text-align: center; margin-bottom: 36px;">
-            <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #dbeafe;">
-                <i class="ri-question-answer-line"></i> Giải đáp thắc mắc
-            </div>
-            <h2 style="font-size: 1.85rem; font-weight: 800; color: #0f172a; margin: 0 0 8px 0;">Câu Hỏi Thường Gặp (FAQ)</h2>
-            <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Một số câu hỏi phổ biến khi sử dụng hệ thống HocNhanhTN</p>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 900px; margin: 0 auto;">
-            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">1. HocNhanhTN là gì và có thu phí người dùng không?</h4>
-                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    <b>HocNhanhTN</b> là nền tảng công nghệ giáo dục hỗ trợ số hóa đề thi trắc nghiệm từ tệp Word (.docx) và PDF thành phòng thi trực tuyến. Nền tảng được phát triển phi lợi nhuận và hoàn toàn <b>miễn phí</b> cho mọi học sinh và giáo viên.
-                </p>
-            </div>
-
-            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">2. Học sinh có bắt buộc phải đăng ký tài khoản để làm bài thi không?</h4>
-                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    <b>Không bắt buộc.</b> Học sinh chỉ cần có liên kết hoặc mã đề thi từ giáo viên là có thể vào phòng thi làm bài ngay mà không cần tạo tài khoản. Nếu đăng ký tài khoản, học sinh sẽ được lưu trữ lịch sử bài thi và theo dõi tiến độ học tập lâu dài.
-                </p>
-            </div>
-
-            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">3. Hệ thống có giữ nguyên công thức toán học MathType/LaTeX và hình ảnh không?</h4>
-                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    <b>Có.</b> HocNhanhTN sử dụng công nghệ trích xuất chuyên sâu kết hợp MathJax, đảm bảo công thức Toán, Vật lý, Hóa học và toàn bộ ảnh vẽ minh họa trong file Word gốc được giữ nguyên độ sắc nét cao.
-                </p>
-            </div>
-
-            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">4. Quảng cáo trên trang web hoạt động như thế nào?</h4>
-                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    Quảng cáo hiển thị thông qua mạng lưới <b>Google AdSense</b> chỉ nhằm mục đích trang trải chi phí máy chủ và hạ tầng đám mây. Chúng tôi cam kết <b>hoàn toàn không chèn quảng cáo làm phiền trong thời gian học sinh đang làm bài thi</b> để giữ sự tập trung cao nhất.
-                </p>
-            </div>
-
-            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
-                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">5. Làm thế nào để liên hệ hỗ trợ hoặc báo lỗi câu hỏi?</h4>
-                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
-                    Bạn có thể bấm vào mục <b>"Chính sách & Liên hệ"</b> ở chân trang hoặc gửi email trực tiếp tới Ban Quản trị tại địa chỉ: <a href="mailto:kiet0905478167@gmail.com" style="color: #2563eb; font-weight: 600;">kiet0905478167@gmail.com</a>. Chúng tôi phản hồi trong vòng 24 - 48 giờ.
-                </p>
-            </div>
-        </div>
-    </section>
-
-</div>
 
         <div class="flex-column">
           <label>Tên đăng nhập (Username / Email) </label>
@@ -1438,6 +1465,192 @@
     </div>
 </div>
 
+
+
+<!-- KHỐI NỘI DUNG MỞ RỘNG ĐÁP ỨNG TIÊU CHUẨN DUYỆT GOOGLE ADSENSE (HIGH VALUE CONTENT & NAVIGATION) -->
+<div id="publicLandingExtras" style="max-width: 1200px; margin: 0 auto; padding: 40px 20px 60px;">
+    
+    <!-- PHẦN 1: QUY TRÌNH 3 BƯỚC SỐ HÓA ĐỀ THI -->
+    <section id="landingWorkflow" style="margin-bottom: 70px; text-align: center;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #dbeafe;">
+            <i class="ri-flow-chart"></i> Quy trình công nghệ
+        </div>
+        <h2 style="font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Số Hóa Đề Thi Trắc Nghiệm Chỉ Với 3 Bước Đơn Giản</h2>
+        <p style="color: #64748b; font-size: 1rem; max-width: 680px; margin: 0 auto 40px; line-height: 1.6;">
+            HocNhanhTN giúp giáo viên chuyển đổi mọi tệp Word (.docx) và PDF chứa công thức toán học sang phòng thi trực tuyến trong tích tắc.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; text-align: left;">
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
+                    1
+                </div>
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Tải Lên Tệp Đề Thi Word / PDF</h3>
+                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Giáo viên chỉ cần kéo thả tệp Word (.docx) hoặc PDF biên soạn theo cấu trúc trắc nghiệm chuẩn của Bộ GD&ĐT. Không cần định dạng lại thủ công.
+                </p>
+            </div>
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
+                    2
+                </div>
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Tự Động Bóc Tách Công Thức & Ảnh</h3>
+                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Thuật toán AI tự động nhận diện câu hỏi, các đáp án A/B/C/D, bóc tách công thức Toán/Lý/Hóa LaTeX nguyên vẹn và tải ảnh minh họa lên đám mây.
+                </p>
+            </div>
+
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; margin-bottom: 20px;">
+                    3
+                </div>
+                <h3 style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0 0 10px 0;">Chia Sẻ & Chấm Điểm Tự Động</h3>
+                <p style="color: #64748b; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Hệ thống sinh mã đề và liên kết phòng thi trực tuyến. Học sinh làm bài trên điện thoại hoặc máy tính, hệ thống tự chấm và xếp hạng ngay khi nộp bài.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PHẦN 2: TÍNH NĂNG NỔI BẬT CHUẨN GDPT 2018 -->
+    <section id="landingFeatures" style="margin-bottom: 70px;">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: #fdf2f8; color: #db2777; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #fce7f3;">
+                <i class="ri-award-line"></i> Tiêu chuẩn chất lượng
+            </div>
+            <h2 style="font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Tính Năng Nổi Bật Đáp Ứng GDPT 2018</h2>
+            <p style="color: #64748b; font-size: 1rem; max-width: 680px; margin: 0 auto; line-height: 1.6;">
+                Nền tảng tối ưu trải nghiệm học tập công bằng, hiện đại cho học sinh mọi miền tổ quốc.
+            </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #2563eb; flex-shrink: 0;"><i class="ri-shuffle-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Tự Động Đảo Câu Hỏi & Đáp Án</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Mỗi học sinh vào phòng thi sẽ nhận một thứ tự câu hỏi và hoán vị đáp án ngẫu nhiên, nâng cao tính trung thực.</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #0284c7; flex-shrink: 0;"><i class="ri-function-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Công Thức Toán MathJax Sắc Nét</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Hiển thị mượt mà tích phân, căn thức, ma trận, công thức hóa học và vector trên mọi thiết bị di động.</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #16a34a; flex-shrink: 0;"><i class="ri-speed-up-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Tốc Độ Tải Siêu Tốc & Nhẹ</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Giao diện tối giản, tối ưu hóa băng thông giúp học sinh ở vùng sâu vùng xa mạng yếu vẫn làm bài mượt mà.</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #ea580c; flex-shrink: 0;"><i class="ri-book-read-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Hai Chế Độ: Luyện Tập & Thi Thật</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Chế độ Luyện tập cho xem đáp án giải thích ngay sau mỗi câu; chế độ Thi thật bấm giờ nghiêm ngặt và chấm điểm cuối giờ.</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #7c3aed; flex-shrink: 0;"><i class="ri-bar-chart-grouped-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Bảng Xếp Hạng & Thống Kê Phổ Điểm</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Giáo viên có ngay báo cáo phổ điểm của lớp, danh sách câu hỏi học sinh hay làm sai để củng cố kiến thức kịp thời.</p>
+                </div>
+            </div>
+
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 24px; display: flex; gap: 16px;">
+                <div style="font-size: 26px; color: #059669; flex-shrink: 0;"><i class="ri-heart-pulse-line"></i></div>
+                <div>
+                    <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Hoàn Toàn Miễn Phí & Phi Lợi Nhuận</h4>
+                    <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin: 0;">Dự án cam kết phục vụ cộng đồng học sinh và giáo viên cả nước miễn phí, không thu phí bản quyền ôn luyện.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PHẦN 3: CÂU HỎI THƯỜNG GẶP (FAQ) - ĐÁP ỨNG TIÊU CHUẨN NỘI DUNG ADSENSE -->
+    <section id="landingFAQ" style="margin-bottom: 40px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 40px;">
+        <div style="text-align: center; margin-bottom: 36px;">
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 14px; border-radius: 99px; font-size: 0.84rem; font-weight: 700; margin-bottom: 12px; border: 1px solid #dbeafe;">
+                <i class="ri-question-answer-line"></i> Giải đáp thắc mắc
+            </div>
+            <h2 style="font-size: 1.85rem; font-weight: 800; color: #0f172a; margin: 0 0 8px 0;">Câu Hỏi Thường Gặp (FAQ)</h2>
+            <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Một số câu hỏi phổ biến khi sử dụng hệ thống HocNhanhTN</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; max-width: 900px; margin: 0 auto;">
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
+                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">1. HocNhanhTN là gì và có thu phí người dùng không?</h4>
+                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    <b>HocNhanhTN</b> là nền tảng công nghệ giáo dục hỗ trợ số hóa đề thi trắc nghiệm từ tệp Word (.docx) và PDF thành phòng thi trực tuyến. Nền tảng được phát triển phi lợi nhuận và hoàn toàn <b>miễn phí</b> cho mọi học sinh và giáo viên.
+                </p>
+            </div>
+
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
+                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">2. Học sinh có bắt buộc phải đăng ký tài khoản để làm bài thi không?</h4>
+                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    <b>Không bắt buộc.</b> Học sinh chỉ cần có liên kết hoặc mã đề thi từ giáo viên là có thể vào phòng thi làm bài ngay mà không cần tạo tài khoản. Nếu đăng ký tài khoản, học sinh sẽ được lưu trữ lịch sử bài thi và theo dõi tiến độ học tập lâu dài.
+                </p>
+            </div>
+
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
+                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">3. Hệ thống có giữ nguyên công thức toán học MathType/LaTeX và hình ảnh không?</h4>
+                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    <b>Có.</b> HocNhanhTN sử dụng công nghệ trích xuất chuyên sâu kết hợp MathJax, đảm bảo công thức Toán, Vật lý, Hóa học và toàn bộ ảnh vẽ minh họa trong file Word gốc được giữ nguyên độ sắc nét cao.
+                </p>
+            </div>
+
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
+                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">4. Quảng cáo trên trang web hoạt động như thế nào?</h4>
+                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Quảng cáo hiển thị thông qua mạng lưới <b>Google AdSense</b> chỉ nhằm mục đích trang trải chi phí máy chủ và hạ tầng đám mây. Chúng tôi cam kết <b>hoàn toàn không chèn quảng cáo làm phiền trong thời gian học sinh đang làm bài thi</b> để giữ sự tập trung cao nhất.
+                </p>
+            </div>
+
+            <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; background: #f8fafc;">
+                <h4 style="font-size: 1.05rem; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">5. Làm thế nào để liên hệ hỗ trợ hoặc báo lỗi câu hỏi?</h4>
+                <p style="color: #475569; font-size: 0.92rem; line-height: 1.6; margin: 0;">
+                    Bạn có thể bấm vào mục <b>"Chính sách & Liên hệ"</b> ở chân trang hoặc gửi email trực tiếp tới Ban Quản trị tại địa chỉ: <a href="mailto:kiet0905478167@gmail.com" style="color: #2563eb; font-weight: 600;">kiet0905478167@gmail.com</a>. Chúng tôi phản hồi trong vòng 24 - 48 giờ.
+                </p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<style>
+@media (max-width: 640px) {
+    #publicLandingExtras {
+        padding: 24px 14px 40px !important;
+    }
+    #landingFAQ {
+        padding: 20px 14px !important;
+    }
+    #landingWorkflow {
+        margin-bottom: 45px !important;
+    }
+    #landingFeatures {
+        margin-bottom: 45px !important;
+    }
+    #landingWorkflow h2, #landingFeatures h2, #landingFAQ h2 {
+        font-size: 1.45rem !important;
+    }
+    #landingShowcase h1 {
+        font-size: 1.5rem !important;
+    }
+    #landingShowcase {
+        padding: 4px 2px !important;
+    }
+}
+</style>
 
 
 <!-- Màn hình Quản trị viên (Admin) -->
@@ -2565,6 +2778,6 @@
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="script.js?v=20261020_latex_fix_v5"></script>
+<script src="script.js?v=20261020_mobile_nav_v6"></script>
 </body>
 </html>

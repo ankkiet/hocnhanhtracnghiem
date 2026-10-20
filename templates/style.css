@@ -4940,7 +4940,8 @@ body.quiz-completed .exam-sticky-timer {
         display: block !important;
         box-sizing: border-box !important;
     }
-    img, video, iframe {
+    /* Chi co anh noi dung bai viet thi auto, bao ve logo va avatar */
+    img:not(.public-header-logo):not(.azota-brand-img):not([class*="logo"]):not([class*="avatar"]):not(.azota-brand-icon img):not(.azota-brand-circle img):not(.google-user-avatar-box img), video, iframe {
         max-width: 100% !important;
         height: auto !important;
     }
