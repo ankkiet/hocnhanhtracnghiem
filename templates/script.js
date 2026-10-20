@@ -5170,6 +5170,9 @@ function checkPracticeAnswer(oIndex) {
     if (q.explain) {
         feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
     }
+    if (typeof renderMath === 'function') {
+        renderMath(feedback);
+    }
     
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
     attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
@@ -5239,6 +5242,9 @@ function checkPracticeTF() {
     if (q.explain) {
         feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
     }
+    if (typeof renderMath === 'function') {
+        renderMath(feedback);
+    }
     
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
     attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, matchCount < 4);
@@ -5282,6 +5288,9 @@ function checkPracticeShortAnswer() {
         
     if (q.explain) {
         feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
+    }
+    if (typeof renderMath === 'function') {
+        renderMath(feedback);
     }
     
     // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
@@ -7373,59 +7382,70 @@ window.focusLoginForm = focusLoginForm;
 
 function startDemoQuiz() {
     const demoQuiz = {
-        title: "Đề thi thử mẫu chuẩn GDPT 2018 - Môn Toán & Khoa học Tự nhiên",
+        title: "Đề thi thử mẫu chuẩn GDPT 2018 - Môn Toán & Khoa học",
         time_limit: 15,
         mode: "practice",
+        is_shuffle: false,
         data: [
             {
-                question: "Cho hàm số \( y = f(x) \) liên tục trên \(\mathbb{R}\) và có đạo hàm \( f'(x) = x(x-1)(x+2)^2 \). Số điểm cực trị của hàm số đã cho là:",
-                options: ["1 điểm", "2 điểm", "3 điểm", "0 điểm"],
-                correct: 1,
-                explanation: "Ta có: \( f'(x) = 0 \Leftrightarrow x = 0 \) hoặc \( x = 1 \) hoặc \( x = -2 \). Vì nghiệm \( x = -2 \) là nghiệm bội chẵn nên đạo hàm không đổi dấu khi đi qua điểm này. Do đó hàm số chỉ đổi dấu qua 2 nghiệm đơn \( x = 0 \) và \( x = 1 \), suy ra hàm số có đúng 2 điểm cực trị."
+                question: "Cho hàm số $y = f(x)$ liên tục trên $\\mathbb{R}$ và có đạo hàm $f'(x) = x(x-1)(x+2)^2$. Số điểm cực trị của hàm số đã cho là:",
+                options: [
+                    "A. 1 điểm",
+                    "B. 2 điểm",
+                    "C. 3 điểm",
+                    "D. 0 điểm"
+                ],
+                correct_answer: "B. 2 điểm",
+                explain: "Ta có: $f'(x) = 0 \\Leftrightarrow x = 0$ hoặc $x = 1$ hoặc $x = -2$. Vì nghiệm $x = -2$ là nghiệm bội chẵn nên đạo hàm không đổi dấu khi đi qua điểm này. Do đó hàm số chỉ đổi dấu qua 2 điểm $x = 0$ và $x = 1$, suy ra hàm số có đúng 2 điểm cực trị.",
+                type: "mcq"
             },
             {
-                question: "Trong không gian \( Oxyz \), cho mặt phẳng \( (P): 2x - 3y + z - 5 = 0 \). Một vectơ pháp tuyến của \( (P) \) là:",
+                question: "Trong không gian $Oxyz$, cho mặt phẳng $(P): 2x - 3y + z - 5 = 0$. Một vectơ pháp tuyến của mặt phẳng $(P)$ là:",
                 options: [
-                    "\( \vec{n} = (2; -3; 1) \)",
-                    "\( \vec{n} = (2; 3; 1) \)",
-                    "\( \vec{n} = (2; -3; -5) \)",
-                    "\( \vec{n} = (-2; -3; 1) \)"
+                    "A. $\\vec{n} = (2; -3; 1)$",
+                    "B. $\\vec{n} = (2; 3; 1)$",
+                    "C. $\\vec{n} = (2; -3; -5)$",
+                    "D. $\\vec{n} = (-2; -3; 1)$"
                 ],
-                correct: 0,
-                explanation: "Phương trình tổng quát mặt phẳng \( Ax + By + Cz + D = 0 \) có vectơ pháp tuyến là \( \vec{n} = (A; B; C) = (2; -3; 1) \)."
+                correct_answer: "A. $\\vec{n} = (2; -3; 1)$",
+                explain: "Phương trình tổng quát mặt phẳng $Ax + By + Cz + D = 0$ có một vectơ pháp tuyến là $\\vec{n} = (A; B; C) = (2; -3; 1)$.",
+                type: "mcq"
             },
             {
-                question: "Theo định hướng Chương trình GDPT 2018, cấu trúc đề thi trắc nghiệm đổi mới bao gồm các dạng thức câu hỏi nào?",
+                question: "Một vật dao động điều hòa theo phương trình $x = 5\\cos(4\\pi t)$ (cm). Tần số dao động của vật là:",
                 options: [
-                    "Chỉ sử dụng duy nhất câu hỏi trắc nghiệm 4 lựa chọn đơn thuần.",
-                    "Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai (4 ý a,b,c,d) và Trắc nghiệm trả lời ngắn.",
-                    "Chỉ gồm phần tự luận và bài toán lập luận dài.",
-                    "Trắc nghiệm điền khuyết đơn giản không phân hóa năng lực."
+                    "A. 2 Hz",
+                    "B. 4 Hz",
+                    "C. 0,5 Hz",
+                    "D. $4\\pi$ Hz"
                 ],
-                correct: 1,
-                explanation: "Bộ Giáo dục và Đào tạo áp dụng 3 dạng thức trắc nghiệm mới trong kỳ thi tốt nghiệp THPT từ năm 2025: Phần I (Trắc nghiệm nhiều lựa chọn), Phần II (Trắc nghiệm Đúng/Sai), Phần III (Trắc nghiệm trả lời ngắn) nhằm đánh giá toàn diện năng lực học sinh."
+                correct_answer: "A. 2 Hz",
+                explain: "Tần số góc $\\omega = 4\\pi\\text{ rad/s}$. Tần số dao động: $f = \\frac{\\omega}{2\\pi} = \\frac{4\\pi}{2\\pi} = 2\\text{ Hz}$.",
+                type: "mcq"
             },
             {
-                question: "Một vật dao động điều hòa theo phương trình \( x = 5\cos(4\pi t) \) (cm). Tần số dao động của vật là:",
+                question: "Theo định hướng Chương trình GDPT 2018 áp dụng cho kỳ thi tốt nghiệp THPT, cấu trúc đề thi trắc nghiệm bao gồm các dạng thức nào?",
                 options: [
-                    "\( 2 \text{ Hz} \)",
-                    "\( 4 \text{ Hz} \)",
-                    "\( 0,5 \text{ Hz} \)",
-                    "\( 4\pi \text{ Hz} \)"
+                    "A. Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai và Trắc nghiệm trả lời ngắn.",
+                    "B. Chỉ gồm 40 câu hỏi trắc nghiệm 4 lựa chọn A, B, C, D truyền thống.",
+                    "C. Chỉ gồm câu hỏi tự luận dài và câu hỏi ghép nối.",
+                    "D. Toàn bộ là câu hỏi điền từ vào chỗ trống đơn giản."
                 ],
-                correct: 0,
-                explanation: "Tần số góc \( \omega = 4\pi \text{ rad/s} \). Tần số dao động: \( f = \frac{\omega}{2\pi} = \frac{4\pi}{2\pi} = 2 \text{ Hz} \)."
+                correct_answer: "A. Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai và Trắc nghiệm trả lời ngắn.",
+                explain: "Cấu trúc đề thi mới gồm 3 dạng thức trắc nghiệm: Phần I (Trắc nghiệm nhiều lựa chọn), Phần II (Trắc nghiệm Đúng/Sai gồm 4 ý), Phần III (Trắc nghiệm trả lời ngắn) giúp đánh giá toàn diện năng lực học sinh.",
+                type: "mcq"
             },
             {
-                question: "Hệ thống HocNhanhTN hỗ trợ giáo viên số hóa những định dạng tệp nào sang phòng thi trực tuyến?",
+                question: "Hệ thống HocNhanhTN hỗ trợ giáo viên chuyển đổi trực tiếp những định dạng tài liệu nào sang đề thi trực tuyến?",
                 options: [
-                    "Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
-                    "Chỉ cho phép nhập tệp văn bản thô không dấu (.txt).",
-                    "Bắt buộc nhập liệu thủ công từng câu hỏi.",
-                    "Chỉ nhận các tệp ảnh chụp màn hình chất lượng thấp."
+                    "A. Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
+                    "B. Chỉ nhận tệp văn bản thô không dấu (.txt).",
+                    "C. Bắt buộc nhập liệu thủ công từng câu hỏi.",
+                    "D. Chỉ nhận các tệp ảnh chụp màn hình chất lượng thấp."
                 ],
-                correct: 0,
-                explanation: "HocNhanhTN tích hợp trí tuệ nhân tạo và bộ bóc tách chuyên sâu, cho phép giáo viên tải trực tiếp tệp Word hoặc PDF có sẵn để tạo đề thi hoàn chỉnh trong vài giây."
+                correct_answer: "A. Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
+                explain: "HocNhanhTN tích hợp trí tuệ nhân tạo và bộ bóc tách chuyên sâu, cho phép giáo viên tải trực tiếp tệp Word (.docx) hoặc PDF có sẵn để tạo đề thi hoàn chỉnh trong vài giây.",
+                type: "mcq"
             }
         ]
     };
@@ -7437,38 +7457,54 @@ function startDemoQuiz() {
     if (authBox) authBox.style.setProperty('display', 'none', 'important');
     const landingExtra = document.getElementById('publicLandingExtras');
     if (landingExtra) landingExtra.style.display = 'none';
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    if (welcomeScreen) welcomeScreen.style.display = 'none';
 
-    // 2. Mở phòng thi & thanh điều hướng làm bài
+    // 2. Kích hoạt giao diện phòng thi tối giản (Student Minimal Mode)
+    document.body.classList.add('minimal-mode');
     const mainApp = document.getElementById('mainAppContainer');
     if (mainApp) mainApp.style.display = 'block';
+    const studentHeader = document.getElementById('studentHeader');
+    if (studentHeader) studentHeader.style.display = 'block';
     const azotaNav = document.getElementById('azotaNavbar');
-    if (azotaNav) azotaNav.style.display = 'block';
-
+    if (azotaNav) azotaNav.style.display = 'none';
     const hub = document.getElementById('creationHub');
     if (hub) hub.style.display = 'none';
     const btnEdit = document.getElementById('btnEdit');
     if (btnEdit) btnEdit.style.display = 'none';
 
-    // 3. Nạp dữ liệu đề thi mẫu
-    currentData = demoQuiz.data;
-    currentData.forEach((q, i) => { q._originalIndex = i; });
-    serverData = JSON.parse(JSON.stringify(currentData));
+    const titleEl = document.getElementById('studentQuizTitle');
+    if (titleEl) titleEl.innerText = demoQuiz.title;
     document.title = `${demoQuiz.title} - HocNhanhTN`;
 
-    // Thiết lập tên học sinh trải nghiệm
-    studentName = "Học sinh / Chuyên viên Google";
-    const sNameInput = document.getElementById('studentNameInput');
-    if (sNameInput) sNameInput.value = studentName;
+    studentName = "Thí sinh trải nghiệm";
     updateStudentNameDisplay(studentName);
 
-    // Kích hoạt chế độ luyện tập có giải thích tức thì
+    // 3. Nạp dữ liệu câu hỏi mẫu
+    currentData = JSON.parse(JSON.stringify(demoQuiz.data));
+    currentData.forEach((q, i) => { q._originalIndex = i; });
+    serverData = JSON.parse(JSON.stringify(currentData));
+    currentTimeLimit = demoQuiz.time_limit || 15;
+    currentDataMode = 'practice';
+    isStudentMode = true;
+
+    // 4. Khởi tạo trạng thái và render giao diện làm bài
+    currentQuestionIndex = 0;
+    practiceScore = 0;
+    practiceAnswered = false;
+    resetSubmissionReviewUI();
     switchMode('practice');
-    renderQuiz();
-    if (window.MathJax && window.MathJax.typesetPromise) {
-        window.MathJax.typesetPromise();
+
+    // 5. Kích hoạt MathJax hiển thị công thức Toán chuẩn nét
+    if (typeof renderMath === 'function') {
+        renderMath(document.getElementById('quiz-container'));
+        setTimeout(() => {
+            renderMath(document.getElementById('quiz-container'));
+        }, 150);
     }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast("🎉 Đang mở bài thi mẫu chuẩn GDPT 2018! Bạn có thể chọn đáp án và xem lời giải chi tiết ngay.", "info");
+    showToast("🎉 Đang mở bài thi mẫu chuẩn GDPT 2018! Bấm chọn đáp án để xem kết quả và lời giải.", "info");
 }
 window.startDemoQuiz = startDemoQuiz;
 
