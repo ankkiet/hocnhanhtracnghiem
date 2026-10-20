@@ -4,20 +4,26 @@
 
 // Tự động nhận diện môi trường (Localhost vs Production)
 const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
-let API_BASE_URL = window.location.origin;
+let API_BASE_URL = PROD_BACKEND_URL;
 
 const currentHost = window.location.hostname || '';
-if (window.location.protocol === 'file:') {
-    API_BASE_URL = "http://127.0.0.1:8000";
-} else if (
-    currentHost.endsWith('.pages.dev') || 
-    currentHost.endsWith('.vercel.app') || 
-    currentHost.endsWith('.netlify.app') || 
-    currentHost.endsWith('.github.io')
-) {
-    API_BASE_URL = PROD_BACKEND_URL;
-} else {
+const isLocal = 
+    window.location.protocol === 'file:' ||
+    currentHost === 'localhost' || 
+    currentHost === '127.0.0.1' || 
+    currentHost.startsWith('192.168.') || 
+    currentHost.startsWith('10.') || 
+    currentHost.endsWith('.local');
+
+if (isLocal) {
+    // Chạy cục bộ / offline / máy dev
+    API_BASE_URL = (window.location.port === '8000') ? window.location.origin : "http://127.0.0.1:8000";
+} else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
+    // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
     API_BASE_URL = window.location.origin;
+} else {
+    // Tất cả tên miền production tĩnh (Cloudflare Pages, hocnhanhtn.online, *.pages.dev, vercel, netlify...)
+    API_BASE_URL = PROD_BACKEND_URL;
 }
 
 if (typeof localStorage !== 'undefined' && localStorage.getItem('CUSTOM_API_BASE_URL')) {

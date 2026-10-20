@@ -1,6 +1,15 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Chuyển tiếp (Reverse Proxy) tất cả API request về backend Koyeb
+    if (url.pathname.startsWith('/api/')) {
+      const backendUrl = new URL(request.url);
+      backendUrl.protocol = 'https:';
+      backendUrl.host = 'inland-marylin-hocnhanhtn-c3471a95.koyeb.app';
+      backendUrl.port = '';
+      return fetch(new Request(backendUrl.toString(), request));
+    }
     const quizId = url.searchParams.get('id') || url.searchParams.get('quiz_id');
     
     let targetQuizId = quizId;
