@@ -88,7 +88,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261020_mobile_nav_v6">
+    <link rel="stylesheet" href="style.css?v=20261020_login_modal_v7">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     
     <!-- Google AdSense (Bắt buộc trong <head> để Google xác minh trang web) -->
@@ -1114,62 +1114,244 @@
 }
 </style>
 
-<div id="authContainer" class="styled-auth-wrapper" style="display: none; justify-content: center; align-items: center; min-height: 85vh; width: 100%;">
-    <!-- KHỐI GIỚI THIỆU TÍNH NĂNG GIÁO DỤC CHO BOT GOOGLE VÀ KHÁCH VÀO TRANG CHỦ -->
-    <div id="landingShowcase" style="text-align: left;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 99px; font-size: 0.82rem; font-weight: 700; margin-bottom: 14px; border: 1px solid #dbeafe;">
+<!-- KHỐI HERO GIỚI THIỆU TRANG CHỦ (LANDING HERO SECTION) -->
+<section id="landingHero" class="landing-hero-section">
+    <div class="landing-hero-inner">
+        <div class="landing-hero-badge">
             <i class="ri-sparkling-fill"></i> Chuẩn Chương trình GDPT 2018
         </div>
-        <h1 style="font-size: 1.85rem; font-weight: 800; color: #0f172a; line-height: 1.35; margin: 0 0 14px 0;">
+        <h1 class="landing-hero-title">
             Hệ thống Học Nhanh Trắc Nghiệm Thông Minh
         </h1>
-        <p style="color: #475569; font-size: 0.98rem; line-height: 1.6; margin: 0 0 20px 0;">
+        <p class="landing-hero-desc">
             Nền tảng chuyển đổi số giáo dục phi lợi nhuận, hỗ trợ học sinh ôn tập trắc nghiệm tốc độ cao và giúp thầy cô số hóa đề thi Word/PDF sang dạng thi trực tuyến chỉ trong vài giây.
         </p>
 
-        <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;">
-            <div style="display: flex; gap: 12px; align-items: flex-start;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: #dbeafe; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                    <i class="ri-file-word-line"></i>
-                </div>
+        <!-- 3 Điểm nổi bật -->
+        <div class="landing-hero-highlights">
+            <div class="hero-highlight-card">
+                <div class="highlight-icon blue"><i class="ri-file-word-line"></i></div>
                 <div>
-                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Số hóa đề thi tự động từ Word & PDF</strong>
-                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Giữ nguyên vẹn công thức Toán/Lý/Hóa LaTeX, bảng biểu và hình ảnh minh họa.</span>
+                    <strong>Số hóa đề thi tự động từ Word & PDF</strong>
+                    <span>Giữ nguyên vẹn công thức Toán/Lý/Hóa LaTeX, bảng biểu và hình ảnh minh họa.</span>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: flex-start;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                    <i class="ri-timer-flash-line"></i>
-                </div>
+            <div class="hero-highlight-card">
+                <div class="highlight-icon orange"><i class="ri-timer-flash-line"></i></div>
                 <div>
-                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Làm bài thi trực tuyến mượt mà</strong>
-                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Giao diện tối giản, tự động bấm giờ, đảo câu hỏi & đáp án thông minh.</span>
+                    <strong>Làm bài thi trực tuyến mượt mà</strong>
+                    <span>Giao diện tối giản, tự động bấm giờ, đảo câu hỏi & đáp án thông minh.</span>
                 </div>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: flex-start;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
-                    <i class="ri-bar-chart-box-line"></i>
-                </div>
+            <div class="hero-highlight-card">
+                <div class="highlight-icon green"><i class="ri-bar-chart-box-line"></i></div>
                 <div>
-                    <strong style="color: #0f172a; font-size: 0.95rem; display: block;">Chấm điểm tức thì & Phân tích phổ điểm</strong>
-                    <span style="color: #64748b; font-size: 0.86rem; line-height: 1.45;">Xem chi tiết câu đúng/sai, lời giải giải thích rõ ràng giúp học sinh tiến bộ.</span>
+                    <strong>Chấm điểm tức thì & Phân tích phổ điểm</strong>
+                    <span>Xem chi tiết câu đúng/sai, lời giải giải thích rõ ràng giúp học sinh tiến bộ.</span>
                 </div>
             </div>
         </div>
 
-        <!-- Nút hành động trực tiếp dành cho khách & Chuyên viên kiểm duyệt AdSense -->
-        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px;">
-            <button type="button" onclick="startDemoQuiz()" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; padding: 13px 22px; border-radius: 10px; font-weight: 700; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 6px 18px rgba(37,99,235,0.3); transition: transform 0.15s ease;">
-                <i class="ri-play-circle-fill" style="font-size: 1.25rem;"></i> Làm thử bài thi mẫu ngay
+        <!-- Các nút hành động chính (Call To Action) -->
+        <div class="landing-hero-cta">
+            <button type="button" onclick="startDemoQuiz()" class="btn-hero-primary">
+                <i class="ri-play-circle-fill"></i> Làm thử bài thi mẫu ngay
             </button>
-            <a href="#landingWorkflow" style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; padding: 13px 18px; border-radius: 10px; font-weight: 600; font-size: 0.92rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="ri-compass-3-line"></i> Khám phá tính năng
+            <button type="button" onclick="focusLoginForm()" class="btn-hero-secondary">
+                <i class="ri-user-shared-line"></i> Đăng nhập / Đăng ký
+            </button>
+            <a href="#landingWorkflow" class="btn-hero-outline">
+                <i class="ri-compass-3-line"></i> Khám phá quy trình
             </a>
         </div>
     </div>
+</section>
 
+<style>
+.landing-hero-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 48px 20px 40px;
+    box-sizing: border-box;
+}
+.landing-hero-inner {
+    text-align: center;
+    max-width: 960px;
+    margin: 0 auto;
+}
+.landing-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 6px 14px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+    border: 1px solid #dbeafe;
+}
+.landing-hero-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.3;
+    margin: 0 0 16px 0;
+    letter-spacing: -0.02em;
+}
+.landing-hero-desc {
+    color: #475569;
+    font-size: 1.05rem;
+    line-height: 1.65;
+    max-width: 760px;
+    margin: 0 auto 36px;
+}
+.landing-hero-highlights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    text-align: left;
+    margin-bottom: 36px;
+}
+.hero-highlight-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hero-highlight-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.highlight-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+.highlight-icon.blue { background: #dbeafe; color: #2563eb; }
+.highlight-icon.orange { background: #fef3c7; color: #d97706; }
+.highlight-icon.green { background: #dcfce7; color: #16a34a; }
+.hero-highlight-card strong {
+    color: #0f172a;
+    font-size: 0.96rem;
+    display: block;
+    margin-bottom: 4px;
+}
+.hero-highlight-card span {
+    color: #64748b;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    display: block;
+}
+.landing-hero-cta {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.btn-hero-primary {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #fff;
+    border: none;
+    padding: 13px 24px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 6px 18px rgba(37,99,235,0.3);
+    transition: transform 0.15s ease;
+}
+.btn-hero-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(37,99,235,0.38);
+}
+.btn-hero-secondary {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1.5px solid #bfdbfe;
+    padding: 13px 22px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+.btn-hero-secondary:hover {
+    background: #dbeafe;
+}
+.btn-hero-outline {
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    padding: 13px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.btn-hero-outline:hover {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+@media (max-width: 768px) {
+    .landing-hero-section {
+        padding: 24px 14px 20px;
+    }
+    .landing-hero-title {
+        font-size: 1.6rem;
+        line-height: 1.35;
+    }
+    .landing-hero-desc {
+        font-size: 0.92rem;
+        margin-bottom: 20px;
+    }
+    .landing-hero-highlights {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-bottom: 22px;
+    }
+    .landing-hero-cta {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    .btn-hero-primary,
+    .btn-hero-secondary,
+    .btn-hero-outline {
+        width: 100%;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+}
+</style>
+
+<!-- KHỐI MODAL ĐĂNG NHẬP / ĐĂNG KÝ (CHỈ HIỆN KHI BẤM NÚT ĐĂNG NHẬP) -->
+<div id="authContainer" class="styled-auth-wrapper modal-mode" style="display: none !important;">
     <!-- Form Đăng nhập (Sign In) -->
     <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
         <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ đăng nhập">
@@ -2778,6 +2960,6 @@
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="script.js?v=20261020_mobile_nav_v6"></script>
+<script src="script.js?v=20261020_login_modal_v7"></script>
 </body>
 </html>

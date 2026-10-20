@@ -959,11 +959,8 @@ function closeExamLoginModal() {
     const authBox = document.getElementById('authContainer');
     if (!authBox) return;
     authBox.classList.remove('modal-mode');
-    const quizId = getCurrentQuizId();
-    if (quizId) {
-        authBox.classList.add('hidden');
-        authBox.style.setProperty('display', 'none', 'important');
-    }
+    authBox.classList.add('hidden');
+    authBox.style.setProperty('display', 'none', 'important');
 }
 window.closeExamLoginModal = closeExamLoginModal;
 
@@ -1009,6 +1006,8 @@ function checkAuthState() {
     if (quizId) {
         const pubHeader = document.getElementById('publicHeader');
         if (pubHeader) pubHeader.style.display = 'none';
+        const landingHero = document.getElementById('landingHero');
+        if (landingHero) landingHero.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -1052,28 +1051,25 @@ function checkAuthState() {
         if (azotaNav) azotaNav.style.display = 'none';
         const pubHeader = document.getElementById('publicHeader');
         if (pubHeader) pubHeader.style.display = 'block';
+        const landingHero = document.getElementById('landingHero');
+        if (landingHero) landingHero.style.display = 'block';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'block';
         if (authBox) {
-            authBox.classList.remove('hidden');
-            authBox.style.setProperty('display', 'flex', 'important');
-            authBox.style.justifyContent = 'center';
-            authBox.style.alignItems = 'center';
-            authBox.style.minHeight = '85vh';
-            authBox.style.width = '100%';
+            authBox.classList.remove('modal-mode');
+            authBox.classList.add('hidden');
+            authBox.style.setProperty('display', 'none', 'important');
         }
         if (mainApp) mainApp.style.display = 'none';
         if (adminBox) adminBox.style.display = 'none';
         
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
         hideRoleScreens();
-        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
-        if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
         hidePageInitialLoader();
     } else if (authRole === 'admin') {
         const pubHeader = document.getElementById('publicHeader');
         if (pubHeader) pubHeader.style.display = 'none';
+        const landingHero = document.getElementById('landingHero');
+        if (landingHero) landingHero.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -1094,6 +1090,8 @@ function checkAuthState() {
     } else {
         const pubHeader = document.getElementById('publicHeader');
         if (pubHeader) pubHeader.style.display = 'none';
+        const landingHero = document.getElementById('landingHero');
+        if (landingHero) landingHero.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -7370,13 +7368,7 @@ window.addEventListener('pagehide', () => {
    ========================================================================= */
 
 function focusLoginForm() {
-    const authBox = document.getElementById('authContainer');
-    if (authBox) {
-        authBox.style.setProperty('display', 'flex', 'important');
-        authBox.scrollIntoView({ behavior: 'smooth' });
-    }
-    const uInput = document.getElementById('loginUsername');
-    if (uInput) uInput.focus();
+    openExamLoginModal();
 }
 window.focusLoginForm = focusLoginForm;
 
@@ -7453,6 +7445,8 @@ function startDemoQuiz() {
     // 1. Ẩn khối Landing Page & Header công khai
     const pubHeader = document.getElementById('publicHeader');
     if (pubHeader) pubHeader.style.display = 'none';
+    const landingHero = document.getElementById('landingHero');
+    if (landingHero) landingHero.style.display = 'none';
     const authBox = document.getElementById('authContainer');
     if (authBox) authBox.style.setProperty('display', 'none', 'important');
     const landingExtra = document.getElementById('publicLandingExtras');
