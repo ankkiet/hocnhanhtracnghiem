@@ -1007,6 +1007,10 @@ function checkAuthState() {
 
     // NẾU CÓ QUIZ ID TRÊN URL (Học sinh mở link làm bài kiểm tra)
     if (quizId) {
+        const pubHeader = document.getElementById('publicHeader');
+        if (pubHeader) pubHeader.style.display = 'none';
+        const landingExtra = document.getElementById('publicLandingExtras');
+        if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
             authBox.classList.remove('modal-mode');
             authBox.classList.add('hidden');
@@ -1046,6 +1050,10 @@ function checkAuthState() {
 
     if (!authToken) {
         if (azotaNav) azotaNav.style.display = 'none';
+        const pubHeader = document.getElementById('publicHeader');
+        if (pubHeader) pubHeader.style.display = 'block';
+        const landingExtra = document.getElementById('publicLandingExtras');
+        if (landingExtra) landingExtra.style.display = 'block';
         if (authBox) {
             authBox.classList.remove('hidden');
             authBox.style.setProperty('display', 'flex', 'important');
@@ -1064,6 +1072,10 @@ function checkAuthState() {
         if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
         hidePageInitialLoader();
     } else if (authRole === 'admin') {
+        const pubHeader = document.getElementById('publicHeader');
+        if (pubHeader) pubHeader.style.display = 'none';
+        const landingExtra = document.getElementById('publicLandingExtras');
+        if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
             authBox.classList.add('hidden');
             authBox.style.setProperty('display', 'none', 'important');
@@ -1080,6 +1092,10 @@ function checkAuthState() {
         loadAdminSettings();
         hidePageInitialLoader();
     } else {
+        const pubHeader = document.getElementById('publicHeader');
+        if (pubHeader) pubHeader.style.display = 'none';
+        const landingExtra = document.getElementById('publicLandingExtras');
+        if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
             authBox.classList.add('hidden');
             authBox.style.setProperty('display', 'none', 'important');
@@ -7339,3 +7355,135 @@ window.addEventListener('pagehide', () => {
         }
     }
 });
+
+/* =========================================================================
+   TÍNH NĂNG TRẢI NGHIỆM ĐỀ THI MẪU & ĐIỀU HƯỚNG CÔNG KHAI (CHUẨN GOOGLE ADSENSE)
+   ========================================================================= */
+
+function focusLoginForm() {
+    const authBox = document.getElementById('authContainer');
+    if (authBox) {
+        authBox.style.setProperty('display', 'flex', 'important');
+        authBox.scrollIntoView({ behavior: 'smooth' });
+    }
+    const uInput = document.getElementById('loginUsername');
+    if (uInput) uInput.focus();
+}
+window.focusLoginForm = focusLoginForm;
+
+function startDemoQuiz() {
+    const demoQuiz = {
+        title: "Đề thi thử mẫu chuẩn GDPT 2018 - Môn Toán & Khoa học Tự nhiên",
+        time_limit: 15,
+        mode: "practice",
+        data: [
+            {
+                question: "Cho hàm số \( y = f(x) \) liên tục trên \(\mathbb{R}\) và có đạo hàm \( f'(x) = x(x-1)(x+2)^2 \). Số điểm cực trị của hàm số đã cho là:",
+                options: ["1 điểm", "2 điểm", "3 điểm", "0 điểm"],
+                correct: 1,
+                explanation: "Ta có: \( f'(x) = 0 \Leftrightarrow x = 0 \) hoặc \( x = 1 \) hoặc \( x = -2 \). Vì nghiệm \( x = -2 \) là nghiệm bội chẵn nên đạo hàm không đổi dấu khi đi qua điểm này. Do đó hàm số chỉ đổi dấu qua 2 nghiệm đơn \( x = 0 \) và \( x = 1 \), suy ra hàm số có đúng 2 điểm cực trị."
+            },
+            {
+                question: "Trong không gian \( Oxyz \), cho mặt phẳng \( (P): 2x - 3y + z - 5 = 0 \). Một vectơ pháp tuyến của \( (P) \) là:",
+                options: [
+                    "\( \vec{n} = (2; -3; 1) \)",
+                    "\( \vec{n} = (2; 3; 1) \)",
+                    "\( \vec{n} = (2; -3; -5) \)",
+                    "\( \vec{n} = (-2; -3; 1) \)"
+                ],
+                correct: 0,
+                explanation: "Phương trình tổng quát mặt phẳng \( Ax + By + Cz + D = 0 \) có vectơ pháp tuyến là \( \vec{n} = (A; B; C) = (2; -3; 1) \)."
+            },
+            {
+                question: "Theo định hướng Chương trình GDPT 2018, cấu trúc đề thi trắc nghiệm đổi mới bao gồm các dạng thức câu hỏi nào?",
+                options: [
+                    "Chỉ sử dụng duy nhất câu hỏi trắc nghiệm 4 lựa chọn đơn thuần.",
+                    "Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai (4 ý a,b,c,d) và Trắc nghiệm trả lời ngắn.",
+                    "Chỉ gồm phần tự luận và bài toán lập luận dài.",
+                    "Trắc nghiệm điền khuyết đơn giản không phân hóa năng lực."
+                ],
+                correct: 1,
+                explanation: "Bộ Giáo dục và Đào tạo áp dụng 3 dạng thức trắc nghiệm mới trong kỳ thi tốt nghiệp THPT từ năm 2025: Phần I (Trắc nghiệm nhiều lựa chọn), Phần II (Trắc nghiệm Đúng/Sai), Phần III (Trắc nghiệm trả lời ngắn) nhằm đánh giá toàn diện năng lực học sinh."
+            },
+            {
+                question: "Một vật dao động điều hòa theo phương trình \( x = 5\cos(4\pi t) \) (cm). Tần số dao động của vật là:",
+                options: [
+                    "\( 2 \text{ Hz} \)",
+                    "\( 4 \text{ Hz} \)",
+                    "\( 0,5 \text{ Hz} \)",
+                    "\( 4\pi \text{ Hz} \)"
+                ],
+                correct: 0,
+                explanation: "Tần số góc \( \omega = 4\pi \text{ rad/s} \). Tần số dao động: \( f = \frac{\omega}{2\pi} = \frac{4\pi}{2\pi} = 2 \text{ Hz} \)."
+            },
+            {
+                question: "Hệ thống HocNhanhTN hỗ trợ giáo viên số hóa những định dạng tệp nào sang phòng thi trực tuyến?",
+                options: [
+                    "Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
+                    "Chỉ cho phép nhập tệp văn bản thô không dấu (.txt).",
+                    "Bắt buộc nhập liệu thủ công từng câu hỏi.",
+                    "Chỉ nhận các tệp ảnh chụp màn hình chất lượng thấp."
+                ],
+                correct: 0,
+                explanation: "HocNhanhTN tích hợp trí tuệ nhân tạo và bộ bóc tách chuyên sâu, cho phép giáo viên tải trực tiếp tệp Word hoặc PDF có sẵn để tạo đề thi hoàn chỉnh trong vài giây."
+            }
+        ]
+    };
+
+    // 1. Ẩn khối Landing Page & Header công khai
+    const pubHeader = document.getElementById('publicHeader');
+    if (pubHeader) pubHeader.style.display = 'none';
+    const authBox = document.getElementById('authContainer');
+    if (authBox) authBox.style.setProperty('display', 'none', 'important');
+    const landingExtra = document.getElementById('publicLandingExtras');
+    if (landingExtra) landingExtra.style.display = 'none';
+
+    // 2. Mở phòng thi & thanh điều hướng làm bài
+    const mainApp = document.getElementById('mainAppContainer');
+    if (mainApp) mainApp.style.display = 'block';
+    const azotaNav = document.getElementById('azotaNavbar');
+    if (azotaNav) azotaNav.style.display = 'block';
+
+    const hub = document.getElementById('creationHub');
+    if (hub) hub.style.display = 'none';
+    const btnEdit = document.getElementById('btnEdit');
+    if (btnEdit) btnEdit.style.display = 'none';
+
+    // 3. Nạp dữ liệu đề thi mẫu
+    currentData = demoQuiz.data;
+    currentData.forEach((q, i) => { q._originalIndex = i; });
+    serverData = JSON.parse(JSON.stringify(currentData));
+    document.title = `${demoQuiz.title} - HocNhanhTN`;
+
+    // Thiết lập tên học sinh trải nghiệm
+    studentName = "Học sinh / Chuyên viên Google";
+    const sNameInput = document.getElementById('studentNameInput');
+    if (sNameInput) sNameInput.value = studentName;
+    updateStudentNameDisplay(studentName);
+
+    // Kích hoạt chế độ luyện tập có giải thích tức thì
+    switchMode('practice');
+    renderQuiz();
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast("🎉 Đang mở bài thi mẫu chuẩn GDPT 2018! Bạn có thể chọn đáp án và xem lời giải chi tiết ngay.", "info");
+}
+window.startDemoQuiz = startDemoQuiz;
+
+// Lắng nghe URL hash để mở chính sách trực tiếp (#privacy, #terms, #about, #contact)
+(function initPolicyHashRouting() {
+    function handleHash() {
+        const h = (window.location.hash || '').replace('#', '').toLowerCase();
+        if (['privacy', 'terms', 'about', 'contact'].includes(h)) {
+            if (typeof openLegalModal === 'function') openLegalModal(h);
+        }
+    }
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', handleHash);
+    } else {
+        handleHash();
+    }
+    window.addEventListener('hashchange', handleHash);
+})();
