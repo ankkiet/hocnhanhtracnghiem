@@ -2253,6 +2253,12 @@ async function loadStudentHistory(forceRefresh = false) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/student/history?student_token=${encodeURIComponent(authToken)}`);
         const data = await res.json();
+        if (res.status === 403) {
+            console.warn("Phiên đăng nhập học sinh đã hết hạn hoặc không hợp lệ (403).");
+            showToast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "warning");
+            setTimeout(() => { logout(); }, 1200);
+            return;
+        }
         if (res.ok && data.status === 'success') {
             rawStudentHistory = data.data || [];
             
@@ -2753,6 +2759,12 @@ async function loadTeacherQuizzes() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/quizzes?teacher_token=${authToken}`);
         const data = await res.json();
+        if (res.status === 403) {
+            console.warn("Phiên đăng nhập giáo viên đã hết hạn hoặc không hợp lệ (403).");
+            showToast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "warning");
+            setTimeout(() => { logout(); }, 1200);
+            return;
+        }
         if (res.ok && data.status === 'success') {
             rawTeacherQuizzes = data.data || [];
             
@@ -3818,6 +3830,12 @@ async function loadAdminUsers() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/users?admin_token=${authToken}`);
         const data = await res.json();
+        if (res.status === 403) {
+            console.warn("Phiên đăng nhập quản trị viên đã hết hạn hoặc không hợp lệ (403).");
+            showToast("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "warning");
+            setTimeout(() => { logout(); }, 1200);
+            return;
+        }
         if(res.ok && data.status === 'success') {
             let html = `<table style="width:100%; border-collapse: collapse; text-align:left; font-size: 0.9rem;">
                 <tr style="border-bottom: 2px solid var(--border); color: var(--text-muted); background: #f8fafc;">

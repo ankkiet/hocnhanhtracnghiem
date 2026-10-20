@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "hocnhanhtn-secret-jwt-key-2026-secure-token-999")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_DAYS = 30
 
 def hash_password(password: str) -> str:
     """Băm mật khẩu sử dụng PBKDF2-HMAC-SHA256 kèm Salt ngẫu nhiên chống tấn công Rainbow Table."""

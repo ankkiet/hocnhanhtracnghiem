@@ -18,8 +18,8 @@ export async function onRequest(context) {
     if (match) targetQuizId = match[1];
   }
 
-  // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ)
-  if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map)$/i)) {
+  // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt, robots.txt, sitemap.xml)
+  if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt|xml|webmanifest)$/i) || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
     return next();
   }
 

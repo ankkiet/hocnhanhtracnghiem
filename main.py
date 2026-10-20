@@ -255,6 +255,24 @@ def get_ads_txt():
         return FileResponse(ads_file_path, media_type="text/plain")
     return HTMLResponse("google.com, pub-5865046257484388, DIRECT, f08c47fec0942fa0", media_type="text/plain")
 
+@app.get("/robots.txt", summary="Tệp chỉ dẫn bọ tìm kiếm Googlebot", include_in_schema=False)
+def get_robots_txt():
+    robots_path = os.path.join(os.path.dirname(__file__), "robots.txt")
+    if not os.path.exists(robots_path):
+        robots_path = os.path.join(templates_dir, "robots.txt")
+    if os.path.exists(robots_path):
+        return FileResponse(robots_path, media_type="text/plain")
+    return HTMLResponse("User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://hocnhanhtn.online/sitemap.xml", media_type="text/plain")
+
+@app.get("/sitemap.xml", summary="Sơ đồ website cho Google Search Console", include_in_schema=False)
+def get_sitemap_xml():
+    sitemap_path = os.path.join(os.path.dirname(__file__), "sitemap.xml")
+    if not os.path.exists(sitemap_path):
+        sitemap_path = os.path.join(templates_dir, "sitemap.xml")
+    if os.path.exists(sitemap_path):
+        return FileResponse(sitemap_path, media_type="application/xml")
+    raise HTTPException(status_code=404, detail="Không tìm thấy sitemap.xml")
+
 if os.path.exists(templates_dir):
     app.mount("/", StaticFiles(directory=templates_dir, html=True), name="static")
 
