@@ -590,17 +590,30 @@ function showRoleSelection(userId, fullName, email, avatar, className, phone, sc
     const mainApp = document.getElementById('mainAppContainer');
     const adminBox = document.getElementById('adminContainer');
     const azotaNav = document.getElementById('azotaNavbar');
+    const pubHeader = document.getElementById('publicHeader');
+    const landingHero = document.getElementById('landingHero');
+    const landingExtra = document.getElementById('publicLandingExtras');
+
+    if (pubHeader) pubHeader.style.display = 'none';
+    if (landingHero) landingHero.style.display = 'none';
+    if (landingExtra) landingExtra.style.display = 'none';
     if (mainApp) mainApp.style.display = 'none';
     if (adminBox) adminBox.style.display = 'none';
     if (azotaNav) azotaNav.style.display = 'none';
+
     if (authBox) {
         authBox.classList.remove('hidden');
-        authBox.style.setProperty('display', 'flex', 'important');
-        authBox.style.justifyContent = 'center';
-        authBox.style.alignItems = 'center';
-        authBox.style.minHeight = '85vh';
-        authBox.style.width = '100%';
+        authBox.classList.add('page-mode');
+        authBox.style.removeProperty('display');
+        authBox.style.display = 'block';
     }
+
+    const dualGrid = document.getElementById('authDualGrid');
+    const mobileTabs = document.getElementById('authMobileTabs');
+    const pageIntro = document.querySelector('.auth-page-intro');
+    if (dualGrid) dualGrid.style.setProperty('display', 'none', 'important');
+    if (mobileTabs) mobileTabs.style.setProperty('display', 'none', 'important');
+    if (pageIntro) pageIntro.style.setProperty('display', 'none', 'important');
 
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
@@ -655,17 +668,30 @@ function showPendingApproval(userId, fullName, email, className, school, phone) 
     const mainApp = document.getElementById('mainAppContainer');
     const adminBox = document.getElementById('adminContainer');
     const azotaNav = document.getElementById('azotaNavbar');
+    const pubHeader = document.getElementById('publicHeader');
+    const landingHero = document.getElementById('landingHero');
+    const landingExtra = document.getElementById('publicLandingExtras');
+
+    if (pubHeader) pubHeader.style.display = 'none';
+    if (landingHero) landingHero.style.display = 'none';
+    if (landingExtra) landingExtra.style.display = 'none';
     if (mainApp) mainApp.style.display = 'none';
     if (adminBox) adminBox.style.display = 'none';
     if (azotaNav) azotaNav.style.display = 'none';
+
     if (authBox) {
         authBox.classList.remove('hidden');
-        authBox.style.setProperty('display', 'flex', 'important');
-        authBox.style.justifyContent = 'center';
-        authBox.style.alignItems = 'center';
-        authBox.style.minHeight = '85vh';
-        authBox.style.width = '100%';
+        authBox.classList.add('page-mode');
+        authBox.style.removeProperty('display');
+        authBox.style.display = 'block';
     }
+
+    const dualGrid = document.getElementById('authDualGrid');
+    const mobileTabs = document.getElementById('authMobileTabs');
+    const pageIntro = document.querySelector('.auth-page-intro');
+    if (dualGrid) dualGrid.style.setProperty('display', 'none', 'important');
+    if (mobileTabs) mobileTabs.style.setProperty('display', 'none', 'important');
+    if (pageIntro) pageIntro.style.setProperty('display', 'none', 'important');
 
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
@@ -708,6 +734,15 @@ function hideRoleScreens() {
     const pendingCard = document.getElementById('pendingApprovalCard');
     if (roleCard) roleCard.style.setProperty('display', 'none', 'important');
     if (pendingCard) pendingCard.style.setProperty('display', 'none', 'important');
+
+    const dualGrid = document.getElementById('authDualGrid');
+    const mobileTabs = document.getElementById('authMobileTabs');
+    const pageIntro = document.querySelector('.auth-page-intro');
+    if (dualGrid) dualGrid.style.removeProperty('display');
+    if (pageIntro) pageIntro.style.removeProperty('display');
+    if (mobileTabs && window.innerWidth < 992) {
+        mobileTabs.style.setProperty('display', 'flex', 'important');
+    }
 }
 window.hideRoleScreens = hideRoleScreens;
 
@@ -764,6 +799,7 @@ async function submitUserProfileAndRole() {
                 authToken = data.token;
                 authRole = data.role;
                 authName = data.full_name;
+                closeAuthPage(true);
                 closeExamLoginModal();
                 hideRoleScreens();
                 checkAuthState();
@@ -848,8 +884,20 @@ window.checkCurrentApprovalStatus = checkCurrentApprovalStatus;
 function cancelRoleSelection() {
     currentPendingUserId = null;
     hideRoleScreens();
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+    const authBox = document.getElementById('authContainer');
+    if (authBox && authBox.classList.contains('page-mode')) {
+        if (window.innerWidth >= 992) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+            if (registerForm) registerForm.style.setProperty('display', 'flex', 'important');
+        } else {
+            switchMobileAuthTab('login');
+        }
+    } else {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+    }
     if (window.firebaseAuth && typeof window.firebaseAuth.signOut === 'function') {
         window.firebaseAuth.signOut().catch(() => {});
     }
@@ -895,6 +943,7 @@ async function triggerGoogleSignIn() {
                 authToken = data.token;
                 authRole = data.role;
                 authName = data.full_name;
+                closeAuthPage(true);
                 closeExamLoginModal();
                 hideRoleScreens();
                 checkAuthState();
@@ -928,17 +977,190 @@ async function triggerGoogleSignIn() {
 }
 window.triggerGoogleSignIn = triggerGoogleSignIn;
 
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    const icon = btn ? btn.querySelector('i') : null;
+    if (icon) {
+        icon.className = isPassword ? 'ri-eye-off-line' : 'ri-eye-line';
+    }
+}
+window.togglePasswordVisibility = togglePasswordVisibility;
+
+function setRegisterRole(role) {
+    const sel = document.getElementById('regRole');
+    if (sel) sel.value = role;
+    
+    const pillStudent = document.getElementById('rolePillStudent');
+    const pillTeacher = document.getElementById('rolePillTeacher');
+    if (pillStudent && pillTeacher) {
+        if (role === 'teacher') {
+            pillStudent.classList.remove('selected');
+            pillTeacher.classList.add('selected');
+            const iconS = pillStudent.querySelector('.role-pill-check');
+            const iconT = pillTeacher.querySelector('.role-pill-check');
+            if (iconS) iconS.className = 'ri-checkbox-blank-circle-line role-pill-check';
+            if (iconT) iconT.className = 'ri-checkbox-circle-fill role-pill-check';
+        } else {
+            pillStudent.classList.add('selected');
+            pillTeacher.classList.remove('selected');
+            const iconS = pillStudent.querySelector('.role-pill-check');
+            const iconT = pillTeacher.querySelector('.role-pill-check');
+            if (iconS) iconS.className = 'ri-checkbox-circle-fill role-pill-check';
+            if (iconT) iconT.className = 'ri-checkbox-blank-circle-line role-pill-check';
+        }
+    }
+}
+window.setRegisterRole = setRegisterRole;
+
+function switchMobileAuthTab(tab) {
+    const tabLogin = document.getElementById('tabMobileLogin');
+    const tabRegister = document.getElementById('tabMobileRegister');
+    const loginCard = document.querySelector('.auth-login-card');
+    const registerCard = document.querySelector('.auth-register-card');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    if (tab === 'register') {
+        if (tabLogin) tabLogin.classList.remove('active');
+        if (tabRegister) tabRegister.classList.add('active');
+        if (loginCard) loginCard.style.setProperty('display', 'none', 'important');
+        if (registerCard) registerCard.style.setProperty('display', 'block', 'important');
+        if (loginForm) loginForm.style.setProperty('display', 'none', 'important');
+        if (registerForm) registerForm.style.setProperty('display', 'flex', 'important');
+        
+        const authBox = document.getElementById('authContainer');
+        if (authBox && authBox.classList.contains('page-mode')) {
+            history.replaceState({ page: 'auth', tab: 'register' }, '', '/register');
+        }
+    } else {
+        if (tabLogin) tabLogin.classList.add('active');
+        if (tabRegister) tabRegister.classList.remove('active');
+        if (loginCard) loginCard.style.setProperty('display', 'block', 'important');
+        if (registerCard) registerCard.style.setProperty('display', 'none', 'important');
+        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+        if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+        
+        const authBox = document.getElementById('authContainer');
+        if (authBox && authBox.classList.contains('page-mode')) {
+            history.replaceState({ page: 'auth', tab: 'login' }, '', '/login');
+        }
+    }
+}
+window.switchMobileAuthTab = switchMobileAuthTab;
+
+function openAuthPage(initialTab = 'login', pushHistory = true) {
+    const authBox = document.getElementById('authContainer');
+    if (!authBox) return;
+
+    // Nếu đang trong phòng thi kiểm tra thì ưu tiên modal để tránh mất phiên thi
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    if (quizId) {
+        openExamLoginModal();
+        return;
+    }
+
+    // Ẩn giao diện Landing Page
+    const pubHeader = document.getElementById('publicHeader');
+    const landingHero = document.getElementById('landingHero');
+    const landingExtra = document.getElementById('publicLandingExtras');
+    const mainApp = document.getElementById('mainAppContainer');
+    const adminBox = document.getElementById('adminContainer');
+
+    if (pubHeader) pubHeader.style.display = 'none';
+    if (landingHero) landingHero.style.display = 'none';
+    if (landingExtra) landingExtra.style.display = 'none';
+    if (mainApp) mainApp.style.display = 'none';
+    if (adminBox) adminBox.style.display = 'none';
+
+    // Kích hoạt authContainer ở chế độ Trang Riêng
+    authBox.classList.remove('modal-mode');
+    authBox.classList.add('page-mode');
+    authBox.classList.remove('hidden');
+    authBox.style.removeProperty('display');
+    authBox.style.display = 'block';
+
+    hideRoleScreens();
+
+    if (window.innerWidth < 992) {
+        switchMobileAuthTab(initialTab);
+    } else {
+        // Desktop: Hiển thị 2 form song song (Login & Register)
+        const loginCard = document.querySelector('.auth-login-card');
+        const registerCard = document.querySelector('.auth-register-card');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const dualGrid = document.getElementById('authDualGrid');
+        if (dualGrid) dualGrid.style.removeProperty('display');
+        if (loginCard) loginCard.style.removeProperty('display');
+        if (registerCard) registerCard.style.removeProperty('display');
+        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+        if (registerForm) registerForm.style.setProperty('display', 'flex', 'important');
+    }
+
+    setTimeout(() => {
+        if (initialTab === 'register') {
+            const regInput = document.getElementById('regFullName');
+            if (regInput && window.innerWidth >= 992) regInput.focus();
+        } else {
+            const loginInput = document.getElementById('email');
+            if (loginInput) loginInput.focus();
+        }
+    }, 120);
+
+    if (pushHistory) {
+        const targetPath = initialTab === 'register' ? '/register' : '/login';
+        if (window.location.pathname !== targetPath) {
+            history.pushState({ page: 'auth', tab: initialTab }, '', targetPath);
+        }
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.openAuthPage = openAuthPage;
+
+function closeAuthPage(updateHistory = true) {
+    const authBox = document.getElementById('authContainer');
+    if (authBox) {
+        authBox.classList.remove('page-mode');
+        authBox.classList.remove('modal-mode');
+        authBox.classList.add('hidden');
+        authBox.style.setProperty('display', 'none', 'important');
+    }
+
+    hideRoleScreens();
+
+    const pubHeader = document.getElementById('publicHeader');
+    const landingHero = document.getElementById('landingHero');
+    const landingExtra = document.getElementById('publicLandingExtras');
+
+    if (pubHeader) pubHeader.style.display = 'block';
+    if (landingHero) landingHero.style.display = 'block';
+    if (landingExtra) landingExtra.style.display = 'block';
+
+    if (updateHistory) {
+        if (window.location.pathname === '/login' || window.location.pathname === '/register' || window.location.pathname === '/auth') {
+            history.pushState({ page: 'home' }, '', '/');
+        }
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.closeAuthPage = closeAuthPage;
+
 function openExamLoginModal() {
     const authBox = document.getElementById('authContainer');
     if (!authBox) return;
+    authBox.classList.remove('page-mode');
     authBox.classList.add('modal-mode');
     authBox.classList.remove('hidden');
     authBox.style.removeProperty('display');
     authBox.style.display = 'flex';
     
     // Đảm bảo mở form đăng nhập nếu không đang ở quy trình khác
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
     const roleCard = document.getElementById('roleSelectionCard');
     const pendingCard = document.getElementById('pendingApprovalCard');
     
@@ -947,10 +1169,7 @@ function openExamLoginModal() {
     } else if (pendingCard && pendingCard.style.display !== 'none') {
         // Giữ nguyên pendingCard nếu đang chờ duyệt
     } else {
-        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
-        if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
-        if (roleCard) roleCard.style.setProperty('display', 'none', 'important');
-        if (pendingCard) pendingCard.style.setProperty('display', 'none', 'important');
+        switchMobileAuthTab('login');
     }
 }
 window.openExamLoginModal = openExamLoginModal;
@@ -959,8 +1178,10 @@ function closeExamLoginModal() {
     const authBox = document.getElementById('authContainer');
     if (!authBox) return;
     authBox.classList.remove('modal-mode');
-    authBox.classList.add('hidden');
-    authBox.style.setProperty('display', 'none', 'important');
+    if (!authBox.classList.contains('page-mode')) {
+        authBox.classList.add('hidden');
+        authBox.style.setProperty('display', 'none', 'important');
+    }
 }
 window.closeExamLoginModal = closeExamLoginModal;
 
@@ -976,6 +1197,45 @@ document.addEventListener('keydown', function(e) {
         const authBox = document.getElementById('authContainer');
         if (authBox && authBox.classList.contains('modal-mode')) {
             closeExamLoginModal();
+        }
+    }
+});
+
+window.addEventListener('resize', function() {
+    const authBox = document.getElementById('authContainer');
+    if (!authBox || !authBox.classList.contains('page-mode')) return;
+    
+    const roleCard = document.getElementById('roleSelectionCard');
+    const pendingCard = document.getElementById('pendingApprovalCard');
+    if ((roleCard && roleCard.style.display !== 'none') || (pendingCard && pendingCard.style.display !== 'none')) {
+        return;
+    }
+
+    const loginCard = document.querySelector('.auth-login-card');
+    const registerCard = document.querySelector('.auth-register-card');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+
+    if (window.innerWidth >= 992) {
+        if (loginCard) loginCard.style.removeProperty('display');
+        if (registerCard) registerCard.style.removeProperty('display');
+        if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
+        if (registerForm) registerForm.style.setProperty('display', 'flex', 'important');
+    } else {
+        const isReg = document.getElementById('tabMobileRegister')?.classList.contains('active');
+        switchMobileAuthTab(isReg ? 'register' : 'login');
+    }
+});
+
+window.addEventListener('popstate', function(e) {
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    if (path === '/login' || path === '/register' || path === '/auth' || hash === '#auth' || hash === '#login' || hash === '#register') {
+        openAuthPage(path === '/register' || hash === '#register' ? 'register' : 'login', false);
+    } else if (path === '/' || path === '/index.html') {
+        const authBox = document.getElementById('authContainer');
+        if (authBox && authBox.classList.contains('page-mode')) {
+            closeAuthPage(false);
         }
     }
 });
@@ -1011,6 +1271,7 @@ function checkAuthState() {
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
+            authBox.classList.remove('page-mode');
             authBox.classList.remove('modal-mode');
             authBox.classList.add('hidden');
             authBox.style.setProperty('display', 'none', 'important');
@@ -1047,8 +1308,25 @@ function checkAuthState() {
         return;
     }
 
+    if (authToken && (window.location.pathname === '/login' || window.location.pathname === '/register' || window.location.pathname === '/auth')) {
+        history.replaceState(null, '', '/');
+    }
+
     if (!authToken) {
         if (azotaNav) azotaNav.style.display = 'none';
+        if (mainApp) mainApp.style.display = 'none';
+        if (adminBox) adminBox.style.display = 'none';
+
+        const path = window.location.pathname;
+        const hash = window.location.hash;
+        const isAuthRoute = (path === '/login' || path === '/register' || path === '/auth' || hash === '#auth' || hash === '#login' || hash === '#register');
+
+        if (isAuthRoute) {
+            hidePageInitialLoader();
+            openAuthPage(path === '/register' || hash === '#register' ? 'register' : 'login', false);
+            return;
+        }
+
         const pubHeader = document.getElementById('publicHeader');
         if (pubHeader) pubHeader.style.display = 'block';
         const landingHero = document.getElementById('landingHero');
@@ -1056,12 +1334,11 @@ function checkAuthState() {
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'block';
         if (authBox) {
+            authBox.classList.remove('page-mode');
             authBox.classList.remove('modal-mode');
             authBox.classList.add('hidden');
             authBox.style.setProperty('display', 'none', 'important');
         }
-        if (mainApp) mainApp.style.display = 'none';
-        if (adminBox) adminBox.style.display = 'none';
         
         hideRoleScreens();
         hidePageInitialLoader();
@@ -1206,18 +1483,19 @@ function showAdminView() {
 
 function toggleAuth(type) {
     hideRoleScreens();
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    if (!loginForm || !registerForm) return;
-
-    if(type === 'register') {
-        loginForm.style.setProperty('display', 'none', 'important');
-        registerForm.style.setProperty('display', 'flex', 'important');
+    if (window.innerWidth < 992) {
+        switchMobileAuthTab(type);
     } else {
-        loginForm.style.setProperty('display', 'flex', 'important');
-        registerForm.style.setProperty('display', 'none', 'important');
+        if (type === 'register') {
+            const regInput = document.getElementById('regFullName');
+            if (regInput) regInput.focus();
+        } else {
+            const loginInput = document.getElementById('email');
+            if (loginInput) loginInput.focus();
+        }
     }
 }
+window.toggleAuth = toggleAuth;
 
 async function handleLogin() {
     const uInput = document.getElementById('email') || document.getElementById('loginUsername');
@@ -1244,6 +1522,7 @@ async function handleLogin() {
             localStorage.setItem('auth_role', data.role);
             localStorage.setItem('auth_name', data.full_name);
             authToken = data.token; authRole = data.role; authName = data.full_name;
+            closeAuthPage(true);
             closeExamLoginModal();
             hideRoleScreens();
             checkAuthState();
@@ -1288,6 +1567,12 @@ async function handleRegister() {
                 showPendingApproval(null, fn, u);
             } else {
                 toggleAuth('login');
+                const emailInput = document.getElementById('email');
+                if (emailInput) {
+                    emailInput.value = u;
+                    const pwdInput = document.getElementById('password');
+                    if (pwdInput) pwdInput.focus();
+                }
             }
         } else { alert("Lỗi: " + (data.detail || "Đăng ký thất bại.")); }
     } catch(e) { 
@@ -1475,6 +1760,18 @@ async function initApp() {
                             }
                             if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
                             if (!quizProgress.quizUpdatedAt) quizProgress.quizUpdatedAt = serverUpdatedAt;
+                            
+                            // Phục hồi trạng thái luyện tập (Đúng / Sai) của từng câu nếu có
+                            if (quizProgress.practiceResults && currentData) {
+                                currentData.forEach((q, idx) => {
+                                    if (quizProgress.practiceResults[idx]) {
+                                        q._practiceStatus = quizProgress.practiceResults[idx];
+                                        if (quizProgress.answers && quizProgress.answers[idx] !== undefined) {
+                                            q.user_answer_practice = quizProgress.answers[idx];
+                                        }
+                                    }
+                                });
+                            }
                             
                             // Cập nhật lại thời gian chính xác cho timer theo thời gian thực
                             if (!quizProgress.completed && quizProgress.startedAt) {
@@ -1902,6 +2199,7 @@ async function startStudentQuiz(isResume = false) {
     document.getElementById('studentHeader').style.display = 'block';
     updateStudentNameDisplay(studentName);
     document.body.classList.add('minimal-mode');
+    toggleMobileNavSheet(false);
     const mobileBar = document.getElementById('azotaMobileExamBar');
     if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) {
         mobileBar.style.setProperty('display', 'flex', 'important');
@@ -1920,8 +2218,8 @@ async function startStudentQuiz(isResume = false) {
     }
     
     const quizContainer = document.getElementById('quiz-container');
-    if (quizContainer) quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (quizContainer && typeof quizContainer.scrollTo === 'function') quizContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0, behavior: 'smooth' });
     
     clearInterval(heartbeatInterval);
 }
@@ -4627,11 +4925,6 @@ function renderData() {
         mainAppContainer.classList.remove('wide-container');
     }
 
-    if (currentMode === 'practice') {
-        renderPracticeQuestion();
-        return;
-    }
-
     if (currentMode === 'edit') {
         container.innerHTML = `
             <!-- TAB CHUYỂN ĐỔI CHẾ ĐỘ XEM TRÊN ĐIỆN THOẠI (INDEX) -->
@@ -4777,8 +5070,28 @@ function renderData() {
                 updateSyntaxHighlight();
             }
         });
+    } else if (currentMode === 'practice') {
+        // CHẾ ĐỘ LUYỆN TẬP: HIỂN THỊ TỪNG CÂU MỘT (HẾT CÂU NÀY ĐẾN CÂU KHÁC)
+        const examLayout = document.getElementById('azotaExamLayout');
+        if (examLayout) examLayout.style.display = '';
+        const sideCol = document.getElementById('azotaSideExamCol');
+        if (sideCol) sideCol.style.display = '';
+
+        const examLegends = document.querySelectorAll('.azota-nav-legend-exam');
+        examLegends.forEach(el => el.style.setProperty('display', 'none', 'important'));
+        const practiceStats = document.querySelectorAll('.azota-practice-stats');
+        practiceStats.forEach(el => el.style.setProperty('display', 'grid', 'important'));
+        const restartBtns = document.querySelectorAll('.btn-azota-restart-practice');
+        restartBtns.forEach(btn => btn.style.setProperty('display', 'flex', 'important'));
+        const submitNavBtns = document.querySelectorAll('.btn-azota-submit-big');
+        submitNavBtns.forEach(btn => {
+            btn.innerHTML = `<i class="ri-check-double-line"></i> NỘP BÀI & XEM TỔNG KẾT`;
+        });
+
+        renderPracticeQuestion();
+
     } else {
-        // CHẾ ĐỘ THI THỬ / EXAM MODE
+        // CHẾ ĐỘ THI THỬ (EXAM): HIỂN THỊ TOÀN BỘ CÂU HỎI CUỘN DỌC TỪ TRÊN XUỐNG DƯỚI
         const examLayout = document.getElementById('azotaExamLayout');
         if (examLayout) examLayout.style.display = '';
         const sideCol = document.getElementById('azotaSideExamCol');
@@ -4791,18 +5104,6 @@ function renderData() {
         currentData.forEach((q, qIndex) => {
             let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
             
-            let ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : undefined;
-            let isAnswered = ansVal !== undefined && ansVal !== '' && (typeof ansVal !== 'object' || Object.keys(ansVal).length > 0);
-            if (isAnswered) answeredCount++;
-            let isFlagged = !!flaggedQuestions[qIndex];
-
-            // Render nút tương ứng trên Bảng câu hỏi (Desktop side palette & Mobile drawer)
-            navGridHtml += `
-                <button type="button" class="azota-nav-num nav-num-btn nav-num-${qIndex} ${isAnswered ? 'answered' : ''} ${isFlagged ? 'flagged' : ''}" id="nav_num_${qIndex}" data-qindex="${qIndex}" onclick="scrollToQuestion(${qIndex})" title="Chuyển đến Câu ${qIndex + 1}">
-                    ${qIndex + 1}
-                </button>
-            `;
-
             let qType = getRealQuestionType(q);
             let typeBadge = '';
             if (qType === 'true_false') {
@@ -4812,6 +5113,8 @@ function renderData() {
             }
 
             let cleanQText = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+            let isFlagged = !!flaggedQuestions[qIndex];
+
             let boxHtml = `
                 <div class="card question-box azota-question-card" id="question_box_${qIndex}">
                     ${groupTitleHtml}
@@ -4824,8 +5127,17 @@ function renderData() {
                     <div class="question-title azota-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
             `;
 
+            let ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : undefined;
+            let isAnswered = ansVal !== undefined && ansVal !== '' && (typeof ansVal !== 'object' || Object.keys(ansVal).length > 0);
+            if (isAnswered) answeredCount++;
+
+            navGridHtml += `
+                <button type="button" class="azota-nav-num nav-num-btn nav-num-${qIndex} ${isAnswered ? 'answered' : ''} ${isFlagged ? 'flagged' : ''}" id="nav_num_${qIndex}" data-qindex="${qIndex}" onclick="scrollToQuestion(${qIndex})" title="Chuyển đến Câu ${qIndex + 1}">
+                    ${qIndex + 1}
+                </button>
+            `;
+
             if (qType === 'true_false') {
-                // Giao diện trắc nghiệm Đúng / Sai
                 boxHtml += `<div class="azota-tf-container">`;
                 let userAnsObj = (quizProgress && quizProgress.answers && typeof quizProgress.answers[qIndex] === 'object') ? quizProgress.answers[qIndex] : {};
                 (q.options || []).forEach((opt, oIndex) => {
@@ -4847,7 +5159,6 @@ function renderData() {
                 });
                 boxHtml += `</div></div>`;
             } else if (qType === 'short_answer') {
-                // Giao diện trắc nghiệm Trả lời ngắn
                 let userSA = (quizProgress && quizProgress.answers && typeof quizProgress.answers[qIndex] === 'string') ? quizProgress.answers[qIndex] : '';
                 boxHtml += `
                     <div class="azota-sa-box">
@@ -4855,7 +5166,6 @@ function renderData() {
                         <input type="text" class="azota-sa-input" id="exam_sa_${qIndex}" value="${escapeHtml(userSA)}" placeholder="Điền đáp số hoặc kết quả..." oninput="selectExamShortAnswer(${qIndex}, this.value)">
                     </div></div>`;
             } else {
-                // Giao diện MCQ 4 lựa chọn
                 boxHtml += `<div class="azota-opt-list">`;
                 (q.options || []).forEach((opt, oIndex) => {
                     let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
@@ -4874,11 +5184,30 @@ function renderData() {
         });
 
         container.innerHTML = htmlBuilder;
+        renderMath(container);
+
         const navGrid = document.getElementById('azotaNavGrid');
         if (navGrid) navGrid.innerHTML = navGridHtml;
         const mobileNavGrid = document.getElementById('azotaMobileNavGrid');
         if (mobileNavGrid) mobileNavGrid.innerHTML = navGridHtml;
         updateNavProgressBadge();
+
+        const examLegends = document.querySelectorAll('.azota-nav-legend-exam');
+        examLegends.forEach(el => el.style.setProperty('display', 'flex', 'important'));
+        const practiceStats = document.querySelectorAll('.azota-practice-stats');
+        practiceStats.forEach(el => el.style.setProperty('display', 'none', 'important'));
+        const restartBtns = document.querySelectorAll('.btn-azota-restart-practice');
+        restartBtns.forEach(btn => btn.style.setProperty('display', 'none', 'important'));
+        const submitNavBtns = document.querySelectorAll('.btn-azota-submit-big');
+        submitNavBtns.forEach(btn => {
+            btn.innerHTML = `<i class="ri-check-double-line"></i> NỘP BÀI THI`;
+        });
+        const mobileNextBtn = document.getElementById('mobileNextBtn');
+        if (mobileNextBtn) {
+            mobileNextBtn.style.display = 'inline-flex';
+            mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-down-line"></i>';
+            mobileNextBtn.onclick = mobileNextQuestionAction;
+        }
     }
     document.getElementById('aiCustomPrompt').style.display = currentMode === 'edit' ? 'block' : 'none';
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
@@ -4889,116 +5218,513 @@ function renderData() {
         if (sideCol) sideCol.style.setProperty('display', 'none', 'important');
         if (mobileBar) mobileBar.style.display = 'none';
     } else {
-        if (currentMode !== 'exam') {
-            const sideCol = document.getElementById('azotaSideExamCol');
-            if (sideCol) sideCol.style.setProperty('display', 'none', 'important');
-        } else {
-            const sideCol = document.getElementById('azotaSideExamCol');
-            if (sideCol) sideCol.style.setProperty('display', 'block', 'important');
-        }
+        const sideCol = document.getElementById('azotaSideExamCol');
+        if (sideCol) sideCol.style.display = '';
         if (mobileBar && currentMode !== 'edit') {
             mobileBar.style.setProperty('display', 'flex', 'important');
         }
-        const mobileNextBtn = document.getElementById('mobileNextBtn');
-        if (mobileNextBtn) {
-            mobileNextBtn.style.display = 'inline-flex';
-            mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-right-line"></i>';
-        }
     }
     document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
-    renderMath(container);
 }
 
+// ========================================================
+// HÀM XỬ LÝ CHẾ ĐỘ LUYỆN TẬP (TỪNG CÂU MỘT - HẾT CÂU NÀY ĐẾN CÂU KHÁC)
+// ========================================================
 function renderPracticeQuestion() {
     const container = document.getElementById('quiz-container');
+    if (!container) return;
     container.innerHTML = '';
-    
+
     if (currentQuestionIndex >= currentData.length) {
         submitExam();
         return;
     }
 
-    practiceAnswered = false;
-    window.currentPracticeTF = {};
-    const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar) mobileBar.style.setProperty('display', 'flex', 'important');
-    const mobileNextBtn = document.getElementById('mobileNextBtn');
-    if (mobileNextBtn) {
-        mobileNextBtn.style.display = 'inline-flex';
-        mobileNextBtn.innerHTML = (currentQuestionIndex === currentData.length - 1) ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
-    }
     const q = currentData[currentQuestionIndex];
+    if (!q) return;
+
     const qType = getRealQuestionType(q);
+    const savedStatus = q._practiceStatus || (quizProgress && quizProgress.practiceResults && quizProgress.practiceResults[currentQuestionIndex]);
+    const hasAnswered = Boolean(savedStatus);
+    const userAns = q.user_answer_practice || (quizProgress && quizProgress.answers && quizProgress.answers[currentQuestionIndex]);
+    practiceAnswered = hasAnswered;
+    window.currentPracticeTF = (typeof userAns === 'object' && userAns) ? { ...userAns } : {};
+
     const box = document.createElement('div');
-    box.className = 'card question-box';
-    
+    box.className = 'card question-box azota-question-card';
+    box.id = `practice_box_${currentQuestionIndex}`;
+
     let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
     let typeBadge = '';
     if (qType === 'true_false') {
-        typeBadge = ' <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:6px; font-size:0.8rem; font-weight:700;">Đúng / Sai</span>';
+        typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
     } else if (qType === 'short_answer') {
-        typeBadge = ' <span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:0.8rem; font-weight:700;">Trả lời ngắn</span>';
+        typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
     }
 
     let cleanQText = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-    box.innerHTML += `${groupTitleHtml}<div class="question-title">Câu ${currentQuestionIndex + 1} / ${currentData.length}: ${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}${typeBadge}</div>`;
-    
+
+    let innerHtml = `
+        ${groupTitleHtml}
+        <div class="azota-q-header">
+            <span class="azota-q-num">Câu ${currentQuestionIndex + 1} / ${currentData.length} ${typeBadge}</span>
+        </div>
+        <div class="question-title azota-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+    `;
+
     if (qType === 'true_false') {
-        box.innerHTML += `<div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">`;
+        innerHtml += `<div class="azota-tf-container" style="margin-top: 15px;">`;
+        const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
         (q.options || []).forEach((opt, oIndex) => {
             let charMatch = opt.match(/^[a-d]/);
             let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
             let optClean = opt.replace(/^[a-d][\.\:\)]\s*/, '');
-            box.innerHTML += `
-                <div class="azota-tf-row" id="pract_tf_${char}" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
-                    <div style="flex:1; margin-right:12px; font-size:0.95rem; color:#1e293b;">
-                        <b style="color:var(--azota-primary); margin-right:6px;">${char})</b> ${optClean}
+            let isUserTrue = (window.currentPracticeTF[char] === true);
+            let isUserFalse = (window.currentPracticeTF[char] === false);
+            let correctVal = correctMap[char];
+
+            let btnTClass = 'azota-tf-btn';
+            let btnFClass = 'azota-tf-btn';
+            if (hasAnswered) {
+                if (correctVal === true) btnTClass += ' correct-state';
+                else if (correctVal === false) btnFClass += ' correct-state';
+                if (isUserTrue && correctVal !== true) btnTClass += ' wrong-state selected-true';
+                else if (isUserTrue) btnTClass += ' selected-true';
+                if (isUserFalse && correctVal !== false) btnFClass += ' wrong-state selected-false';
+                else if (isUserFalse) btnFClass += ' selected-false';
+            } else {
+                if (isUserTrue) btnTClass += ' selected-true';
+                if (isUserFalse) btnFClass += ' selected-false';
+            }
+
+            innerHtml += `
+                <div class="azota-tf-row" id="pract_tf_${char}">
+                    <div class="azota-tf-statement">
+                        <span class="azota-tf-badge">${char}</span>
+                        <span>${optClean}</span>
                     </div>
-                    <div class="azota-tf-btn-group" style="display:flex; gap:6px;">
-                        <button type="button" class="azota-tf-btn" id="pract_tf_btn_${char}_t" onclick="selectPracticeTF('${char}', true)">Đúng</button>
-                        <button type="button" class="azota-tf-btn" id="pract_tf_btn_${char}_f" onclick="selectPracticeTF('${char}', false)">Sai</button>
+                    <div class="azota-tf-actions">
+                        <button type="button" class="${btnTClass}" id="pract_tf_btn_${char}_t" ${hasAnswered ? 'disabled' : `onclick="selectPracticeTF('${char}', true)"`}>Đúng</button>
+                        <button type="button" class="${btnFClass}" id="pract_tf_btn_${char}_f" ${hasAnswered ? 'disabled' : `onclick="selectPracticeTF('${char}', false)"`}>Sai</button>
                     </div>
                 </div>`;
         });
-        box.innerHTML += `</div>
-        <div style="margin-top: 15px; text-align: right;">
-            <button id="pract_tf_check_btn" class="btn-primary" onclick="checkPracticeTF()" style="padding: 9px 20px; margin: 0;">Kiểm tra đáp án</button>
+        innerHtml += `</div>
+        <div style="text-align: right; margin-top: 14px;">
+            <button id="pract_tf_check_btn" class="btn-primary" style="${hasAnswered ? 'display:none;' : ''} padding: 10px 24px; font-size: 0.95rem; margin: 0;" onclick="checkPracticeTF()">Kiểm tra đáp án</button>
         </div>`;
     } else if (qType === 'short_answer') {
-        box.innerHTML += `
-            <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+        const uClean = String(userAns || '').toLowerCase().replace(',', '.').replace(/\s+/g, '');
+        const cClean = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+        const isCorrectSA = Boolean(uClean && uClean === cClean);
+
+        innerHtml += `
+            <div class="azota-sa-box" style="margin-top: 15px;">
+                <div style="font-weight: 600; margin-bottom: 8px; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn của bạn:</div>
                 <div style="display: flex; gap: 8px;">
-                    <input type="text" id="pract_sa_input" class="azota-sa-input" placeholder="Nhập câu trả lời ngắn của bạn..." style="flex: 1; padding: 12px 14px; font-size: 1rem; border: 2px solid #cbd5e1; border-radius: 8px;" onkeydown="if(event.key==='Enter') checkPracticeShortAnswer()">
-                    <button id="pract_sa_check_btn" class="btn-primary" style="margin: 0; padding: 10px 20px;" onclick="checkPracticeShortAnswer()">Kiểm tra</button>
+                    <input type="text" class="azota-sa-input ${hasAnswered ? (isCorrectSA ? 'correct' : 'incorrect') : ''}" 
+                           id="pract_sa_input" 
+                           value="${escapeHtml(String(userAns || ''))}" 
+                           placeholder="Điền đáp số hoặc kết quả..." 
+                           ${hasAnswered ? 'disabled' : ''} 
+                           onkeydown="if(event.key==='Enter') checkPracticeShortAnswer()">
+                    <button id="pract_sa_check_btn" class="btn-primary" style="${hasAnswered ? 'display:none;' : ''} margin: 0; padding: 10px 22px;" onclick="checkPracticeShortAnswer()">Kiểm tra</button>
                 </div>
             </div>`;
     } else {
+        // MCQ Options xếp từng dòng từ trên xuống dưới
+        innerHtml += `<div class="azota-opt-list" style="margin-top: 15px;">`;
         (q.options || []).forEach((opt, oIndex) => {
             let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
-            box.innerHTML += `
-                <label class="option-practice" id="pract_opt_${oIndex}">
-                    <input type="radio" name="pract_radio" onclick="checkPracticeAnswer(${oIndex})">
-                    <span class="opt-badge">${char}</span>
+            let isUserChosen = hasAnswered && (userAns === opt || matchOptionToTarget(opt, oIndex, userAns));
+            let isCorrectOpt = (opt === q.correct_answer);
+
+            let optClass = 'option-practice azota-opt-item';
+            if (hasAnswered) {
+                if (isUserChosen) optClass += ' selected';
+                if (isCorrectOpt) optClass += ' correct';
+                else if (isUserChosen && !isCorrectOpt) optClass += ' incorrect';
+            }
+
+            innerHtml += `
+                <label class="${optClass}" id="pract_opt_${oIndex}" 
+                       ${hasAnswered ? '' : `onclick="checkPracticeAnswer(${oIndex})"`} 
+                       style="${hasAnswered ? 'cursor: default;' : 'cursor: pointer;'}">
+                    <input type="radio" name="pract_radio" value="${escapeHtml(opt)}" ${hasAnswered ? 'disabled' : ''} ${isUserChosen ? 'checked' : ''} style="display:none;">
+                    <span class="opt-badge azota-opt-badge">${char}</span>
                     <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
                 </label>`;
         });
+        innerHtml += `</div>`;
     }
-    
-    box.innerHTML += `<div id="pract_feedback" style="margin-top:20px; font-weight:600; font-size:1.05rem;"></div>`;
-    
+
+    // Feedback area
+    let feedbackContent = '';
+    if (hasAnswered) {
+        feedbackContent = renderPracticeFeedbackHtml(q, currentQuestionIndex);
+    }
+    innerHtml += `<div id="pract_feedback" class="pract-q-feedback">${feedbackContent}</div>`;
+
+    box.innerHTML = innerHtml;
     container.appendChild(box);
-    
-    // Đưa nút ra khỏi khung câu hỏi, đẩy xuống dưới 1 chút và dạt sang phải
+
+    // Desktop Next Question Button bar
+    const isLast = (currentQuestionIndex === currentData.length - 1);
     const btnWrapper = document.createElement('div');
-    btnWrapper.style.textAlign = 'right';
-    btnWrapper.style.marginTop = '10px';
-    btnWrapper.style.paddingBottom = '30px'; // Thêm khoảng đệm cho riêng nút bấm
-    btnWrapper.innerHTML = `<button id="nextBtn" class="btn-primary desktop-only-submit" style="display:none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);" onclick="nextPracticeQuestion()">Câu tiếp ➔</button>`;
+    btnWrapper.style.display = 'flex';
+    btnWrapper.style.justifyContent = 'flex-end';
+    btnWrapper.style.marginTop = '14px';
+    btnWrapper.style.paddingBottom = '30px';
+    btnWrapper.innerHTML = `
+        <button id="nextBtn" class="btn-primary desktop-only-submit" 
+                style="${hasAnswered ? 'display:inline-flex;' : 'display:none;'} align-items:center; gap:8px; padding: 12px 28px; border-radius: 12px; font-weight: 700; font-size: 1rem; box-shadow: 0 4px 14px rgba(37,99,235,0.25);" 
+                onclick="nextPracticeQuestion()">
+            ${isLast ? 'Xem kết quả tổng kết <i class="ri-check-double-line"></i>' : 'Câu tiếp theo <i class="ri-arrow-right-line"></i>'}
+        </button>
+    `;
     container.appendChild(btnWrapper);
-    renderMath();
+
+    renderMath(container);
+    updatePracticeNavStatus();
+
+    // Mobile next btn
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        mobileNextBtn.style.display = 'inline-flex';
+        mobileNextBtn.innerHTML = isLast ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+        mobileNextBtn.onclick = mobileNextQuestionAction;
+    }
 }
 
+function checkPracticeAnswer(oIndex) {
+    if (practiceAnswered) return;
+    practiceAnswered = true;
 
+    const q = currentData[currentQuestionIndex];
+    if (!q) return;
+    const userAns = q.options[oIndex];
+    q.user_answer_practice = userAns;
+    const isCorrect = (userAns === q.correct_answer);
+    q._practiceStatus = isCorrect ? 'correct' : 'wrong';
+
+    if (isCorrect) practiceScore++;
+
+    if (!quizProgress.practiceResults) quizProgress.practiceResults = {};
+    quizProgress.practiceResults[currentQuestionIndex] = q._practiceStatus;
+    if (!quizProgress.answers) quizProgress.answers = {};
+    quizProgress.answers[currentQuestionIndex] = userAns;
+    quizProgress.practiceIndex = currentQuestionIndex;
+    quizProgress.practiceScore = practiceScore;
+    if (isStudentMode) saveProgressToLocal();
+
+    // Cập nhật giao diện các options
+    q.options.forEach((opt, idx) => {
+        const lbl = document.getElementById(`pract_opt_${idx}`);
+        if (lbl) {
+            lbl.onclick = null;
+            lbl.style.cursor = 'default';
+            const input = lbl.querySelector('input');
+            if (input) input.disabled = true;
+            if (idx === oIndex) lbl.classList.add('selected');
+            if (opt === q.correct_answer) lbl.classList.add('correct');
+            else if (idx === oIndex && !isCorrect) lbl.classList.add('incorrect');
+        }
+    });
+
+    const feedback = document.getElementById('pract_feedback');
+    if (feedback) {
+        feedback.innerHTML = renderPracticeFeedbackHtml(q, currentQuestionIndex);
+        renderMath(feedback);
+        attachWebLLMTutorToFeedback(feedback, q, userAns, !isCorrect);
+    }
+
+    updatePracticeNavStatus();
+    showNextQuestionButton();
+}
+
+function selectPracticeTF(char, isTrue) {
+    if (!window.currentPracticeTF) window.currentPracticeTF = {};
+    window.currentPracticeTF[char] = isTrue;
+
+    const btnT = document.getElementById(`pract_tf_btn_${char}_t`);
+    const btnF = document.getElementById(`pract_tf_btn_${char}_f`);
+    if (btnT && btnF) {
+        btnT.classList.toggle('selected-true', isTrue === true);
+        btnF.classList.toggle('selected-false', isTrue === false);
+    }
+}
+
+function checkPracticeTF() {
+    if (practiceAnswered) return;
+    practiceAnswered = true;
+
+    const q = currentData[currentQuestionIndex];
+    if (!q) return;
+    const userAnswers = window.currentPracticeTF || {};
+    q.user_answer_practice = userAnswers;
+    const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
+
+    let matchCount = 0;
+    const totalOpts = (q.options || []).length || 4;
+    (q.options || []).forEach((opt, oIndex) => {
+        let charMatch = opt.match(/^[a-d]/);
+        let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+        const btnT = document.getElementById(`pract_tf_btn_${char}_t`);
+        const btnF = document.getElementById(`pract_tf_btn_${char}_f`);
+        const isCorrectVal = correctMap[char];
+        const userVal = userAnswers[char];
+        const isMatched = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
+        if (isMatched) matchCount++;
+
+        if (btnT && btnF) {
+            btnT.disabled = true;
+            btnF.disabled = true;
+            if (isCorrectVal === true) btnT.classList.add('correct-state');
+            else if (isCorrectVal === false) btnF.classList.add('correct-state');
+            if (userVal === true && !isMatched) btnT.classList.add('wrong-state');
+            else if (userVal === false && !isMatched) btnF.classList.add('wrong-state');
+        }
+    });
+
+    const checkBtn = document.getElementById('pract_tf_check_btn');
+    if (checkBtn) checkBtn.disabled = true;
+
+    // Bareme GDPT 2018
+    const tfScale = [0.0, 0.1, 0.25, 0.5, 1.0];
+    const earned = tfScale[matchCount] !== undefined ? tfScale[matchCount] : 0.0;
+    practiceScore += earned;
+    practiceScore = Math.round(practiceScore * 100) / 100;
+
+    const isFullCorrect = (matchCount === totalOpts);
+    q._practiceStatus = isFullCorrect ? 'correct' : 'wrong';
+
+    if (!quizProgress.practiceResults) quizProgress.practiceResults = {};
+    quizProgress.practiceResults[currentQuestionIndex] = q._practiceStatus;
+    if (!quizProgress.answers) quizProgress.answers = {};
+    quizProgress.answers[currentQuestionIndex] = userAnswers;
+    quizProgress.practiceIndex = currentQuestionIndex;
+    quizProgress.practiceScore = practiceScore;
+    if (isStudentMode) saveProgressToLocal();
+
+    const feedback = document.getElementById('pract_feedback');
+    if (feedback) {
+        feedback.innerHTML = renderPracticeFeedbackHtml(q, currentQuestionIndex, matchCount, earned);
+        renderMath(feedback);
+        attachWebLLMTutorToFeedback(feedback, q, userAnswers, !isFullCorrect);
+    }
+
+    updatePracticeNavStatus();
+    showNextQuestionButton();
+}
+
+function checkPracticeShortAnswer() {
+    if (practiceAnswered) return;
+    practiceAnswered = true;
+
+    const q = currentData[currentQuestionIndex];
+    if (!q) return;
+    const inputEl = document.getElementById('pract_sa_input');
+    const userVal = inputEl ? inputEl.value.trim() : '';
+    q.user_answer_practice = userVal;
+
+    const uClean = userVal.toLowerCase().replace(',', '.').replace(/\s+/g, '');
+    const cClean = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+    const isCorrect = Boolean(uClean && uClean === cClean);
+
+    if (isCorrect) practiceScore += 1;
+    if (inputEl) {
+        inputEl.disabled = true;
+        if (isCorrect) inputEl.classList.add('correct');
+        else inputEl.classList.add('incorrect');
+    }
+    const checkBtn = document.getElementById('pract_sa_check_btn');
+    if (checkBtn) checkBtn.disabled = true;
+
+    q._practiceStatus = isCorrect ? 'correct' : 'wrong';
+
+    if (!quizProgress.practiceResults) quizProgress.practiceResults = {};
+    quizProgress.practiceResults[currentQuestionIndex] = q._practiceStatus;
+    if (!quizProgress.answers) quizProgress.answers = {};
+    quizProgress.answers[currentQuestionIndex] = userVal;
+    quizProgress.practiceIndex = currentQuestionIndex;
+    quizProgress.practiceScore = practiceScore;
+    if (isStudentMode) saveProgressToLocal();
+
+    const feedback = document.getElementById('pract_feedback');
+    if (feedback) {
+        feedback.innerHTML = renderPracticeFeedbackHtml(q, currentQuestionIndex, null, isCorrect ? 1 : 0);
+        renderMath(feedback);
+        attachWebLLMTutorToFeedback(feedback, q, userVal, !isCorrect);
+    }
+
+    updatePracticeNavStatus();
+    showNextQuestionButton();
+}
+
+function nextPracticeQuestion() {
+    if (currentQuestionIndex >= currentData.length - 1) {
+        submitExam();
+        return;
+    }
+    currentQuestionIndex++;
+    if (isStudentMode && quizProgress) {
+        quizProgress.practiceIndex = currentQuestionIndex;
+        saveProgressToLocal();
+    }
+    renderPracticeQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function jumpToPracticeQuestion(qIndex) {
+    if (qIndex < 0 || qIndex >= currentData.length) return;
+    currentQuestionIndex = qIndex;
+    if (isStudentMode && quizProgress) {
+        quizProgress.practiceIndex = currentQuestionIndex;
+        saveProgressToLocal();
+    }
+    toggleMobileNavSheet(false);
+    renderPracticeQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderPracticeFeedbackHtml(q, qIndex, matchCount, earned) {
+    const qType = getRealQuestionType(q);
+    const status = q._practiceStatus || (quizProgress && quizProgress.practiceResults && quizProgress.practiceResults[qIndex]);
+    let msgHtml = '';
+    
+    if (qType === 'true_false') {
+        const mc = (matchCount !== undefined) ? matchCount : 0;
+        const pts = (earned !== undefined) ? earned : (mc === 4 ? 1.0 : (mc === 3 ? 0.5 : (mc === 2 ? 0.25 : (mc === 1 ? 0.1 : 0))));
+        msgHtml = `<div class="pract-feedback-msg ${mc === 4 ? 'correct' : 'wrong'}">
+            <i class="${mc === 4 ? 'ri-checkbox-circle-fill' : 'ri-error-warning-fill'}"></i>
+            <span>${mc === 4 ? '🎉 Đúng toàn bộ 4 ý (+1.0 điểm)!' : `📝 Bạn đúng ${mc}/4 ý (+${pts} điểm)`}</span>
+        </div>`;
+    } else if (qType === 'short_answer') {
+        const isCorr = (status === 'correct');
+        msgHtml = `<div class="pract-feedback-msg ${isCorr ? 'correct' : 'wrong'}">
+            <i class="${isCorr ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}"></i>
+            <span>${isCorr ? '✅ Trả lời chính xác (+1.0 điểm)!' : `❌ Chưa chính xác! Đáp án đúng là: <u>${escapeHtml(String(q.correct_answer || ''))}</u>`}</span>
+        </div>`;
+    } else {
+        const isCorr = (status === 'correct');
+        let correctAnswerDisplay = q.correct_answer ? q.correct_answer.replace(/^[A-F][\.\:\)]\s*/i, '') : "Chưa xác định";
+        msgHtml = `<div class="pract-feedback-msg ${isCorr ? 'correct' : 'wrong'}">
+            <i class="${isCorr ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}"></i>
+            <span>${isCorr ? '✅ Trả lời chính xác!' : `❌ Sai rồi! Đáp án đúng là: <b>${escapeHtml(correctAnswerDisplay)}</b>`}</span>
+        </div>`;
+    }
+
+    if (q.explain) {
+        msgHtml += `<div class="pract-explain-box">💡 <b>Lời giải chi tiết:</b><br>${q.explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
+    }
+    return msgHtml;
+}
+
+function updatePracticeNavStatus() {
+    let correctCount = 0;
+    let wrongCount = 0;
+    const totalCount = currentData ? currentData.length : 0;
+
+    let navGridHtml = '';
+    (currentData || []).forEach((q, idx) => {
+        const status = q._practiceStatus || (quizProgress && quizProgress.practiceResults && quizProgress.practiceResults[idx]);
+        let statusClass = 'unanswered';
+        if (status === 'correct') {
+            correctCount++;
+            statusClass = 'practice-correct';
+        } else if (status === 'wrong') {
+            wrongCount++;
+            statusClass = 'practice-wrong';
+        }
+        if (idx === currentQuestionIndex) {
+            statusClass += ' practice-current';
+        }
+
+        navGridHtml += `
+            <button type="button" class="azota-nav-num nav-num-btn nav-num-${idx} ${statusClass}" 
+                    id="nav_num_${idx}" data-qindex="${idx}" 
+                    onclick="jumpToPracticeQuestion(${idx})" 
+                    title="Câu ${idx + 1}: ${status === 'correct' ? 'Đúng' : (status === 'wrong' ? 'Sai' : 'Chưa làm')}">
+                ${idx + 1}
+            </button>
+        `;
+    });
+
+    const remainingCount = Math.max(0, totalCount - (correctCount + wrongCount));
+
+    // Cập nhật DOM
+    const navGrid = document.getElementById('azotaNavGrid');
+    if (navGrid) navGrid.innerHTML = navGridHtml;
+    const mobileNavGrid = document.getElementById('azotaMobileNavGrid');
+    if (mobileNavGrid) mobileNavGrid.innerHTML = navGridHtml;
+
+    // Cập nhật badge tiêu đề
+    const navProgressBadge = document.getElementById('navProgressBadge');
+    if (navProgressBadge) {
+        navProgressBadge.innerText = `${correctCount + wrongCount}/${totalCount}`;
+    }
+
+    // Cập nhật các giá trị thống kê
+    document.querySelectorAll('.p-stat-correct-val').forEach(el => el.innerText = correctCount);
+    document.querySelectorAll('.p-stat-wrong-val').forEach(el => el.innerText = wrongCount);
+    document.querySelectorAll('.p-stat-remaining-val').forEach(el => el.innerText = remainingCount);
+
+    // Cập nhật mobile bar & sheet badge
+    const mobileNavBadge = document.getElementById('mobileNavBadge');
+    if (mobileNavBadge) {
+        mobileNavBadge.innerHTML = `<span style="color:#10b981; font-weight:700;">${correctCount} Đúng</span> &bull; <span style="color:#ef4444; font-weight:700;">${wrongCount} Sai</span>`;
+    }
+    const mobileSheetBadge = document.getElementById('mobileSheetProgressBadge');
+    if (mobileSheetBadge) {
+        mobileSheetBadge.innerText = `${correctCount + wrongCount}/${totalCount}`;
+    }
+
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (mobileNextBtn) {
+        const isLast = (currentQuestionIndex === currentData.length - 1);
+        mobileNextBtn.innerHTML = isLast ? 'Kết quả <i class="ri-check-double-line"></i>' : 'Câu tiếp <i class="ri-arrow-right-line"></i>';
+    }
+}
+
+function confirmRestartPractice() {
+    const isDoing = (currentData || []).some(q => q._practiceStatus);
+    const msg = isDoing 
+        ? "Bạn có chắc chắn muốn làm lại bài luyện tập từ đầu không?\nToàn bộ kết quả câu đúng/sai hiện tại sẽ được làm mới."
+        : "Làm lại bài luyện tập từ đầu?";
+    if (!confirm(msg)) return;
+
+    practiceScore = 0;
+    currentQuestionIndex = 0;
+    practiceAnswered = false;
+    window.currentPracticeTF = {};
+    (currentData || []).forEach(q => {
+        delete q.user_answer_practice;
+        delete q._practiceStatus;
+    });
+
+    if (quizProgress) {
+        quizProgress.answers = {};
+        quizProgress.practiceResults = {};
+        quizProgress.practiceScore = 0;
+        quizProgress.practiceIndex = 0;
+        quizProgress.completed = false;
+        quizProgress.startedAt = Date.now();
+        if (isStudentMode) saveProgressToLocal();
+    }
+
+    toggleMobileNavSheet(false);
+    renderPracticeQuestion();
+    showToast("Đã làm mới bài luyện tập từ đầu!", "success");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showPracticeReview() {
+    submitExam(true);
+}
+
+// ========================================================
+// HÀM XỬ LÝ LÀM BÀI TRONG CHẾ ĐỘ THI THỬ (EXAM) & ĐIỀU HƯỚNG
+// ========================================================
 function selectExamTF(qIndex, char, isTrue) {
     if (!quizProgress.answers) quizProgress.answers = {};
     if (typeof quizProgress.answers[qIndex] !== 'object' || quizProgress.answers[qIndex] === null) {
@@ -5018,6 +5744,7 @@ function selectExamTF(qIndex, char, isTrue) {
     document.querySelectorAll(`.nav-num-${qIndex}`).forEach(btn => btn.classList.add('answered'));
     updateNavProgressBadge();
 }
+window.selectExamTF = selectExamTF;
 
 function selectExamShortAnswer(qIndex, val) {
     if (!quizProgress.answers) quizProgress.answers = {};
@@ -5030,6 +5757,7 @@ function selectExamShortAnswer(qIndex, val) {
     });
     updateNavProgressBadge();
 }
+window.selectExamShortAnswer = selectExamShortAnswer;
 
 function selectExamOption(qIndex, oIndex) {
     currentData[qIndex].options.forEach((_, idx) => {
@@ -5048,6 +5776,7 @@ function selectExamOption(qIndex, oIndex) {
 
     updateNavProgressBadge();
 }
+window.selectExamOption = selectExamOption;
 
 function updateNavProgressBadge() {
     const answeredCount = Object.keys(quizProgress.answers || {}).length;
@@ -5061,6 +5790,7 @@ function updateNavProgressBadge() {
     const mobileSheetBadge = document.getElementById('mobileSheetProgressBadge');
     if (mobileSheetBadge) mobileSheetBadge.innerText = `${answeredCount}/${totalCount}`;
 }
+window.updateNavProgressBadge = updateNavProgressBadge;
 
 function toggleFlagQuestion(qIndex) {
     flaggedQuestions[qIndex] = !flaggedQuestions[qIndex];
@@ -5072,7 +5802,7 @@ function toggleFlagQuestion(qIndex) {
             flagBtn.innerHTML = `<i class="ri-flag-fill"></i> Đang phân vân`;
         } else {
             flagBtn.classList.remove('flagged');
-            flagBtn.innerHTML = `<i class="ri-flag-line"></i> Đánh dấu`;
+            flagBtn.innerHTML = `<i class="ri-flag-line"></i> Đánh dấu xem lại`;
         }
     }
     document.querySelectorAll(`.nav-num-${qIndex}`).forEach(btn => {
@@ -5080,6 +5810,7 @@ function toggleFlagQuestion(qIndex) {
         else btn.classList.remove('flagged');
     });
 }
+window.toggleFlagQuestion = toggleFlagQuestion;
 
 function scrollToQuestion(qIndex) {
     toggleMobileNavSheet(false);
@@ -5094,6 +5825,7 @@ function scrollToQuestion(qIndex) {
         });
     }
 }
+window.scrollToQuestion = scrollToQuestion;
 
 function toggleMobileNavSheet(isOpen) {
     const sheet = document.getElementById('azotaMobileNavSheet');
@@ -5111,6 +5843,7 @@ function toggleMobileNavSheet(isOpen) {
         document.body.style.overflow = '';
     }
 }
+window.toggleMobileNavSheet = toggleMobileNavSheet;
 
 function attachWebLLMTutorToFeedback(containerEl, q, userAnswer, isMistake) {
     if (!window.ENABLE_WEBLLM || !window.WebLLMTutor || !containerEl) return;
@@ -5132,182 +5865,7 @@ function attachWebLLMTutorToFeedback(containerEl, q, userAnswer, isMistake) {
         explainBtn.style.display = 'none';
     }
 }
-
-function checkPracticeAnswer(oIndex) {
-    if (practiceAnswered) return;
-    practiceAnswered = true;
-    
-    const q = currentData[currentQuestionIndex];
-    q.user_answer_practice = q.options[oIndex]; // Lưu lại đáp án của học sinh để dùng cho phần xem lại
-    const isCorrect = q.options[oIndex] === q.correct_answer;
-    
-    if (isCorrect) practiceScore++;
-    
-    if (isStudentMode) {
-        if (!quizProgress.answers) quizProgress.answers = {};
-        quizProgress.answers[currentQuestionIndex] = q.options[oIndex];
-        quizProgress.practiceIndex = currentQuestionIndex;
-        quizProgress.practiceScore = practiceScore;
-        saveProgressToLocal();
-    }
-    
-    q.options.forEach((opt, idx) => {
-        const lbl = document.getElementById(`pract_opt_${idx}`);
-        lbl.querySelector('input').disabled = true;
-        
-        if (idx === oIndex) lbl.classList.add('selected'); // Đánh dấu khối đang chọn
-        
-        if (opt === q.correct_answer) lbl.classList.add('correct');
-        else if (idx === oIndex && !isCorrect) lbl.classList.add('incorrect');
-    });
-    
-    const feedback = document.getElementById('pract_feedback');
-    let correctAnswerDisplay = q.correct_answer ? q.correct_answer.replace(/^[A-D][\.\:\)]\s*/i, '') : "Chưa xác định";
-    feedback.innerHTML = isCorrect ? `<span style="color:var(--success);">✅ Trả lời chính xác!</span>` : `<span style="color:var(--danger);">❌ Sai rồi! Đáp án đúng là: ${correctAnswerDisplay}</span>`;
-    
-    if (q.explain) {
-        feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
-    }
-    if (typeof renderMath === 'function') {
-        renderMath(feedback);
-    }
-    
-    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
-    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
-    
-    showNextQuestionButton();
-}
-
-function selectPracticeTF(char, isTrue) {
-    if (!window.currentPracticeTF) window.currentPracticeTF = {};
-    window.currentPracticeTF[char] = isTrue;
-    const btnT = document.getElementById(`pract_tf_btn_${char}_t`);
-    const btnF = document.getElementById(`pract_tf_btn_${char}_f`);
-    if (btnT && btnF) {
-        btnT.classList.toggle('selected-true', isTrue === true);
-        btnF.classList.toggle('selected-false', isTrue === false);
-    }
-}
-
-function checkPracticeTF() {
-    if (practiceAnswered) return;
-    practiceAnswered = true;
-    const q = currentData[currentQuestionIndex];
-    const userAnswers = window.currentPracticeTF || {};
-    q.user_answer_practice = userAnswers;
-    const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
-    
-    let matchCount = 0;
-    ['a', 'b', 'c', 'd'].forEach(char => {
-        const btnT = document.getElementById(`pract_tf_btn_${char}_t`);
-        const btnF = document.getElementById(`pract_tf_btn_${char}_f`);
-        const isCorrectVal = correctMap[char];
-        const userVal = userAnswers[char];
-        const isMatched = (userVal !== undefined && Boolean(userVal) === Boolean(isCorrectVal));
-        if (isMatched) matchCount++;
-        
-        if (btnT && btnF) {
-            btnT.disabled = true;
-            btnF.disabled = true;
-            if (isCorrectVal === true) btnT.classList.add('correct-state');
-            else btnF.classList.add('correct-state');
-            if (userVal === true && !isMatched) btnT.classList.add('wrong-state');
-            else if (userVal === false && !isMatched) btnF.classList.add('wrong-state');
-        }
-    });
-    
-    const checkBtn = document.getElementById('pract_tf_check_btn');
-    if (checkBtn) checkBtn.disabled = true;
-    
-    // Scale GDPT 2018
-    const tfScale = [0.0, 0.1, 0.25, 0.5, 1.0];
-    const earned = tfScale[matchCount] !== undefined ? tfScale[matchCount] : 0.0;
-    practiceScore += earned;
-    practiceScore = Math.round(practiceScore * 100) / 100;
-    
-    if (isStudentMode) {
-        if (!quizProgress.answers) quizProgress.answers = {};
-        quizProgress.answers[currentQuestionIndex] = userAnswers;
-        quizProgress.practiceIndex = currentQuestionIndex;
-        quizProgress.practiceScore = practiceScore;
-        saveProgressToLocal();
-    }
-    
-    const feedback = document.getElementById('pract_feedback');
-    feedback.innerHTML = `<span style="color: ${matchCount === 4 ? 'var(--success)' : '#d97706'}; font-weight:700;">
-        ${matchCount === 4 ? '🎉 Đúng toàn bộ 4 ý (+1.0 điểm)!' : `📝 Bạn đúng ${matchCount}/4 ý (+${earned} điểm)`}
-    </span>`;
-    if (q.explain) {
-        feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
-    }
-    if (typeof renderMath === 'function') {
-        renderMath(feedback);
-    }
-    
-    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
-    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, matchCount < 4);
-    
-    showNextQuestionButton();
-}
-
-function checkPracticeShortAnswer() {
-    if (practiceAnswered) return;
-    practiceAnswered = true;
-    const q = currentData[currentQuestionIndex];
-    const inputEl = document.getElementById('pract_sa_input');
-    const userVal = inputEl ? inputEl.value.trim() : '';
-    q.user_answer_practice = userVal;
-    
-    const uClean = userVal.toLowerCase().replace(',', '.').replace(/\s+/g, '');
-    const cClean = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
-    const isCorrect = Boolean(uClean && uClean === cClean);
-    
-    if (isCorrect) practiceScore += 1;
-    if (inputEl) {
-        inputEl.disabled = true;
-        if (isCorrect) inputEl.classList.add('correct');
-        else inputEl.classList.add('incorrect');
-    }
-    const checkBtn = document.getElementById('pract_sa_check_btn');
-    if (checkBtn) checkBtn.disabled = true;
-    
-    if (isStudentMode) {
-        if (!quizProgress.answers) quizProgress.answers = {};
-        quizProgress.answers[currentQuestionIndex] = userVal;
-        quizProgress.practiceIndex = currentQuestionIndex;
-        quizProgress.practiceScore = practiceScore;
-        saveProgressToLocal();
-    }
-    
-    const feedback = document.getElementById('pract_feedback');
-    feedback.innerHTML = isCorrect ? 
-        `<span style="color:var(--success); font-weight:700;">✅ Trả lời chính xác (+1.0 điểm)!</span>` : 
-        `<span style="color:var(--danger); font-weight:700;">❌ Chưa chính xác! Đáp án đúng là: <u>${escapeHtml(String(q.correct_answer || ''))}</u></span>`;
-        
-    if (q.explain) {
-        feedback.innerHTML += `<div style="margin-top:10px; padding:10px 14px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:6px; font-size:0.95rem; color:#166534;">💡 <b>Lời giải:</b> ${q.explain}</div>`;
-    }
-    if (typeof renderMath === 'function') {
-        renderMath(feedback);
-    }
-    
-    // Tích hợp Gia sư ảo AI cục bộ (WebLLM)
-    attachWebLLMTutorToFeedback(feedback, q, q.user_answer_practice, !isCorrect);
-    showNextQuestionButton();
-}
-
-function nextPracticeQuestion() {
-    currentQuestionIndex++;
-    if (isStudentMode && quizProgress) {
-        quizProgress.practiceIndex = currentQuestionIndex;
-        saveProgressToLocal();
-    }
-    renderPracticeQuestion();
-}
-
-function showPracticeReview() {
-    submitExam(true);
-}
+window.attachWebLLMTutorToFeedback = attachWebLLMTutorToFeedback;
 
 function shuffleQuiz(noRender = false) {
     // QUAN TRỌNG: Ghi nhớ chỉ số gốc TRƯỚC khi trộn để submitExam gửi đúng index cho server
@@ -7198,15 +7756,15 @@ function updateSyntaxHighlight() {
 // --- XỬ LÝ NÚT CÂU TIẾP TRÊN MOBILE BOTTOM BAR ---
 window.mobileNextQuestionAction = function() {
     if (currentMode === 'practice') {
-        const nextBtn = document.getElementById('nextBtn');
-        if (nextBtn && nextBtn.style.display !== 'none') {
-            nextPracticeQuestion();
+        const isLast = (currentQuestionIndex === currentData.length - 1);
+        if (!practiceAnswered) {
+            showToast("Vui lòng trả lời câu hỏi trước khi sang câu tiếp theo!", "info");
+            return;
+        }
+        if (isLast) {
+            submitExam();
         } else {
-            if (!practiceAnswered) {
-                showToast("Vui lòng trả lời câu hỏi trước khi sang câu tiếp theo!", "error");
-            } else {
-                nextPracticeQuestion();
-            }
+            nextPracticeQuestion();
         }
     } else {
         // Trong chế độ thi thử (exam) - cuộn tới câu hỏi tiếp theo
@@ -7243,8 +7801,8 @@ function showNextQuestionButton() {
     const isLast = (currentQuestionIndex === currentData.length - 1);
     const nextBtn = document.getElementById('nextBtn');
     if (nextBtn) {
-        nextBtn.style.display = 'inline-block';
-        nextBtn.innerText = isLast ? 'Xem kết quả tổng kết' : 'Câu tiếp ➔';
+        nextBtn.style.display = 'inline-flex';
+        nextBtn.innerHTML = isLast ? 'Xem kết quả tổng kết <i class="ri-check-double-line"></i>' : 'Câu tiếp theo <i class="ri-arrow-right-line"></i>';
         setTimeout(() => {
             // Chỉ cuộn tới nút này nếu trên desktop (nút này visible)
             if (window.innerWidth > 960) {
@@ -7367,8 +7925,8 @@ window.addEventListener('pagehide', () => {
    TÍNH NĂNG TRẢI NGHIỆM ĐỀ THI MẪU & ĐIỀU HƯỚNG CÔNG KHAI (CHUẨN GOOGLE ADSENSE)
    ========================================================================= */
 
-function focusLoginForm() {
-    openExamLoginModal();
+function focusLoginForm(tab = 'login') {
+    openAuthPage(tab);
 }
 window.focusLoginForm = focusLoginForm;
 

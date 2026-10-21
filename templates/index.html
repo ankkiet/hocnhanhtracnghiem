@@ -88,7 +88,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261020_login_modal_v7">
+    <link rel="stylesheet" href="style.css?v=20261021_fix_desktop_scroll_v6">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     
     <!-- Google AdSense (Bắt buộc trong <head> để Google xác minh trang web) -->
@@ -112,16 +112,13 @@
       }
     </style>
     <style id="styled-wrapper-css">
+      /* ========================================================
+         DEDICATED AUTH PAGE & DUAL FORM SYSTEM (DESKTOP & MOBILE)
+         ======================================================== */
       #authContainer {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 85vh;
-        padding: 20px 10px;
+        display: none;
         box-sizing: border-box;
         width: 100%;
-        gap: 36px;
-        flex-wrap: wrap;
       }
 
       #landingShowcase {
@@ -141,6 +138,493 @@
         display: none !important;
       }
 
+      /* --- CHẾ ĐỘ TRANG RIÊNG (DEDICATED PAGE MODE) --- */
+      #authContainer.page-mode {
+        display: block !important;
+        position: relative !important;
+        width: 100% !important;
+        min-height: 100vh !important;
+        background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%) !important;
+        padding: 24px 16px 80px 16px !important;
+        box-sizing: border-box !important;
+        z-index: 100 !important;
+        overflow-y: visible !important;
+      }
+
+      .auth-page-wrapper {
+        max-width: 1140px;
+        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .auth-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0 24px 0;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 26px;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .auth-brand-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .auth-brand-logo {
+        height: 44px;
+        max-width: 200px;
+        width: auto;
+        object-fit: contain;
+      }
+
+      .auth-brand-info {
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+      }
+
+      .auth-brand-name {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+
+      .auth-brand-tagline {
+        font-size: 0.82rem;
+        color: #64748b;
+        font-weight: 500;
+      }
+
+      .btn-back-home {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffffff;
+        border: 1.5px solid #cbd5e1;
+        color: #334155;
+        padding: 9px 18px;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+
+      .btn-back-home:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+        transform: translateX(-3px);
+      }
+
+      .auth-page-intro {
+        text-align: center;
+        margin: 0 auto 30px auto;
+        max-width: 680px;
+      }
+
+      .auth-page-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eff6ff;
+        color: #2563eb;
+        border: 1px solid #dbeafe;
+        padding: 5px 14px;
+        border-radius: 99px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      .auth-page-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 10px 0;
+        letter-spacing: -0.02em;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+
+      .auth-page-subtitle {
+        font-size: 0.98rem;
+        color: #64748b;
+        line-height: 1.55;
+        margin: 0;
+      }
+
+      /* Card header & icons bên trong mỗi Form */
+      .auth-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+        text-align: left;
+        width: 100%;
+      }
+
+      .auth-card-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+      }
+
+      .auth-card-icon.login-icon {
+        background: #eff6ff;
+        color: #2563eb;
+      }
+
+      .auth-card-icon.register-icon {
+        background: #f0fdf4;
+        color: #16a34a;
+      }
+
+      .auth-card-title {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 3px 0;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+
+      .auth-card-desc {
+        font-size: 0.83rem;
+        color: #64748b;
+        margin: 0;
+      }
+
+      .required-star {
+        color: #ef4444;
+        font-weight: 700;
+      }
+
+      /* Role selector dạng Dual Pill trong Register form */
+      .auth-role-cards-row {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        box-sizing: border-box;
+        margin: 2px 0 6px 0;
+      }
+
+      .auth-role-pill {
+        flex: 1;
+        border: 1.5px solid #e2e8f0;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-sizing: border-box;
+        user-select: none;
+      }
+
+      .auth-role-pill:hover {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+      }
+
+      .auth-role-pill.selected#rolePillStudent {
+        border-color: #2563eb;
+        background: #eff6ff;
+        box-shadow: 0 0 0 1px #2563eb;
+      }
+
+      .auth-role-pill.selected#rolePillTeacher {
+        border-color: #6366f1;
+        background: #f5f3ff;
+        box-shadow: 0 0 0 1px #6366f1;
+      }
+
+      .role-pill-icon {
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .role-pill-meta {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+        line-height: 1.25;
+      }
+
+      .role-pill-meta strong {
+        font-size: 13.5px;
+        color: #0f172a;
+      }
+
+      .role-pill-meta span {
+        font-size: 11px;
+        color: #64748b;
+      }
+
+      .role-pill-check {
+        font-size: 16px;
+        color: #cbd5e1;
+      }
+
+      .auth-role-pill.selected#rolePillStudent .role-pill-check {
+        color: #2563eb;
+      }
+
+      .auth-role-pill.selected#rolePillTeacher .role-pill-check {
+        color: #6366f1;
+      }
+
+      /* Nút ẩn/hiện mật khẩu (Con mắt) */
+      .password-input-form {
+        position: relative !important;
+      }
+
+      .password-input-form .input {
+        padding-right: 38px !important;
+      }
+
+      .btn-toggle-pwd {
+        position: absolute !important;
+        right: 10px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        background: transparent !important;
+        border: none !important;
+        color: #94a3b8 !important;
+        cursor: pointer !important;
+        font-size: 19px !important;
+        padding: 6px !important;
+        line-height: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        transition: color 0.15s ease !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        height: auto !important;
+        width: auto !important;
+        z-index: 2;
+      }
+
+      .btn-toggle-pwd:hover {
+        color: #2563eb !important;
+      }
+
+      /* Submit button styles */
+      .btn-login-submit {
+        background-color: #0f172a !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+      }
+
+      .btn-login-submit:hover {
+        background-color: #1e293b !important;
+      }
+
+      .btn-register-submit {
+        background-color: #2563eb !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+      }
+
+      .btn-register-submit:hover {
+        background-color: #1d4ed8 !important;
+      }
+
+      .auth-social-row {
+        display: flex;
+        width: 100%;
+        margin-top: 4px;
+      }
+
+      .auth-page-trust-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 28px;
+        margin-top: 36px;
+        flex-wrap: wrap;
+        padding-top: 24px;
+        border-top: 1px dashed #cbd5e1;
+      }
+
+      .auth-trust-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      /* Form styling */
+      .styled-auth-wrapper .form {
+        display: flex;
+        flex-direction: column !important;
+        gap: 10px !important;
+        background-color: #ffffff !important;
+        padding: 30px !important;
+        width: 100% !important;
+        max-width: 480px !important;
+        box-sizing: border-box !important;
+        border-radius: 20px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+        margin: auto !important;
+        border: 1px solid #ededef !important;
+      }
+
+      #roleSelectionCard,
+      #pendingApprovalCard {
+        max-width: 480px !important;
+        width: 100% !important;
+        margin: 20px auto !important;
+      }
+
+      /* --- 2 FORM SONG SONG TRÊN MÁY TÍNH vs 1 FORM TRÊN MOBILE --- */
+      @media (min-width: 992px) {
+        #authContainer.page-mode .auth-dual-grid {
+          display: grid !important;
+          grid-template-columns: 1fr 36px 1fr !important;
+          gap: 20px !important;
+          align-items: stretch !important;
+          max-width: 1060px !important;
+          margin: 0 auto !important;
+        }
+
+        #authContainer.page-mode .auth-column-card {
+          display: flex !important;
+          flex-direction: column !important;
+          height: 100% !important;
+        }
+
+        #authContainer.page-mode .auth-column-card .form {
+          display: flex !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          border-radius: 18px !important;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        #authContainer.page-mode .auth-divider-column {
+          display: flex !important;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+        }
+
+        .auth-divider-line {
+          width: 1.5px;
+          flex: 1;
+          background: #e2e8f0;
+        }
+
+        .auth-divider-badge {
+          background: #ffffff;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 50%;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 800;
+          color: #64748b;
+          margin: 12px 0;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        #authContainer.page-mode .auth-mobile-tabs {
+          display: none !important;
+        }
+
+        #authContainer.page-mode .mobile-only {
+          display: none !important;
+        }
+      }
+
+      @media (max-width: 991px) {
+        #authContainer.page-mode .auth-dual-grid {
+          display: block !important;
+          max-width: 480px !important;
+          margin: 0 auto !important;
+        }
+
+        #authContainer.page-mode .auth-divider-column {
+          display: none !important;
+        }
+
+        #authContainer.page-mode .auth-mobile-tabs {
+          display: flex !important;
+          background: #e2e8f0;
+          padding: 4px;
+          border-radius: 14px;
+          gap: 4px;
+          max-width: 480px;
+          margin: 0 auto 20px auto;
+          box-sizing: border-box;
+        }
+
+        .auth-mobile-tab {
+          flex: 1;
+          padding: 11px 16px;
+          border: none;
+          background: transparent;
+          border-radius: 10px;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: #64748b;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+        }
+
+        .auth-mobile-tab.active {
+          background: #ffffff;
+          color: #2563eb;
+          font-weight: 700;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        #authContainer.page-mode .mobile-only {
+          display: block !important;
+        }
+
+        .auth-page-title {
+          font-size: 1.55rem;
+        }
+
+        .auth-page-header {
+          padding-bottom: 14px;
+        }
+      }
+
+      /* Chế độ Modal (Khi đang trong bài thi làm trắc nghiệm) */
       #authContainer.modal-mode {
         display: flex !important;
         position: fixed !important;
@@ -155,12 +639,52 @@
         padding: 20px 10px !important;
         box-sizing: border-box !important;
         overflow-y: auto !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+
+      #authContainer.modal-mode .auth-page-header,
+      #authContainer.modal-mode .auth-page-intro,
+      #authContainer.modal-mode .auth-page-trust-row {
+        display: none !important;
+      }
+
+      #authContainer.modal-mode .auth-dual-grid {
+        display: block !important;
+        max-width: 480px !important;
+        margin: 0 auto !important;
+        width: 100% !important;
+      }
+
+      #authContainer.modal-mode .auth-divider-column {
+        display: none !important;
+      }
+
+      #authContainer.modal-mode .auth-mobile-tabs {
+        display: flex !important;
+        background: #e2e8f0;
+        padding: 4px;
+        border-radius: 14px;
+        gap: 4px;
+        max-width: 480px;
+        margin: 0 auto 16px auto;
+        box-sizing: border-box;
+      }
+
+      #authContainer.modal-mode .btn-close-auth-modal {
+        display: block !important;
+      }
+
+      #authContainer.page-mode .btn-close-auth-modal {
+        display: none !important;
       }
 
       #authContainer.modal-mode .form {
         position: relative !important;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
         animation: authModalFadeIn 0.22s ease-out forwards;
+        max-width: 480px !important;
+        width: 100% !important;
       }
 
       @keyframes authModalFadeIn {
@@ -174,9 +698,6 @@
         }
       }
 
-      .styled-auth-wrapper:not(.modal-mode) .btn-close-auth-modal {
-        display: none !important;
-      }
       .btn-close-auth-modal {
         position: absolute;
         top: 14px;
@@ -193,22 +714,6 @@
       }
       .btn-close-auth-modal:hover {
         color: #ef4444;
-      }
-
-      .styled-auth-wrapper .form {
-        display: flex;
-        flex-direction: column !important;
-        gap: 10px !important;
-        background-color: #ffffff !important;
-        padding: 30px !important;
-        width: 450px !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        border-radius: 20px !important;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
-        margin: auto !important;
-        border: 1px solid #ededef !important;
       }
 
       .styled-auth-wrapper .form[style*="display: none"],
@@ -919,7 +1424,7 @@
                 <span class="demo-text-desktop">Làm thử đề mẫu</span>
                 <span class="demo-text-mobile">Làm thử</span>
             </button>
-            <button type="button" class="btn-public-login" onclick="focusLoginForm()">
+            <button type="button" class="btn-public-login" onclick="openAuthPage('login')">
                 Đăng nhập
             </button>
         </div>
@@ -1159,7 +1664,7 @@
             <button type="button" onclick="startDemoQuiz()" class="btn-hero-primary">
                 <i class="ri-play-circle-fill"></i> Làm thử bài thi mẫu ngay
             </button>
-            <button type="button" onclick="focusLoginForm()" class="btn-hero-secondary">
+            <button type="button" onclick="openAuthPage('login')" class="btn-hero-secondary">
                 <i class="ri-user-shared-line"></i> Đăng nhập / Đăng ký
             </button>
             <a href="#landingWorkflow" class="btn-hero-outline">
@@ -1350,150 +1855,420 @@
 }
 </style>
 
-<!-- KHỐI MODAL ĐĂNG NHẬP / ĐĂNG KÝ (CHỈ HIỆN KHI BẤM NÚT ĐĂNG NHẬP) -->
-<div id="authContainer" class="styled-auth-wrapper modal-mode" style="display: none !important;">
-    <!-- Form Đăng nhập (Sign In) -->
-    <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
-        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ đăng nhập">
-            <i class="ri-close-line"></i>
-        </button>
-        <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
-            <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
-        </div>
-        <div class="flex-column">
-          <label>Email </label>
-        </div>
-        <div class="inputForm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
-            <g data-name="Layer 3" id="Layer_3">
-              <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
-            </g>
-          </svg>
-          <input placeholder="Enter your Email" class="input" type="text" id="email" required />
-        </div>
-        <div class="flex-column">
-          <label>Password </label>
-        </div>
-        <div class="inputForm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
-            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
-            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
-          </svg>        
-          <input placeholder="Enter your Password" class="input" type="password" id="password" required />
-        </div>
-        <div class="flex-row">
-          <div>
-            <input type="radio" id="rememberMe" checked />
-            <label for="rememberMe" style="cursor: pointer;">Remember me </label>
-          </div>
-          <span class="span" onclick="alert('Vui lòng liên hệ Quản trị viên (kiet0905478167@gmail.com) để được hỗ trợ cấp lại mật khẩu.')">Forgot password?</span>
-        </div>
-        <button class="button-submit" type="submit">Sign In</button>
-        <p class="p">Don't have an account? <span class="span" onclick="toggleAuth('register')">Sign Up</span></p>
-        <p class="p line">Or With</p>
-        <div class="flex-row">
-          <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
-            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" id="Layer_1" width="20" height="20" version="1.1">
-              <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256
-      	c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456
-      	C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
-              <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451
-      	c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535
-      	c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
-              <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512
-      	c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771
-      	c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
-              <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012
-      	c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0
-      	C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
-            </svg>
-            Google 
-          </button>
-          <button type="button" class="btn apple" onclick="alert('Tính năng đăng nhập với Apple ID đang được hoàn thiện.')">
-            <svg xmlSpace="preserve" style="enable-background:new 0 0 22.773 22.773;" viewBox="0 0 22.773 22.773" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" id="Capa_1" width="20" height="20" version="1.1">
-              <g> <g> <path fill="#151717" d="M15.769,0c0.053,0,0.106,0,0.162,0c0.13,1.606-0.483,2.806-1.228,3.675c-0.731,0.863-1.732,1.7-3.351,1.573 c-0.108-1.583,0.506-2.694,1.25-3.561C13.292,0.879,14.557,0.16,15.769,0z" /> <path fill="#151717" d="M20.67,16.716c0,0.016,0,0.03,0,0.045c-0.455,1.378-1.104,2.559-1.896,3.655c-0.723,0.995-1.609,2.334-3.191,2.334 c-1.367,0-2.275-0.879-3.676-0.903c-1.482-0.024-2.297,0.735-3.652,0.926c-0.155,0-0.31,0-0.462,0 c-0.995-0.144-1.798-0.932-2.383-1.642c-1.725-2.098-3.058-4.808-3.306-8.276c0-0.34,0-0.679,0-1.019 c0.105-2.482,1.311-4.5,2.914-5.478c0.846-0.52,2.009-0.963,3.304-0.765c0.555,0.086,1.122,0.276,1.619,0.464 c0.471,0.181,1.06,0.502,1.618,0.485c0.378-0.011,0.754-0.208,1.135-0.347c1.116-0.403,2.21-0.865,3.652-0.648 c1.733,0.262,2.963,1.032,3.723,2.22c-1.466,0.933-2.625,2.339-2.427,4.74C17.818,14.688,19.086,15.964,20.67,16.716z" /> </g></g>
-            </svg>
-            Apple 
-          </button>
-        </div>
-    </form>
+<!-- KHỐI TRANG RIÊNG ĐĂNG NHẬP / ĐĂNG KÝ (2 FORM SONG SONG TRÊN PC, TỐI ƯU GỌN GÀNG TRÊN MOBILE) -->
+<div id="authContainer" class="styled-auth-wrapper modal-mode hidden" style="display: none !important;">
+    <div class="auth-page-wrapper">
+        <!-- Top Header điều hướng quay lại trang chủ -->
+        <header class="auth-page-header">
+            <a href="javascript:void(0)" onclick="closeAuthPage()" class="auth-brand-link" title="Về trang chủ HocNhanhTN">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="auth-brand-logo">
+                <div class="auth-brand-info">
+                    <span class="auth-brand-name">HocNhanh<span style="color: #2563eb;">TN</span></span>
+                    <span class="auth-brand-tagline">Nền tảng số hóa đề thi & trắc nghiệm AI GDPT 2018</span>
+                </div>
+            </a>
+            <button type="button" class="btn-back-home" onclick="closeAuthPage()" title="Quay lại trang chủ">
+                <i class="ri-arrow-left-line"></i>
+                <span>Quay lại trang chủ</span>
+            </button>
+        </header>
 
-    <!-- Form Đăng ký (Sign Up) -->
-    <form class="form" id="registerForm" style="display: none !important;" onsubmit="event.preventDefault(); handleRegister();">
-        <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
-            <i class="ri-close-line"></i>
-        </button>
-        <div class="auth-brand-header" style="text-align: center; margin-bottom: 12px;">
-            <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 48px; max-width: 220px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+        <!-- Tiêu đề giới thiệu trang xác thực -->
+        <div class="auth-page-intro">
+            <span class="auth-page-badge">
+                <i class="ri-shield-check-line"></i> Hệ thống an toàn • Miễn phí 100%
+            </span>
+            <h1 class="auth-page-title">Chào mừng bạn đến với HocNhanhTN</h1>
+            <p class="auth-page-subtitle">
+                Đăng nhập để vào phòng thi và lưu lịch sử học tập, hoặc tạo tài khoản mới để sở hữu ngân hàng đề thi AI.
+            </p>
         </div>
 
-        <div class="flex-column">
-          <label>Tên đăng nhập (Username / Email) </label>
-        </div>
-        <div class="inputForm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
-            <g data-name="Layer 3" id="Layer_3_reg">
-              <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
-            </g>
-          </svg>
-          <input placeholder="Enter Username / Email" class="input" type="text" id="regUsername" required />
+        <!-- Segmented Tab Switcher (Chỉ hiển thị trên Mobile / Tablet nhỏ < 992px) -->
+        <div class="auth-mobile-tabs" id="authMobileTabs">
+            <button type="button" class="auth-mobile-tab active" id="tabMobileLogin" onclick="switchMobileAuthTab('login')">
+                <i class="ri-login-circle-line"></i> Đăng nhập
+            </button>
+            <button type="button" class="auth-mobile-tab" id="tabMobileRegister" onclick="switchMobileAuthTab('register')">
+                <i class="ri-user-add-line"></i> Đăng ký
+            </button>
         </div>
 
-        <div class="flex-column">
-          <label>Mật khẩu (Password) </label>
-        </div>
-        <div class="inputForm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
-            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
-            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
-          </svg>        
-          <input placeholder="Create a password" class="input" type="password" id="regPassword" required />
+        <!-- Khung 2 Form Song Song (Desktop: 2 cột song song; Mobile: 1 form bình thường) -->
+        <div class="auth-dual-grid" id="authDualGrid">
+            
+            <!-- CỘT 1: FORM ĐĂNG NHẬP (Sign In) -->
+            <div class="auth-column-card auth-login-card">
+                <form class="form" id="loginForm" onsubmit="event.preventDefault(); handleLogin();">
+                    <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ đăng nhập">
+                        <i class="ri-close-line"></i>
+                    </button>
+                    
+                    <div class="auth-card-header">
+                        <div class="auth-card-icon login-icon">
+                            <i class="ri-shield-keyhole-line"></i>
+                        </div>
+                        <div>
+                            <h2 class="auth-card-title">Đăng nhập tài khoản</h2>
+                            <p class="auth-card-desc">Dành cho Giáo viên & Học sinh đã có tài khoản</p>
+                        </div>
+                    </div>
+
+                    <!-- Email / Username -->
+                    <div class="flex-column">
+                        <label for="email">Email hoặc Tên đăng nhập <span class="required-star">*</span></label>
+                    </div>
+                    <div class="inputForm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
+                            <g data-name="Layer 3" id="Layer_3">
+                                <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
+                            </g>
+                        </svg>
+                        <input placeholder="Nhập email hoặc tên đăng nhập" class="input" type="text" id="email" required autocomplete="username" />
+                    </div>
+
+                    <!-- Mật khẩu -->
+                    <div class="flex-column">
+                        <label for="password">Mật khẩu <span class="required-star">*</span></label>
+                    </div>
+                    <div class="inputForm password-input-form">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
+                            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
+                            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
+                        </svg>        
+                        <input placeholder="Nhập mật khẩu của bạn" class="input" type="password" id="password" required autocomplete="current-password" />
+                        <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility('password', this)" title="Ẩn/hiện mật khẩu" tabindex="-1">
+                            <i class="ri-eye-line"></i>
+                        </button>
+                    </div>
+
+                    <!-- Ghi nhớ & Quên mật khẩu -->
+                    <div class="flex-row">
+                        <div>
+                            <input type="checkbox" id="rememberMe" checked />
+                            <label for="rememberMe" style="cursor: pointer;">Ghi nhớ đăng nhập</label>
+                        </div>
+                        <span class="span" onclick="alert('Vui lòng liên hệ Quản trị viên (kiet0905478167@gmail.com) để được hỗ trợ cấp lại mật khẩu.')">Quên mật khẩu?</span>
+                    </div>
+
+                    <!-- Nút Đăng nhập -->
+                    <button class="button-submit btn-login-submit" type="submit">
+                        <i class="ri-login-circle-fill"></i> &nbsp; Đăng nhập ngay
+                    </button>
+
+                    <!-- Chuyển tab trên Mobile -->
+                    <p class="p mobile-only">
+                        Chưa có tài khoản? <span class="span" onclick="switchMobileAuthTab('register')">Đăng ký tài khoản mới</span>
+                    </p>
+
+                    <p class="p line"><span>Hoặc đăng nhập nhanh với</span></p>
+
+                    <!-- Đăng nhập Google -->
+                    <div class="auth-social-row">
+                        <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
+                            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" id="Layer_1" width="20" height="20" version="1.1">
+                                <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
+                                <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
+                                <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
+                                <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
+                            </svg>
+                            <span>Tiếp tục với tài khoản Google</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- CỘT PHÂN CÁCH TRỰC QUAN TRÊN MÁY TÍNH -->
+            <div class="auth-divider-column" aria-hidden="true">
+                <div class="auth-divider-line"></div>
+                <div class="auth-divider-badge">
+                    <span>HOẶC</span>
+                </div>
+                <div class="auth-divider-line"></div>
+            </div>
+
+            <!-- CỘT 2: FORM ĐĂNG KÝ (Sign Up) -->
+            <div class="auth-column-card auth-register-card">
+                <form class="form" id="registerForm" onsubmit="event.preventDefault(); handleRegister();">
+                    <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+                        <i class="ri-close-line"></i>
+                    </button>
+
+                    <div class="auth-card-header">
+                        <div class="auth-card-icon register-icon">
+                            <i class="ri-user-star-line"></i>
+                        </div>
+                        <div>
+                            <h2 class="auth-card-title">Tạo tài khoản mới</h2>
+                            <p class="auth-card-desc">Miễn phí 100% dành cho Học sinh & Giáo viên</p>
+                        </div>
+                    </div>
+
+                    <!-- Họ và Tên -->
+                    <div class="flex-column">
+                        <label for="regFullName">Họ và Tên <span class="required-star">*</span></label>
+                    </div>
+                    <div class="inputForm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <input placeholder="VD: Nguyễn Văn An" class="input" type="text" id="regFullName" required autocomplete="name" />
+                    </div>
+
+                    <!-- Tên đăng nhập (Username / Email) -->
+                    <div class="flex-column">
+                        <label for="regUsername">Tên đăng nhập hoặc Email <span class="required-star">*</span></label>
+                    </div>
+                    <div class="inputForm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
+                            <g data-name="Layer 3" id="Layer_3_reg">
+                                <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z" />
+                            </g>
+                        </svg>
+                        <input placeholder="Nhập tên đăng nhập hoặc email" class="input" type="text" id="regUsername" required autocomplete="username" />
+                    </div>
+
+                    <!-- Mật khẩu -->
+                    <div class="flex-column">
+                        <label for="regPassword">Mật khẩu tạo mới <span class="required-star">*</span></label>
+                    </div>
+                    <div class="inputForm password-input-form">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20">
+                            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0" />
+                            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0" />
+                        </svg>        
+                        <input placeholder="Tạo mật khẩu (tối thiểu 6 ký tự)" class="input" type="password" id="regPassword" required autocomplete="new-password" />
+                        <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility('regPassword', this)" title="Ẩn/hiện mật khẩu" tabindex="-1">
+                            <i class="ri-eye-line"></i>
+                        </button>
+                    </div>
+
+                    <!-- Vai trò tham gia (Pills trực quan) -->
+                    <div class="flex-column">
+                        <label>Vai trò tham gia <span class="required-star">*</span></label>
+                    </div>
+                    <div class="auth-role-cards-row">
+                        <div class="auth-role-pill selected" id="rolePillStudent" onclick="setRegisterRole('student')">
+                            <span class="role-pill-icon">👨‍🎓</span>
+                            <div class="role-pill-meta">
+                                <strong>Học sinh</strong>
+                                <span>Làm bài & lưu điểm</span>
+                            </div>
+                            <i class="ri-checkbox-circle-fill role-pill-check"></i>
+                        </div>
+                        <div class="auth-role-pill" id="rolePillTeacher" onclick="setRegisterRole('teacher')">
+                            <span class="role-pill-icon">👨‍🏫</span>
+                            <div class="role-pill-meta">
+                                <strong>Giáo viên</strong>
+                                <span>Tạo & quản lý đề</span>
+                            </div>
+                            <i class="ri-checkbox-blank-circle-line role-pill-check"></i>
+                        </div>
+                    </div>
+                    <!-- Hidden select giữ nguyên compatibility 100% với hàm handleRegister() -->
+                    <select id="regRole" style="display: none !important;">
+                        <option value="student" selected>student</option>
+                        <option value="teacher">teacher</option>
+                    </select>
+
+                    <!-- Nút Đăng ký -->
+                    <button class="button-submit btn-register-submit" type="submit">
+                        <i class="ri-user-add-fill"></i> &nbsp; Tạo tài khoản ngay
+                    </button>
+
+                    <!-- Chuyển tab trên Mobile -->
+                    <p class="p mobile-only">
+                        Đã có tài khoản? <span class="span" onclick="switchMobileAuthTab('login')">Đăng nhập ngay</span>
+                    </p>
+
+                    <p class="p line"><span>Hoặc đăng ký nhanh với</span></p>
+
+                    <!-- Đăng ký Google -->
+                    <div class="auth-social-row">
+                        <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
+                            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" width="20" height="20" version="1.1">
+                                <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
+                                <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
+                                <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
+                                <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
+                            </svg>
+                            <span>Đăng ký nhanh với Google</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
         </div>
 
-        <div class="flex-column">
-          <label>Họ và Tên (Full Name) </label>
-        </div>
-        <div class="inputForm">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-          <input placeholder="Họ và Tên (VD: Nguyễn Văn A)" class="input" type="text" id="regFullName" required />
+        <!-- Form Hoàn tất đăng ký tài khoản Google (Sign Up with Google) -->
+        <form class="form" id="roleSelectionCard" style="display: none !important;" onsubmit="event.preventDefault(); submitUserProfileAndRole();">
+            <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+                <i class="ri-close-line"></i>
+            </button>
+            <div class="auth-brand-header" style="text-align: center; margin-bottom: 10px;">
+                <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 44px; max-width: 200px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+            </div>
+            <!-- Header tài khoản Google -->
+            <div class="google-user-banner">
+                <div class="google-user-avatar-box">
+                    <span id="roleUserInitials">U</span>
+                    <img id="roleUserImg" src="" alt="avatar" style="display: none;" />
+                </div>
+                <div class="google-user-meta">
+                    <div class="google-tag">
+                        <svg viewBox="0 0 512 512" width="13" height="13">
+                            <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00"/>
+                            <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8"/>
+                            <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446"/>
+                            <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336"/>
+                        </svg>
+                        <span>Google Account</span>
+                    </div>
+                    <div class="google-email" id="roleUserEmail">...</div>
+                </div>
+            </div>
+
+            <div style="margin: 4px 0 8px 0; text-align: center;">
+                <h3 style="font-size: 17px; font-weight: 700; color: #151717; margin: 0 0 2px 0;">Hoàn tất đăng ký</h3>
+                <p class="p" style="font-size: 13px; color: #71717a; margin: 0;">Xác nhận thông tin & vai trò của bạn để tiếp tục</p>
+            </div>
+
+            <!-- Họ và Tên -->
+            <div class="flex-column">
+                <label>Họ và Tên <span style="color: #ef4444;">*</span></label>
+            </div>
+            <div class="inputForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <input placeholder="Họ và tên của bạn" class="input" type="text" id="roleFullNameInput" required />
+            </div>
+
+            <!-- Chọn vai trò -->
+            <div class="flex-column">
+                <label>Vai trò tham gia <span style="color: #ef4444;">*</span></label>
+            </div>
+            <div class="role-selector-row">
+                <div class="role-selector-item selected" id="chooseStudentCard" onclick="selectRoleTab('student')">
+                    <div class="role-selector-header">
+                        <span class="role-emoji">👨‍🎓</span>
+                        <span class="role-name">Học sinh</span>
+                        <i class="ri-checkbox-circle-fill role-check-icon"></i>
+                    </div>
+                    <span class="role-badge-text instant">⚡ Vào học ngay</span>
+                </div>
+
+                <div class="role-selector-item" id="chooseTeacherCard" onclick="selectRoleTab('teacher')">
+                    <div class="role-selector-header">
+                        <span class="role-emoji">👨‍🏫</span>
+                        <span class="role-name">Giáo viên</span>
+                        <i class="ri-checkbox-blank-circle-line role-check-icon"></i>
+                    </div>
+                    <span class="role-badge-text pending">🛡️ Cần Admin duyệt</span>
+                </div>
+            </div>
+
+            <!-- Thông báo lưu ý khi chọn Giáo viên -->
+            <div id="teacherApprovalNotice" style="display: none; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #92400e; line-height: 1.45;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <i class="ri-information-fill" style="font-size: 16px; color: #d97706; flex-shrink: 0;"></i>
+                    <span><b>Lưu ý:</b> Tài khoản Giáo viên cần Quản trị viên duyệt để kích hoạt tính năng tạo đề.</span>
+                </div>
+            </div>
+
+            <!-- Lớp học / Đơn vị (Không bắt buộc) -->
+            <div class="flex-column">
+                <label id="roleClassLabel">Lớp học / Đơn vị <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+            </div>
+            <div class="inputForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                <input placeholder="VD: Lớp 12A1 / THPT Amsterdam..." class="input" type="text" id="roleClassNameInput" />
+            </div>
+
+            <!-- Số điện thoại (Không bắt buộc) -->
+            <div class="flex-column">
+                <label>Số điện thoại / Zalo <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+            </div>
+            <div class="inputForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                </svg>
+                <input placeholder="VD: 0912345678" class="input" type="tel" id="rolePhoneInput" />
+            </div>
+            <input type="hidden" id="roleSchoolInput" value="" />
+
+            <!-- Nút Submit Hoàn tất -->
+            <button class="button-submit" type="submit" id="btnSubmitRoleChoice" style="background-color: #2563eb; margin-top: 14px;">
+                <span id="btnSubmitRoleText">🚀 Hoàn tất & Vào học ngay</span>
+            </button>
+
+            <!-- Quay lại / Đổi tài khoản -->
+            <p class="p" style="margin-top: 8px;">
+                <span class="span" onclick="cancelRoleSelection()" style="color: #64748b; font-size: 13px;">
+                    ← Đăng xuất & Đổi tài khoản khác
+                </span>
+            </p>
+        </form>
+
+        <!-- Card Thông báo Tài khoản Giáo viên đang chờ duyệt (Pending Approval) -->
+        <div class="form" id="pendingApprovalCard" style="display: none !important; text-align: center;">
+            <button type="button" class="btn-close-auth-modal" onclick="closeExamLoginModal()" title="Đóng cửa sổ">
+                <i class="ri-close-line"></i>
+            </button>
+            <div style="margin: 10px auto 14px auto; width: 64px; height: 64px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.2);">
+                <i class="ri-hourglass-2-fill"></i>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <span style="display: inline-block; background: #fef3c7; color: #b45309; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #fde68a;">
+                    ⏳ CHỜ QUẢN TRỊ VIÊN DUYỆT
+                </span>
+            </div>
+            <h3 style="font-size: 18px; font-weight: 700; color: #151717; margin: 0 0 6px 0;">Tài khoản đang chờ duyệt</h3>
+            <p class="p" style="font-size: 13px; color: #475569; line-height: 1.5; margin: 0 0 12px 0;">
+                Xin chào <b id="pendingTeacherName" style="color: #0f172a;">...</b>!<br>
+                Hệ thống đã nhận yêu cầu tài khoản Giáo viên từ email <b id="pendingTeacherEmail" style="color: #2563eb;">...</b>.
+            </p>
+            <p id="pendingTeacherInfo" style="display: none; font-size: 12px; color: #475569; margin: 0 0 12px 0; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;"></p>
+
+            <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left; font-size: 12.5px; color: #475569; line-height: 1.45;">
+                <div style="display: flex; gap: 8px; align-items: flex-start;">
+                    <i class="ri-shield-keyhole-line" style="font-size: 16px; color: #2563eb; flex-shrink: 0; margin-top: 2px;"></i>
+                    <div>
+                        Để đảm bảo an toàn ngân hàng đề thi, Quản trị viên sẽ phê duyệt tài khoản của bạn trong thời gian sớm nhất.
+                    </div>
+                </div>
+            </div>
+
+            <button class="button-submit" type="button" onclick="checkCurrentApprovalStatus()" id="btnCheckApproval" style="background-color: #2563eb; margin: 0 0 10px 0;">
+                <i class="ri-refresh-line"></i> &nbsp; Kiểm tra trạng thái duyệt
+            </button>
+            <button class="btn" type="button" onclick="cancelRoleSelection()" style="margin: 0;">
+                Đăng nhập tài khoản khác
+            </button>
         </div>
 
-        <div class="flex-column">
-          <label>Vai trò tham gia </label>
+        <!-- Trust Badges -->
+        <div class="auth-page-trust-row">
+            <div class="auth-trust-item">
+                <i class="ri-shield-check-fill" style="color: #10b981; font-size: 1.15rem;"></i>
+                <span>Bảo mật dữ liệu tuyệt đối</span>
+            </div>
+            <div class="auth-trust-item">
+                <i class="ri-flashlight-fill" style="color: #f59e0b; font-size: 1.15rem;"></i>
+                <span>Đồng bộ điểm thi tức thì</span>
+            </div>
+            <div class="auth-trust-item">
+                <i class="ri-award-fill" style="color: #2563eb; font-size: 1.15rem;"></i>
+                <span>Chuẩn Bộ GD&ĐT 2018</span>
+            </div>
         </div>
-        <div class="inputForm">
-          <select id="regRole" class="input" style="background: transparent; border: none; cursor: pointer;">
-              <option value="student">👨‍🎓 Học sinh (Student)</option>
-              <option value="teacher">👨‍🏫 Giáo viên (Teacher)</option>
-          </select>
-        </div>
-
-        <button class="button-submit" type="submit" style="background-color: #2563eb;">Sign Up</button>
-        <p class="p">Already have an account? <span class="span" onclick="toggleAuth('login')">Sign In</span></p>
-        <p class="p line">Or With</p>
-        <div class="flex-row">
-          <button type="button" class="btn google" onclick="triggerGoogleSignIn()">
-            <svg xmlSpace="preserve" style="enable-background:new 0 0 512 512;" viewBox="0 0 512 512" y="0px" x="0px" xmlns="http://www.w3.org/2000/svg" width="20" height="20" version="1.1">
-              <path d="M113.47,309.408L95.648,375.94l-65.139,1.378C11.042,341.211,0,299.9,0,256
-      	c0-42.451,10.324-82.483,28.624-117.732h0.014l57.992,10.632l25.404,57.644c-5.317,15.501-8.215,32.141-8.215,49.456
-      	C103.821,274.792,107.225,292.797,113.47,309.408z" fill="#FBBB00" />
-              <path d="M507.527,208.176C510.467,223.662,512,239.655,512,256c0,18.328-1.927,36.206-5.598,53.451
-      	c-12.462,58.683-45.025,109.925-90.134,146.187l-0.014-0.014l-73.044-3.727l-10.338-64.535
-      	c29.932-17.554,53.324-45.025,65.646-77.911h-136.89V208.176h138.887L507.527,208.176L507.527,208.176z" fill="#518EF8" />
-              <path d="M416.253,455.624l0.014,0.014C372.396,490.901,316.666,512,256,512
-      	c-97.491,0-182.252-54.491-225.491-134.681l82.961-67.91c21.619,57.698,77.278,98.771,142.53,98.771
-      	c28.047,0,54.323-7.582,76.87-20.818L416.253,455.624z" fill="#28B446" />
-              <path d="M419.404,58.936l-82.933,67.896c-23.335-14.586-50.919-23.012-80.471-23.012
-      	c-66.729,0-123.429,42.957-143.965,102.724l-83.397-68.276h-0.014C71.23,56.123,157.06,0,256,0
-      	C318.115,0,375.068,22.126,419.404,58.936z" fill="#F14336" />
-            </svg>
-            Google 
-          </button>
-        </div>
-    </form>
+    </div>
+</div>
 
     <!-- Form Hoàn tất đăng ký tài khoản Google (Sign Up with Google) -->
     <form class="form" id="roleSelectionCard" style="display: none !important;" onsubmit="event.preventDefault(); submitUserProfileAndRole();">
@@ -2517,11 +3292,15 @@
         <div class="azota-exam-col-side" id="azotaSideExamCol" style="display:none;">
             <div class="azota-navigator-card" id="azotaNavigatorCard">
                 <div class="azota-nav-title">
-                    <span><i class="ri-grid-fill" style="color: #1976d2;"></i> Bảng câu hỏi</span>
-                    <span id="navProgressBadge" style="font-size: 0.82rem; background: #eff6ff; color: #1976d2; padding: 2px 8px; border-radius: 12px; font-weight: 700;">0/0</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="ri-grid-fill" style="color: #2563eb; font-size: 1.15rem;"></i>
+                        <span>Bảng câu hỏi</span>
+                    </div>
+                    <span id="navProgressBadge" class="nav-badge-pill">0/0</span>
                 </div>
                 
-                <div class="azota-nav-legend">
+                <!-- Legend dành cho Chế độ Thi thử (Exam Mode) -->
+                <div class="azota-nav-legend azota-nav-legend-exam" id="azotaNavLegend">
                     <div class="azota-legend-item">
                         <span class="legend-dot green"></span> Đã chọn
                     </div>
@@ -2533,13 +3312,33 @@
                     </div>
                 </div>
 
+                <!-- Khối thống kê Đúng / Sai / Chưa làm cho Chế độ Luyện tập (Practice Mode) -->
+                <div class="azota-practice-stats" id="azotaPracticeStats" style="display:none;">
+                    <div class="stat-pill stat-pill-correct" title="Số câu đúng">
+                        <i class="ri-checkbox-circle-fill"></i>
+                        <span>Đúng: <b class="p-stat-correct-val">0</b></span>
+                    </div>
+                    <div class="stat-pill stat-pill-wrong" title="Số câu sai">
+                        <i class="ri-close-circle-fill"></i>
+                        <span>Sai: <b class="p-stat-wrong-val">0</b></span>
+                    </div>
+                    <div class="stat-pill stat-pill-remain" title="Số câu chưa làm">
+                        <i class="ri-time-line"></i>
+                        <span>Còn: <b class="p-stat-remaining-val">0</b></span>
+                    </div>
+                </div>
+
                 <div class="azota-nav-grid" id="azotaNavGrid">
                     <!-- Các số câu 1, 2, 3... sẽ được render động ở đây -->
                 </div>
 
-                <div style="margin-top: 20px;">
-                    <button class="btn-azota-submit-big" onclick="submitExam()">
+                <div class="azota-nav-actions" style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="btn-azota-submit-big" id="btnSubmitExamNav" onclick="submitExam()">
                         <i class="ri-check-double-line"></i> NỘP BÀI THI
+                    </button>
+                    <!-- Nút Làm lại bài ngay cả khi chưa nộp bài (Chế độ Luyện tập) -->
+                    <button type="button" class="btn-azota-restart-practice" id="btnRestartPracticeDesktop" style="display:none;" onclick="confirmRestartPractice()">
+                        <i class="ri-refresh-line"></i> Làm lại bài từ đầu
                     </button>
                 </div>
             </div>
@@ -2552,11 +3351,11 @@
             <i class="ri-grid-fill"></i>
             <div class="mobile-nav-text-group">
                 <span class="mobile-nav-label">Bảng câu hỏi</span>
-                <span id="mobileNavBadge" class="mobile-nav-sub">0/0 đã làm</span>
+                <span id="mobileNavBadge" class="mobile-nav-sub">0 Đúng • 0 Sai</span>
             </div>
         </button>
         <button type="button" id="mobileNextBtn" class="btn-mobile-submit" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);" onclick="mobileNextQuestionAction()">
-            Câu tiếp <i class="ri-arrow-right-line"></i>
+            Câu tiếp <i class="ri-arrow-down-line"></i>
         </button>
     </div>
 
@@ -2576,17 +3375,36 @@
                 <i class="ri-close-line"></i>
             </button>
         </div>
-        <div class="azota-nav-legend mobile-sheet-legend">
+        <!-- Legend dành cho Chế độ Thi thử trên Mobile -->
+        <div class="azota-nav-legend mobile-sheet-legend azota-nav-legend-exam" id="mobileAzotaNavLegend">
             <div class="azota-legend-item"><span class="legend-dot green"></span> Đã chọn</div>
             <div class="azota-legend-item"><span class="legend-dot gray"></span> Chưa làm</div>
             <div class="azota-legend-item"><span class="legend-dot red"></span> Phân vân</div>
         </div>
+        <!-- Khối thống kê Luyện tập cho Mobile Drawer -->
+        <div class="azota-practice-stats mobile-sheet-practice-stats" id="mobileAzotaPracticeStats" style="display:none;">
+            <div class="stat-pill stat-pill-correct" title="Số câu đúng">
+                <i class="ri-checkbox-circle-fill"></i>
+                <span>Đúng: <b class="p-stat-correct-val">0</b></span>
+            </div>
+            <div class="stat-pill stat-pill-wrong" title="Số câu sai">
+                <i class="ri-close-circle-fill"></i>
+                <span>Sai: <b class="p-stat-wrong-val">0</b></span>
+            </div>
+            <div class="stat-pill stat-pill-remain" title="Số câu chưa làm">
+                <i class="ri-time-line"></i>
+                <span>Còn: <b class="p-stat-remaining-val">0</b></span>
+            </div>
+        </div>
         <div class="azota-nav-grid mobile-sheet-grid" id="azotaMobileNavGrid">
             <!-- Render động danh sách số câu hỏi -->
         </div>
-        <div class="mobile-sheet-footer">
+        <div class="mobile-sheet-footer" id="mobileSheetFooter" style="display: flex; flex-direction: column; gap: 10px;">
             <button type="button" class="btn-azota-submit-big" onclick="toggleMobileNavSheet(false); submitExam();">
                 <i class="ri-send-plane-fill"></i> NỘP BÀI THI NGAY
+            </button>
+            <button type="button" class="btn-azota-restart-practice mobile" id="btnRestartPracticeMobile" style="display:none;" onclick="confirmRestartPractice()">
+                <i class="ri-refresh-line"></i> Làm lại bài từ đầu
             </button>
         </div>
     </div>
@@ -2960,6 +3778,6 @@
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="script.js?v=20261020_login_modal_v7"></script>
+<script src="script.js?v=20261021_fix_desktop_scroll_v6"></script>
 </body>
 </html>

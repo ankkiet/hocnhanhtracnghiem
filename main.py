@@ -160,6 +160,9 @@ templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templa
 
 @app.get("/", response_class=HTMLResponse, summary="Giao diện chính & Đề thi trắc nghiệm (Tự động hiển thị Tên đề & Thumbnail khi gửi link)")
 @app.get("/index.html", response_class=HTMLResponse, summary="Giao diện chính & Đề thi trắc nghiệm")
+@app.get("/login", response_class=HTMLResponse, summary="Trang Đăng nhập tài khoản")
+@app.get("/register", response_class=HTMLResponse, summary="Trang Đăng ký tài khoản")
+@app.get("/auth", response_class=HTMLResponse, summary="Trang Đăng nhập & Đăng ký")
 @app.get("/quiz/{quiz_id}", response_class=HTMLResponse, summary="Link trực tiếp tới đề thi")
 async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     index_path = os.path.join(templates_dir, "index.html")
