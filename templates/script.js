@@ -8075,3 +8075,73 @@ window.startDemoQuiz = startDemoQuiz;
     }
     window.addEventListener('hashchange', handleHash);
 })();
+
+// ==========================================
+// TIỆN ÍCH TRANG CHỦ MỚI: VÀO PHÒNG THI NHANH & CÂU HỎI TƯƠNG TÁC HERO
+// ==========================================
+function joinQuizByCode() {
+    const input = document.getElementById('heroQuizCodeInput');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) {
+        input.focus();
+        if (typeof showToast === 'function') {
+            showToast("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.", "warning");
+        } else {
+            alert("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.");
+        }
+        return;
+    }
+    let quizId = val;
+    try {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+            const parsed = new URL(val);
+            quizId = parsed.searchParams.get('quiz_id') || parsed.searchParams.get('id') || parsed.pathname.split('/').filter(Boolean).pop() || val;
+        } else if (val.includes('/quiz/')) {
+            quizId = val.split('/quiz/').pop().split('?')[0].split('#')[0];
+        }
+    } catch(e) {}
+    window.location.href = '/?id=' + encodeURIComponent(quizId);
+}
+window.joinQuizByCode = joinQuizByCode;
+
+function handleHeroDemoChoice(btn, isCorrect, explanation) {
+    const card = document.getElementById('heroInteractiveQuizCard');
+    if (!card) return;
+    const allOptions = card.querySelectorAll('.hero-quiz-option');
+    allOptions.forEach(opt => {
+        opt.classList.remove('selected', 'correct', 'incorrect');
+        opt.setAttribute('aria-pressed', 'false');
+    });
+    btn.classList.add('selected');
+    btn.setAttribute('aria-pressed', 'true');
+    const feedbackBox = document.getElementById('heroQuizFeedback');
+    if (isCorrect) {
+        btn.classList.add('correct');
+        if (feedbackBox) {
+            feedbackBox.className = 'hero-quiz-feedback correct';
+            feedbackBox.innerHTML = `
+                <div class="feedback-badge"><i class="ri-checkbox-circle-fill"></i> Chính xác! Tuyệt vời 🎉</div>
+                <div class="feedback-text">${explanation}</div>
+                <button type="button" class="btn-hero-launch-full" onclick="startDemoQuiz()">
+                    <i class="ri-play-circle-fill"></i> Làm bài thi mẫu đầy đủ (5 câu có chấm điểm) <i class="ri-arrow-right-line"></i>
+                </button>
+            `;
+            feedbackBox.style.display = 'block';
+        }
+    } else {
+        btn.classList.add('incorrect');
+        if (feedbackBox) {
+            feedbackBox.className = 'hero-quiz-feedback incorrect';
+            feedbackBox.innerHTML = `
+                <div class="feedback-badge"><i class="ri-close-circle-fill"></i> Chưa chính xác!</div>
+                <div class="feedback-text">Gợi ý: Nghiệm $x = -2$ là nghiệm bội chẵn nên đạo hàm $f'(x)$ không đổi dấu khi đi qua điểm này. Hãy thử chọn lại đáp án <b>B</b> xem sao nhé!</div>
+            `;
+            feedbackBox.style.display = 'block';
+        }
+    }
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([feedbackBox]).catch(function(){});
+    }
+}
+window.handleHeroDemoChoice = handleHeroDemoChoice;

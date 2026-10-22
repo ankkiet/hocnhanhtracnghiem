@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>HocNhanhTN - Component Canvas & Design System</title>
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']],
+                processEscapes: true
+            },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] },
+            chtml: { matchFontHeight: false }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-canvas: #f8fafc;
+            --surface-card: #ffffff;
+            --border-dashed: rgba(100, 116, 139, 0.28);
+            --text-heading: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --brand-primary: #2563eb;
+            --brand-primary-hover: #1d4ed8;
+            --brand-subtle: #eff6ff;
+            --accent-emerald: #059669;
+            --accent-emerald-subtle: #ecfdf5;
+            --accent-amber: #d97706;
+            --accent-amber-subtle: #fffbeb;
+            --shadow-subtle: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+
+        [data-theme="dark"] {
+            --bg-canvas: #090d16;
+            --surface-card: #131b2e;
+            --border-dashed: rgba(148, 163, 184, 0.3);
+            --text-heading: #f8fafc;
+            --text-body: #cbd5e1;
+            --text-muted: #94a3b8;
+            --brand-primary: #3b82f6;
+            --brand-primary-hover: #60a5fa;
+            --brand-subtle: #1e293b;
+            --accent-emerald: #10b981;
+            --accent-emerald-subtle: #064e3b;
+            --accent-amber: #f59e0b;
+            --accent-amber-subtle: #451a03;
+            --shadow-subtle: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-canvas);
+            color: var(--text-body);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Top HUD Navigation Bar */
+        .canvas-hud {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            border-radius: 12px;
+            padding: 0 16px;
+            z-index: 1000;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="dark"] .canvas-hud {
+            background: rgba(19, 27, 46, 0.88);
+            border-color: rgba(148, 163, 184, 0.2);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .hud-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-heading);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.88rem;
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            transition: all 0.15s ease;
+        }
+        .hud-back-btn:hover {
+            opacity: 0.9;
+            transform: translateX(-1px);
+        }
+
+        .hud-title {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 700;
+            font-size: 0.98rem;
+            color: var(--text-heading);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hud-badge {
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 99px;
+            border: 1px solid var(--border-dashed);
+        }
+
+        .hud-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hud-btn {
+            background: var(--surface-card);
+            border: 1px solid rgba(100, 116, 139, 0.25);
+            color: var(--text-heading);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .hud-btn:hover {
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            border-color: var(--brand-primary);
+        }
+        .hud-btn:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        .zoom-readout {
+            font-family: 'Inter', monospace;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            min-width: 52px;
+            text-align: center;
+            padding: 0 4px;
+        }
+
+        /* Canvas Viewport & World Plane */
+        #canvasViewport {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+            overflow: hidden;
+        }
+
+        #canvasViewport.panning {
+            cursor: grabbing;
+        }
+
+        #canvasWorld {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
+            padding: 100px 80px 180px;
+            display: flex;
+            flex-direction: column;
+            gap: 48px;
+            width: max-content;
+        }
+
+        /* Component Groups: thin dashed border, plain title 8px above */
+        .canvas-group-container {
+            position: relative;
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .group-header {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .group-title {
+            color: var(--text-muted);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .group-desc {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            opacity: 0.8;
+        }
+
+        .canvas-group {
+            border: 1px dashed var(--border-dashed);
+            border-radius: 14px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        [data-theme="dark"] .canvas-group {
+            background: rgba(19, 27, 46, 0.45);
+        }
+
+        .group-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        /* Slots inside group */
+        .component-slot {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slot-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-family: 'Inter', monospace;
+        }
+
+        /* Real Component Implementations (Inspected directly) */
+        /* 1. BUTTONS */
+        .btn-preview {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            border: 1px solid transparent;
+            line-height: 1.2;
+        }
+        .btn-preview:focus-visible {
+            outline: 2px solid var(--brand-primary);
+            outline-offset: 2px;
+        }
+
+        /* Sizes */
+        .btn-sm { padding: 8px 14px; font-size: 0.82rem; }
+        .btn-md { padding: 12px 20px; font-size: 0.92rem; }
+        .btn-lg { padding: 15px 28px; font-size: 1rem; }
+
+        /* Variants */
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.38);
+        }
+
+        .btn-secondary {
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            border-color: rgba(37, 99, 235, 0.2);
+        }
+        .btn-secondary:hover {
+            background: rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-outline {
+            background: var(--surface-card);
+            color: var(--text-heading);
+            border-color: rgba(100, 116, 139, 0.25);
+        }
+        .btn-outline:hover {
+            border-color: var(--brand-primary);
+            color: var(--brand-primary);
+            background: var(--brand-subtle);
+        }
+
+        .btn-preview:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none;
+        }
+
+        /* 2. BADGES */
+        .badge-preview {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .badge-blue {
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            border-color: rgba(37, 99, 235, 0.2);
+        }
+
+        .badge-emerald {
+            background: var(--accent-emerald-subtle);
+            color: var(--accent-emerald);
+            border-color: rgba(5, 150, 105, 0.2);
+        }
+
+        .badge-amber {
+            background: var(--accent-amber-subtle);
+            color: var(--accent-amber);
+            border-color: rgba(217, 119, 6, 0.2);
+        }
+
+        /* 3. INTERACTIVE QUIZ CARD */
+        .quiz-card-mock {
+            background: var(--surface-card);
+            border: 1px solid rgba(100, 116, 139, 0.22);
+            border-radius: 18px;
+            padding: 24px;
+            width: 480px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .quiz-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .quiz-question-text {
+            font-size: 0.96rem;
+            font-weight: 600;
+            color: var(--text-heading);
+            line-height: 1.55;
+        }
+
+        .quiz-options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .quiz-option-btn {
+            background: var(--surface-card);
+            border: 1.5px solid rgba(100, 116, 139, 0.22);
+            border-radius: 12px;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.92rem;
+            color: var(--text-heading);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            transition: all 0.15s ease;
+        }
+        .quiz-option-btn:hover {
+            border-color: var(--brand-primary);
+            background: var(--brand-subtle);
+        }
+        .quiz-option-btn.selected-correct {
+            border-color: var(--accent-emerald);
+            background: var(--accent-emerald-subtle);
+            color: var(--accent-emerald);
+            font-weight: 700;
+        }
+        .quiz-option-btn.selected-incorrect {
+            border-color: #ef4444;
+            background: #fef2f2;
+            color: #b91c1c;
+            font-weight: 700;
+        }
+
+        /* 4. PIN SEARCH BAR */
+        .search-bar-mock {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface-card);
+            border: 1.5px solid rgba(100, 116, 139, 0.25);
+            border-radius: 12px;
+            padding: 6px 8px 6px 14px;
+            width: 440px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+            transition: border-color 0.15s ease;
+        }
+        .search-bar-mock:focus-within {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        .search-bar-mock input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text-heading);
+            font-size: 0.92rem;
+        }
+
+        /* 5. WORKFLOW STEP CARD */
+        .step-card-mock {
+            background: var(--surface-card);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            border-radius: 16px;
+            padding: 22px;
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: var(--shadow-subtle);
+        }
+        .step-num-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: var(--brand-subtle);
+            color: var(--brand-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        /* 6. FAQ ACCORDION */
+        .faq-accordion-mock {
+            width: 480px;
+            border: 1px solid rgba(100, 116, 139, 0.22);
+            border-radius: 12px;
+            background: var(--surface-card);
+            overflow: hidden;
+        }
+        .faq-accordion-header {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.94rem;
+            color: var(--text-heading);
+            user-select: none;
+        }
+        .faq-accordion-content {
+            padding: 0 20px 16px;
+            font-size: 0.88rem;
+            color: var(--text-body);
+            line-height: 1.6;
+            border-top: 1px solid rgba(100, 116, 139, 0.1);
+            padding-top: 12px;
+        }
+
+        /* Keyboard Help Strip */
+        .canvas-footer-help {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.8);
+            color: #ffffff;
+            font-size: 0.76rem;
+            padding: 6px 16px;
+            border-radius: 99px;
+            display: flex;
+            gap: 16px;
+            z-index: 999;
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HUD Control Bar -->
+    <header class="canvas-hud">
+        <div class="hud-left">
+            <a href="/" class="hud-back-btn" title="Quay lại trang chủ">
+                <i class="ri-arrow-left-line"></i> Trang chủ
+            </a>
+            <div class="hud-title">
+                HocNhanhTN Component Canvas
+                <span class="hud-badge">GDPT 2018 Design System</span>
+            </div>
+        </div>
+
+        <div class="hud-controls">
+            <button class="hud-btn" id="btnZoomOut" aria-label="Zoom out canvas" title="Thu nhỏ (Phím -)">
+                <i class="ri-subtract-line"></i>
+            </button>
+            <span class="zoom-readout" id="zoomReadout">100%</span>
+            <button class="hud-btn" id="btnZoomIn" aria-label="Zoom in canvas" title="Phóng to (Phím +)">
+                <i class="ri-add-line"></i>
+            </button>
+            <button class="hud-btn" id="btnFitAll" aria-label="Fit all components" title="Vừa khung hình (Phím F)">
+                <i class="ri-fullscreen-line"></i>
+            </button>
+            <button class="hud-btn" id="btnResetCamera" aria-label="Reset zoom and position" title="Đặt lại camera (Phím 0)">
+                <i class="ri-restart-line"></i>
+            </button>
+            <button class="hud-btn" id="btnThemeToggle" aria-label="Toggle dark/light theme" title="Đổi giao diện Sáng / Tối">
+                <i class="ri-moon-line"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Canvas Viewport -->
+    <main id="canvasViewport" role="region" aria-label="Interactive component exploration canvas">
+        <div id="canvasWorld">
+
+            <!-- GROUP 1: BUTTONS & CTAS -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">Buttons & Calls to Action</h2>
+                    <span class="group-desc">Public hero triggers, quiz entry, auth actions</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">variant="primary" size="lg"</span>
+                            <button type="button" class="btn-preview btn-primary btn-lg">
+                                <i class="ri-play-circle-fill"></i> Làm thử bài thi mẫu ngay
+                            </button>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">variant="primary" size="md"</span>
+                            <button type="button" class="btn-preview btn-primary btn-md">
+                                <i class="ri-play-circle-line"></i> Làm thử đề mẫu
+                            </button>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">variant="secondary" size="md"</span>
+                            <button type="button" class="btn-preview btn-secondary btn-md">
+                                <i class="ri-user-shared-line"></i> Đăng nhập / Đăng ký
+                            </button>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">variant="outline" size="md"</span>
+                            <button type="button" class="btn-preview btn-outline btn-md">
+                                <i class="ri-compass-3-line"></i> Khám phá quy trình
+                            </button>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">variant="primary" state="disabled"</span>
+                            <button type="button" class="btn-preview btn-primary btn-md" disabled>
+                                Đang tải bài thi...
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP 2: STATUS BADGES & TAGS -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">Badges & Category Tags</h2>
+                    <span class="group-desc">Metadata, Curriculum, Live Timers</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">Hero Badge</span>
+                            <div class="badge-preview badge-blue">
+                                <i class="ri-sparkling-fill"></i> Chuẩn Chương trình GDPT 2018
+                            </div>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">Live Timer Badge</span>
+                            <div class="badge-preview badge-amber">
+                                <i class="ri-timer-line"></i> 14:55 phút còn lại
+                            </div>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">Success Result Badge</span>
+                            <div class="badge-preview badge-emerald">
+                                <i class="ri-checkbox-circle-fill"></i> Chấm điểm tức thì (10/10)
+                            </div>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">Step Index Indicator</span>
+                            <div class="step-num-badge">1</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP 3: INTERACTIVE QUIZ QUESTION CARD -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">Interactive Quiz Preview Card</h2>
+                    <span class="group-desc">MathJax formula rendering, instant option selection feedback</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">State: Correct Selected (MathJax $f'(x) = 0$)</span>
+                            <div class="quiz-card-mock">
+                                <div class="quiz-card-top">
+                                    <span>Toán 12 • Đạo hàm & Cực trị</span>
+                                    <span class="badge-preview badge-amber" style="padding: 3px 8px; font-size: 0.72rem;">⏱️ 14:55</span>
+                                </div>
+                                <div class="quiz-question-text">
+                                    Cho hàm số $y = f(x)$ liên tục trên $\mathbb{R}$ và có đạo hàm $f'(x) = x(x-1)(x+2)^2$. Số điểm cực trị của hàm số là:
+                                </div>
+                                <div class="quiz-options-list">
+                                    <div class="quiz-option-btn">
+                                        <span>A. 1 điểm</span>
+                                    </div>
+                                    <div class="quiz-option-btn selected-correct">
+                                        <span>B. 2 điểm (Điểm x = 0 và x = 1)</span>
+                                        <i class="ri-checkbox-circle-fill" style="font-size: 1.2rem;"></i>
+                                    </div>
+                                    <div class="quiz-option-btn">
+                                        <span>C. 3 điểm</span>
+                                    </div>
+                                    <div class="quiz-option-btn">
+                                        <span>D. 0 điểm</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-slot">
+                            <span class="slot-label">State: Incorrect Selected (Mistake Feedback)</span>
+                            <div class="quiz-card-mock">
+                                <div class="quiz-card-top">
+                                    <span>Vật lý 12 • Dao động điều hòa</span>
+                                    <span class="badge-preview badge-blue" style="padding: 3px 8px; font-size: 0.72rem;">Câu 2/20</span>
+                                </div>
+                                <div class="quiz-question-text">
+                                    Một vật dao động điều hòa theo phương trình $x = 5\cos(4\pi t)$ (cm). Tần số dao động $f$ của vật là:
+                                </div>
+                                <div class="quiz-options-list">
+                                    <div class="quiz-option-btn selected-correct">
+                                        <span>A. 2 Hz ($f = \frac{\omega}{2\pi} = 2$)</span>
+                                        <i class="ri-check-line"></i>
+                                    </div>
+                                    <div class="quiz-option-btn selected-incorrect">
+                                        <span>B. 4 Hz (Nhầm lẫn giữa $\omega$ và $f$)</span>
+                                        <i class="ri-close-line"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP 4: EXAM SEARCH BAR & PIN INPUT -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">Exam Code / PIN Search Bar</h2>
+                    <span class="group-desc">Instant quiz jump without account login</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">Default State</span>
+                            <div class="search-bar-mock">
+                                <i class="ri-key-2-line" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                                <input type="text" placeholder="Nhập mã đề thi hoặc dán link... (VD: TOAN12, DE01)" value="" readonly>
+                                <button type="button" class="btn-preview btn-primary btn-sm">
+                                    Vào thi <i class="ri-arrow-right-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="component-slot">
+                            <span class="slot-label">Filled State</span>
+                            <div class="search-bar-mock" style="border-color: var(--brand-primary);">
+                                <i class="ri-key-2-fill" style="color: var(--brand-primary); font-size: 1.1rem;"></i>
+                                <input type="text" value="GDPT2018-TOAN-KI-1" readonly>
+                                <button type="button" class="btn-preview btn-primary btn-sm">
+                                    Vào thi <i class="ri-arrow-right-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP 5: WORKFLOW STEP CARDS -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">Digitization Workflow Cards</h2>
+                    <span class="group-desc">Step 1 (Upload), Step 2 (AI Parse), Step 3 (Online Quiz)</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">Step 1: Upload</span>
+                            <div class="step-card-mock">
+                                <div class="step-num-badge">1</div>
+                                <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading);">Tải Lên Tệp Word / PDF</h3>
+                                <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.55;">
+                                    Kéo thả tệp đề thi theo cấu trúc chuẩn GDPT 2018. Không cần định dạng lại thủ công.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="component-slot">
+                            <span class="slot-label">Step 2: AI Parse</span>
+                            <div class="step-card-mock">
+                                <div class="step-num-badge" style="background: var(--accent-amber-subtle); color: var(--accent-amber);">2</div>
+                                <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading);">Bóc Tách LaTeX & Ảnh Vẽ</h3>
+                                <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.55;">
+                                    Tự động nhận diện A/B/C/D, giữ nguyên vẹn công thức Toán Lý Hóa sắc nét trên mọi thiết bị.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="component-slot">
+                            <span class="slot-label">Step 3: Publish</span>
+                            <div class="step-card-mock">
+                                <div class="step-num-badge" style="background: var(--accent-emerald-subtle); color: var(--accent-emerald);">3</div>
+                                <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading);">Chấm Điểm & Phổ Điểm</h3>
+                                <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.55;">
+                                    Tự động đảo câu hỏi và đáp án, học sinh nộp bài là có ngay bảng xếp hạng và lời giải chi tiết.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- GROUP 6: FAQ ACCORDION -->
+            <section class="canvas-group-container">
+                <div class="group-header">
+                    <h2 class="group-title">FAQ Accordion Component</h2>
+                    <span class="group-desc">Expanded & Collapsed states, accessible disclosure</span>
+                </div>
+                <div class="canvas-group">
+                    <div class="group-row">
+                        <div class="component-slot">
+                            <span class="slot-label">State: Collapsed</span>
+                            <div class="faq-accordion-mock">
+                                <div class="faq-accordion-header">
+                                    <span>HocNhanhTN có thu phí người dùng không?</span>
+                                    <i class="ri-arrow-down-s-line" style="font-size: 1.2rem; color: var(--text-muted);"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="component-slot">
+                            <span class="slot-label">State: Expanded</span>
+                            <div class="faq-accordion-mock">
+                                <div class="faq-accordion-header" style="color: var(--brand-primary);">
+                                    <span>Học sinh có cần đăng ký tài khoản không?</span>
+                                    <i class="ri-arrow-up-s-line" style="font-size: 1.2rem; color: var(--brand-primary);"></i>
+                                </div>
+                                <div class="faq-accordion-content">
+                                    <strong>Không bắt buộc.</strong> Học sinh chỉ cần có liên kết phòng thi hoặc mã đề thi từ thầy cô là có thể vào làm bài ngay lập tức.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Keyboard Help Strip -->
+    <div class="canvas-footer-help">
+        <span>Kéo chuột / Scroll: Di chuyển canvas</span>
+        <span>Phím +/-: Phóng to/Thu nhỏ</span>
+        <span>Phím 0: Đặt lại camera</span>
+        <span>Phím F: Vừa màn hình</span>
+    </div>
+
+    <!-- Canvas Pan & Zoom Camera Script -->
+    <script>
+        (function() {
+            var viewport = document.getElementById('canvasViewport');
+            var world = document.getElementById('canvasWorld');
+            var zoomReadout = document.getElementById('zoomReadout');
+            var btnZoomIn = document.getElementById('btnZoomIn');
+            var btnZoomOut = document.getElementById('btnZoomOut');
+            var btnFitAll = document.getElementById('btnFitAll');
+            var btnReset = document.getElementById('btnResetCamera');
+            var btnTheme = document.getElementById('btnThemeToggle');
+
+            var state = {
+                x: 60,
+                y: 80,
+                scale: 1,
+                minScale: 0.35,
+                maxScale: 2.2,
+                isDragging: false,
+                startX: 0,
+                startY: 0
+            };
+
+            function applyTransform() {
+                world.style.transform = 'translate(' + state.x + 'px, ' + state.y + 'px) scale(' + state.scale + ')';
+                zoomReadout.textContent = Math.round(state.scale * 100) + '%';
+            }
+
+            // Mouse pan
+            viewport.addEventListener('mousedown', function(e) {
+                // If clicked on input or button, keep normal behavior
+                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) {
+                    return;
+                }
+                state.isDragging = true;
+                viewport.classList.add('panning');
+                state.startX = e.clientX - state.x;
+                state.startY = e.clientY - state.y;
+            });
+
+            window.addEventListener('mousemove', function(e) {
+                if (!state.isDragging) return;
+                state.x = e.clientX - state.startX;
+                state.y = e.clientY - state.startY;
+                applyTransform();
+            });
+
+            window.addEventListener('mouseup', function() {
+                if (state.isDragging) {
+                    state.isDragging = false;
+                    viewport.classList.remove('panning');
+                }
+            });
+
+            // Wheel zoom around cursor
+            viewport.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                var delta = -e.deltaY * 0.0015;
+                var newScale = Math.min(state.maxScale, Math.max(state.minScale, state.scale * (1 + delta)));
+
+                var rect = viewport.getBoundingClientRect();
+                var mouseX = e.clientX - rect.left;
+                var mouseY = e.clientY - rect.top;
+
+                // Adjust state.x and state.y to zoom around mouse
+                state.x = mouseX - (mouseX - state.x) * (newScale / state.scale);
+                state.y = mouseY - (mouseY - state.y) * (newScale / state.scale);
+                state.scale = newScale;
+
+                applyTransform();
+            }, { passive: false });
+
+            // Button controls
+            btnZoomIn.addEventListener('click', function() {
+                state.scale = Math.min(state.maxScale, state.scale * 1.2);
+                applyTransform();
+            });
+
+            btnZoomOut.addEventListener('click', function() {
+                state.scale = Math.max(state.minScale, state.scale / 1.2);
+                applyTransform();
+            });
+
+            btnReset.addEventListener('click', function() {
+                state.x = 60;
+                state.y = 80;
+                state.scale = 1;
+                applyTransform();
+            });
+
+            btnFitAll.addEventListener('click', function() {
+                var vWidth = viewport.clientWidth;
+                var vHeight = viewport.clientHeight;
+                var wWidth = world.scrollWidth || 1400;
+                var wHeight = world.scrollHeight || 1800;
+
+                var scaleX = (vWidth - 80) / wWidth;
+                var scaleY = (vHeight - 140) / wHeight;
+                state.scale = Math.min(1.0, Math.max(state.minScale, Math.min(scaleX, scaleY)));
+                state.x = Math.max(20, (vWidth - wWidth * state.scale) / 2);
+                state.y = 80;
+                applyTransform();
+            });
+
+            // Keyboard navigation
+            window.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                if (e.key === '+' || e.key === '=') {
+                    btnZoomIn.click();
+                } else if (e.key === '-' || e.key === '_') {
+                    btnZoomOut.click();
+                } else if (e.key === '0') {
+                    btnReset.click();
+                } else if (e.key === 'f' || e.key === 'F') {
+                    btnFitAll.click();
+                } else if (e.key === 'ArrowLeft') {
+                    state.x += 60;
+                    applyTransform();
+                } else if (e.key === 'ArrowRight') {
+                    state.x -= 60;
+                    applyTransform();
+                } else if (e.key === 'ArrowUp') {
+                    state.y += 60;
+                    applyTransform();
+                } else if (e.key === 'ArrowDown') {
+                    state.y -= 60;
+                    applyTransform();
+                }
+            });
+
+            // Theme toggle
+            btnTheme.addEventListener('click', function() {
+                var current = document.documentElement.getAttribute('data-theme') || 'light';
+                var next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                btnTheme.innerHTML = next === 'dark' ? '<i class="ri-sun-line"></i>' : '<i class="ri-moon-line"></i>';
+            });
+
+            applyTransform();
+        })();
+    </script>
+</body>
+</html>

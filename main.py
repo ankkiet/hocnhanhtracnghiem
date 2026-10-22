@@ -249,6 +249,13 @@ def get_editor_page():
         return FileResponse(editor_path)
     raise HTTPException(status_code=404, detail="Không tìm thấy trang editor.html")
 
+@app.get("/canvas", summary="Interactive Component Canvas cho Design System & UI Variants")
+def get_canvas_page():
+    canvas_path = os.path.join(templates_dir, "canvas.html")
+    if os.path.exists(canvas_path):
+        return FileResponse(canvas_path)
+    raise HTTPException(status_code=404, detail="Không tìm thấy trang canvas.html")
+
 @app.get("/ads.txt", summary="Tệp xác thực quyền sở hữu tài khoản Google AdSense", include_in_schema=False)
 def get_ads_txt():
     ads_file_path = os.path.join(os.path.dirname(__file__), "ads.txt")
