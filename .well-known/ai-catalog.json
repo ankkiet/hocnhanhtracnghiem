@@ -1,0 +1,34 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "HocNhanhTN",
+    "documentationUrl": "https://hocnhanhtn.online",
+    "logoUrl": "https://hocnhanhtn.online/unnamed.jpg"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:hocnhanhtn:quiz:service",
+      "displayName": "HocNhanhTN Educational Quiz Service",
+      "type": "application/ai-catalog+json",
+      "url": "https://hocnhanhtn.online/.well-known/ai-catalog.json",
+      "description": "Nền tảng số hóa và tổ chức phòng thi trắc nghiệm trực tuyến chuẩn GDPT 2018.",
+      "tags": [
+        "quiz",
+        "education",
+        "gdpt2018",
+        "vietnam"
+      ],
+      "capabilities": [
+        "DocxQuizParser",
+        "OnlineExamRoom",
+        "MathFormulaOCR"
+      ],
+      "representativeQueries": [
+        "tạo đề thi trắc nghiệm online",
+        "số hóa đề thi word sang trắc nghiệm",
+        "làm bài trắc nghiệm chuẩn gdpt 2018"
+      ],
+      "version": "1.0.0"
+    }
+  ]
+}

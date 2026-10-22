@@ -1,0 +1,13 @@
+# HocNhanhTN
+
+> Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên - Chuẩn GDPT 2018.
+
+HocNhanhTN là nền tảng số hóa đề thi Word (.docx) và PDF thành phòng thi trực tuyến chuẩn Chương trình Giáo dục phổ thông 2018, tự động nhận diện công thức Toán Lý Hóa (LaTeX) và hình ảnh minh họa.
+
+## Tính năng & Liên kết chính
+- [Trang chủ HocNhanhTN](https://hocnhanhtn.online/): Nền tảng số hóa và tổ chức phòng thi trực tuyến.
+- [Quy trình số hóa đề thi](https://hocnhanhtn.online/#quy-trinh): Tự động nhận diện công thức Toán Lý Hóa và hình ảnh minh họa.
+- [Định dạng chuẩn GDPT 2018](https://hocnhanhtn.online/#dang-thuc-gdpt): Trắc nghiệm nhiều lựa chọn, đúng sai, trả lời ngắn.
+- [Studio Biên tập Đề thi](https://hocnhanhtn.online/editor): Giao diện biên soạn và soát lỗi đề thi trực quan.
+- [Chính sách bảo mật](https://hocnhanhtn.online/#privacy): Cam kết bảo vệ quyền riêng tư người dùng.
+- [Điều khoản dịch vụ](https://hocnhanhtn.online/#terms): Quy định dịch vụ và bản quyền học liệu.

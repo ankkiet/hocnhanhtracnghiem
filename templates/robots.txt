@@ -11,3 +11,5 @@ Disallow: /admin
 Disallow: /canvas.html
 
 Sitemap: https://hocnhanhtn.online/sitemap.xml
+Agentmap: https://hocnhanhtn.online/.well-known/ai-catalog.json
+

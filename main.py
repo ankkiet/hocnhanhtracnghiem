@@ -313,6 +313,28 @@ def get_sitemap_xml():
         return FileResponse(sitemap_path, media_type="application/xml")
     raise HTTPException(status_code=404, detail="Không tìm thấy sitemap.xml")
 
+@app.get("/llms.txt", summary="Tệp chỉ dẫn cho Large Language Models (LLMs)", include_in_schema=False)
+def get_llms_txt():
+    llms_path = os.path.join(os.path.dirname(__file__), "llms.txt")
+    if not os.path.exists(llms_path):
+        llms_path = os.path.join(templates_dir, "llms.txt")
+    if os.path.exists(llms_path):
+        return FileResponse(llms_path, media_type="text/plain; charset=utf-8")
+    return HTMLResponse(
+        "# HocNhanhTN\n\n> Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên - Chuẩn GDPT 2018.\n\nHocNhanhTN là nền tảng số hóa đề thi Word (.docx) và PDF thành phòng thi trực tuyến chuẩn Chương trình Giáo dục phổ thông 2018.\n\n## Tính năng & Liên kết chính\n- [Trang chủ HocNhanhTN](https://hocnhanhtn.online/): Nền tảng số hóa và tổ chức phòng thi trực tuyến.\n- [Quy trình số hóa](https://hocnhanhtn.online/#quy-trinh): Tự động nhận diện công thức Toán Lý Hóa.\n",
+        media_type="text/plain; charset=utf-8"
+    )
+
+@app.get("/.well-known/ai-catalog.json", summary="Danh mục tài nguyên AI chuẩn ARD 1.0", include_in_schema=False)
+@app.get("/ai-catalog.json", summary="Danh mục tài nguyên AI chuẩn ARD 1.0", include_in_schema=False)
+def get_ai_catalog_json():
+    catalog_path = os.path.join(templates_dir, ".well-known", "ai-catalog.json")
+    if not os.path.exists(catalog_path):
+        catalog_path = os.path.join(templates_dir, "ai-catalog.json")
+    if os.path.exists(catalog_path):
+        return FileResponse(catalog_path, media_type="application/json; charset=utf-8")
+    raise HTTPException(status_code=404, detail="Không tìm thấy ai-catalog.json")
+
 if os.path.exists(templates_dir):
     app.mount("/", StaticFiles(directory=templates_dir, html=True), name="static")
 

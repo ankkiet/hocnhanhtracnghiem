@@ -10,6 +10,68 @@ export default {
       backendUrl.port = '';
       return fetch(new Request(backendUrl.toString(), request));
     }
+
+    // Xử lý llms.txt cho AI crawlers & Google PageSpeed Agentic Browsing
+    if (url.pathname === '/llms.txt') {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes.ok) {
+        const headers = new Headers(assetRes.headers);
+        headers.set('Content-Type', 'text/plain; charset=utf-8');
+        headers.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        return new Response(assetRes.body, { status: 200, headers });
+      }
+      const llmsContent = `# HocNhanhTN\n\n> Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên - Chuẩn GDPT 2018.\n\nHocNhanhTN là nền tảng số hóa đề thi Word (.docx) và PDF thành phòng thi trực tuyến chuẩn Chương trình Giáo dục phổ thông 2018, tự động nhận diện công thức Toán Lý Hóa (LaTeX) và hình ảnh minh họa.\n\n## Tính năng & Liên kết chính\n- [Trang chủ HocNhanhTN](https://hocnhanhtn.online/): Nền tảng số hóa và tổ chức phòng thi trực tuyến.\n- [Quy trình số hóa đề thi](https://hocnhanhtn.online/#quy-trinh): Tự động nhận diện công thức Toán Lý Hóa và hình ảnh minh họa.\n- [Định dạng chuẩn GDPT 2018](https://hocnhanhtn.online/#dang-thuc-gdpt): Trắc nghiệm nhiều lựa chọn, đúng sai, trả lời ngắn.\n- [Studio Biên tập Đề thi](https://hocnhanhtn.online/editor): Giao diện biên soạn và soát lỗi đề thi trực quan.\n- [Chính sách bảo mật](https://hocnhanhtn.online/#privacy): Cam kết bảo vệ quyền riêng tư người dùng.\n- [Điều khoản dịch vụ](https://hocnhanhtn.online/#terms): Quy định dịch vụ và bản quyền học liệu.\n`;
+      return new Response(llmsContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
+        }
+      });
+    }
+
+    // Xử lý ai-catalog.json theo chuẩn ARD (Agentic Resource Discovery 1.0)
+    if (url.pathname === '/.well-known/ai-catalog.json' || url.pathname === '/ai-catalog.json') {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (assetRes.ok) {
+        const headers = new Headers(assetRes.headers);
+        headers.set('Content-Type', 'application/json; charset=utf-8');
+        headers.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        return new Response(assetRes.body, { status: 200, headers });
+      }
+      const catalogData = {
+        specVersion: "1.0",
+        host: {
+          displayName: "HocNhanhTN",
+          documentationUrl: "https://hocnhanhtn.online",
+          logoUrl: "https://hocnhanhtn.online/unnamed.jpg"
+        },
+        entries: [
+          {
+            identifier: "urn:air:hocnhanhtn:quiz:service",
+            displayName: "HocNhanhTN Educational Quiz Service",
+            type: "application/ai-catalog+json",
+            url: "https://hocnhanhtn.online/.well-known/ai-catalog.json",
+            description: "Nền tảng số hóa và tổ chức phòng thi trắc nghiệm trực tuyến chuẩn GDPT 2018.",
+            tags: ["quiz", "education", "gdpt2018", "vietnam"],
+            capabilities: ["DocxQuizParser", "OnlineExamRoom", "MathFormulaOCR"],
+            representativeQueries: [
+              "tạo đề thi trắc nghiệm online",
+              "số hóa đề thi word sang trắc nghiệm",
+              "làm bài trắc nghiệm chuẩn gdpt 2018"
+            ],
+            version: "1.0.0"
+          }
+        ]
+      };
+      return new Response(JSON.stringify(catalogData, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
+        }
+      });
+    }
     const quizId = url.searchParams.get('id') || url.searchParams.get('quiz_id');
     
     let targetQuizId = quizId;
@@ -18,8 +80,8 @@ export default {
       if (match) targetQuizId = match[1];
     }
 
-    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt, robots.txt, sitemap.xml, webp)
-    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt|xml|webmanifest|webp)$/i) || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
+    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt, robots.txt, sitemap.xml, webp, json)
+    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt|xml|webmanifest|webp|json)$/i) || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml' || url.pathname.startsWith('/.well-known/')) {
       const assetRes = await env.ASSETS.fetch(request);
       if (!assetRes.ok) return assetRes;
       const headers = new Headers(assetRes.headers);
