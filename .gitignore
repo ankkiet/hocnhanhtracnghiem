@@ -40,4 +40,4 @@ firebase-adminsdk.json
 uploads/*
 !uploads/.gitkeep
 !uploads/images/.gitkeep
-
+backup_perf/

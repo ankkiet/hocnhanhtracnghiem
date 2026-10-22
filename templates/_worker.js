@@ -18,9 +18,21 @@ export default {
       if (match) targetQuizId = match[1];
     }
 
-    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt, robots.txt, sitemap.xml)
-    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt|xml|webmanifest)$/i) || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
-      return env.ASSETS.fetch(request);
+    // Bỏ qua các tệp tĩnh (CSS, JS, hình ảnh, font chữ, ads.txt, robots.txt, sitemap.xml, webp)
+    if (url.pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|map|txt|xml|webmanifest|webp)$/i) || url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml') {
+      const assetRes = await env.ASSETS.fetch(request);
+      if (!assetRes.ok) return assetRes;
+      const headers = new Headers(assetRes.headers);
+      if (url.searchParams.has('v') || url.pathname.match(/\.(woff2?|ttf|ico|png|webp|jpg|jpeg|svg)$/i)) {
+        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        headers.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      }
+      return new Response(assetRes.body, {
+        status: assetRes.status,
+        statusText: assetRes.statusText,
+        headers: headers
+      });
     }
 
     // Tải tệp HTML gốc từ bộ nhớ đệm Cloudflare Pages
@@ -33,14 +45,15 @@ export default {
     const origin = url.origin;
     const absoluteOgImage = `${origin}/unnamed.jpg`;
 
-    // Nếu không có mã đề thi, đảm bảo các thẻ ảnh và link là URL tuyệt đối
+    // Nếu không có mã đề thi (trang chủ / landing page tĩnh), trả về HTML trực tiếp với cache Edge để tối ưu TTFB
     if (!targetQuizId) {
-      return new HTMLRewriter()
-        .on('meta[property="og:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
-        .on('meta[property="og:image:secure_url"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
-        .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
-        .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
-        .transform(response);
+      const homeHeaders = new Headers(response.headers);
+      homeHeaders.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: homeHeaders
+      });
     }
 
     // Khi có mã đề thi: Edge Worker truy vấn máy chủ Koyeb để lấy tên đề thi thực tế

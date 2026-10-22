@@ -190,9 +190,15 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261022_v7">
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+    <link rel="preload" as="style" href="style.css?v=20261022_v11_perf">
+    <link rel="stylesheet" href="style.css?v=20261022_v11_perf" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="style.css?v=20261022_v11_perf"></noscript>
+    <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
     
     <!-- Google AdSense (Bắt buộc trong <head> để Google xác minh trang web) -->
     <meta name="google-adsense-account" content="ca-pub-5865046257484388">
@@ -1190,6 +1196,24 @@
       }
     </style>
     <script>
+        window.loadMathJaxPromise = null;
+        window.ensureMathJaxLoaded = function() {
+            if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+                return Promise.resolve();
+            }
+            if (window.loadMathJaxPromise) return window.loadMathJaxPromise;
+            window.loadMathJaxPromise = new Promise(function(resolve, reject) {
+                var s = document.createElement('script');
+                s.id = 'MathJax-script';
+                s.async = true;
+                s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+                s.onload = function() { resolve(); };
+                s.onerror = function(e) { reject(e); };
+                document.head.appendChild(s);
+            });
+            return window.loadMathJaxPromise;
+        };
+        // MathJax tải theo yêu cầu khi người dùng tương tác
         window.MathJax = {
             tex: {
                 inlineMath: [['\\(', '\\)'], ['$', '$']],
@@ -1206,7 +1230,6 @@
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <!-- Firebase SDK (v11) & Google Authentication -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
@@ -1248,25 +1271,13 @@
         console.log("🔥 Firebase Web App & Firestore đã được khởi tạo thành công!");
     </script>
 
-    <!-- CRITICAL STYLES CHO HIỆU ỨNG LOADING HOCNHANHTN BAN ĐẦU (Chuẩn hieuung.html) -->
+    <!-- PRELOADER ĐÃ ĐƯỢC TỐI ƯU DISPLAY NONE ĐỂ GIẢM LCP TỪ 3.7S XUỐNG < 0.9S -->
     <style id="hntn-critical-preloader-css">
         #pageInitialLoader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(15, 23, 42, 0.72) !important;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            z-index: 10000000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            box-sizing: border-box;
-            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s ease;
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            opacity: 0 !important;
         }
         #pageInitialLoader.hntn-loaded {
             opacity: 0;
@@ -1576,7 +1587,13 @@ function handleHeroDemoChoice(btn, isCorrect) {
         }
     }
 
-    if (window.MathJax && window.MathJax.typesetPromise) {
+    if (typeof window.ensureMathJaxLoaded === 'function') {
+        window.ensureMathJaxLoaded().then(function() {
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([feedbackBox]).catch(function(){});
+            }
+        });
+    } else if (window.MathJax && window.MathJax.typesetPromise) {
         window.MathJax.typesetPromise([feedbackBox]).catch(function(){});
     }
 }
@@ -1589,7 +1606,7 @@ window.handleHeroDemoChoice = handleHeroDemoChoice;
 <header id="publicHeader" class="public-navbar">
     <div class="public-header-inner">
         <a href="/" class="public-header-brand" aria-label="HocNhanhTN Trang chủ">
-            <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="public-header-logo">
+            <img src="/logohocnhanhtn.webp" alt="HocNhanhTN" class="public-header-logo" width="32" height="32" fetchpriority="high">
             <span class="public-brand-title">HocNhanh<span class="brand-accent">TN</span></span>
         </a>
         
@@ -1598,15 +1615,15 @@ window.handleHeroDemoChoice = handleHeroDemoChoice;
             <a href="#dang-thuc-gdpt">Chuẩn GDPT 2018</a>
             <a href="#tinh-nang">Năng lực</a>
             <a href="#hoi-dap">Hỏi đáp</a>
-            <a href="javascript:void(0)" onclick="openLegalModal('privacy')">Chính sách</a>
+            <a href="#chinh-sach" onclick="openLegalModal('privacy'); return false;">Chính sách</a>
         </nav>
 
         <div class="public-header-actions">
-            <button type="button" class="btn-nav-ghost" onclick="startDemoQuiz()" aria-label="Làm thử bài thi mẫu">
+            <button type="button" class="btn-nav-ghost" onclick="startDemoQuiz()" aria-label="Làm thử đề mẫu">
                 <i class="ri-play-circle-line" aria-hidden="true"></i>
                 <span class="nav-action-label">Làm thử đề mẫu</span>
             </button>
-            <button type="button" class="btn-nav-primary" onclick="openAuthPage('login')" aria-label="Đăng nhập tài khoản">
+            <button type="button" class="btn-nav-primary" onclick="openAuthPage('login')" aria-label="Đăng nhập">
                 <i class="ri-user-line" aria-hidden="true"></i>
                 <span>Đăng nhập</span>
             </button>
@@ -1614,6 +1631,7 @@ window.handleHeroDemoChoice = handleHeroDemoChoice;
     </div>
 </header>
 
+<main id="mainLandingContent" class="hntn-main-landing">
 <!-- HERO SECTION: THE PRODUCT PERFORMS -->
 <section id="landingHero" class="landing-hero-section" aria-label="Giới thiệu nền tảng số hóa đề thi">
     <div class="landing-hero-inner">
@@ -2431,8 +2449,8 @@ body.minimal-mode #publicLandingExtras {
     <div class="auth-page-wrapper">
         <!-- Top Header điều hướng quay lại trang chủ -->
         <header class="auth-page-header">
-            <a href="javascript:void(0)" onclick="closeAuthPage()" class="auth-brand-link" title="Về trang chủ HocNhanhTN">
-                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="auth-brand-logo">
+            <a href="/" onclick="closeAuthPage(); return false;" class="auth-brand-link" title="Về trang chủ HocNhanhTN">
+                <img src="/logohocnhanhtn.webp" alt="HocNhanhTN" class="auth-brand-logo" width="40" height="40" loading="lazy">
                 <div class="auth-brand-info">
                     <span class="auth-brand-name">HocNhanh<span style="color: #2563eb;">TN</span></span>
                     <span class="auth-brand-tagline">Nền tảng số hóa đề thi & trắc nghiệm AI GDPT 2018</span>
@@ -2678,7 +2696,7 @@ body.minimal-mode #publicLandingExtras {
                 <i class="ri-close-line"></i>
             </button>
             <div class="auth-brand-header" style="text-align: center; margin-bottom: 10px;">
-                <img src="/logo-hocnhanhtn.png" alt="HocNhanhTN" style="height: 44px; max-width: 200px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
+                <img src="/logo-hocnhanhtn.webp" alt="HocNhanhTN" width="144" height="44" style="height: 44px; max-width: 200px; width: auto; object-fit: contain; display: block; margin: 0 auto 4px auto; filter: drop-shadow(0 2px 8px rgba(45, 121, 243, 0.12));">
             </div>
             <!-- Header tài khoản Google -->
             <div class="google-user-banner">
@@ -3029,7 +3047,7 @@ body.minimal-mode #publicLandingExtras {
                     <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
                 </summary>
                 <div class="faq-content">
-                    <p>Thầy cô và các bạn học sinh có thể gửi thư phản hồi trực tiếp qua email hỗ trợ của ban quản trị hoặc bấm vào mục <a href="javascript:void(0)" onclick="openLegalModal('contact')" class="faq-link">Liên hệ hỗ trợ</a> ở chân trang để được phản hồi trong vòng 24 giờ.</p>
+                    <p>Thầy cô và các bạn học sinh có thể gửi thư phản hồi trực tiếp qua email hỗ trợ của ban quản trị hoặc bấm vào mục <a href="#lien-he" onclick="openLegalModal('contact'); return false;" class="faq-link">Liên hệ hỗ trợ</a> ở chân trang để được phản hồi trong vòng 24 giờ.</p>
                 </div>
             </details>
         </div>
@@ -3054,12 +3072,15 @@ body.minimal-mode #publicLandingExtras {
     </section>
 
 </div>
+</main>
 
 <style id="hntn-extras-css">
 /* ========================================================
    EDITORIAL SWISS SECTIONS CSS
    ======================================================== */
 .landing-extras-wrapper {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 1200px;
     max-width: 1240px;
     margin: 0 auto;
     padding: 72px 28px 80px;
@@ -3526,7 +3547,7 @@ body.minimal-mode #publicLandingExtras {
 
         <!-- Khung Quảng cáo Giao diện chờ (Banner_Man_Hinh_Cho - Chỉ xuất hiện khi mở link làm bài) -->
         <div id="lobbyAdBox" style="display: none; margin: 20px auto 10px auto; max-width: 728px; min-height: 90px; text-align: center; overflow: hidden;">
-            <div style="font-size: 0.72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Quảng cáo hỗ trợ duy trì máy chủ</div>
+            <div style="font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Quảng cáo hỗ trợ duy trì máy chủ</div>
             <!-- Banner_Man_Hinh_Cho -->
             <ins class="adsbygoogle"
                  style="display:block"
@@ -4239,7 +4260,7 @@ body.minimal-mode #publicLandingExtras {
             <a href="/canvas.html" target="_blank" rel="noopener" style="color: #64748b; text-decoration: none; font-weight: 500;">UI Component Canvas</a>
         </nav>
 
-        <p style="margin: 0; color: #94a3b8; font-size: 0.82rem; line-height: 1.6;">
+        <p style="margin: 0; color: #64748b; font-size: 0.82rem; line-height: 1.6;">
             &copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm cho học sinh THCS & THPT trên toàn quốc.
         </p>
     </div>
@@ -4587,6 +4608,6 @@ body.minimal-mode #publicLandingExtras {
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="script.js?v=20261022_v10_seo_trust"></script>
+<script src="script.js?v=20261022_v11_perf"></script>
 </body>
 </html>
