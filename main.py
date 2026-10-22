@@ -163,6 +163,10 @@ templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templa
 @app.get("/login", response_class=HTMLResponse, summary="Trang Đăng nhập tài khoản")
 @app.get("/register", response_class=HTMLResponse, summary="Trang Đăng ký tài khoản")
 @app.get("/auth", response_class=HTMLResponse, summary="Trang Đăng nhập & Đăng ký")
+@app.get("/privacy", response_class=HTMLResponse, summary="Chính sách bảo mật quyền riêng tư")
+@app.get("/terms", response_class=HTMLResponse, summary="Điều khoản dịch vụ & sử dụng")
+@app.get("/about", response_class=HTMLResponse, summary="Giới thiệu về Dự án HocNhanhTN")
+@app.get("/contact", response_class=HTMLResponse, summary="Liên hệ & Hỗ trợ kỹ thuật")
 @app.get("/quiz/{quiz_id}", response_class=HTMLResponse, summary="Link trực tiếp tới đề thi")
 async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     index_path = os.path.join(templates_dir, "index.html")
@@ -175,10 +179,12 @@ async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Op
     target_quiz_id = quiz_id or id
     
     # URL ảnh đại diện tuyệt đối khi gửi link (Facebook / Zalo / Telegram / iMessage)
+    canon_domain = "https://hocnhanhtn.online"
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.netloc))
     base_url = f"{proto}://{host}".rstrip('/')
-    og_image_url = f"{base_url}/unnamed.jpg"
+    site_domain = canon_domain if any(h in host for h in ["localhost", "127.0.0.1", "testserver"]) else base_url
+    og_image_url = f"{site_domain}/unnamed.jpg"
     
     quiz_title = None
     quiz_desc = None
@@ -214,31 +220,55 @@ async def get_index_page(request: Request, id: Optional[str] = None, quiz_id: Op
         except Exception as e:
             logger.error(f"Lỗi truy vấn metadata đề thi {target_quiz_id}: {e}")
             
-    if quiz_title:
+    current_url = html.escape(str(request.url))
+    req_path = request.url.path.rstrip('/') or '/'
+    
+    full_page_title = None
+    page_desc = None
+    page_canonical = f"{site_domain}/"
+
+    if req_path == "/privacy":
+        full_page_title = "Chính sách bảo mật (Privacy Policy) - HocNhanhTN"
+        page_desc = "Chính sách bảo mật quyền riêng tư và cam kết an toàn dữ liệu cho học sinh & giáo viên trên HocNhanhTN."
+        page_canonical = f"{site_domain}/privacy"
+    elif req_path == "/terms":
+        full_page_title = "Điều khoản dịch vụ & Sử dụng (Terms of Service) - HocNhanhTN"
+        page_desc = "Điều khoản sử dụng và quy định dịch vụ số hóa đề thi, phòng thi trực tuyến chuẩn GDPT 2018 tại HocNhanhTN."
+        page_canonical = f"{site_domain}/terms"
+    elif req_path == "/about":
+        full_page_title = "Về chúng tôi (About Us) - Dự án HocNhanhTN"
+        page_desc = "HocNhanhTN là dự án công nghệ giáo dục phi lợi nhuận hỗ trợ học sinh và giáo viên số hóa đề thi trắc nghiệm chuẩn GDPT 2018."
+        page_canonical = f"{site_domain}/about"
+    elif req_path == "/contact":
+        full_page_title = "Liên hệ & Hỗ trợ kỹ thuật - HocNhanhTN"
+        page_desc = "Thông tin liên hệ, phản hồi đóng góp và hỗ trợ kỹ thuật nhanh chóng cho giáo viên & học sinh tại HocNhanhTN."
+        page_canonical = f"{site_domain}/contact"
+    elif quiz_title:
         escaped_title = html.escape(quiz_title)
         full_page_title = f"{escaped_title} - HocNhanhTN"
-        escaped_desc = html.escape(quiz_desc or f"Làm bài kiểm tra: {quiz_title}. Hệ thống học nhanh trắc nghiệm chuẩn GDPT 2018.")
-        current_url = html.escape(str(request.url))
-        
-        # Thay thế tiêu đề <title>
+        page_desc = html.escape(quiz_desc or f"Làm bài kiểm tra: {quiz_title}. Hệ thống học nhanh trắc nghiệm chuẩn GDPT 2018.")
+        page_canonical = current_url
+    elif target_quiz_id:
+        page_canonical = current_url
+            
+    if full_page_title:
         html_content = re.sub(r'<title>.*?</title>', f'<title>{full_page_title}</title>', html_content, flags=re.IGNORECASE)
-        # Thay thế og:title & twitter:title
-        html_content = re.sub(r'<meta\s+property=["\']og:title["\']\s+content=["\'].*?["\']', f'<meta property="og:title" content="{escaped_title}"', html_content, flags=re.IGNORECASE)
-        html_content = re.sub(r'<meta\s+name=["\']twitter:title["\']\s+content=["\'].*?["\']', f'<meta name="twitter:title" content="{escaped_title}"', html_content, flags=re.IGNORECASE)
-        # Thay thế meta description & og:description & twitter:description
-        html_content = re.sub(r'<meta\s+name=["\']description["\']\s+content=["\'].*?["\']', f'<meta name="description" content="{escaped_desc}"', html_content, flags=re.IGNORECASE)
-        html_content = re.sub(r'<meta\s+property=["\']og:description["\']\s+content=["\'].*?["\']', f'<meta property="og:description" content="{escaped_desc}"', html_content, flags=re.IGNORECASE)
-        html_content = re.sub(r'<meta\s+name=["\']twitter:description["\']\s+content=["\'].*?["\']', f'<meta name="twitter:description" content="{escaped_desc}"', html_content, flags=re.IGNORECASE)
-        # Cập nhật og:url
-        html_content = re.sub(r'<meta\s+property=["\']og:url["\']\s+content=["\'].*?["\']', f'<meta property="og:url" content="{current_url}"', html_content, flags=re.IGNORECASE)
-    else:
-        current_url = html.escape(str(request.url))
-        html_content = re.sub(r'<meta\s+property=["\']og:url["\']\s+content=["\'].*?["\']', f'<meta property="og:url" content="{current_url}"', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'<meta\s+property=["\']og:title["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:title" content="{full_page_title}">', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'<meta\s+name=["\']twitter:title["\']\s+content=["\'].*?["\']\s*/?>', f'<meta name="twitter:title" content="{full_page_title}">', html_content, flags=re.IGNORECASE)
+    
+    if page_desc:
+        html_content = re.sub(r'<meta\s+name=["\']description["\']\s+content=["\'].*?["\']\s*/?>', f'<meta name="description" content="{page_desc}">', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'<meta\s+property=["\']og:description["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:description" content="{page_desc}">', html_content, flags=re.IGNORECASE)
+        html_content = re.sub(r'<meta\s+name=["\']twitter:description["\']\s+content=["\'].*?["\']\s*/?>', f'<meta name="twitter:description" content="{page_desc}">', html_content, flags=re.IGNORECASE)
+
+    # Cập nhật Canonical & Open Graph URL chuẩn SEO
+    html_content = re.sub(r'<link\s+rel=["\']canonical["\']\s+href=["\'].*?["\']\s*/?>', f'<link rel="canonical" href="{page_canonical}">', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'<meta\s+property=["\']og:url["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:url" content="{page_canonical}">', html_content, flags=re.IGNORECASE)
         
     # Luôn đảm bảo og:image, og:image:secure_url và twitter:image dùng ảnh tuyệt đối unnamed.jpg
-    html_content = re.sub(r'<meta\s+property=["\']og:image["\']\s+content=["\'].*?["\']', f'<meta property="og:image" content="{og_image_url}"', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'<meta\s+property=["\']og:image:secure_url["\']\s+content=["\'].*?["\']', f'<meta property="og:image:secure_url" content="{og_image_url}"', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'<meta\s+name=["\']twitter:image["\']\s+content=["\'].*?["\']', f'<meta name="twitter:image" content="{og_image_url}"', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'<meta\s+property=["\']og:image["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:image" content="{og_image_url}">', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'<meta\s+property=["\']og:image:secure_url["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:image:secure_url" content="{og_image_url}">', html_content, flags=re.IGNORECASE)
+    html_content = re.sub(r'<meta\s+name=["\']twitter:image["\']\s+content=["\'].*?["\']\s*/?>', f'<meta name="twitter:image" content="{og_image_url}">', html_content, flags=re.IGNORECASE)
     
     return HTMLResponse(content=html_content, media_type="text/html")
 

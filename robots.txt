@@ -1,5 +1,13 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /admin
+Disallow: /canvas.html
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /canvas.html
 
 Sitemap: https://hocnhanhtn.online/sitemap.xml

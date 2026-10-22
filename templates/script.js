@@ -592,10 +592,12 @@ function showRoleSelection(userId, fullName, email, avatar, className, phone, sc
     const azotaNav = document.getElementById('azotaNavbar');
     const pubHeader = document.getElementById('publicHeader');
     const landingHero = document.getElementById('landingHero');
+    const landingStats = document.getElementById('landingStats');
     const landingExtra = document.getElementById('publicLandingExtras');
 
     if (pubHeader) pubHeader.style.display = 'none';
     if (landingHero) landingHero.style.display = 'none';
+    if (landingStats) landingStats.style.display = 'none';
     if (landingExtra) landingExtra.style.display = 'none';
     if (mainApp) mainApp.style.display = 'none';
     if (adminBox) adminBox.style.display = 'none';
@@ -670,10 +672,12 @@ function showPendingApproval(userId, fullName, email, className, school, phone) 
     const azotaNav = document.getElementById('azotaNavbar');
     const pubHeader = document.getElementById('publicHeader');
     const landingHero = document.getElementById('landingHero');
+    const landingStats = document.getElementById('landingStats');
     const landingExtra = document.getElementById('publicLandingExtras');
 
     if (pubHeader) pubHeader.style.display = 'none';
     if (landingHero) landingHero.style.display = 'none';
+    if (landingStats) landingStats.style.display = 'none';
     if (landingExtra) landingExtra.style.display = 'none';
     if (mainApp) mainApp.style.display = 'none';
     if (adminBox) adminBox.style.display = 'none';
@@ -1066,12 +1070,14 @@ function openAuthPage(initialTab = 'login', pushHistory = true) {
     // Ẩn giao diện Landing Page
     const pubHeader = document.getElementById('publicHeader');
     const landingHero = document.getElementById('landingHero');
+    const landingStats = document.getElementById('landingStats');
     const landingExtra = document.getElementById('publicLandingExtras');
     const mainApp = document.getElementById('mainAppContainer');
     const adminBox = document.getElementById('adminContainer');
 
     if (pubHeader) pubHeader.style.display = 'none';
     if (landingHero) landingHero.style.display = 'none';
+    if (landingStats) landingStats.style.display = 'none';
     if (landingExtra) landingExtra.style.display = 'none';
     if (mainApp) mainApp.style.display = 'none';
     if (adminBox) adminBox.style.display = 'none';
@@ -1135,10 +1141,12 @@ function closeAuthPage(updateHistory = true) {
 
     const pubHeader = document.getElementById('publicHeader');
     const landingHero = document.getElementById('landingHero');
+    const landingStats = document.getElementById('landingStats');
     const landingExtra = document.getElementById('publicLandingExtras');
 
-    if (pubHeader) pubHeader.style.display = 'block';
+    if (pubHeader) pubHeader.style.display = 'flex';
     if (landingHero) landingHero.style.display = 'block';
+    if (landingStats) landingStats.style.display = 'block';
     if (landingExtra) landingExtra.style.display = 'block';
 
     if (updateHistory) {
@@ -1230,13 +1238,17 @@ window.addEventListener('resize', function() {
 window.addEventListener('popstate', function(e) {
     const path = window.location.pathname;
     const hash = window.location.hash;
+    const legalRoutes = ['/privacy', '/terms', '/about', '/contact'];
     if (path === '/login' || path === '/register' || path === '/auth' || hash === '#auth' || hash === '#login' || hash === '#register') {
         openAuthPage(path === '/register' || hash === '#register' ? 'register' : 'login', false);
+    } else if (legalRoutes.includes(path)) {
+        openLegalModal(path.substring(1), false);
     } else if (path === '/' || path === '/index.html') {
         const authBox = document.getElementById('authContainer');
         if (authBox && authBox.classList.contains('page-mode')) {
             closeAuthPage(false);
         }
+        closeLegalModal(false);
     }
 });
 
@@ -1268,6 +1280,8 @@ function checkAuthState() {
         if (pubHeader) pubHeader.style.display = 'none';
         const landingHero = document.getElementById('landingHero');
         if (landingHero) landingHero.style.display = 'none';
+        const landingStats = document.getElementById('landingStats');
+        if (landingStats) landingStats.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -1327,10 +1341,19 @@ function checkAuthState() {
             return;
         }
 
+        const legalRoutes = ['/privacy', '/terms', '/about', '/contact'];
+        const matchedLegal = legalRoutes.find(r => path === r || hash === '#' + r.substring(1));
+        if (matchedLegal) {
+            const tabName = matchedLegal.replace('/', '').replace('#', '');
+            setTimeout(() => { openLegalModal(tabName, false); }, 50);
+        }
+
         const pubHeader = document.getElementById('publicHeader');
-        if (pubHeader) pubHeader.style.display = 'block';
+        if (pubHeader) pubHeader.style.display = 'flex';
         const landingHero = document.getElementById('landingHero');
         if (landingHero) landingHero.style.display = 'block';
+        const landingStats = document.getElementById('landingStats');
+        if (landingStats) landingStats.style.display = 'block';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'block';
         if (authBox) {
@@ -1347,6 +1370,8 @@ function checkAuthState() {
         if (pubHeader) pubHeader.style.display = 'none';
         const landingHero = document.getElementById('landingHero');
         if (landingHero) landingHero.style.display = 'none';
+        const landingStats = document.getElementById('landingStats');
+        if (landingStats) landingStats.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -1369,6 +1394,8 @@ function checkAuthState() {
         if (pubHeader) pubHeader.style.display = 'none';
         const landingHero = document.getElementById('landingHero');
         if (landingHero) landingHero.style.display = 'none';
+        const landingStats = document.getElementById('landingStats');
+        if (landingStats) landingStats.style.display = 'none';
         const landingExtra = document.getElementById('publicLandingExtras');
         if (landingExtra) landingExtra.style.display = 'none';
         if (authBox) {
@@ -7844,19 +7871,27 @@ window.forceShowLogin = function() {
 // =========================================================================
 // ĐIỀU KHIỂN MODAL PHÁP LÝ & BẢO MẬT (PRIVACY POLICY, TERMS, ABOUT, CONTACT)
 // =========================================================================
-function openLegalModal(tab = 'privacy') {
+function openLegalModal(tab = 'privacy', pushHistory = true) {
     const modal = document.getElementById('legalModal');
     if (!modal) return;
     modal.style.display = 'flex';
-    switchLegalTab(tab);
+    switchLegalTab(tab, false);
+    if (pushHistory && ['privacy', 'terms', 'about', 'contact'].includes(tab)) {
+        if (window.location.pathname !== '/' + tab) {
+            history.pushState({ modal: 'legal', tab: tab }, '', '/' + tab);
+        }
+    }
 }
 
-function closeLegalModal() {
+function closeLegalModal(updateHistory = true) {
     const modal = document.getElementById('legalModal');
     if (modal) modal.style.display = 'none';
+    if (updateHistory && ['/privacy', '/terms', '/about', '/contact'].includes(window.location.pathname)) {
+        history.pushState(null, '', '/');
+    }
 }
 
-function switchLegalTab(tabName) {
+function switchLegalTab(tabName, updateHistory = true) {
     const tabs = ['privacy', 'terms', 'about', 'contact'];
     const titleMap = {
         'privacy': 'Chính sách bảo mật (Privacy Policy)',
@@ -7887,6 +7922,10 @@ function switchLegalTab(tabName) {
             content.style.display = (t === tabName) ? 'block' : 'none';
         }
     });
+
+    if (updateHistory && tabs.includes(tabName) && window.location.pathname !== '/' + tabName) {
+        history.replaceState({ modal: 'legal', tab: tabName }, '', '/' + tabName);
+    }
 }
 
 // =========================================================================
@@ -8005,6 +8044,8 @@ function startDemoQuiz() {
     if (pubHeader) pubHeader.style.display = 'none';
     const landingHero = document.getElementById('landingHero');
     if (landingHero) landingHero.style.display = 'none';
+    const landingStats = document.getElementById('landingStats');
+    if (landingStats) landingStats.style.display = 'none';
     const authBox = document.getElementById('authContainer');
     if (authBox) authBox.style.setProperty('display', 'none', 'important');
     const landingExtra = document.getElementById('publicLandingExtras');
