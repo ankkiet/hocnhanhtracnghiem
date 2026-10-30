@@ -12,7 +12,7 @@
 
 
 
-**HocnhanhTN** là nền tại số hóa tài liệu giáo dục và tổ chức thi trực tuyến thông minh, tối ưu hóa theo **Chương trình Giáo dục Phổ thông 2018 (Bộ GD&ĐT)**. Hệ thống cho phép giáo viên tải lên tài liệu Microsoft Word (`.docx`) hoặc PDF (`.pdf`), tự động bóc tách câu hỏi, công thức toán học và hình ảnh, đồng thời hỗ trợ AI cứu hộ và sinh đề tự động bằng Google Gemini.
+**HocnhanhTN** là nền tảng số hóa tài liệu giáo dục và tổ chức thi trực tuyến thông minh, tối ưu hóa theo **Chương trình Giáo dục Phổ thông 2018 (Bộ GD&ĐT)**. Hệ thống cho phép giáo viên tải lên tài liệu Microsoft Word (`.docx`) hoặc PDF (`.pdf`), tự động bóc tách câu hỏi, công thức toán học và hình ảnh, đồng thời hỗ trợ AI cứu hộ và sinh đề tự động bằng Google Gemini.
 
 
 
