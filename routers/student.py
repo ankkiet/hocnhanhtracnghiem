@@ -135,32 +135,38 @@ async def submit_exam(req: SubmitExamRequest):
                 u_str = str(user_ans).strip()
                 c_str = str(correct_ans).strip()
                 
-                # Sửa lỗi: Nếu correct_answer là index (VD: "0", "1") do AI sinh ra
+                # Sửa lỗi: Nếu correct_answer là index (VD: "0", "1") do AI sinh ra (dùng c_idx tránh ghi đè idx vòng lặp)
                 if c_str.isdigit() and q.get('options') and isinstance(q.get('options'), list):
-                    idx = int(c_str)
-                    if 0 <= idx < len(q['options']):
-                        c_str = str(q['options'][idx]).strip()
+                    c_idx = int(c_str)
+                    if 0 <= c_idx < len(q['options']):
+                        c_str = str(q['options'][c_idx]).strip()
 
                 if u_str.upper() == c_str.upper():
                     is_correct = True
                 else:
-                    # Ràng buộc chặt chẽ: Chỉ lấy A, B, C, D nếu nó đứng đầu và theo sau là dấu câu hoặc khoảng trắng
-                    re_prefix = r'^([A-Da-d])(?:[\.\:\)]\s*|\s+|$)'
+                    def clean_compare_text(text: str) -> str:
+                        t = re.sub(r'<[^>]+>', '', str(text or ''))
+                        t = re.sub(r'\\(|\\)|[\$]', '', t)
+                        t = re.sub(r'[ ​\s]+', ' ', t)
+                        return t.strip().lower()
+
+                    # Ràng buộc chặt chẽ: Lấy A-F nếu nó đứng đầu và theo sau là dấu câu hoặc khoảng trắng
+                    re_prefix = r'^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])(?:[\.\:\)]\s*|\s+|$)'
                     u_m = re.match(re_prefix, u_str)
                     c_m = re.match(re_prefix, c_str)
                     u_char = u_m.group(1).upper() if u_m else None
                     c_char = c_m.group(1).upper() if c_m else None
                     
-                    u_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', u_str).strip().lower()
-                    c_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', c_str).strip().lower()
+                    u_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', u_str))
+                    c_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', c_str))
                     
                     opt_clean = c_clean
                     if not opt_clean and c_char and q.get('options') and isinstance(q.get('options'), list):
                         idx_opt = ord(c_char) - ord('A')
                         if 0 <= idx_opt < len(q['options']):
                             opt_str = str(q['options'][idx_opt]).strip()
-                            opt_clean = re.sub(r'^[A-Da-d][\.\:\)]\s*', '', opt_str).strip().lower()
-                            if u_str.upper() == opt_str.upper():
+                            opt_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', opt_str))
+                            if clean_compare_text(u_str) == clean_compare_text(opt_str):
                                 is_correct = True
 
                     if not is_correct:

@@ -2989,14 +2989,10 @@ function renderHistReviewContent() {
                 const optLetter = String.fromCharCode(65 + optIdx);
                 const optText = formatRichContent(opt);
                 
-                let isUserChoice = false;
-                if (typeof userAns === 'string') {
-                    isUserChoice = (userAns.trim() === String(opt).trim() || userAns.toUpperCase().startsWith(optLetter));
-                }
-
-                let isCorrectOption = false;
-                if (typeof correctAns === 'string') {
-                    isCorrectOption = (correctAns.trim() === String(opt).trim() || correctAns.toUpperCase().startsWith(optLetter));
+                let isUserChoice = matchOptionToTarget(opt, optIdx, userAns);
+                let isCorrectOption = matchOptionToTarget(opt, optIdx, correctAns);
+                if (status === 'correct' && isUserChoice) {
+                    isCorrectOption = true;
                 }
 
                 let optBorder = '1px solid #e2e8f0';
@@ -3624,7 +3620,9 @@ function renderStudentDetailBody() {
         const qType = q.type || 'mcq';
         const serverItem = resultsMap[qIndex] || resultsMap[String(qIndex)];
         let userAnswer = userAnswers[qIndex] !== undefined ? userAnswers[qIndex] : userAnswers[String(qIndex)];
-        let correctAnswer = q.correct_answer;
+        let correctAnswer = (serverItem && serverItem.correct_answer !== undefined && serverItem.correct_answer !== null && serverItem.correct_answer !== '')
+            ? serverItem.correct_answer 
+            : q.correct_answer;
         let explain = (serverItem && serverItem.explain) ? serverItem.explain : (q.explain || '');
         
         let status = 'wrong';
@@ -3832,11 +3830,20 @@ function renderStudentDetailBody() {
                     });
                 }
 
+                // Chốt chặn an toàn: nếu status là 'correct'
+                if (status === 'correct') {
+                    if (correctIndex === -1 && userPickIndex !== -1) correctIndex = userPickIndex;
+                    if (userPickIndex === -1 && correctIndex !== -1) userPickIndex = correctIndex;
+                }
+
                 answerBodyHtml = `<div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">`;
                 options.forEach((opt, oIdx) => {
                     const char = String.fromCharCode(65 + oIdx);
-                    const isThisCorrect = (oIdx === correctIndex);
+                    let isThisCorrect = (oIdx === correctIndex);
                     const isThisUserPick = (oIdx === userPickIndex);
+                    if (status === 'correct' && isThisUserPick) {
+                        isThisCorrect = true;
+                    }
                     
                     let optBg = '#ffffff';
                     let optBorder = '#e2e8f0';
@@ -6758,6 +6765,17 @@ function filterReviewQuestions(filterType) {
     });
 }
 
+// Hàm chuẩn hóa text phương án để so khớp chính xác: loại bỏ HTML, ký hiệu LaTeX và khoảng trắng thừa
+function normalizeOptionCompareText(s) {
+    if (!s) return '';
+    return String(s)
+        .replace(/<[^>]+>/g, '')
+        .replace(/\\\(|\\\)|[\$]/g, '')
+        .replace(/[\u00a0\u200b\s]+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
 // --- HÀM SO KHỚP CHÍNH XÁC ĐÁP ÁN (HỖ TRỢ CẢ KÝ TỰ A,B,C,D VÀ NỘI DUNG OPTION) ---
 function matchOptionToTarget(opt, oIndex, target) {
     if (target === null || target === undefined || target === '') return false;
@@ -6768,38 +6786,57 @@ function matchOptionToTarget(opt, oIndex, target) {
     // 1. So khớp chuỗi trực tiếp
     if (optStr.toLowerCase() === tgtStr.toLowerCase()) return true;
 
-    // 2. Tách chữ cái và phần nội dung text của Option
-    const rePrefix = /^([A-Fa-f0-9])(?:[\.\:\)]\s*|\s+|$)/i;
-    const optMatch = optStr.match(rePrefix);
-    const optChar = optMatch ? optMatch[1].toUpperCase() : String.fromCharCode(65 + oIndex);
-    const cleanOpt = optStr.replace(/^[A-Fa-f0-9][\.\:\)]\s*/i, '').trim().toLowerCase();
+    // Regex phát hiện trường hợp CHỈ có chữ cái đại diện (A, B, C, D, E, F hoặc A., B., *A,...)
+    const reOnlyLetter = /^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])[\.\:\)]?\s*$/;
+    // Regex phát hiện tiền tố chữ cái có nội dung theo sau
+    const rePrefix = /^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])(?:[\.\:\)]\s*|\s+)/;
 
-    // 3. Tách chữ cái và phần nội dung text của Target
+    // 2. Tách chữ cái và clean text của Option
+    let optChar = null;
+    let cleanOpt = '';
+    const optMatchOnly = optStr.match(reOnlyLetter);
+    if (optMatchOnly) {
+        optChar = optMatchOnly[1].toUpperCase();
+        cleanOpt = '';
+    } else {
+        const optMatch = optStr.match(rePrefix);
+        if (optMatch) {
+            optChar = optMatch[1].toUpperCase();
+            cleanOpt = normalizeOptionCompareText(optStr.substring(optMatch[0].length));
+        } else {
+            optChar = String.fromCharCode(65 + oIndex);
+            cleanOpt = normalizeOptionCompareText(optStr);
+        }
+    }
+
+    // 3. Tách chữ cái và clean text của Target
     let tgtChar = null;
     let cleanTgt = '';
-    if (tgtStr.length === 1 && /^[A-Fa-f0-9]$/i.test(tgtStr)) {
-        tgtChar = tgtStr.toUpperCase();
+    const tgtMatchOnly = tgtStr.match(reOnlyLetter);
+    if (tgtMatchOnly) {
+        tgtChar = tgtMatchOnly[1].toUpperCase();
         cleanTgt = '';
     } else {
         const tgtMatch = tgtStr.match(rePrefix);
         if (tgtMatch) {
             tgtChar = tgtMatch[1].toUpperCase();
-            cleanTgt = tgtStr.replace(/^[A-Fa-f0-9][\.\:\)]\s*/i, '').trim().toLowerCase();
+            cleanTgt = normalizeOptionCompareText(tgtStr.substring(tgtMatch[0].length));
         } else {
-            cleanTgt = tgtStr.toLowerCase();
+            tgtChar = null;
+            cleanTgt = normalizeOptionCompareText(tgtStr);
+            if (/^\d+$/.test(tgtStr) && parseInt(tgtStr, 10) === oIndex) {
+                return true;
+            }
         }
     }
 
-    // 4. Nếu Target có nội dung văn bản cụ thể (ví dụ do xáo trộn đáp án hoặc học sinh lưu cả câu text)
-    // -> BẮT BUỘC ưu tiên so khớp nội dung văn bản trước để tránh nhầm lẫn khi đảo vị trí A, B, C, D
+    // 4. Ưu tiên so khớp nội dung văn bản nếu cả 2 đều có nội dung text rõ ràng
     if (cleanOpt && cleanTgt) {
         if (cleanOpt === cleanTgt) return true;
-        // Nếu cả hai đều có nội dung văn bản rõ ràng nhưng nội dung KHÁC NHAU -> KHÔNG KHỚP
         return false;
     }
 
-    // 5. Nếu Target chỉ là chữ cái đơn (ví dụ 'A', 'B', 'C', 'D' hoặc 'A.') không kèm text nội dung
-    // -> So khớp bằng chữ cái đại diện
+    // 5. Nếu 1 trong 2 chỉ là chữ cái đơn (ví dụ target là 'C', 'C.' hoặc opt là 'C')
     if (tgtChar && optChar && tgtChar === optChar) {
         return true;
     }
@@ -7108,8 +7145,20 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
         const serverItem = resultsMap[origIdx];
         let userAnswer = userAnswers[qIndex];
-        let correctAnswer = q.correct_answer;
+        let correctAnswer = (serverItem && serverItem.correct_answer !== undefined && serverItem.correct_answer !== null && serverItem.correct_answer !== '') 
+            ? serverItem.correct_answer 
+            : q.correct_answer;
         let explain = (serverItem && serverItem.explain) ? serverItem.explain : (q.explain || '');
+
+        // Đồng bộ ngược lại vào q trong currentData để các hàm khác (MathJax, re-render, review) đều có đủ data
+        if (serverItem) {
+            if (serverItem.correct_answer !== undefined && !q.correct_answer) {
+                q.correct_answer = serverItem.correct_answer;
+            }
+            if (serverItem.explain && !q.explain) {
+                q.explain = serverItem.explain;
+            }
+        }
         
         let status = 'wrong'; // 'correct', 'wrong', 'skipped'
         let earnedScore = 0;
@@ -7338,30 +7387,39 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 let m = String(userAnswer).match(/^[A-F]/i);
                 userCharDisplay = m ? m[0].toUpperCase() : String(userAnswer);
             }
+            // Chốt chặn an toàn: nếu status là 'correct' mà một trong hai chưa gán được
+            if (status === 'correct') {
+                if (!correctCharDisplay && userCharDisplay) {
+                    correctCharDisplay = userCharDisplay;
+                } else if (!userCharDisplay && correctCharDisplay) {
+                    userCharDisplay = correctCharDisplay;
+                }
+            }
         }
 
         // Tóm tắt kết quả nhanh trên mỗi câu hỏi
         let summaryBannerHtml = '';
         if (qType === 'mcq') {
             if (status === 'correct') {
+                const displayChar = correctCharDisplay || userCharDisplay || '';
                 summaryBannerHtml = `
                     <div class="review-quick-banner is-correct">
                         <i class="ri-checkbox-circle-fill" style="font-size: 1.15rem;"></i> 
-                        <span>Chính xác! Bạn đã chọn đúng đáp án <b>${correctCharDisplay || 'A'}</b></span>
+                        <span>Chính xác! Bạn đã chọn đúng đáp án <b>${displayChar}</b></span>
                     </div>
                 `;
             } else if (status === 'skipped') {
                 summaryBannerHtml = `
                     <div class="review-quick-banner is-skipped">
                         <i class="ri-question-fill" style="font-size: 1.15rem;"></i> 
-                        <span>Chưa trả lời! Đáp án đúng là: <b class="highlight-correct">${correctCharDisplay || 'A'}</b></span>
+                        <span>Chưa trả lời! Đáp án đúng là: <b class="highlight-correct">${correctCharDisplay || ''}</b></span>
                     </div>
                 `;
             } else {
                 summaryBannerHtml = `
                     <div class="review-quick-banner is-wrong">
                         <i class="ri-close-circle-fill" style="font-size: 1.15rem;"></i> 
-                        <span>Lựa chọn của bạn: <b class="highlight-wrong">${userCharDisplay || '(Chưa chọn)'}</b> &nbsp;|&nbsp; Đáp án chính xác: <b class="highlight-correct">${correctCharDisplay || 'A'}</b></span>
+                        <span>Lựa chọn của bạn: <b class="highlight-wrong">${userCharDisplay || '(Chưa chọn)'}</b> &nbsp;|&nbsp; Đáp án chính xác: <b class="highlight-correct">${correctCharDisplay || ''}</b></span>
                     </div>
                 `;
             }
@@ -7438,11 +7496,22 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 if (matchOptionToTarget(opt, oIndex, userAnswer)) revUserPickIdx = oIndex;
             });
 
+            // Chốt chặn an toàn: nếu status là 'correct' mà một trong hai chỉ số chưa xác định được
+            if (status === 'correct') {
+                if (revCorrectIdx === -1 && revUserPickIdx !== -1) revCorrectIdx = revUserPickIdx;
+                if (revUserPickIdx === -1 && revCorrectIdx !== -1) revUserPickIdx = revCorrectIdx;
+            }
+
             cardHtml += `<div class="review-opt-list">`;
             (q.options || []).forEach((opt, oIndex) => {
                 let char = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
                 let isThisCorrect = (oIndex === revCorrectIdx);
                 let isThisUserPick = (oIndex === revUserPickIdx);
+                
+                // Nếu status là 'correct' và đây là lựa chọn của học sinh -> bắt buộc isThisCorrect là true
+                if (status === 'correct' && isThisUserPick) {
+                    isThisCorrect = true;
+                }
                 
                 let optClass = 'review-opt-item';
                 let tagHtml = '';

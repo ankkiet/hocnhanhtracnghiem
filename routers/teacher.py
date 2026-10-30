@@ -669,16 +669,21 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
         
         # Thống kê chi tiết từng câu nếu bài thi nộp có kèm answers
         user_answers = data.get('answers', {})
+        res_list = data.get('results') or []
+        res_map = {r.get('question_index'): r for r in res_list if isinstance(r, dict) and 'question_index' in r}
+        
         for idx in range(total_q):
             u_ans = user_answers.get(str(idx)) or user_answers.get(idx)
             correct_ans = questions[idx].get('correct_answer')
             q_type = questions[idx].get('type', 'mcq')
             
-            # Kiểm tra câu trả lời đúng
-            if u_ans is not None and correct_ans is not None:
+            # Kiểm tra câu trả lời đúng: Ưu tiên lấy trực tiếp từ results đã được chấm xác thực
+            server_res = res_map.get(idx) or res_map.get(str(idx))
+            if server_res and server_res.get('is_correct'):
+                q_stats[idx]["correct"] += 1
+            elif u_ans is not None and correct_ans is not None:
                 if q_type == 'true_false' or isinstance(correct_ans, dict):
                     if isinstance(u_ans, dict) and isinstance(correct_ans, dict):
-                        # Khớp tất cả 4 ý a, b, c, d
                         matches = sum(1 for k in ['a', 'b', 'c', 'd'] 
                                       if k in u_ans and k in correct_ans and bool(u_ans[k]) == bool(correct_ans[k]))
                         if matches == 4:
@@ -689,11 +694,20 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
                     if u_clean and u_clean == c_clean:
                         q_stats[idx]["correct"] += 1
                 else:
-                    # MCQ
-                    u_char = str(u_ans).strip()[:1].upper()
-                    c_char = str(correct_ans).strip()[:1].upper()
-                    if u_char and u_char == c_char:
+                    # MCQ: So khớp an toàn chữ cái và nội dung
+                    def _clean(t):
+                        t = re.sub(r'<[^>]+>', '', str(t or ''))
+                        t = re.sub(r'\\(|\\)|[\$]', '', t)
+                        return re.sub(r'[ ​\s]+', ' ', t).strip().lower()
+                    u_clean = _clean(re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', str(u_ans)))
+                    c_clean = _clean(re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', str(correct_ans)))
+                    if u_clean and c_clean and u_clean == c_clean:
                         q_stats[idx]["correct"] += 1
+                    else:
+                        u_m = re.match(r'^\*?\s*([A-Fa-f])(?:[\.\:\)]|\s|$)', str(u_ans).strip())
+                        c_m = re.match(r'^\*?\s*([A-Fa-f])(?:[\.\:\)]|\s|$)', str(correct_ans).strip())
+                        if u_m and c_m and u_m.group(1).upper() == c_m.group(1).upper():
+                            q_stats[idx]["correct"] += 1
 
             # Thống kê phân bố lựa chọn của học sinh an toàn theo từng loại câu
             if u_ans is not None:
