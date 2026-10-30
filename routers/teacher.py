@@ -290,12 +290,31 @@ async def check_quiz_ai(req: CheckQuizRequest):
         SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
     
     try:
-        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{req.custom_prompt}\n" if req.custom_prompt.strip() else ""
+        custom_prompt_raw = req.custom_prompt.strip()
+        custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{custom_prompt_raw}\n" if custom_prompt_raw else ""
+        
+        custom_prompt_lower = custom_prompt_raw.lower()
+        is_explain_requested = any(kw in custom_prompt_lower for kw in [
+            "lời giải", "giải thích", "hướng dẫn giải", "explain", "hdg", "giải chi tiết", "tạo giải", "viết giải", "thêm giải"
+        ])
+        explain_focus = (
+            "\n★ LƯU Ý TRỌNG TÂM: Người dùng yêu cầu TẠO / BỔ SUNG LỜI GIẢI THÍCH CHI TIẾT.\n"
+            "- Hãy biên soạn lời giải thích sư phạm, từng bước logic cho các câu hỏi.\n"
+            "- Phân loại BẮT BUỘC: category='explanation', category_name='Bổ sung lời giải chi tiết', action='modify'.\n"
+            "- TUYỆT ĐỐI KHÔNG gán nhầm sang lỗi LaTeX ('latex' hay 'grammar_typo'). Việc thiếu lời giải KHÔNG PHẢI là lỗi LaTeX!\n"
+        ) if is_explain_requested else ""
         
         system_instruction = (
-            "Bạn là Trợ lý AI Chuyên gia Giáo dục & Biên tập viên Đề thi cao cấp.\n"
-            "Nhiệm vụ của bạn gồm 2 phần quan trọng:\n"
-            "1. THỰC THI TRIỆT ĐỂ MỌI YÊU CẦU CỦA NGƯỜI LÀM ĐỀ (NẾU CÓ TRONG YÊU CẦU ĐẶC BIỆT):\n"
+            "Bạn là Trợ lý AI Chuyên gia Giáo dục & Biên tập viên Đề thi cao cấp bậc nhất.\n"
+            "Nhiệm vụ của bạn gồm các phần cốt lõi sau:\n"
+            "1. THỰC THI CHÍNH XÁC YÊU CẦU CỦA NGƯỜI LÀM ĐỀ (NẾU CÓ TRONG YÊU CẦU ĐẶC BIỆT):\n"
+            "   - TẠO / BỔ SUNG LỜI GIẢI THÍCH (EXPLANATION): Khi người dùng yêu cầu tạo/bổ sung/viết lời giải thích "
+            "(hoặc khi phát hiện câu hỏi chưa có lời giải chi tiết), hãy phân loại BẮT BUỘC là category='explanation', "
+            "category_name='Bổ sung lời giải chi tiết', action='modify'.\n"
+            "     * NGUYÊN TẮC BẤT DI BẤT DỊCH: TUYỆT ĐỐI KHÔNG ĐƯỢC đánh dấu việc thiếu lời giải thích là 'Lỗi công thức LaTeX' ('latex') hoặc 'grammar_typo'. Việc thiếu lời giải thích KHÔNG PHẢI là lỗi LaTeX!\n"
+            "     * Yêu cầu lời giải: Phải giải thích chi tiết, logic, sư phạm. Với câu MCQ: giải thích vì sao đáp án đúng là đúng và loại trừ các đáp án sai. "
+            "Với câu Đúng/Sai: giải thích cặn kẽ từng ý a, b, c, d. Với câu Trả lời ngắn: trình bày các bước tính ra đáp số.\n"
+            "     * Công thức toán/hóa trong lời giải phải định dạng chuẩn LaTeX trong $...$ hoặc \\(...\\).\n"
             "   - XÓA CÂU: Nếu người dùng yêu cầu xóa câu hỏi (ví dụ: 'xóa câu 3', 'xóa câu trùng lặp', 'bỏ các câu về este', 'bỏ câu 1 và 4'), "
             "hãy đánh dấu câu đó với action='delete', category='delete', category_name='Yêu cầu xóa câu', "
             "corrected_data=null, và BẮT BUỘC LOẠI BỎ câu đó ra khỏi 'new_quiz_data'.\n"
@@ -309,9 +328,13 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "Không tự giải lại để áp đặt đáp án khác lên đề thi của giáo viên!\n"
             "   - QUY TẮC BẢO TOÀN NỘI DUNG: TUYỆT ĐỐI KHÔNG TỰ Ý THÊM BỚT CÂU HỎI, KHÔNG SÁNG TÁC THÊM PHƯƠNG ÁN LỰA CHỌN hoặc cắt xén câu hỏi trừ khi có yêu cầu xóa rõ ràng từ người làm đề.\n"
             "   - Với câu Đúng / Sai (true_false): BẮT BUỘC giữ nguyên đủ 4 ý a), b), c), d), không được tự thêm hay bớt ý.\n"
-            "   - 'knowledge': Sai sót kiến thức khoa học hiển nhiên, nhầm lẫn khái niệm cơ bản.\n"
-            "   - 'grammar_typo': Lỗi chính tả, câu chữ lủng củng, thiếu dấu câu, lỗi công thức LaTeX.\n"
-            "   - 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn.\n"
+            "   - PHÂN LOẠI DANH MỤC LỖI RÕ RÀNG (KHÔNG ĐƯỢC NHẬM LẪN):\n"
+            "     * 'explanation': Câu hỏi thiếu lời giải thích chi tiết, hoặc cần bổ sung/nâng cấp hướng dẫn giải. (KHÔNG ĐƯỢC GỌI LÀ LỖI LATEX).\n"
+            "     * 'latex': CHỈ DÙNG khi công thức toán/hóa thực sự bị lỗi cú pháp hiển thị (ví dụ quên đóng $, thẻ \\frac gãy, ký tự làm lỗi MathJax). Tuyệt đối không dùng cho việc thiếu lời giải.\n"
+            "     * 'knowledge': Sai sót kiến thức khoa học hiển nhiên, nhầm lẫn khái niệm cơ bản.\n"
+            "     * 'answer': Đáp án bị sai hoặc mâu thuẫn hiển nhiên giữa câu hỏi và phương án.\n"
+            "     * 'grammar_typo': Lỗi chính tả tiếng Việt, câu chữ lủng củng, thiếu dấu câu.\n"
+            "     * 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn.\n"
             "Trả về DUY NHẤT một JSON Object hợp lệ (không kèm markdown ngoài khối JSON)."
         )
         
@@ -320,6 +343,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
         {json.dumps(req.quiz_data, ensure_ascii=False)}
 
         {custom_instructions}
+        {explain_focus}
 
         QUY TẮC ĐỊNH DẠNG JSON ĐẦU RA BẮT BUỘC:
         Trả về 1 JSON Object duy nhất theo cấu trúc sau:
@@ -328,27 +352,32 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "feedback": [
                 {{
                     "question_index": 0,
-                    "action": "delete",
-                    "category": "delete",
-                    "category_name": "Yêu cầu xóa câu",
-                    "reason": "Giải thích rõ lý do xóa hoặc nguyên nhân cần sửa/thay đổi kết cấu.",
-                    "corrected_data": null
+                    "action": "modify",
+                    "category": "explanation",
+                    "category_name": "Bổ sung lời giải chi tiết",
+                    "reason": "Giải thích rõ nguyên nhân cần xử lý (ví dụ: 'Bổ sung lời giải chi tiết từng bước cho bài toán').",
+                    "corrected_data": {{
+                        // Dữ liệu câu hỏi hoàn chỉnh sau khi sửa, đảm bảo có trường 'explain' với lời giải đầy đủ
+                    }}
                 }}
             ],
             "new_quiz_data": [
                 // Toàn bộ mảng câu hỏi của đề thi sau khi áp dụng TẤT CẢ các yêu cầu:
                 // - Các câu bị xóa (action='delete') KHÔNG được xuất hiện ở đây.
-                // - Các câu được đổi kết cấu hoặc sửa lỗi sẽ được cập nhật dữ liệu mới.
+                // - Các câu được đổi kết cấu hoặc sửa lỗi / bổ sung lời giải sẽ được cập nhật dữ liệu mới.
                 // - Các câu không bị sửa sẽ giữ nguyên vẹn 100% nội dung và đáp án ban đầu.
             ]
         }}
         LƯU Ý CỐT LÕI:
-        - BẢO TOÀN ĐÁP ÁN: Giữ nguyên vẹn 100% đáp án ('correct_answer') của giáo viên trừ khi người dùng yêu cầu sửa đáp án câu đó trong yêu cầu đặc biệt.
-        - BẢO TOÀN CÂU HỎI: Không tự ý thêm câu hỏi mới, không tự ý xóa bớt câu hỏi (chỉ xóa khi có yêu cầu cụ thể từ người dùng).
-        - ĐỐI VỚI CÂU HỎI ĐÚNG / SAI: Giữ đủ 4 ý a), b), c), d), không thêm bớt ý.
-        - Nếu người dùng yêu cầu XÓA CÂU: BẮT BUỘC ghi rõ action='delete', category='delete', corrected_data=null, và trong 'new_quiz_data' KHÔNG được chứa các câu đó.
-        - Nếu người dùng yêu cầu ĐỔI KẾT CẤU: ghi action='restructure', category='restructure', corrected_data mang định dạng mới chuẩn xác.
-        - Nếu đề thi hoàn hảo và không có yêu cầu đặc biệt nào từ người dùng, 'feedback' là [] và 'new_quiz_data' giữ nguyên toàn bộ đề thi ban đầu.
+        1. ĐẶC BIỆT CHÚ Ý: TUYỆT ĐỐI KHÔNG nhận diện việc thiếu lời giải thích là 'Lỗi công thức LaTeX'.
+           - Thiếu lời giải thích -> BẮT BUỘC dùng category: "explanation", category_name: "Bổ sung lời giải chi tiết".
+           - Chỉ dùng category: "latex" khi bản thân công thức trong đề thi bị gãy, sai cú pháp MathJax.
+        2. BẢO TOÀN ĐÁP ÁN: Giữ nguyên vẹn 100% đáp án ('correct_answer') của giáo viên trừ khi người dùng yêu cầu sửa đáp án câu đó trong yêu cầu đặc biệt.
+        3. BẢO TOÀN CÂU HỎI: Không tự ý thêm câu hỏi mới, không tự ý xóa bớt câu hỏi (chỉ xóa khi có yêu cầu cụ thể từ người dùng).
+        4. ĐỐI VỚI CÂU HỎI ĐÚNG / SAI: Giữ đủ 4 ý a), b), c), d), không thêm bớt ý.
+        5. Nếu người dùng yêu cầu XÓA CÂU: BẮT BUỘC ghi rõ action='delete', category='delete', corrected_data=null, và trong 'new_quiz_data' KHÔNG được chứa các câu đó.
+        6. Nếu người dùng yêu cầu ĐỔI KẾT CẤU: ghi action='restructure', category='restructure', corrected_data mang định dạng mới chuẩn xác.
+        7. Nếu đề thi hoàn hảo và không có yêu cầu đặc biệt nào từ người dùng, 'feedback' là [] và 'new_quiz_data' giữ nguyên toàn bộ đề thi ban đầu.
         """
         
         response = await call_gemini_with_fallback(
@@ -398,6 +427,18 @@ async def check_quiz_ai(req: CheckQuizRequest):
         feedback_list = []
         deleted_indices = set()
 
+        valid_cats = ["explanation", "latex", "knowledge", "answer", "grammar_typo", "format", "restructure", "delete"]
+        cat_names = {
+            "explanation": "Bổ sung lời giải",
+            "latex": "Lỗi công thức LaTeX",
+            "knowledge": "Sai kiến thức",
+            "answer": "Sai đáp án",
+            "grammar_typo": "Chính tả & Diễn đạt",
+            "format": "Lỗi định dạng",
+            "restructure": "Thay đổi kết cấu",
+            "delete": "Yêu cầu xóa câu"
+        }
+
         if isinstance(raw_feedback, list):
             for item in raw_feedback:
                 if isinstance(item, dict) and "question_index" in item:
@@ -409,8 +450,10 @@ async def check_quiz_ai(req: CheckQuizRequest):
                             
                             action = str(item.get("action", "modify")).lower()
                             cat = str(item.get("category", "")).lower()
+                            reason_lower = str(item.get("reason", "")).lower()
+                            cat_name_lower = str(item.get("category_name", "")).lower()
                             
-                            if action == "delete" or cat == "delete" or "xóa" in str(item.get("category_name", "")).lower() or "xóa" in str(item.get("reason", "")).lower()[:15]:
+                            if action == "delete" or cat == "delete" or "xóa" in cat_name_lower or "xóa" in reason_lower[:15]:
                                 action = "delete"
                                 cat = "delete"
                                 item["action"] = "delete"
@@ -418,7 +461,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
                                 item["category_name"] = item.get("category_name") or "Yêu cầu xóa câu"
                                 item["corrected_data"] = None
                                 deleted_indices.add(q_idx)
-                            elif action == "restructure" or cat == "restructure" or "kết cấu" in str(item.get("category_name", "")).lower():
+                            elif action == "restructure" or cat == "restructure" or "kết cấu" in cat_name_lower:
                                 action = "restructure"
                                 cat = "restructure"
                                 item["action"] = "restructure"
@@ -428,19 +471,35 @@ async def check_quiz_ai(req: CheckQuizRequest):
                                     item["corrected_data"] = normalize_question_data(item["corrected_data"])
                             else:
                                 item["action"] = action
-                                if cat not in ["knowledge", "answer", "grammar_typo", "format", "restructure", "delete"]:
+
+                                # Phát hiện thông minh: Tránh nhầm lẫn giữa thiếu lời giải và lỗi LaTeX/grammar
+                                is_explain_related = any(k in reason_lower or k in cat_name_lower for k in [
+                                    "lời giải", "giải thích", "hướng dẫn giải", "explain", "hdg", "thiếu giải", "chưa có giải", "bổ sung giải", "chưa giải", "cần giải"
+                                ])
+                                is_actual_latex_error = any(k in reason_lower for k in [
+                                    "cú pháp latex", "thẻ $", "kí tự latex", "lỗi latex", "mathjax", "công thức hỏng", "ngoặc nhọn", "\\frac", "\\sqrt", "chưa đóng $"
+                                ]) and not is_explain_related
+
+                                if is_explain_related and not is_actual_latex_error:
+                                    cat = "explanation"
+                                    item["category"] = "explanation"
+                                    item["category_name"] = "Bổ sung lời giải"
+                                elif is_actual_latex_error or "latex" in cat:
+                                    cat = "latex"
+                                    item["category"] = "latex"
+                                    item["category_name"] = "Lỗi công thức LaTeX"
+                                elif cat not in valid_cats:
                                     cat = "knowledge"
-                                item["category"] = cat
-                                cat_names = {
-                                    "knowledge": "Sai kiến thức",
-                                    "answer": "Sai đáp án",
-                                    "grammar_typo": "Chính tả & Diễn đạt",
-                                    "format": "Lỗi định dạng",
-                                    "restructure": "Thay đổi kết cấu",
-                                    "delete": "Yêu cầu xóa câu"
-                                }
-                                item["category_name"] = item.get("category_name") or cat_names.get(cat, "Cần sửa")
+                                    item["category"] = cat
+                                    item["category_name"] = cat_names.get(cat, "Cần sửa")
+                                else:
+                                    item["category"] = cat
+                                    item["category_name"] = item.get("category_name") or cat_names.get(cat, "Cần sửa")
+
                                 if "corrected_data" in item and isinstance(item["corrected_data"], dict):
+                                    # Nếu là category explanation mà explain trong corrected_data bị rỗng nhưng có trong reason:
+                                    if cat == "explanation" and not item["corrected_data"].get("explain") and item.get("reason"):
+                                        item["corrected_data"]["explain"] = item["reason"]
                                     item["corrected_data"] = normalize_question_data(item["corrected_data"])
                                     
                             feedback_list.append(item)
@@ -474,6 +533,8 @@ async def check_quiz_ai(req: CheckQuizRequest):
         category_counts = {
             "delete": deleted_count,
             "restructure": restructure_count,
+            "explanation": sum(1 for f in feedback_list if f.get("category") == "explanation"),
+            "latex": sum(1 for f in feedback_list if f.get("category") == "latex"),
             "knowledge": sum(1 for f in feedback_list if f.get("category") == "knowledge"),
             "answer": sum(1 for f in feedback_list if f.get("category") == "answer"),
             "grammar_typo": sum(1 for f in feedback_list if f.get("category") == "grammar_typo"),

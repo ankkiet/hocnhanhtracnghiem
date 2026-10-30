@@ -344,7 +344,7 @@ body.minimal-mode {
     background: #f8fafc;
     box-sizing: border-box;
     overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: clip;
 }
 
 body.minimal-mode #azotaNavbar,
@@ -2539,7 +2539,7 @@ body.minimal-mode.quiz-completed #quiz-container {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 24px;
-  align-items: flex-start;
+  align-items: stretch;
   margin-top: 15px;
   width: 100%;
 }
@@ -2553,6 +2553,8 @@ body.minimal-mode.quiz-completed #quiz-container {
   width: 340px;
   max-width: 100%;
   box-sizing: border-box;
+  position: relative;
+  height: 100%;
 }
 
 @media (min-width: 961px) and (max-width: 1120px) {
@@ -2847,17 +2849,22 @@ body.minimal-mode.quiz-completed #quiz-container {
   }
 }
 
-/* Question Navigator Palette */
+/* Question Navigator Palette (Cố định khi cuộn màn hình trên Desktop) */
 .azota-navigator-card {
   background: #ffffff;
   border: 1px solid var(--azota-border);
   border-radius: 18px;
   padding: 18px 16px;
   box-shadow: var(--azota-shadow);
+  position: -webkit-sticky;
   position: sticky;
   top: 84px;
+  z-index: 100;
   box-sizing: border-box;
   overflow: hidden;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
 }
 
 .azota-nav-title {
@@ -2868,6 +2875,7 @@ body.minimal-mode.quiz-completed #quiz-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .azota-nav-legend {
@@ -2882,6 +2890,11 @@ body.minimal-mode.quiz-completed #quiz-container {
   color: #64748b;
   font-weight: 600;
   border: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.azota-nav-actions {
+  flex-shrink: 0;
 }
 
 .azota-legend-item {
@@ -2905,14 +2918,16 @@ body.minimal-mode.quiz-completed #quiz-container {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 7px;
-  max-height: 52vh;
+  max-height: calc(100vh - 280px);
   overflow-y: auto !important;
   overflow-x: hidden !important; /* Tuyệt đối không bao giờ cuộn ngang - chỉ cuộn lên xuống */
+  overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
   padding: 2px 4px 6px 2px;
   box-sizing: border-box;
+  flex: 1 1 auto;
 }
 
 .azota-nav-grid::-webkit-scrollbar {
@@ -5473,3 +5488,91 @@ button, .btn {
     }
 }
 
+
+
+/* --- AI FEEDBACK EXPANDED CATEGORIES & QUICK PROMPTS --- */
+.ai-cat-explain {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    color: #15803d !important;
+    font-weight: 700 !important;
+}
+
+.ai-cat-latex {
+    background: #fff7ed !important;
+    border-color: #fdba74 !important;
+    color: #c2410c !important;
+    font-weight: 700 !important;
+}
+
+.btn-ai-explain {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    transition: all 0.15s ease;
+}
+
+.btn-ai-explain:hover {
+    background: #059669 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+}
+
+.ai-quick-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
+.ai-quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #ffffff;
+    border: 1px solid #d8b4fe;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #6b21a8;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
+}
+
+.ai-quick-chip:hover {
+    background: #f5f3ff;
+    border-color: #9333ea;
+    color: #581c87;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(147, 51, 234, 0.15);
+}
+
+.ai-quick-chip i {
+    font-size: 1rem;
+}
+
+
+/* Ẩn hoàn toàn nút nộp bài cũ ở đáy danh sách câu hỏi vì đã có nút cố định trên Header & Bảng câu hỏi */
+#submitBtn {
+    display: none !important;
+}
+
+/* Đảm bảo thanh điều hướng mobile KHÔNG BAO GIỜ hiển thị trên Desktop (> 960px) */
+@media (min-width: 961px) {
+    #azotaMobileExamBar,
+    .azota-mobile-exam-bar {
+        display: none !important;
+    }
+}

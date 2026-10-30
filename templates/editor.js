@@ -1030,11 +1030,16 @@ function renderPreviewAll() {
             const isDelete = aiData.action === 'delete' || aiData.category === 'delete';
             const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
 
+            const isExplain = aiData.category === 'explanation';
+            const isLatex = aiData.category === 'latex';
+
             const catClass = isDelete ? 'ai-cat-delete' :
                              (isRestructure ? 'ai-cat-restructure' :
+                             (isExplain ? 'ai-cat-explain' :
+                             (isLatex ? 'ai-cat-latex' :
                              (aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
                              (aiData.category === 'answer' ? 'ai-cat-answer' :
-                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
 
             const aiDiv = document.createElement('div');
             aiDiv.onclick = (e) => e.stopPropagation();
@@ -1105,6 +1110,37 @@ function renderPreviewAll() {
                     <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
                         <button class="btn-ai-restructure" onclick="applyAISuggestion(${qIndex})">
                             <i class="ri-check-line"></i> Áp dụng đổi kết cấu
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else if (isExplain) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let explainText = (corrected.explain || aiData.reason || '').trim();
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-lightbulb-fill" style="color: #10b981; font-size: 1.25rem;"></i>
+                            <strong style="color: #15803d;">Đề xuất bổ sung lời giải chi tiết:</strong>
+                            <span class="ai-cat-chip ai-cat-explain" style="padding: 2px 8px; font-size: 0.75rem;">${escapeHtml(aiData.category_name || 'Bổ sung lời giải')}</span>
+                        </div>
+                    </div>
+                    <div style="color: #166534; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${explainText ? `
+                        <div style="margin-top: 8px; padding: 10px 14px; background: #ffffff; border-radius: 8px; font-size: 0.9rem; color: #1e293b; line-height: 1.6; border: 1px solid #dcfce7; border-left: 4px solid #10b981;">
+                            <b style="color: #15803d;"><i class="ri-lightbulb-line"></i> Nội dung lời giải:</b><br>
+                            ${formatSubscriptsAndFormulas(explainText).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                        </div>
+                    ` : ''}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-explain" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-lightbulb-line"></i> Xác nhận thêm lời giải này
                         </button>
                         <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
                             Bỏ qua
@@ -1294,7 +1330,7 @@ async function runAICheck() {
                     valid_questions: Math.max(0, currentData.length - data.feedback.length),
                     error_count: data.feedback.length,
                     accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
-                    category_counts: { delete: 0, restructure: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
+                    category_counts: { delete: 0, restructure: 0, explanation: 0, latex: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
                 };
 
                 let summaryHtml = data.summary ? `
@@ -1310,6 +1346,12 @@ async function runAICheck() {
                 }
                 if (stats.category_counts?.restructure > 0) {
                     catChipsHtml += `<span class="ai-cat-chip ai-cat-restructure"><i class="ri-swap-line"></i> Đổi kết cấu: <b>${stats.category_counts.restructure}</b></span>`;
+                }
+                if (stats.category_counts?.explanation > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-explain"><i class="ri-lightbulb-line"></i> Bổ sung lời giải: <b>${stats.category_counts.explanation}</b></span>`;
+                }
+                if (stats.category_counts?.latex > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-latex"><i class="ri-functions"></i> Công thức LaTeX: <b>${stats.category_counts.latex}</b></span>`;
                 }
                 catChipsHtml += `
                     <span class="ai-cat-chip ai-cat-knowledge"><i class="ri-brain-line"></i> Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
@@ -1415,18 +1457,24 @@ function renderAIFeedbackList() {
 
         const isDelete = item.action === 'delete' || item.category === 'delete';
         const isRestructure = item.action === 'restructure' || item.category === 'restructure';
+        const isExplain = item.category === 'explanation';
+        const isLatex = item.category === 'latex';
 
         const catClass = isDelete ? 'ai-cat-delete' :
                          (isRestructure ? 'ai-cat-restructure' :
+                         (isExplain ? 'ai-cat-explain' :
+                         (isLatex ? 'ai-cat-latex' :
                          (item.category === 'knowledge' ? 'ai-cat-knowledge' :
                          (item.category === 'answer' ? 'ai-cat-answer' :
-                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
 
         let actionBtnHtml = '';
         if (isDelete) {
             actionBtnHtml = `<button class="btn-ai-delete" onclick="applyAIDelete(${qIdx})"><i class="ri-delete-bin-line"></i> Xóa câu này</button>`;
         } else if (isRestructure) {
             actionBtnHtml = `<button class="btn-ai-restructure" onclick="applyAISuggestion(${qIdx})"><i class="ri-swap-line"></i> Đổi kết cấu</button>`;
+        } else if (isExplain) {
+            actionBtnHtml = `<button class="btn-ai-explain" onclick="applyAISuggestion(${qIdx})"><i class="ri-lightbulb-line"></i> Bổ sung lời giải</button>`;
         } else {
             actionBtnHtml = `<button class="btn-studio-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})"><i class="ri-magic-line"></i> Sửa câu này</button>`;
         }
@@ -2179,4 +2227,14 @@ function showToast(message) {
 function escapeHtml(text) {
     if (!text) return "";
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+
+// Gán nhanh câu lệnh mẫu cho AI rà soát
+function setAIQuickPrompt(text) {
+    const input = document.getElementById('aiCustomPrompt');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
 }

@@ -23,8 +23,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261008_wysiwyg">
-    <link rel="stylesheet" href="editor.css?v=20261008_wysiwyg">
+    <link rel="stylesheet" href="style.css?v=20261030_cleanup_bar">
+    <link rel="stylesheet" href="editor.css?v=20261030_cleanup_bar">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
         window.MathJax = {
@@ -250,46 +250,46 @@
     <!-- TOP STUDIO NAVBAR -->
     <header class="studio-navbar">
         <div class="studio-nav-left">
-            <button class="studio-back-btn" onclick="handleBackToDashboard()">
-                <i class="ri-arrow-left-line"></i> Quay lại
+            <button class="studio-back-btn" onclick="handleBackToDashboard()" title="Quay lại danh sách đề thi">
+                <i class="ri-arrow-left-line"></i> <span class="nav-btn-text">Quay lại</span>
             </button>
-            <button id="btnDiscardOrDelete" class="studio-back-btn" style="color: #ef4444; border-color: #fecaca;" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
-                <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel">Hủy nháp</span>
+            <button id="btnDiscardOrDelete" class="studio-back-btn studio-discard-btn" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
+                <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel" class="nav-btn-text">Hủy nháp</span>
             </button>
-            <div class="studio-brand-badge" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: white; padding: 5px 12px; border-radius: 8px; font-weight: 700; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);">
-                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 24px; height: 24px; border-radius: 6px; object-fit: contain; background: white; padding: 2px; box-sizing: border-box;">
-                <span>HocNhanhTN Studio</span>
+            <div class="studio-brand-badge" title="HocNhanhTN Studio">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="studio-brand-logo">
+                <span class="studio-brand-text">HocNhanhTN Studio</span>
             </div>
             <div class="studio-title-box">
                 <input type="text" id="studioQuizTitle" class="studio-title-input" placeholder="Nhập tên bài kiểm tra / đề thi..." title="Nhấn để đổi tên đề thi">
-                <span id="studioQCountBadge" class="studio-badge">0 câu hỏi</span>
-                <span id="autosaveIndicator" class="studio-autosave"><i class="ri-check-line"></i> Đã lưu nháp</span>
+                <span id="studioQCountBadge" class="studio-badge" title="Số câu hỏi hiện tại">0 câu hỏi</span>
+                <span id="autosaveIndicator" class="studio-autosave" title="Trạng thái tự động lưu"><i class="ri-check-line"></i> Đã lưu nháp</span>
             </div>
         </div>
 
         <div class="studio-nav-right">
             <!-- Segmented Mode Switcher -->
             <div class="studio-mode-pill-group">
-                <button id="pillModeEdit" class="studio-mode-pill active" onclick="switchStudioMode('edit')"><i class="ri-edit-2-line"></i> Biên tập</button>
-                <button id="pillModePractice" class="studio-mode-pill" onclick="switchStudioMode('practice')"><i class="ri-focus-3-line"></i> Làm thử</button>
-                <button id="pillModeExam" class="studio-mode-pill" onclick="switchStudioMode('exam')"><i class="ri-file-list-3-line"></i> Thi thử</button>
+                <button id="pillModeEdit" class="studio-mode-pill active" onclick="switchStudioMode('edit')" title="Chế độ biên tập đề thi"><i class="ri-edit-2-line"></i> <span class="pill-text">Biên tập</span></button>
+                <button id="pillModePractice" class="studio-mode-pill" onclick="switchStudioMode('practice')" title="Chế độ học sinh làm thử"><i class="ri-focus-3-line"></i> <span class="pill-text">Làm thử</span></button>
+                <button id="pillModeExam" class="studio-mode-pill" onclick="switchStudioMode('exam')" title="Chế độ phòng thi thử"><i class="ri-file-list-3-line"></i> <span class="pill-text">Thi thử</span></button>
             </div>
 
             <!-- Action buttons -->
-            <button id="btnToggleAIPanel" class="btn-studio-ai" onclick="toggleAIPanel()">
-                <i class="ri-sparkling-fill"></i> AI Rà soát lỗi
+            <button id="btnToggleAIPanel" class="btn-studio-ai" onclick="toggleAIPanel()" title="AI Rà soát & Thống kê lỗi">
+                <i class="ri-sparkling-fill"></i> <span class="btn-action-text">AI Rà soát lỗi</span>
             </button>
 
-            <button id="btnExportWord" class="btn-studio-outline" onclick="exportWordDocument()">
-                <i class="ri-file-word-2-line"></i> Xuất Word
+            <button id="btnExportWord" class="btn-studio-outline" onclick="exportWordDocument()" title="Xuất đề Microsoft Word">
+                <i class="ri-file-word-2-line"></i> <span class="btn-action-text">Xuất Word</span>
             </button>
 
             <button id="btnStudioCopyLink" class="btn-studio-outline" style="display: none; border-color: #0284c7; color: #0284c7; font-weight: 600;" onclick="copyCurrentStudioLink()" title="Sao chép link làm bài của học sinh">
-                <i class="ri-file-copy-line"></i> Copy Link
+                <i class="ri-file-copy-line"></i> <span class="btn-action-text">Copy Link</span>
             </button>
 
-            <button id="btnOpenPublish" class="btn-studio-primary" onclick="openPublishModal()">
-                <i class="ri-send-plane-fill"></i> Lưu & Xuất bản
+            <button id="btnOpenPublish" class="btn-studio-primary" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
+                <i class="ri-send-plane-fill"></i> <span class="btn-action-text">Lưu & Xuất bản</span>
             </button>
         </div>
     </header>
@@ -320,9 +320,25 @@
 
             <!-- Khung nhập prompt tùy chọn kiểm tra AI -->
             <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu AI (VD: Xóa câu 2, chuyển câu 3 sang Đúng/Sai, sửa công thức hóa học... Để trống để rà soát tổng thể)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
+                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu AI (VD: Bổ sung lời giải, Xóa câu 2, chuyển câu 3 sang Đúng/Sai, sửa công thức... Để trống để rà soát tổng thể)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
                 <button id="btnAICheck" class="btn-primary" style="background: #9333ea; white-space: nowrap; margin: 0; padding: 10px 20px;" onclick="runAICheck()">
                     <i class="ri-search-eye-line"></i> Chạy AI Quét lỗi
+                </button>
+            </div>
+
+            <!-- Gợi ý nhanh các tác vụ phổ biến của AI -->
+            <div class="ai-quick-prompts">
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Bổ sung lời giải chi tiết cho tất cả các câu hỏi chưa có lời giải')">
+                    <i class="ri-lightbulb-line" style="color: #10b981;"></i> Bổ sung lời giải chi tiết
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Rà soát lỗi kiến thức, chính tả, công thức LaTeX và bảo toàn đáp án')">
+                    <i class="ri-shield-check-line" style="color: #2563eb;"></i> Rà soát lỗi & bảo toàn đáp án
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Kiểm tra và chuẩn hóa công thức Toán/Lý/Hóa LaTeX')">
+                    <i class="ri-functions" style="color: #ea580c;"></i> Chuẩn hóa công thức LaTeX
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng Đúng/Sai chuẩn Bộ GD&ĐT')">
+                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng Đúng/Sai Bộ GD&ĐT
                 </button>
             </div>
 
@@ -653,6 +669,6 @@
         <i class="ri-eye-line"></i> <span>Xem trước</span>
     </button>
 
-    <script src="editor.js?v=20261008_wysiwyg"></script>
+    <script src="editor.js?v=20261030_ai_explain_fix"></script>
 </body>
 </html>

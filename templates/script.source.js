@@ -517,16 +517,16 @@ function resetSubmissionReviewUI() {
     }
     const mainSubmit = document.getElementById('submitBtn');
     if (mainSubmit) {
-        mainSubmit.style.display = (currentMode === 'exam') ? 'block' : 'none';
+        mainSubmit.style.display = 'none';
     }
 
-    // 8. Phục hồi thanh điều hướng và nút "Câu tiếp" trên mobile
+    // 8. Phục hồi thanh điều hướng và nút "Câu tiếp" trên mobile (chỉ hiển thị khi màn hình <= 960px)
     const mobileBar = document.getElementById('azotaMobileExamBar');
     if (mobileBar) {
-        if (currentMode !== 'edit') {
-            mobileBar.style.setProperty('display', 'flex', 'important');
+        if (currentMode !== 'edit' && window.innerWidth <= 960) {
+            mobileBar.style.display = 'flex';
         } else {
-            mobileBar.style.setProperty('display', 'none', 'important');
+            mobileBar.style.display = 'none';
         }
     }
     const mobileNextBtn = document.getElementById('mobileNextBtn');
@@ -2232,8 +2232,12 @@ async function startStudentQuiz(isResume = false) {
     document.body.classList.add('minimal-mode');
     toggleMobileNavSheet(false);
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar && (currentDataMode === 'exam' || currentDataMode === 'practice')) {
-        mobileBar.style.setProperty('display', 'flex', 'important');
+    if (mobileBar) {
+        if ((currentDataMode === 'exam' || currentDataMode === 'practice') && window.innerWidth <= 960) {
+            mobileBar.style.display = 'flex';
+        } else {
+            mobileBar.style.display = 'none';
+        }
     }
     if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
@@ -2311,8 +2315,12 @@ async function fetchLatestDataAndRestart(mode) {
     document.body.classList.add('minimal-mode');
     document.body.classList.remove('quiz-completed');
     const mobileBar = document.getElementById('azotaMobileExamBar');
-    if (mobileBar && (mode === 'exam' || mode === 'practice')) {
-        mobileBar.style.setProperty('display', 'flex', 'important');
+    if (mobileBar) {
+        if ((mode === 'exam' || mode === 'practice') && window.innerWidth <= 960) {
+            mobileBar.style.display = 'flex';
+        } else {
+            mobileBar.style.display = 'none';
+        }
     }
     const mobileNextBtn = document.getElementById('mobileNextBtn');
     if (mobileNextBtn) {
@@ -4480,6 +4488,8 @@ function backToDashboard() {
     document.getElementById('saveBtn').style.display = 'none';
     document.getElementById('aiCustomPrompt').style.display = 'none';
     document.getElementById('aiCustomPrompt').value = '';
+    const qpIndex = document.getElementById('aiQuickPromptsIndex');
+    if (qpIndex) qpIndex.style.display = 'none';
     window.activeAIFeedbacks = {};
     document.getElementById('btnAICheck').style.display = 'none';
     document.getElementById('aiFeedbackBox').style.display = 'none';
@@ -4629,7 +4639,7 @@ async function checkQuizWithAI() {
                     valid_questions: Math.max(0, currentData.length - data.feedback.length),
                     error_count: data.feedback.length,
                     accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
-                    category_counts: { delete: 0, restructure: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
+                    category_counts: { delete: 0, restructure: 0, explanation: 0, latex: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
                 };
 
                 let summaryHtml = data.summary ? `
@@ -4645,6 +4655,12 @@ async function checkQuizWithAI() {
                 }
                 if (stats.category_counts?.restructure > 0) {
                     catChipsHtml += `<span class="ai-cat-chip ai-cat-restructure">🔄 Đổi kết cấu: <b>${stats.category_counts.restructure}</b></span>`;
+                }
+                if (stats.category_counts?.explanation > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-explain">💡 Bổ sung lời giải: <b>${stats.category_counts.explanation}</b></span>`;
+                }
+                if (stats.category_counts?.latex > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-latex">📐 Công thức LaTeX: <b>${stats.category_counts.latex}</b></span>`;
                 }
                 catChipsHtml += `
                     <span class="ai-cat-chip ai-cat-knowledge">🧠 Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
@@ -4758,18 +4774,24 @@ function renderAIFeedbackList() {
 
         const isDelete = item.action === 'delete' || item.category === 'delete';
         const isRestructure = item.action === 'restructure' || item.category === 'restructure';
+        const isExplain = item.category === 'explanation';
+        const isLatex = item.category === 'latex';
 
         const catClass = isDelete ? 'ai-cat-delete' :
                          (isRestructure ? 'ai-cat-restructure' :
+                         (isExplain ? 'ai-cat-explain' :
+                         (isLatex ? 'ai-cat-latex' :
                          (item.category === 'knowledge' ? 'ai-cat-knowledge' :
                          (item.category === 'answer' ? 'ai-cat-answer' :
-                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
 
         let actionBtnHtml = '';
         if (isDelete) {
             actionBtnHtml = `<button class="btn-ai-delete" onclick="applyAIDelete(${qIdx})"><i class="ri-delete-bin-line"></i> Xóa câu</button>`;
         } else if (isRestructure) {
             actionBtnHtml = `<button class="btn-ai-restructure" onclick="applyAISuggestion(${qIdx})"><i class="ri-swap-line"></i> Đổi kết cấu</button>`;
+        } else if (isExplain) {
+            actionBtnHtml = `<button class="btn-ai-explain" onclick="applyAISuggestion(${qIdx})"><i class="ri-lightbulb-line"></i> Bổ sung lời giải</button>`;
         } else {
             actionBtnHtml = `<button class="btn-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})">✨ Sửa câu này</button>`;
         }
@@ -5248,6 +5270,8 @@ function renderData() {
         }
     }
     document.getElementById('aiCustomPrompt').style.display = currentMode === 'edit' ? 'block' : 'none';
+    const qpIndexToggle = document.getElementById('aiQuickPromptsIndex');
+    if (qpIndexToggle) qpIndexToggle.style.display = currentMode === 'edit' ? 'flex' : 'none';
     document.getElementById('btnAICheck').style.display = currentMode === 'edit' ? 'block' : 'none';
     if (currentMode !== 'edit') document.getElementById('aiFeedbackBox').style.display = 'none';
     const mobileBar = document.getElementById('azotaMobileExamBar');
@@ -5259,10 +5283,15 @@ function renderData() {
         const sideCol = document.getElementById('azotaSideExamCol');
         if (sideCol) sideCol.style.display = '';
         if (mobileBar && currentMode !== 'edit') {
-            mobileBar.style.setProperty('display', 'flex', 'important');
+            if (window.innerWidth <= 960) {
+                mobileBar.style.display = 'flex';
+            } else {
+                mobileBar.style.display = 'none';
+            }
         }
     }
-    document.getElementById('submitBtn').style.display = currentMode === 'exam' ? 'block' : 'none';
+    const mainSubmit = document.getElementById('submitBtn');
+    if (mainSubmit) mainSubmit.style.display = 'none';
 }
 
 // ========================================================
@@ -6396,11 +6425,16 @@ function renderPreviewAll() {
             const isDelete = aiData.action === 'delete' || aiData.category === 'delete';
             const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
 
+            const isExplain = aiData.category === 'explanation';
+            const isLatex = aiData.category === 'latex';
+
             const catClass = isDelete ? 'ai-cat-delete' :
                              (isRestructure ? 'ai-cat-restructure' :
+                             (isExplain ? 'ai-cat-explain' :
+                             (isLatex ? 'ai-cat-latex' :
                              (aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
                              (aiData.category === 'answer' ? 'ai-cat-answer' :
-                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))));
+                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
 
             const aiDiv = document.createElement('div');
             aiDiv.onclick = (e) => e.stopPropagation();
@@ -6466,6 +6500,33 @@ function renderPreviewAll() {
                     ${explainText}
                     <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
                         <button class="btn-ai-restructure" onclick="applyAISuggestion(${qIndex})"><i class="ri-check-line"></i> Áp dụng đổi kết cấu</button>
+                        <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; border-color: #cbd5e1; color: #475569; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">Bỏ qua</button>
+                    </div>
+                `;
+            } else if (isExplain) {
+                aiDiv.style.cssText = 'margin-top: 15px; padding: 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let explainText = (corrected.explain || aiData.reason || '').trim();
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.25rem;">💡</span>
+                            <strong style="color: #15803d;">Đề xuất bổ sung lời giải chi tiết:</strong>
+                            <span class="ai-cat-chip ai-cat-explain" style="padding: 2px 8px; font-size: 0.75rem;">${escapeHtml(aiData.category_name || 'Bổ sung lời giải')}</span>
+                        </div>
+                    </div>
+                    <div style="color: #166534; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${explainText ? `
+                        <div style="margin-top: 8px; padding: 10px 14px; background: #ffffff; border-radius: 8px; font-size: 0.9rem; color: #1e293b; line-height: 1.6; border: 1px solid #dcfce7; border-left: 4px solid #10b981;">
+                            <b style="color: #15803d;">💡 Nội dung lời giải:</b><br>
+                            ${explainText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                        </div>
+                    ` : ''}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-explain" onclick="applyAISuggestion(${qIndex})"><i class="ri-lightbulb-line"></i> Xác nhận thêm lời giải này</button>
                         <button class="btn-outline" style="padding: 6px 12px; font-size: 0.85rem; border-color: #cbd5e1; color: #475569; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">Bỏ qua</button>
                     </div>
                 `;
@@ -8259,3 +8320,13 @@ function handleHeroDemoChoice(btn, isCorrect, explanation) {
     }
 }
 window.handleHeroDemoChoice = handleHeroDemoChoice;
+
+
+// Gán nhanh câu lệnh mẫu cho AI rà soát
+function setAIQuickPrompt(text) {
+    const input = document.getElementById('aiCustomPrompt');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}

@@ -194,9 +194,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="style.css?v=20261022_v11_perf">
-    <link rel="stylesheet" href="style.css?v=20261022_v11_perf" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="style.css?v=20261022_v11_perf"></noscript>
+    <link rel="preload" as="style" href="style.css?v=20261030_sticky_nav">
+    <link rel="stylesheet" href="style.css?v=20261030_sticky_nav" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="style.css?v=20261030_sticky_nav"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
@@ -4069,7 +4069,21 @@ body.minimal-mode #publicLandingExtras {
         <div class="azota-exam-col-main" id="azotaMainExamCol">
             <div id="quiz-container"></div>
             
-            <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu cho AI (VD: Xóa câu 2, đổi câu 3 sang dạng Đúng/Sai, sửa công thức... Để trống để rà soát tự động)"></textarea>
+            <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu cho AI (VD: Bổ sung lời giải, Xóa câu 2, đổi câu 3 sang dạng Đúng/Sai, sửa công thức... Để trống để rà soát tự động)"></textarea>
+            <div id="aiQuickPromptsIndex" class="ai-quick-prompts" style="display:none;">
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Bổ sung lời giải chi tiết cho tất cả các câu hỏi chưa có lời giải')">
+                    <i class="ri-lightbulb-line" style="color: #10b981;"></i> Bổ sung lời giải chi tiết
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Rà soát lỗi kiến thức, chính tả, công thức LaTeX và bảo toàn đáp án')">
+                    <i class="ri-shield-check-line" style="color: #2563eb;"></i> Rà soát lỗi & bảo toàn đáp án
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Kiểm tra và chuẩn hóa công thức Toán/Lý/Hóa LaTeX')">
+                    <i class="ri-functions" style="color: #ea580c;"></i> Chuẩn hóa công thức LaTeX
+                </button>
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng Đúng/Sai chuẩn Bộ GD&ĐT')">
+                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng Đúng/Sai Bộ GD&ĐT
+                </button>
+            </div>
             <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">
                 <i class="ri-search-eye-line"></i> AI Kiểm tra lỗi & Phân tích Đề thi
             </button>
@@ -4609,6 +4623,6 @@ body.minimal-mode #publicLandingExtras {
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="script.js?v=20261030_review_fix"></script>
+<script src="script.js?v=20261030_cleanup_bar"></script>
 </body>
 </html>
