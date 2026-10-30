@@ -1,26 +1,27 @@
-import re
 import base64
-from typing import List, Dict, Any, Optional
+import re
+from typing import Any, Dict, List, Optional
+
 from docx import Document
-from docx.oxml.ns import qn, nsmap
+from docx.oxml.ns import nsmap, qn
+
 if 'o' not in nsmap:
     nsmap['o'] = 'urn:schemas-microsoft-com:office:office'
 if 'v' not in nsmap:
     nsmap['v'] = 'urn:schemas-microsoft-com:vml'
-from docx.text.paragraph import Paragraph
 from docx.table import Table
+from docx.text.paragraph import Paragraph
 
-from services.r2_service import upload_image_to_r2
-from core.image_converter import process_image_blob
-from core.mathml_parser import parse_omath
 from core.answer_key_extractor import (
+    AnswerKeyMap,
+    align_mcq_correct_answer,
     extract_answer_key_from_doc,
     reconcile_quiz_with_answer_key,
-    separate_answer_key_from_text,
-    align_mcq_correct_answer,
-    AnswerKeyMap
 )
+from core.image_converter import process_image_blob
+from core.mathml_parser import parse_omath
 from services.ai_service import restore_image_placeholders
+from services.r2_service import upload_image_to_r2
 
 # Biên dịch sẵn Regex (Tối ưu tốc độ quét vòng lặp văn bản)
 RE_NUMBERING = re.compile(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', re.IGNORECASE)
@@ -403,7 +404,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                             if px_width <= 2:
                                 continue
                             img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
-                    except:
+                    except Exception:
                         pass
                         
                 processed_rids = set()
@@ -769,7 +770,7 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
                         if px_width <= 2:
                             continue
                         img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
-                except:
+                except Exception:
                     pass
 
             processed_rids = set()

@@ -1,16 +1,10 @@
-import re
-
-import json
-
 import asyncio
-
-from typing import List, Dict, Any, Optional
+import json
+import re
+from typing import Any, Dict, List, Optional
 
 from google import genai
-
 from google.genai import types
-
-
 
 try:
 
@@ -80,7 +74,7 @@ def fix_json_latex_escapes(json_str: str) -> str:
 
         r'neq|nu|nabla|rho|right|rightarrow|rightleftharpoons|'
 
-        r'beta|bar|begin|binom|bf|sum|prod|int|lim|vec|hat|left'
+        r'beta|bar|begin|binom|bf|sum|prod|int|lim|vec|hat|left|ln|log|sin|cos|alpha|lambda|pi|phi|omega|gamma|delta|sigma|mu|epsilon|subset|supset|in|notin|cap|cup|forall|exists|le|ge|cdot'
 
     )
 
@@ -94,7 +88,7 @@ def fix_json_latex_escapes(json_str: str) -> str:
 
 def clean_subscripts_and_formulas(text: str) -> str:
 
-    """
+    r"""
 
     Tự động sửa lỗi AI xuất công thức hóa học/toán học có chỉ số dưới dạng gạch dưới (như CH_2, CO_2, H_2O, Fe_2O_3)
 
@@ -404,7 +398,6 @@ def extract_mcq_options_from_text(text: str) -> tuple:
     stem = text[:valid_matches[0].start()].strip()
     options = []
     for idx, vm in enumerate(valid_matches):
-        char = matched_chars[idx]
         full_block = text[vm.start(): valid_matches[idx + 1].start() if idx + 1 < len(valid_matches) else len(text)].strip()
         if idx == len(valid_matches) - 1:
             ans_split = re.split(
@@ -458,7 +451,6 @@ def extract_sub_statements_from_text(text: str) -> tuple:
     stem = text[:valid_matches[0].start()].strip()
     options = []
     for idx, vm in enumerate(valid_matches):
-        char = matched_chars[idx]
         full_block = text[vm.start(): valid_matches[idx + 1].start() if idx + 1 < len(valid_matches) else len(text)].strip()
         if idx == len(valid_matches) - 1:
             ans_split = re.split(
@@ -1154,7 +1146,7 @@ async def generate_mcq_with_gemini(
 
 
 
-    from core.answer_key_extractor import separate_answer_key_from_text, AnswerKeyMap, reconcile_quiz_with_answer_key
+    from core.answer_key_extractor import reconcile_quiz_with_answer_key, separate_answer_key_from_text
 
 
 
@@ -1395,8 +1387,8 @@ async def generate_mcq_with_gemini(
             3. DẠNG TRẮC NGHIỆM (mcq): Các phương án trong "options" PHẢI có dạng 'A. [Nội dung]', 'B. [Nội dung]', 'C. [Nội dung]', 'D. [Nội dung]'. "correct_answer" BẮT BUỘC PHẢI KHỚP NGUYÊN VĂN với một trong 4 phương án đó (ví dụ: "A. [Nội dung]"). TUYỆT ĐỐI KHÔNG thêm dấu hoa thị '*' hay thẻ [ĐÚNG] vào options.
             4. DẠNG ĐÚNG/SAI (true_false): Bất kỳ câu nào có 4 mệnh đề a), b), c), d) BẮT BUỘC PHẢI gán type là 'true_false'. Các ý trong "options" PHẢI có dạng 'a) [Nội dung]', 'b) [Nội dung]', 'c) [Nội dung]', 'd) [Nội dung]'. TUYỆT ĐỐI KHÔNG gán type là 'short_answer' và KHÔNG để options rỗng! TUYỆT ĐỐI KHÔNG ghi kết quả [ĐÚNG], [SAI], (Đúng), (Sai) vào nội dung phương án. Kết quả Đúng/Sai phải được thể hiện trong object "correct_answer": {{"a": true, "b": false, "c": true, "d": false}}.
             5. DẠNG TRẢ LỜI NGẮN (short_answer): CHỈ DÀNH CHO câu tính ra 1 đáp số. "options" BẮT BUỘC là mảng rỗng []. "correct_answer" là chuỗi đáp số ngắn (ví dụ: "12", "-3.5"). TUYỆT ĐỐI KHÔNG dùng cho câu có các ý a, b, c, d.
-            6. CHỈ SỐ DƯỚI & CÔNG THỨC HÓA HỌC: Giữ nguyên thẻ <sub> và <sup>, TUYỆT ĐỐI KHÔNG viết thành CH_2, CO_2, H_2O. Phải viết là CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O hoặc \(\text{{CH}}_2\).
-            7. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \( và \).
+            6. CHỈ SỐ DƯỚI & CÔNG THỨC HÓA HỌC: Giữ nguyên thẻ <sub> và <sup>, TUYỆT ĐỐI KHÔNG viết thành CH_2, CO_2, H_2O. Phải viết là CH<sub>2</sub>, CO<sub>2</sub>, H<sub>2</sub>O hoặc \\(\text{{CH}}_2\\).
+            7. CÔNG THỨC TOÁN LATEX: Mọi biểu thức toán học phải bọc trong \\( và \\).
             8. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng.
             9. Chỉ trả về duy nhất mảng JSON [...] không có văn bản giải thích nào khác ngoài JSON.{img_strict_rule}
 
@@ -1584,9 +1576,8 @@ async def generate_mcq_from_pdf(
 
         
 
-    from services.r2_service import upload_image_to_r2
-
     from core.image_converter import process_image_blob
+    from services.r2_service import upload_image_to_r2
 
 
 
@@ -1706,3 +1697,44 @@ async def generate_mcq_from_pdf(
 
 
 
+
+
+class AIService:
+    """
+    Dịch vụ AI thông minh (AI Service) tương tác với Google Gemini.
+    Tích hợp xoay vòng API Keys tự động, thử lại (Retry) khi gặp Rate Limit (429),
+    chống treo tiến trình với Timeout an toàn và cơ chế sửa lỗi JSON/LaTeX.
+    """
+
+    async def generate_quiz_from_text(
+        self,
+        marked_text: str,
+        api_keys: List[str],
+        task_id: Optional[str] = None,
+        active_tasks: Optional[dict] = None
+    ) -> List[dict]:
+        """Bóc tách và tạo đề thi trắc nghiệm chuẩn từ văn bản đã đánh dấu."""
+        return await generate_mcq_with_gemini(marked_text, api_keys, task_id, active_tasks)
+
+    async def generate_quiz_from_pdf(
+        self,
+        pdf_bytes: bytes,
+        api_keys: List[str],
+        task_id: Optional[str] = None,
+        active_tasks: Optional[dict] = None
+    ) -> List[dict]:
+        """Trích xuất đề thi trắc nghiệm kèm công thức và hình ảnh từ tệp PDF."""
+        return await generate_mcq_from_pdf(pdf_bytes, api_keys, task_id, active_tasks)
+
+    async def call_gemini(
+        self,
+        prompt: str,
+        api_keys: List[str],
+        json_mode: bool = True
+    ) -> Optional[str]:
+        """Gọi mô hình Gemini an toàn với cơ chế tự động luân phiên khóa API và sửa lỗi."""
+        return await call_gemini_with_fallback(prompt, api_keys, json_mode=json_mode)
+
+
+# Thực thể singleton dùng chung
+ai_service = AIService()

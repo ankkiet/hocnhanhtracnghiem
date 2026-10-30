@@ -344,6 +344,8 @@ window.onload = async function() {
     initGoogleAuth();
     checkAuthState();
     updateAdPassUI();
+    initOfflineDetection();
+    initKeyboardShortcuts();
     setTimeout(hidePageInitialLoader, 6000);
 };
 
@@ -5221,9 +5223,17 @@ function renderData() {
             } else if (qType === 'short_answer') {
                 let userSA = (quizProgress && quizProgress.answers && typeof quizProgress.answers[qIndex] === 'string') ? quizProgress.answers[qIndex] : '';
                 boxHtml += `
-                    <div class="azota-sa-box">
-                        <div style="font-weight: 600; margin-bottom: 8px; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn của bạn:</div>
-                        <input type="text" class="azota-sa-input" id="exam_sa_${qIndex}" value="${escapeHtml(userSA)}" placeholder="Điền đáp số hoặc kết quả..." oninput="selectExamShortAnswer(${qIndex}, this.value)">
+                    <div class="azota-sa-box" role="region" aria-label="Khu vực trả lời câu hỏi ngắn">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-weight: 600; font-size: 0.9rem; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn:</span>
+                            <span style="font-size: 0.78rem; color: #64748b;"><i class="ri-keyboard-line"></i> Chọn phím toán bên dưới để chèn nhanh</span>
+                        </div>
+                        ${renderMathToolbarHtml(`exam_sa_${qIndex}`, `sa_preview_${qIndex}`)}
+                        <input type="text" class="azota-sa-input" id="exam_sa_${qIndex}" value="${escapeHtml(userSA)}" placeholder="Điền kết quả (hỗ trợ phân số a/b, căn thức, số thập phân)..." oninput="selectExamShortAnswer(${qIndex}, this.value)" aria-label="Câu trả lời ngắn cho câu ${qIndex + 1}">
+                        <div class="azota-math-preview ${userSA ? 'active' : ''}" id="sa_preview_${qIndex}">
+                            <span class="preview-label">Xem trước:</span>
+                            <span class="preview-render" id="sa_render_${qIndex}">${userSA ? '$' + escapeHtml(userSA) + '$' : ''}</span>
+                        </div>
                     </div></div>`;
             } else {
                 boxHtml += `<div class="azota-opt-list">`;
@@ -5876,6 +5886,13 @@ function toggleFlagQuestion(qIndex) {
         if (isFlagged) btn.classList.add('flagged');
         else btn.classList.remove('flagged');
     });
+
+    // Lưu bền vững trạng thái phân vân vào LocalStorage để không bao giờ bị mất
+    if (!quizProgress.flagged) quizProgress.flagged = {};
+    quizProgress.flagged[qIndex] = isFlagged;
+    if (typeof saveProgressToLocal === 'function') {
+        saveProgressToLocal(false);
+    }
 }
 window.toggleFlagQuestion = toggleFlagQuestion;
 
@@ -7311,6 +7328,40 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
 
     const scaledScore = totalQues > 0 ? ((score / totalQues) * 10).toFixed(1) : "0.0";
 
+    // Phân tích kết quả theo từng phần cấu trúc đề GDPT 2018 và câu phân vân
+    let mcqTotal = 0, mcqCorrect = 0;
+    let tfTotal = 0, tfCorrect = 0;
+    let saTotal = 0, saCorrect = 0;
+    let flaggedTotal = 0, flaggedCorrect = 0;
+    let reviewPaletteHtml = '';
+
+    evaluatedQuestions.forEach((item) => {
+        const { qIndex, qType, status } = item;
+        const isFlag = !!flaggedQuestions[qIndex];
+        const isCorrect = (status === 'correct');
+        if (isFlag) {
+            flaggedTotal++;
+            if (isCorrect) flaggedCorrect++;
+        }
+
+        if (qType === 'true_false') {
+            tfTotal++;
+            if (isCorrect) tfCorrect++;
+        } else if (qType === 'short_answer') {
+            saTotal++;
+            if (isCorrect) saCorrect++;
+        } else {
+            mcqTotal++;
+            if (isCorrect) mcqCorrect++;
+        }
+
+        reviewPaletteHtml += `
+            <button type="button" class="azota-review-num ${status} ${isFlag ? 'flagged' : ''}" onclick="switchResultView('review'); scrollToReviewQuestion(${qIndex})" title="Câu ${qIndex + 1}: ${status === 'correct' ? 'Đúng' : (status === 'wrong' ? 'Sai' : 'Chưa làm')}${isFlag ? ' (Đã phân vân)' : ''}">
+                ${qIndex + 1}
+            </button>
+        `;
+    });
+
     // 2. Render Score Board
     const scoreBoard = document.getElementById('score-board');
     scoreBoard.style.display = 'block';
@@ -7343,6 +7394,45 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 <div class="azota-res-tile blue tile-time">
                     <div class="val" title="${formatTime(totalTimeElapsed)}">${formatTimeCompact(totalTimeElapsed)}</div>
                     <div class="desc"><i class="ri-time-line"></i> Thời gian</div>
+                </div>
+            </div>
+
+            <!-- Thống kê tỷ lệ hoàn thành theo từng phần cấu trúc đề GDPT 2018 -->
+            <div class="azota-res-breakdown">
+                ${mcqTotal > 0 ? `
+                    <div class="azota-res-breakdown-card">
+                        <div class="part-name"><i class="ri-list-check-2"></i> Phần I: Trắc nghiệm</div>
+                        <div class="part-stat">${mcqCorrect} / ${mcqTotal} câu</div>
+                        <div class="part-rate">Đạt ${Math.round((mcqCorrect / mcqTotal) * 100)}%</div>
+                    </div>` : ''}
+                ${tfTotal > 0 ? `
+                    <div class="azota-res-breakdown-card">
+                        <div class="part-name"><i class="ri-checkbox-multiple-line"></i> Phần II: Đúng / Sai</div>
+                        <div class="part-stat">${tfCorrect} / ${tfTotal} câu</div>
+                        <div class="part-rate">Đạt ${Math.round((tfCorrect / tfTotal) * 100)}%</div>
+                    </div>` : ''}
+                ${saTotal > 0 ? `
+                    <div class="azota-res-breakdown-card">
+                        <div class="part-name"><i class="ri-edit-line"></i> Phần III: Trả lời ngắn</div>
+                        <div class="part-stat">${saCorrect} / ${saTotal} câu</div>
+                        <div class="part-rate">Đạt ${Math.round((saCorrect / saTotal) * 100)}%</div>
+                    </div>` : ''}
+            </div>
+
+            ${flaggedTotal > 0 ? `
+                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; font-size: 0.88rem; color: #92400e; margin: 12px 0; display: flex; align-items: center; gap: 8px; text-align: left;">
+                    <i class="ri-flag-fill" style="color: #d97706; font-size: 1.15rem; flex-shrink: 0;"></i>
+                    <span>Bạn đã đánh dấu phân vân <b>${flaggedTotal}</b> câu, trong đó làm đúng <b>${flaggedCorrect}/${flaggedTotal}</b> câu (${Math.round((flaggedCorrect / flaggedTotal) * 100)}%).</span>
+                </div>` : ''}
+
+            <!-- Bản đồ câu hỏi tương tác (Interactive Question Palette) -->
+            <div style="margin: 14px 0 18px 0; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #475569;"><i class="ri-grid-line"></i> Bản đồ câu hỏi (Nhấn để cuộn nhanh):</span>
+                    <span style="font-size: 0.78rem; color: #64748b;">🟢 Đúng &bull; 🔴 Sai &bull; ⚪ Chưa làm</span>
+                </div>
+                <div class="azota-review-palette">
+                    ${reviewPaletteHtml}
                 </div>
             </div>
 
@@ -8330,3 +8420,233 @@ function setAIQuickPrompt(text) {
         input.focus();
     }
 }
+
+
+// ========================================================
+// NÂNG CẤP UX TOÀN DIỆN (TASK G):
+// 1. Phím tắt thông minh cho học sinh (Accessible Keyboard Navigation)
+// 2. Bàn phím ký hiệu toán nhanh & Live Math Preview
+// 3. Giám sát kết nối mạng Online/Offline tự động
+// 4. Skeleton loader tải đề tức thì
+// 5. Cuộn nhanh đến câu hỏi trong màn hình xem lại kết quả
+// ========================================================
+
+function renderMathToolbarHtml(inputId, previewId) {
+    const symbols = [
+        { label: '√x', insert: '\\sqrt{}' },
+        { label: 'a/b', insert: '\\frac{}{}' },
+        { label: 'x²', insert: '^2' },
+        { label: 'xⁿ', insert: '^{}' },
+        { label: 'π', insert: '\\pi' },
+        { label: '±', insert: '\\pm' },
+        { label: '≤', insert: '\\le' },
+        { label: '≥', insert: '\\ge' },
+        { label: '≠', insert: '\\ne' },
+        { label: '×', insert: '\\times' },
+        { label: '÷', insert: '\\div' },
+        { label: '°', insert: '^\\circ' },
+        { label: 'Δ', insert: '\\Delta' },
+        { label: 'α', insert: '\\alpha' },
+        { label: 'β', insert: '\\beta' },
+        { label: '∞', insert: '\\infty' }
+    ];
+    let btns = symbols.map(s => 
+        `<button type="button" class="azota-math-btn" onclick="insertMathSymbol('${inputId}', '${previewId}', '${s.insert}')" title="Chèn ký hiệu ${s.label}">${s.label}</button>`
+    ).join('');
+    return `<div class="azota-math-toolbar">${btns}</div>`;
+}
+window.renderMathToolbarHtml = renderMathToolbarHtml;
+
+function insertMathSymbol(inputElemId, previewId, symbol) {
+    const input = document.getElementById(inputElemId);
+    if (!input) return;
+    const start = (input.selectionStart !== undefined) ? input.selectionStart : input.value.length;
+    const end = (input.selectionEnd !== undefined) ? input.selectionEnd : input.value.length;
+    const oldVal = input.value;
+    input.value = oldVal.substring(0, start) + symbol + oldVal.substring(end);
+    
+    // Đặt con trỏ thông minh (nếu chèn cặp ngoặc {} thì trỏ vào giữa)
+    let newCursorPos = start + symbol.length;
+    if (symbol.includes('{}')) {
+        newCursorPos = start + symbol.indexOf('{}') + 1;
+    }
+    input.focus();
+    if (input.setSelectionRange) input.setSelectionRange(newCursorPos, newCursorPos);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    updateMathPreview(input.value, previewId);
+}
+window.insertMathSymbol = insertMathSymbol;
+
+function updateMathPreview(val, previewId) {
+    const previewBox = document.getElementById(previewId);
+    if (!previewBox) return;
+    const trimmed = String(val || '').trim();
+    if (!trimmed) {
+        previewBox.classList.remove('active');
+        previewBox.style.display = 'none';
+        return;
+    }
+    previewBox.classList.add('active');
+    previewBox.style.display = 'flex';
+    const renderTarget = previewBox.querySelector('.preview-render');
+    if (renderTarget) {
+        renderTarget.innerHTML = `$${trimmed}$`;
+        if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([renderTarget]).catch(() => {});
+        }
+    }
+}
+window.updateMathPreview = updateMathPreview;
+
+function initOfflineDetection() {
+    function updateOnlineStatus(isOnline) {
+        let banner = document.getElementById('hntnOfflineBanner');
+        if (!banner) return;
+        if (!isOnline) {
+            banner.classList.remove('online-recovered');
+            banner.innerHTML = `<i class="ri-wifi-off-line"></i> <span>Mất kết nối Internet - Đã kích hoạt chế độ Offline. Mọi câu trả lời của bạn vẫn được lưu an toàn trên máy!</span>`;
+            banner.style.display = 'flex';
+        } else {
+            banner.classList.add('online-recovered');
+            banner.innerHTML = `<i class="ri-wifi-line"></i> <span>Đã kết nối lại Internet - Tiếp tục đồng bộ bài làm an toàn!</span>`;
+            banner.style.display = 'flex';
+            setTimeout(() => {
+                if (banner && banner.classList.contains('online-recovered')) {
+                    banner.style.display = 'none';
+                }
+            }, 3500);
+        }
+    }
+
+    window.addEventListener('offline', () => updateOnlineStatus(false));
+    window.addEventListener('online', () => updateOnlineStatus(true));
+}
+window.initOfflineDetection = initOfflineDetection;
+
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+        if (tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable)) return;
+        if (typeof currentMode !== 'undefined' && currentMode === 'edit') return;
+        
+        const quizContainer = document.getElementById('quiz-container');
+        if (!quizContainer || quizContainer.style.display === 'none') return;
+
+        const key = e.key.toUpperCase();
+
+        const optKeys = { '1': 0, '2': 1, '3': 2, '4': 3, 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+        if (key in optKeys) {
+            const optIndex = optKeys[key];
+            handleKeyboardSelectOption(optIndex);
+        } else if (key === 'F') {
+            handleKeyboardToggleFlag();
+        } else if (key === 'ARROWDOWN' || key === 'J' || key === 'N') {
+            handleKeyboardNavQuestion(1);
+        } else if (key === 'ARROWUP' || key === 'K' || key === 'P') {
+            handleKeyboardNavQuestion(-1);
+        }
+    });
+}
+window.initKeyboardShortcuts = initKeyboardShortcuts;
+
+function getFocusedQuestionIndex() {
+    if (typeof currentMode !== 'undefined' && currentMode === 'practice') {
+        return typeof currentQuestionIndex !== 'undefined' ? currentQuestionIndex : 0;
+    }
+    const qCards = document.querySelectorAll('.azota-question-card');
+    if (!qCards.length) return 0;
+    const headerHeight = 90;
+    for (let i = 0; i < qCards.length; i++) {
+        const rect = qCards[i].getBoundingClientRect();
+        if (rect.bottom > headerHeight + 60 && rect.top < window.innerHeight * 0.6) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+function handleKeyboardSelectOption(optIndex) {
+    const qIndex = getFocusedQuestionIndex();
+    if (!currentData || !currentData[qIndex]) return;
+    const q = currentData[qIndex];
+    const qType = typeof getRealQuestionType === 'function' ? getRealQuestionType(q) : 'mcq';
+    
+    if (typeof currentMode !== 'undefined' && currentMode === 'practice') {
+        if (qType === 'mcq' && typeof checkPracticeAnswer === 'function') {
+            checkPracticeAnswer(optIndex);
+        }
+    } else {
+        if (qType === 'mcq' && typeof selectExamOption === 'function') {
+            selectExamOption(qIndex, optIndex);
+            const lbl = document.getElementById(`exam_opt_${qIndex}_${optIndex}`);
+            if (lbl) {
+                lbl.classList.add('selected');
+                lbl.focus();
+            }
+        }
+    }
+}
+
+function handleKeyboardToggleFlag() {
+    const qIndex = getFocusedQuestionIndex();
+    if (typeof toggleFlagQuestion === 'function') {
+        toggleFlagQuestion(qIndex);
+        const isFlag = !!flaggedQuestions[qIndex];
+        if (typeof showToast === 'function') {
+            showToast(isFlag ? `🚩 Đã đánh dấu phân vân Câu ${qIndex + 1}` : `Đã bỏ đánh dấu Câu ${qIndex + 1}`, "info");
+        }
+    }
+}
+
+function handleKeyboardNavQuestion(direction) {
+    if (typeof currentMode !== 'undefined' && currentMode === 'practice') {
+        if (direction > 0 && typeof nextPracticeQuestion === 'function') nextPracticeQuestion();
+        else if (direction < 0 && typeof prevPracticeQuestion === 'function') prevPracticeQuestion();
+    } else {
+        const curr = getFocusedQuestionIndex();
+        const next = Math.max(0, Math.min(currentData.length - 1, curr + direction));
+        if (typeof scrollToQuestion === 'function') scrollToQuestion(next);
+    }
+}
+
+function renderQuizSkeleton() {
+    const container = document.getElementById('quiz-container');
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < 3; i++) {
+        html += `
+            <div class="hntn-skeleton-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div class="hntn-shimmer" style="width: 130px; height: 28px;"></div>
+                    <div class="hntn-shimmer" style="width: 110px; height: 28px;"></div>
+                </div>
+                <div class="hntn-shimmer" style="width: 92%; height: 20px; margin-bottom: 10px;"></div>
+                <div class="hntn-shimmer" style="width: 65%; height: 20px; margin-bottom: 22px;"></div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div class="hntn-shimmer" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+                    <div class="hntn-shimmer" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+                    <div class="hntn-shimmer" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+                    <div class="hntn-shimmer" style="width: 100%; height: 48px; border-radius: 8px;"></div>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+window.renderQuizSkeleton = renderQuizSkeleton;
+
+function scrollToReviewQuestion(qIndex) {
+    const card = document.getElementById(`review_q_${qIndex}`);
+    if (card) {
+        const header = document.getElementById('studentHeader');
+        const hOffset = (header && header.style.display !== 'none') ? header.offsetHeight : 70;
+        const targetTop = card.getBoundingClientRect().top + window.pageYOffset - hOffset - 15;
+        window.scrollTo({ top: targetTop, behavior: 'smooth' });
+        card.style.transition = 'box-shadow 0.3s ease, border-color 0.3s ease';
+        card.style.boxShadow = '0 0 0 3px #3b82f6';
+        setTimeout(() => {
+            card.style.boxShadow = '';
+        }, 1500);
+    }
+}
+window.scrollToReviewQuestion = scrollToReviewQuestion;

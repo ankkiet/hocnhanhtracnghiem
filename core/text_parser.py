@@ -1,14 +1,12 @@
 import re
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from core.answer_key_extractor import (
-    separate_answer_key_from_text,
+    align_mcq_correct_answer,
     reconcile_quiz_with_answer_key,
-    align_mcq_correct_answer
+    separate_answer_key_from_text,
 )
-from core.docx_parser import (
-    split_merged_options,
-    replace_placeholders
-)
+from core.docx_parser import replace_placeholders, split_merged_options
 from services.ai_service import clean_option_text, parse_tf_answer
 
 

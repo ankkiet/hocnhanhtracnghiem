@@ -1,17 +1,13 @@
-import time
-import random
-import string
-from typing import Optional, List, Dict, Any
+from typing import Any, List, Optional
 
-from core.state import QUIZ_CACHE
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
-from firebase_admin import firestore
-from services.firebase_service import get_db
-from core.security import get_user_from_token
-from services.r2_service import extract_image_keys_from_data, delete_images_from_r2
+
+from services.firebase_service import get_db  # noqa: F401
+from services.quiz_service import quiz_service
 
 router = APIRouter(prefix="/api", tags=["Quiz Management"])
+
 
 class SaveQuizRequest(BaseModel):
     quiz_id: Optional[str] = None
@@ -23,177 +19,43 @@ class SaveQuizRequest(BaseModel):
     creator_id: str = ""
     status: str = "published"
 
+
 class DiscardDraftRequest(BaseModel):
     task_id: Optional[str] = None
     images: Optional[List[str]] = None
     quiz_data: Optional[Any] = None
 
+
 @router.post("/discard_draft", summary="Hủy bản nháp và xóa toàn bộ ảnh tạm thời trên Cloudflare R2")
 async def discard_draft(req: DiscardDraftRequest):
     """
     Xóa sạch mọi dấu vết của file tải lên khi người dùng không xuất bản mà thoát ra:
-    - Xóa các ảnh đã upload trong task khỏi Cloudflare R2 và local cache
-    - Xóa task khỏi active_tasks bộ nhớ đệm
+    - Xóa các ảnh đã upload trong task khỏi Cloudflare R2 và local cache.
+    - Xóa task khỏi active_tasks bộ nhớ đệm.
     """
-    from core.state import active_tasks
-    images_to_delete = set(req.images or [])
-    
-    if req.quiz_data:
-        extracted = extract_image_keys_from_data(req.quiz_data)
-        images_to_delete.update(extracted)
-        
-    if req.task_id and req.task_id in active_tasks:
-        task_info = active_tasks.pop(req.task_id, {})
-        task_data = task_info.get("data")
-        if task_data:
-            extracted = extract_image_keys_from_data(task_data)
-            images_to_delete.update(extracted)
-            
-    deleted_count = delete_images_from_r2(list(images_to_delete))
-    return {"status": "success", "deleted_images": deleted_count}
+    return quiz_service.discard_draft(
+        task_id=req.task_id,
+        images=req.images,
+        quiz_data=req.quiz_data
+    )
+
 
 @router.post("/save_quiz", summary="Lưu bài thi và lấy link")
 async def save_quiz(request: SaveQuizRequest):
-    db = get_db()
-    if db is None:
-        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-        
-    user = get_user_from_token(request.creator_id, db)
-    creator_uid = user['id'] if user else request.creator_id
-    
-    if request.quiz_id:
-        quiz_id = request.quiz_id
-        doc_ref = db.collection('quizzes').document(quiz_id)
-        doc = doc_ref.get()
-        if doc.exists:
-            stored_creator = doc.to_dict().get('creator_id')
-            if stored_creator != creator_uid and stored_creator != request.creator_id:
-                raise HTTPException(status_code=403, detail="Không có quyền cập nhật đề thi này")
-                
-            # Dọn dẹp ảnh cũ trong R2 nếu giáo viên xóa hoặc thay thế ảnh khi chỉnh sửa đề
-            old_quiz_data = doc.to_dict()
-            old_imgs = set(extract_image_keys_from_data(old_quiz_data.get('data', [])))
-            new_imgs = set(extract_image_keys_from_data(request.data))
-            removed_imgs = old_imgs - new_imgs
-            if removed_imgs:
-                delete_images_from_r2(list(removed_imgs))
-    else:
-        # Tạo mã ngẫu nhiên dạng AAA-111
-        while True:
-            part1 = ''.join(random.choices(string.ascii_uppercase, k=3))
-            part2 = ''.join(random.choices(string.digits, k=3))
-            quiz_id = f"{part1}-{part2}"
-            if not db.collection('quizzes').document(quiz_id).get().exists:
-                break
-        
-    doc_ref = db.collection('quizzes').document(quiz_id)
-    data_to_save = {
-        'title': request.title,
-        'data': request.data,
-        'mode': request.mode,
-        'time_limit': request.time_limit,
-        'is_shuffle': request.is_shuffle,
-        'creator_id': creator_uid,
-        'status': request.status,
-        'updated_at': firestore.SERVER_TIMESTAMP
-    }
-    
-    if not request.quiz_id:
-        data_to_save['created_at'] = firestore.SERVER_TIMESTAMP
-        
-    try:
-        doc_ref.set(data_to_save, merge=True)
-    except Exception as e:
-        if "maximum document size" in str(e).lower() or "exceeds" in str(e).lower():
-            raise HTTPException(status_code=413, detail="Dung lượng đề thi quá lớn (vượt quá 1MB). Hệ thống không thể lưu. Vui lòng giảm bớt kích thước ảnh.")
-        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu vào cơ sở dữ liệu: {str(e)}")
+    """Lưu đề thi mới hoặc cập nhật đề thi hiện có vào Firestore."""
+    return quiz_service.save_quiz(
+        title=request.title,
+        data=request.data,
+        mode=request.mode,
+        time_limit=request.time_limit,
+        is_shuffle=request.is_shuffle,
+        creator_id=request.creator_id,
+        status=request.status,
+        quiz_id=request.quiz_id
+    )
 
-    QUIZ_CACHE.pop(quiz_id, None) # Xóa cache khi giáo viên cập nhật đề
-    return {"status": "success", "quiz_id": quiz_id, "link": f"/?id={quiz_id}"}
 
 @router.get("/get_quiz/{quiz_id}", summary="Lấy dữ liệu bài thi qua ID (Bảo mật chống F12)")
 async def get_quiz(quiz_id: str, teacher_token: Optional[str] = None):
-    db = get_db()
-    if db is None:
-        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-        
-    now = time.time()
-    quiz_data = None
-    
-    # 1. Kiểm tra RAM cache trước (TTL 900s = 15 phút để tiết kiệm lượt đọc Firestore)
-    if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 900):
-        quiz_data = QUIZ_CACHE[quiz_id]['data']
-    else:
-        try:
-            doc_ref = db.collection('quizzes').document(quiz_id)
-            doc = doc_ref.get()
-            if doc.exists:
-                quiz_data = doc.to_dict()
-                QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
-            else:
-                raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
-        except HTTPException:
-            raise
-        except Exception as e:
-            # Tự động Self-Healing: Thử làm mới token & tái kết nối Firestore khi gặp sự cố
-            logger.warning(f"Lỗi truy vấn đề thi {quiz_id} ({e}). Đang tái kết nối DB...")
-            try:
-                db = get_db(force_refresh=True)
-                doc = db.collection('quizzes').document(quiz_id).get()
-                if doc.exists:
-                    quiz_data = doc.to_dict()
-                    QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
-                else:
-                    raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
-            except HTTPException:
-                raise
-            except Exception as retry_err:
-                # Nếu có bản cache cũ trong RAM (stale cache), ưu tiên dùng để chống sập cho học sinh
-                if quiz_id in QUIZ_CACHE and QUIZ_CACHE[quiz_id].get('data'):
-                    logger.warning(f"Sử dụng Stale Cache dự phòng cho đề {quiz_id} do lỗi kết nối: {retry_err}")
-                    quiz_data = QUIZ_CACHE[quiz_id]['data']
-                else:
-                    raise HTTPException(status_code=503, detail="Hệ thống cơ sở dữ liệu đang đồng bộ lại. Vui lòng tải lại trang sau giây lát.")
-
-    stored_creator = quiz_data.get('creator_id')
-    
-    is_creator = False
-    if teacher_token:
-        user = get_user_from_token(teacher_token, db)
-        user_uid = user['id'] if user else teacher_token
-        is_creator = (
-            user_uid == stored_creator or 
-            teacher_token == stored_creator or 
-            (user and user.get('role') in ['teacher', 'admin'])
-        )
-        
-    if quiz_data.get('status') == 'unpublished' and not is_creator:
-        raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
-        
-    updated_at = quiz_data.get('updated_at')
-    updated_ts = updated_at.timestamp() if hasattr(updated_at, 'timestamp') else 0
-    
-    raw_questions = quiz_data.get('data', [])
-    mode = quiz_data.get('mode', 'practice')
-    
-    # BẢO MẬT ĐỀ THI CHẾ ĐỘ THI THỬ (EXAM MODE):
-    # Nếu chế độ là 'exam' và người xem không phải giáo viên tạo đề:
-    # LOẠI BỎ HOÀN TOÀN 'correct_answer' và 'explain' để chống học sinh mở F12/Network xem trước!
-    if mode == 'exam' and not is_creator:
-        sanitized_questions = []
-        for q in raw_questions:
-            q_copy = {k: v for k, v in q.items() if k not in ['correct_answer', 'explain']}
-            sanitized_questions.append(q_copy)
-        questions_to_return = sanitized_questions
-    else:
-        questions_to_return = raw_questions
-        
-    return {
-        "status": "success",
-        "title": quiz_data.get('title'),
-        "data": questions_to_return,
-        "mode": mode,
-        "time_limit": quiz_data.get('time_limit', 0),
-        "is_shuffle": quiz_data.get('is_shuffle', False),
-        "updated_at": updated_ts
-    }
+    """Truy vấn đề thi theo ID với cơ chế bảo mật chống xem trước đáp án."""
+    return quiz_service.get_quiz(quiz_id=quiz_id, teacher_token=teacher_token)

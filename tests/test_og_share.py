@@ -1,9 +1,14 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi.testclient import TestClient
-from main import app
 from unittest.mock import MagicMock, patch
+
+from fastapi.testclient import TestClient
+
+from main import app
+
 
 def test_og_share():
     client = TestClient(app)

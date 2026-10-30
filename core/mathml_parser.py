@@ -1,4 +1,3 @@
-import re
 
 # Bộ từ điển chuyển đổi ký tự Unicode Toán/Hóa học sang LaTeX
 MATH_SYM_MAP = {

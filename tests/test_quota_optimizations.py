@@ -1,8 +1,9 @@
 import unittest
-import time
 from unittest.mock import MagicMock
-from core.state import USER_CACHE, SETTINGS_CACHE, QUIZ_CACHE, LEADERBOARD_CACHE, SUBMISSIONS_CACHE
+
 from core.security import create_access_token, get_user_from_token, invalidate_user_cache
+from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE, USER_CACHE
+
 
 class TestQuotaOptimizations(unittest.TestCase):
     def setUp(self):

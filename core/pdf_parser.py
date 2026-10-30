@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 try:
     import pymupdf as fitz
@@ -9,8 +9,8 @@ except ImportError:
         fitz = None
 
 from core.image_converter import process_image_blob
-from services.r2_service import upload_image_to_r2
 from core.text_parser import extract_questions_from_text_bulletproof
+from services.r2_service import upload_image_to_r2
 
 
 def extract_questions_from_pdf_locally(pdf_path: str) -> List[Dict[str, Any]]:

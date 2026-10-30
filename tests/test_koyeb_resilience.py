@@ -1,10 +1,9 @@
 import unittest
-import time
-import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
 from core.security import create_access_token, get_user_from_token
-from services.firebase_service import get_db, reconnect_firebase, execute_with_firebase_retry
-from core.state import USER_CACHE, QUIZ_CACHE
+from core.state import QUIZ_CACHE, USER_CACHE
+from services.firebase_service import execute_with_firebase_retry, get_db, reconnect_firebase
 
 
 class TestKoyebResilience(unittest.TestCase):

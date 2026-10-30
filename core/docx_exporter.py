@@ -1,17 +1,17 @@
-import io
-import re
-import os
-import html
 import base64
-from typing import Optional, List, Tuple
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
+import html
+import io
+import os
+import re
+from typing import Optional
 
 import latex2mathml.converter
+from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import nsdecls, qn
+from docx.shared import Inches, Pt, RGBColor
 from lxml import etree
 
 # Khởi tạo XSLT Transformer từ file MML2OMML.XSL chuẩn của Microsoft
@@ -145,7 +145,7 @@ def latex_to_omml(latex_str: str) -> Optional[OxmlElement]:
             if inner is not None:
                 return inner
         return elem
-    except Exception as e:
+    except Exception:
         return None
 
 

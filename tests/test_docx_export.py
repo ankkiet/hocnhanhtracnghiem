@@ -1,13 +1,14 @@
-import sys
 import os
+import sys
 import unittest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import latex2mathml.converter
-from lxml import etree
 from docx import Document
 from docx.oxml import parse_xml
+from lxml import etree
+
 
 class TestDocxMath(unittest.TestCase):
     def setUp(self):

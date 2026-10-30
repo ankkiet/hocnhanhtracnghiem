@@ -1,22 +1,25 @@
-import json
-import re
 import datetime
-import asyncio
+import json
 import logging
-from typing import Optional, List, Dict, Any
+import re
+from typing import Optional
 
 logger = logging.getLogger(__name__)
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from firebase_admin import db as realtime_db
+from firebase_admin import firestore
 from pydantic import BaseModel
-from firebase_admin import firestore, db as realtime_db
-import time
-from services.firebase_service import get_db
-from core.security import get_user_from_token
-from core.state import SUBMISSIONS_CACHE, QUIZ_CACHE, SETTINGS_CACHE
+
 from core.docx_exporter import export_quiz_to_docx
+from core.security import get_user_from_token
+from core.state import QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE
 from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
-from services.r2_service import extract_image_keys_from_data, delete_images_from_r2, list_r2_objects
+from services.audit_service import audit_service
+from services.firebase_service import get_db
+from services.r2_service import delete_images_from_r2, extract_image_keys_from_data
 
 try:
     import json_repair
@@ -137,6 +140,12 @@ async def quiz_action(req: QuizActionRequest):
     elif req.action == 'restore':
         doc_ref.update({'status': 'unpublished'})
     elif req.action == 'permanent':
+        audit_service.record_event(
+            action="QUIZ_PERMANENT_DELETE",
+            actor_id=user_uid,
+            actor_role=user.get('role', 'teacher'),
+            target_id=req.quiz_id
+        )
         # 1. Trích xuất toàn bộ ảnh có trong đề thi và xóa khỏi Cloudflare R2 + Local cache
         quiz_data = doc.to_dict()
         image_keys = extract_image_keys_from_data(quiz_data)
@@ -594,7 +603,9 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
-    verify_teacher_access(teacher_token, db)
+    teacher_auth = verify_teacher_access(teacher_token, db)
+    user = teacher_auth[0] if isinstance(teacher_auth, (tuple, list)) else {}
+    user_uid = teacher_auth[1] if isinstance(teacher_auth, (tuple, list)) and len(teacher_auth) > 1 else teacher_token
     
     now = time.time()
     if not force_refresh and quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < 300):
@@ -605,6 +616,11 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
             raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
         quiz_data = quiz_doc.to_dict()
         QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
+
+    creator = quiz_data.get('creator_id')
+    if creator and isinstance(user, dict) and user.get('role'):
+        if creator != user_uid and creator != teacher_token and user.get('role') != 'admin':
+            raise HTTPException(status_code=403, detail="Không có quyền xem phân tích bài nộp của đề thi này")
         
     questions = quiz_data.get('data', [])
     total_q = len(questions)

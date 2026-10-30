@@ -1,15 +1,24 @@
-import time
 import datetime
-from typing import Optional, Dict, Any, List
 import re
-from fastapi import APIRouter, HTTPException
+import time
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from firebase_admin import firestore
 from pydantic import BaseModel
-from firebase_admin import firestore, db as realtime_db
-from services.firebase_service import get_db
+
+from core.rate_limiter import RateLimiter
 from core.security import get_user_from_token
-from core.state import QUIZ_CACHE, LEADERBOARD_CACHE, SUBMISSIONS_CACHE
+from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SUBMISSIONS_CACHE
+from services.exam_session_service import exam_session_service
+from services.firebase_service import get_db
 
 router = APIRouter(prefix="/api", tags=["Student Exam & Progress"])
+
+class StartExamRequest(BaseModel):
+    quiz_id: str
+    student_name: str
+    student_token: Optional[str] = None
 
 class SubmitExamRequest(BaseModel):
     quiz_id: str
@@ -17,6 +26,8 @@ class SubmitExamRequest(BaseModel):
     student_token: Optional[str] = None
     answers: Dict[str, Any] = {}
     time_elapsed: int = 0
+    session_id: Optional[str] = None
+    tab_switch_count: Optional[int] = 0
 
 class SyncHistoryItem(BaseModel):
     quiz_id: str
@@ -52,7 +63,50 @@ class PingSessionRequest(BaseModel):
     time_remaining: int
     completed: bool
 
-@router.post("/student/submit_exam", summary="Chấm điểm bài thi an toàn phía Backend")
+@router.post("/student/start_exam", summary="Khởi tạo phiên thi với mốc thời gian thực từ Server")
+async def start_exam(req: StartExamRequest):
+    """
+    BẢO MẬT & CHỐNG GIAN LẬN:
+    Tạo phiên thi có chữ ký điện tử HMAC và mốc thời gian (started_at) từ phía Server.
+    Chống việc học sinh can thiệp chỉnh sửa đồng hồ phía Client.
+    """
+    db = get_db()
+    if db is None:
+        raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+
+    now = time.time()
+    if req.quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[req.quiz_id]['time'] < 300):
+        quiz_data = QUIZ_CACHE[req.quiz_id]['data']
+    else:
+        quiz_doc = db.collection('quizzes').document(req.quiz_id).get()
+        if not quiz_doc.exists:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        quiz_data = quiz_doc.to_dict()
+        QUIZ_CACHE[req.quiz_id] = {'time': now, 'data': quiz_data}
+
+    if quiz_data.get('status') == 'unpublished':
+        raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa.")
+
+    student_id = None
+    if req.student_token:
+        user = get_user_from_token(req.student_token, db)
+        if user:
+            student_id = user['id']
+
+    session_info = exam_session_service.start_session(
+        quiz_id=req.quiz_id,
+        student_name=req.student_name,
+        student_id=student_id,
+        time_limit_minutes=quiz_data.get('time_limit', 0)
+    )
+    return {"status": "success", "data": session_info}
+
+
+@router.post(
+    "/student/submit_exam",
+    summary="Chấm điểm bài thi an toàn phía Backend",
+    dependencies=[Depends(RateLimiter(times=20, seconds=60, key_prefix="exam_submit"))]
+)
 async def submit_exam(req: SubmitExamRequest):
     """
     BẢO MẬT & CHỐNG GIAN LẬN:
@@ -63,6 +117,16 @@ async def submit_exam(req: SubmitExamRequest):
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
         
+    # 1. Xác thực phiên thi & Chống gian lận thời gian/chuyển tab
+    session_result = None
+    if getattr(req, 'session_id', None):
+        session_result = exam_session_service.verify_and_complete_session(
+            session_id=req.session_id,
+            quiz_id=req.quiz_id,
+            tab_switch_count=getattr(req, 'tab_switch_count', 0) or 0,
+            student_name=req.student_name
+        )
+
     # SỬ DỤNG CACHE ĐỂ CHẤM ĐIỂM -> TIẾT KIỆM QUOTA
     now = time.time()
     if req.quiz_id in QUIZ_CACHE and now - QUIZ_CACHE[req.quiz_id]['time'] < 60:
@@ -203,9 +267,11 @@ async def submit_exam(req: SubmitExamRequest):
     now_iso = now_utc.isoformat()
     quiz_title = quiz_data.get('title') or f"Đề thi #{req.quiz_id}"
 
+    cheat_flags = session_result.get('cheat_flags', []) if session_result else []
     submission_data = {
         'id': submission_ref.id,
         'quiz_id': req.quiz_id,
+        'session_id': getattr(req, 'session_id', '') or '',
         'quiz_title': quiz_title,
         'student_name': req.student_name.strip() or 'Ẩn danh',
         'score': round(score, 2),
@@ -213,6 +279,7 @@ async def submit_exam(req: SubmitExamRequest):
         'time_elapsed': req.time_elapsed,
         'answers': req.answers,
         'results': results,
+        'cheat_flags': cheat_flags,
         'submitted_at': now_iso,
         'timestamp': firestore.SERVER_TIMESTAMP
     }

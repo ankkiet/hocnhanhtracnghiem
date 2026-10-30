@@ -1,0 +1,85 @@
+[project]
+name = "hocnhanhtracnghiem"
+version = "2.0.0"
+description = "Hệ thống học nhanh trắc nghiệm và số hóa đề thi thông minh"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "python-docx>=1.0.0",
+    "pypdf>=3.17.0",
+    "google-generativeai>=0.4.0",
+    "firebase-admin>=6.4.0",
+    "boto3>=1.34.0",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.24.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".cache",
+    "uploads",
+    "scratch",
+    "venv",
+    ".venv",
+    "node_modules",
+    "tests",
+    "test_*.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+]
+ignore = [
+    "E501",  # Line too long
+    "W291",  # Trailing whitespace
+    "W293",  # Blank line contains whitespace
+    "E402",  # Module level import not at top of file
+    "B008",  # Do not perform function call in argument defaults
+    "E701",  # Multiple statements on one line (colon)"
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "services", "routers"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "scratch/",
+    "uploads/",
+    ".cache/",
+    "node_modules/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "firebase_admin.*",
+    "google.*",
+    "boto3.*",
+    "botocore.*",
+    "docx.*",
+    "pypdf.*",
+    "jose.*",
+    "passlib.*",
+    "redis.*",
+]
+ignore_missing_imports = true

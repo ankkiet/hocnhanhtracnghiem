@@ -2553,8 +2553,11 @@ body.minimal-mode.quiz-completed #quiz-container {
   width: 340px;
   max-width: 100%;
   box-sizing: border-box;
-  position: relative;
-  height: 100%;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 84px;
+  height: fit-content;
+  align-self: start;
 }
 
 @media (min-width: 961px) and (max-width: 1120px) {
@@ -5575,4 +5578,244 @@ button, .btn {
     .azota-mobile-exam-bar {
         display: none !important;
     }
+}
+
+/* ========================================================
+   TASK G: UX & PRODUCT QUALITY ENHANCEMENTS
+   - Offline / Network notification banner
+   - Shimmer / Skeleton loader for instant perceived speed
+   - Math Keyboard toolbar & Live formula preview
+   - Accessible keyboard focus & shortcut hints
+   - Detailed student analytics breakdown & review palette
+   - Touch targets and mobile optimizations
+   ======================================================== */
+
+.hntn-offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 99999;
+    background: #ef4444;
+    color: #ffffff;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    transition: all 0.3s ease;
+}
+
+.hntn-offline-banner.online-recovered {
+    background: #10b981;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.hntn-offline-banner i {
+    font-size: 1.25rem;
+}
+
+/* Skeleton Loading Shimmer */
+.hntn-skeleton-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.hntn-shimmer {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: hntnShimmer 1.5s infinite;
+    border-radius: 8px;
+}
+
+@keyframes hntnShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Math Toolbar & Formula Live Preview */
+.azota-math-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+    background: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.azota-math-btn {
+    padding: 4px 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    user-select: none;
+}
+
+.azota-math-btn:hover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+    transform: translateY(-1px);
+}
+
+.azota-math-preview {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f0fdf4;
+    border: 1px dashed #86efac;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #166534;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+}
+
+.azota-math-preview.active {
+    display: flex;
+}
+
+.azota-math-preview .preview-label {
+    font-weight: 700;
+    color: #15803d;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+/* Accessible Keyboard Hint Pill */
+.exam-shortcut-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-bottom: 12px;
+}
+
+.exam-shortcut-hint b {
+    color: #1e293b;
+    background: #e2e8f0;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* Touch targets and Mobile UX improvements */
+.azota-opt-item {
+    min-height: 48px;
+    touch-action: manipulation;
+}
+
+.azota-opt-item:focus-visible {
+    outline: 2px solid #2563eb !important;
+    outline-offset: 2px !important;
+}
+
+/* Breakdown by Part in Results */
+.azota-res-breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+    text-align: left;
+}
+
+.azota-res-breakdown-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.azota-res-breakdown-card .part-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.azota-res-breakdown-card .part-stat {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.azota-res-breakdown-card .part-rate {
+    font-size: 0.8rem;
+    color: #10b981;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Review Interactive Question Navigator */
+.azota-review-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 14px 0;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.azota-review-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+}
+
+.azota-review-num:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+
+.azota-review-num.correct {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1.5px solid #86efac;
+}
+
+.azota-review-num.wrong {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1.5px solid #fca5a5;
+}
+
+.azota-review-num.skipped {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1.5px solid #cbd5e1;
+}
+
+.azota-review-num.flagged {
+    box-shadow: 0 0 0 2px #f59e0b;
 }

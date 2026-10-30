@@ -260,11 +260,8 @@
                 <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="studio-brand-logo">
                 <span class="studio-brand-text">HocNhanhTN Studio</span>
             </div>
-            <div class="studio-title-box">
-                <input type="text" id="studioQuizTitle" class="studio-title-input" placeholder="Nhập tên bài kiểm tra / đề thi..." title="Nhấn để đổi tên đề thi">
-                <span id="studioQCountBadge" class="studio-badge" title="Số câu hỏi hiện tại">0 câu hỏi</span>
-                <span id="autosaveIndicator" class="studio-autosave" title="Trạng thái tự động lưu"><i class="ri-check-line"></i> Đã lưu nháp</span>
-            </div>
+            <!-- Input ẩn để lưu title mà không làm vỡ / thừa thãi thanh điều hướng -->
+            <input type="hidden" id="studioQuizTitle" value="">
         </div>
 
         <div class="studio-nav-right">
@@ -429,8 +426,12 @@
             <!-- Right Pane: HocnhanhTN Code Editor -->
             <div class="studio-pane" id="editorPane">
                 <div class="studio-pane-header">
-                    <div class="studio-pane-title">
-                        <i class="ri-code-s-slash-line" style="color: var(--studio-primary);"></i> HOCNHANHTN CODE EDITOR
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="studio-pane-title">
+                            <i class="ri-code-s-slash-line" style="color: var(--studio-primary);"></i> HOCNHANHTN CODE EDITOR
+                        </div>
+                        <span id="studioQCountBadge" class="studio-badge" title="Số câu hỏi hiện tại">0 câu hỏi</span>
+                        <span id="autosaveIndicator" class="studio-autosave" title="Trạng thái tự động lưu"><i class="ri-check-line"></i> Đã lưu nháp</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="btn-studio-outline" style="padding: 5px 10px; font-size: 0.82rem;" onclick="formatEditorCode()">

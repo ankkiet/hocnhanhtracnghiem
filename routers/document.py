@@ -1,35 +1,38 @@
+import asyncio
+import json
+import logging
 import os
 import re
-import json
-import uuid
-import tempfile
 import shutil
+import tempfile
 import time
-import asyncio
-import logging
-from typing import List, Dict, Any
+import uuid
+from typing import List
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form, BackgroundTasks, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+from core.rate_limiter import RateLimiter
 
 try:
     import json_repair
 except ImportError:
     json_repair = None
 
-from services.firebase_service import get_db
+from core.state import SETTINGS_CACHE, active_tasks
 from services.ai_service import (
     call_gemini_with_fallback,
     fix_json_latex_escapes,
-    generate_mcq_with_gemini,
     generate_mcq_from_pdf,
-    normalize_question_data
+    generate_mcq_with_gemini,
+    normalize_question_data,
 )
-from services.r2_service import get_stored_image, extract_image_keys_from_data
-from core.state import active_tasks, SETTINGS_CACHE
+from services.firebase_service import get_db
+from services.r2_service import extract_image_keys_from_data, get_stored_image
+
 
 def get_cached_gemini_keys(db) -> list:
     """Lấy danh sách Gemini API Keys từ cache bộ nhớ đệm (10 phút) để tránh đọc Firestore liên tục."""
@@ -46,19 +49,19 @@ def get_cached_gemini_keys(db) -> list:
     except Exception:
         return []
 from core.answer_key_extractor import (
+    align_mcq_correct_answer,
     extract_answer_key_from_doc,
     reconcile_quiz_with_answer_key,
-    align_mcq_correct_answer
 )
 from core.docx_parser import (
-    parse_docx_to_marked_text,
     extract_formatting_from_docx,
+    parse_docx_to_marked_text,
+    recursive_unescape,
     replace_placeholders,
     split_merged_options,
-    recursive_unescape
 )
-from core.text_parser import extract_questions_from_text_bulletproof
 from core.pdf_parser import extract_questions_from_pdf_locally
+from core.text_parser import extract_questions_from_text_bulletproof
 
 router = APIRouter(tags=["Document & AI Generation"])
 
@@ -261,7 +264,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         
     except Exception as e:
         error_msg = str(e)
-        if "Package not found" in error_msg:
+        if "Package not found" in error_msg or "File is not a zip file" in error_msg or "bad zip" in error_msg.lower():
             active_tasks[task_id] = {
                 "status": "error",
                 "detail": "File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."
@@ -276,9 +279,13 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 pass
 
 
-@router.post("/api/upload", summary="Tải lên và phân tích file DOCX hoặc PDF")
+@router.post(
+    "/api/upload",
+    summary="Tải lên và phân tích file DOCX hoặc PDF",
+    dependencies=[Depends(RateLimiter(times=20, seconds=60, key_prefix="upload_doc"))]
+)
 def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), use_ai: bool = Form(True)):
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in [".docx", ".pdf"]:
         raise HTTPException(status_code=400, detail="Hệ thống chỉ hỗ trợ định dạng Word (.docx) và PDF (.pdf)")
         
@@ -287,6 +294,17 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
             shutil.copyfileobj(file.file, temp_file)
             temp_file_path = temp_file.name
+            
+        file_size = os.path.getsize(temp_file_path)
+        if file_size == 0:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(status_code=400, detail="Tệp tin tải lên bị trống (0 bytes). Vui lòng chọn tệp hợp lệ.")
+            
+        if file_size > 50 * 1024 * 1024:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(status_code=400, detail="Kích thước tệp vượt quá giới hạn 50MB.")
             
         db = get_db()
         api_keys = get_cached_gemini_keys(db)
@@ -319,7 +337,11 @@ def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(.
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý hệ thống: {error_msg}")
 
 
-@router.post("/api/generate_quiz_ai", summary="Tạo đề thi tự động bằng AI (Chạy ngầm)")
+@router.post(
+    "/api/generate_quiz_ai",
+    summary="Tạo đề thi tự động bằng AI (Chạy ngầm)",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60, key_prefix="generate_quiz_ai"))]
+)
 async def generate_quiz_ai(req: GenerateQuizRequest, background_tasks: BackgroundTasks):
     db = get_db()
     if db is None:

@@ -1,6 +1,6 @@
+import io
 import os
 import sys
-import io
 import tempfile
 from typing import Optional, Tuple
 

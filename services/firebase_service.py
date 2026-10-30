@@ -11,12 +11,14 @@ os.environ.setdefault("GRPC_ARG_HTTP2_MIN_TIME_BETWEEN_PINGS_MS", "10000")
 os.environ.setdefault("GRPC_ARG_HTTP2_MIN_PING_INTERVAL_WITHOUT_DATA_MS", "5000")
 os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "1")
 
-import json
 import base64
+import json
 import logging
 import threading
+
 import firebase_admin
 from firebase_admin import credentials, firestore
+
 from core.security import hash_password
 
 logger = logging.getLogger(__name__)

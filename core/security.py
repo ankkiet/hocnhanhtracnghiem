@@ -1,25 +1,31 @@
-import os
 import hashlib
 import hmac
-import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
-import time
 import logging
+import os
+import secrets
+import time
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional, Tuple
+
 import jwt
+from fastapi import HTTPException
+
 from core.state import USER_CACHE
 
 logger = logging.getLogger(__name__)
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "hocnhanhtn-secret-jwt-key-2026-secure-token-999")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 30
+ACCESS_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_ACCESS_EXPIRE_DAYS", 30))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", 14))
+
 
 def hash_password(password: str) -> str:
     """Băm mật khẩu sử dụng PBKDF2-HMAC-SHA256 kèm Salt ngẫu nhiên chống tấn công Rainbow Table."""
     salt = secrets.token_hex(16)
     key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
     return f"pbkdf2_sha256$100000${salt}${key.hex()}"
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -42,30 +48,66 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     old_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
     return hmac.compare_digest(old_hash, hashed_password)
 
+
 def is_legacy_hash(hashed_password: str) -> bool:
     """Kiểm tra xem mật khẩu có đang dùng chuẩn cũ SHA-256 không để tự nâng cấp."""
     return not hashed_password.startswith("pbkdf2_sha256$")
 
+
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Tạo JWT Token có thời hạn và chữ ký điện tử an toàn."""
+    """Tạo JWT Access Token có thời hạn và chữ ký điện tử an toàn."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire})
+    to_encode.setdefault("type", "access")
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
+def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Tạo JWT Refresh Token có thời hạn dài (mặc định 14 ngày) để làm mới Access Token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    jti = secrets.token_hex(16)
+    to_encode.update({
+        "exp": expire,
+        "type": "refresh",
+        "jti": jti
+    })
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
 def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
-    """Giải mã JWT Token an toàn."""
+    """Giải mã JWT Access Token an toàn (chặn dùng nhầm refresh token)."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") == "refresh":
+            return None
         return payload
     except Exception:
         return None
 
+
+def decode_refresh_token(token: str) -> Optional[Dict[str, Any]]:
+    """Giải mã và xác thực tính hợp lệ của JWT Refresh Token."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 ADMIN_EMAILS = {"kiet0905478167@gmail.com", "admin"}
+
 
 def check_and_assign_admin(user_data: Dict[str, Any]) -> Dict[str, Any]:
     """Tự động cấp quyền Admin cao nhất cho tài khoản chỉ định."""
@@ -75,6 +117,7 @@ def check_and_assign_admin(user_data: Dict[str, Any]) -> Dict[str, Any]:
         user_data['role'] = 'admin'
         user_data['status'] = 'approved'
     return user_data
+
 
 def invalidate_user_cache(user_id_or_token: Optional[str] = None):
     """Xóa cache người dùng trong bộ nhớ RAM khi có thay đổi quyền, duyệt tài khoản, hoặc đổi mật khẩu."""
@@ -88,6 +131,7 @@ def invalidate_user_cache(user_id_or_token: Optional[str] = None):
         ]
         for k in keys_to_del:
             USER_CACHE.pop(k, None)
+
 
 def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
     """
@@ -129,7 +173,6 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
             logger.warning(f"Không thể đọc users/{user_id} từ Firestore ({e}). Tự động phục hồi thông tin từ JWT token.")
 
         # PHỤC HỒI AN TOÀN TỪ JWT TOKEN ĐÃ ĐƯỢC KÝ ĐIỆN TỬ BỞI SECRET_KEY:
-        # Nếu JWT Token hợp lệ còn thời hạn, luôn tin cậy payload để chống lỗi 403 Session Expired
         payload_role = payload.get("role") or ("teacher" if "teacher" in str(token).lower() else "student")
         fallback_user = {
             "id": user_id,
@@ -158,3 +201,28 @@ def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
         
     return None
 
+
+def verify_admin_access(token: str, db) -> Tuple[Dict[str, Any], str]:
+    """Xác minh quyền quản trị viên (Admin)."""
+    user = get_user_from_token(token, db)
+    if not user or user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập Quản trị viên.")
+    return user, user['id']
+
+
+def verify_teacher_access(token: str, db) -> Tuple[Dict[str, Any], str]:
+    """Xác minh quyền giáo viên hoặc quản trị viên."""
+    user = get_user_from_token(token, db)
+    if not user:
+        raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
+    if user.get('role') not in ['teacher', 'admin']:
+        raise HTTPException(status_code=403, detail="Tài khoản không có quyền Giáo viên.")
+    return user, user['id']
+
+
+def verify_student_access(token: str, db) -> Tuple[Dict[str, Any], str]:
+    """Xác minh quyền học sinh."""
+    user = get_user_from_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ hoặc đã hết hạn.")
+    return user, user['id']

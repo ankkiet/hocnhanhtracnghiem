@@ -1,18 +1,19 @@
+import io
 import os
 import sys
-import io
 import unittest
-import xml.etree.ElementTree as ET
+
 from docx import Document
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import tempfile
+
 from core.image_converter import detect_image_format, process_image_blob
 from core.mathml_parser import parse_omath
-from services.r2_service import upload_image_to_r2, get_stored_image
 from main import app, extract_answer_key, extract_formatting_from_docx, parse_docx_to_marked_text
+from services.r2_service import upload_image_to_r2
 
 
 class TestBulletproofParsing(unittest.TestCase):
@@ -289,8 +290,9 @@ class TestBulletproofParsing(unittest.TestCase):
 
     def test_find_image_part_and_id_keyerror_o(self):
         """Test that find_image_part_and_id safely handles drawing nodes without KeyError 'o'."""
-        from main import find_image_part_and_id
         from docx.oxml import parse_xml
+
+        from main import find_image_part_and_id
 
         mock_xml = """<v:shape xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
             <v:imagedata o:relid="rId99" r:id="rId99"/>
@@ -446,8 +448,8 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(sa["type"], "short_answer")
     def test_normalize_question_data_edge_cases(self):
         """Kiểm tra các trường hợp đặc biệt: tiền tố Câu X, chữ hoa/thường, dấu hoa thị, tag [ĐÚNG]/[SAI]."""
-        from services.ai_service import normalize_question_data
         from core.docx_parser import split_merged_options
+        from services.ai_service import normalize_question_data
         
         # Tiền tố [Câu 1] và dấu hoa thị *A.
         q1 = normalize_question_data({
@@ -503,9 +505,10 @@ class TestBulletproofParsing(unittest.TestCase):
             self.skipTest("Template docx not found")
 
         import docx
+
+        from core.answer_key_extractor import extract_answer_key_from_doc, reconcile_quiz_with_answer_key
         from core.docx_parser import parse_docx_to_marked_text
         from core.text_parser import extract_questions_from_text_bulletproof
-        from core.answer_key_extractor import extract_answer_key_from_doc, reconcile_quiz_with_answer_key
         from services.ai_service import normalize_question_data
 
         doc = docx.Document(template_path)

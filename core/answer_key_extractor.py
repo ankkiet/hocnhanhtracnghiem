@@ -1,6 +1,7 @@
 import os
 import re
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Tuple
+
 
 class AnswerKeyMap(dict):
     """

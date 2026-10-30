@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -84,8 +84,8 @@ class TestFixedFeatures(unittest.TestCase):
 
     def test_student_submit_exam_scoring_rules(self):
         """Kiểm tra quy chuẩn chấm điểm Bộ GD&ĐT: MCQ, Đúng/Sai (0.1, 0.25, 0.5, 1.0) và Trả lời ngắn"""
+
         from routers.student import submit_exam
-        from pydantic import BaseModel
 
         class Req:
             quiz_id = 'test_quiz'
@@ -129,7 +129,7 @@ class TestFixedFeatures(unittest.TestCase):
 
     def test_student_progress_empty_id_guard(self):
         """Kiểm tra hàm get_progress và save_progress khi thiếu user_id không bị ném ValueError"""
-        from routers.student import save_student_progress, get_student_progress
+        from routers.student import get_student_progress, save_student_progress
 
         class SaveReq:
             quiz_id = 'test_q'
@@ -149,8 +149,9 @@ class TestFixedFeatures(unittest.TestCase):
 
     def test_docx_export_gdpt2018_formats(self):
         """Kiểm tra export_quiz_to_docx định dạng chuẩn câu hỏi Đúng/Sai và Trả lời ngắn"""
-        from core.docx_exporter import export_quiz_to_docx
         from docx import Document
+
+        from core.docx_exporter import export_quiz_to_docx
 
         questions = [
             {
@@ -205,10 +206,8 @@ class TestFixedFeatures(unittest.TestCase):
     def test_answer_key_extraction_and_reconciliation(self):
         """Kiểm tra bóc tách Bảng đáp án chuẩn GDPT 2018 và áp đặt chính xác vào các loại câu hỏi"""
         from core.answer_key_extractor import (
-            extract_answer_key_from_doc,
-            separate_answer_key_from_text,
             reconcile_quiz_with_answer_key,
-            AnswerKeyMap
+            separate_answer_key_from_text,
         )
 
         # Giả lập văn bản đề thi có BẢNG ĐÁP ÁN ở cuối
@@ -329,8 +328,8 @@ BẢNG ĐÁP ÁN:
 
     def test_rescue_true_false_from_short_answer_misclassification(self):
         """Kiểm tra hệ thống tự động phát hiện và phục hồi câu Đúng/Sai bị AI hoặc Parser gán nhầm thành Trả lời ngắn."""
+        from core.answer_key_extractor import AnswerKeyMap, reconcile_quiz_with_answer_key
         from services.ai_service import normalize_question_data
-        from core.answer_key_extractor import reconcile_quiz_with_answer_key, AnswerKeyMap
 
         # Case 1: AI trả về type short_answer, options rỗng nhưng nội dung câu hỏi chứa 4 ý a, b, c, d
         q_raw1 = {
@@ -426,7 +425,7 @@ BẢNG ĐÁP ÁN:
 
     def test_hocnhanhtn_matrix_tags_preservation(self):
         """Kiểm tra tiền tố ma trận mức độ nhận thức HocNhanhTN ([0, NB], [1, TH], [2, VD], [3, VDC]) không bị mất hay lặp."""
-        from services.ai_service import clean_option_text, extract_sub_statements_from_text, normalize_question_data
+        from services.ai_service import extract_sub_statements_from_text, normalize_question_data
 
         raw_text = """Cho hình chóp S.ABCD.
 [0, NB] a) Đáy ABCD là hình vuông.
@@ -454,6 +453,7 @@ BẢNG ĐÁP ÁN:
     def test_hocnhanhtn_cach_2_per_question_tables(self):
         """Kiểm tra bóc tách bảng đáp án Đúng/Sai đặt ngay dưới câu hỏi chuẩn HocNhanhTN Cách 2."""
         from docx import Document
+
         from core.docx_parser import parse_hocnhanhtn_tf_table
 
         doc = Document()
@@ -564,7 +564,7 @@ BẢNG ĐÁP ÁN:
 
     def test_submit_exam_shuffled_mcq_content_match(self):
         """Kiểm tra chấm thi chuẩn xác khi đáp án bị xáo trộn vị trí A, B, C, D"""
-        from routers.student import submit_exam, SubmitExamRequest
+        from routers.student import SubmitExamRequest, submit_exam
 
         mock_db = MagicMock()
         mock_quiz_doc = MagicMock()
@@ -608,6 +608,7 @@ BẢNG ĐÁP ÁN:
     def test_guest_submissions_cleanup_after_24h(self):
         """Kiểm tra thí sinh tự do quá 24h sẽ tự động bị xóa khỏi Firestore và không thống kê"""
         import datetime
+
         from routers.teacher import get_quiz_analytics
 
         mock_db = MagicMock()

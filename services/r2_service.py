@@ -1,7 +1,7 @@
+import mimetypes
 import os
 import uuid
-import mimetypes
-from typing import Optional, Tuple, List, Any
+from typing import Any, List, Optional, Tuple
 
 try:
     import boto3
