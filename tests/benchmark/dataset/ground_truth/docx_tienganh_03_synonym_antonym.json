@@ -1,0 +1,77 @@
+{
+  "file_id": "docx_tienganh_03_synonym_antonym",
+  "file_name": "tienganh_03_synonym_antonym.docx",
+  "format_type": "docx",
+  "subject": "Tiếng Anh",
+  "style": "bottom_table",
+  "style_description": "Tiếng Anh Từ đồng nghĩa / Trái nghĩa, có Bảng đáp án Table ở cuối bài",
+  "tags": [
+    "tieng_anh",
+    "synonym",
+    "antonym",
+    "bottom_table"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word(s) CLOSEST in meaning to the underlined word: The government decided to ABOLISH the old tax regulation.",
+      "options": [
+        "A. cancel",
+        "B. continue",
+        "C. approve",
+        "D. suggest"
+      ],
+      "correct_answer": "A. cancel"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word(s) CLOSEST in meaning to the underlined word: She gave a BRILLIANT performance on stage last night.",
+      "options": [
+        "A. dull",
+        "B. poor",
+        "C. outstanding",
+        "D. regular"
+      ],
+      "correct_answer": "C. outstanding"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word(s) OPPOSITE in meaning to the underlined word: It is DANGEROUS to swim in this river because of strong currents.",
+      "options": [
+        "A. risky",
+        "B. safe",
+        "C. hazardous",
+        "D. harmful"
+      ],
+      "correct_answer": "B. safe"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word(s) OPPOSITE in meaning to the underlined word: He was very GENEROUS to donate his savings to the hospital.",
+      "options": [
+        "A. mean",
+        "B. kind",
+        "C. helpful",
+        "D. friendly"
+      ],
+      "correct_answer": "A. mean"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word(s) OPPOSITE in meaning to the underlined word: The company saw a DRAMATIC increase in profits this quarter.",
+      "options": [
+        "A. huge",
+        "B. sudden",
+        "C. slight",
+        "D. remarkable"
+      ],
+      "correct_answer": "C. slight"
+    }
+  ]
+}

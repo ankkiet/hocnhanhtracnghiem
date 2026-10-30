@@ -1,0 +1,82 @@
+{
+  "file_id": "docx_tienganh_01_reading_passage",
+  "file_name": "tienganh_01_reading_passage.docx",
+  "format_type": "docx",
+  "subject": "Tiếng Anh",
+  "style": "underline",
+  "style_description": "Tiếng Anh có đoạn văn đọc hiểu chung (group_title) cho 3 câu, tiếp theo là 2 câu ngữ pháp riêng, đáp án gạch chân",
+  "tags": [
+    "tieng_anh",
+    "reading_comprehension",
+    "group_title",
+    "underline"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "group_title": "Read the following passage and mark the letter A, B, C, or D on your answer sheet to indicate the correct answer to each of the questions.\n\nRenewable energy is energy derived from natural resources that replenish themselves faster than they are consumed. Sunlight and wind are good examples. Renewable energy sources are plentiful and all around us. Fossil fuels - coal, oil and gas - on the other hand, are non-renewable resources that take hundreds of millions of years to form. Generating renewable energy creates far lower emissions than burning fossil fuels.",
+      "question": "What is the main topic of the passage?",
+      "options": [
+        "A. The advantages of renewable energy",
+        "B. The formation of coal and oil",
+        "C. The danger of sunlight",
+        "D. Industrial development"
+      ],
+      "correct_answer": "A. The advantages of renewable energy"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "group_title": "Read the following passage and mark the letter A, B, C, or D on your answer sheet to indicate the correct answer to each of the questions.\n\nRenewable energy is energy derived from natural resources that replenish themselves faster than they are consumed. Sunlight and wind are good examples. Renewable energy sources are plentiful and all around us. Fossil fuels - coal, oil and gas - on the other hand, are non-renewable resources that take hundreds of millions of years to form. Generating renewable energy creates far lower emissions than burning fossil fuels.",
+      "question": "According to the passage, fossil fuels take how long to form?",
+      "options": [
+        "A. A few years",
+        "B. Hundreds of millions of years",
+        "C. Thousands of years",
+        "D. A few decades"
+      ],
+      "correct_answer": "B. Hundreds of millions of years"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "group_title": "Read the following passage and mark the letter A, B, C, or D on your answer sheet to indicate the correct answer to each of the questions.\n\nRenewable energy is energy derived from natural resources that replenish themselves faster than they are consumed. Sunlight and wind are good examples. Renewable energy sources are plentiful and all around us. Fossil fuels - coal, oil and gas - on the other hand, are non-renewable resources that take hundreds of millions of years to form. Generating renewable energy creates far lower emissions than burning fossil fuels.",
+      "question": "The word 'plentiful' in the passage is closest in meaning to",
+      "options": [
+        "A. scarce",
+        "B. abundant",
+        "C. dangerous",
+        "D. expensive"
+      ],
+      "correct_answer": "B. abundant"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "group_title": "",
+      "question": "Mark the letter A, B, C, or D to indicate the correct answer: She ______ to Paris three times this year.",
+      "options": [
+        "A. has been",
+        "B. went",
+        "C. was going",
+        "D. had gone"
+      ],
+      "correct_answer": "A. has been"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "group_title": "",
+      "question": "If it ______ tomorrow, we will cancel the picnic in the park.",
+      "options": [
+        "A. rained",
+        "B. will rain",
+        "C. rains",
+        "D. would rain"
+      ],
+      "correct_answer": "C. rains"
+    }
+  ]
+}

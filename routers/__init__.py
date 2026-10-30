@@ -1,10 +1,12 @@
 """
 Routers module for HocNhanhTN.
 Quản lý và đăng ký toàn bộ feature routers của hệ thống.
+Forwards to app.api.router for backward compatibility.
 """
 
 from fastapi import FastAPI
 
+from app.api.router import register_routes
 from routers.admin import router as admin_router
 from routers.auth import router as auth_router
 from routers.document import router as document_router
@@ -23,22 +25,10 @@ __all__ = [
     "document_router",
     "health_router",
     "pages_router",
-    "register_routers"
+    "register_routers",
 ]
 
 
 def register_routers(app: FastAPI) -> None:
     """Đăng ký toàn bộ các API & Web router vào ứng dụng FastAPI."""
-    # 1. API routers nghiệp vụ
-    app.include_router(auth_router)
-    app.include_router(quiz_router)
-    app.include_router(student_router)
-    app.include_router(teacher_router)
-    app.include_router(admin_router)
-    app.include_router(document_router)
-
-    # 2. Hệ thống, Uptime & Health Check
-    app.include_router(health_router)
-
-    # 3. Giao diện Web, SEO Metadata & Static Routes
-    app.include_router(pages_router)
+    register_routes(app)

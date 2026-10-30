@@ -1,0 +1,81 @@
+{
+  "file_id": "docx_sinhhoc_02_phuong_an_1_dong",
+  "file_name": "sinhhoc_02_phuong_an_1_dong.docx",
+  "format_type": "docx",
+  "subject": "Sinh học",
+  "style": "asterisk",
+  "style_description": "Sinh học tế bào và NST, các phương án A B C D nằm trên cùng 1 dòng, có dấu sao trước đáp án đúng",
+  "tags": [
+    "sinh_hoc",
+    "asterisk",
+    "single_line_options"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Bộ nhiễm sắc thể lưỡng bội 2n của loài người bình thường là bao nhiêu chiếc?",
+      "options": [
+        "A. 2n = 44",
+        "B. 2n = 46",
+        "C. 2n = 48",
+        "D. 2n = 23"
+      ],
+      "correct_answer": "B. 2n = 46"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Quá trình nhân đôi ADN diễn ra theo nguyên tắc nào dưới đây?",
+      "options": [
+        "A. Bán bảo toàn",
+        "B. Bảo toàn hoàn toàn",
+        "C. Ngẫu nhiên",
+        "D. Phân tán"
+      ],
+      "correct_answer": "A. Bán bảo toàn"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Mã di truyền mở đầu cho quá trình dịch mã trên mARN là",
+      "options": [
+        "A. UAA",
+        "B. UAG",
+        "C. AUG",
+        "D. UGA"
+      ],
+      "correct_answer": "C. AUG"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Đột biến số lượng NST thể một có công thức nhiễm sắc thể là",
+      "options": [
+        "A. 2n + 1",
+        "B. 2n - 1",
+        "C. 3n",
+        "D. 2n - 2"
+      ],
+      "correct_answer": "B. 2n - 1"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Bào quan nào sau đây đóng vai trò là 'nhà máy' tổng hợp năng lượng ATP của tế bào?",
+      "options": [
+        "A. Riboxom",
+        "B. Ti thể",
+        "C. Lưới nội chất",
+        "D. Thể Golgi"
+      ],
+      "correct_answer": "B. Ti thể"
+    }
+  ]
+}

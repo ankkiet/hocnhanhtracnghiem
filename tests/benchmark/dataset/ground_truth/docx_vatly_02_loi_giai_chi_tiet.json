@@ -1,0 +1,82 @@
+{
+  "file_id": "docx_vatly_02_loi_giai_chi_tiet",
+  "file_name": "vatly_02_loi_giai_chi_tiet.docx",
+  "format_type": "docx",
+  "subject": "Vật lý",
+  "style": "underline",
+  "style_description": "Vật lý sóng cơ, đáp án gạch chân kèm khối 'Lời giải chi tiết:' dưới mỗi câu hỏi",
+  "tags": [
+    "vat_ly",
+    "underline",
+    "explain_block",
+    "song_co"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Bước sóng là khoảng cách giữa hai điểm gần nhau nhất trên cùng một phương truyền sóng mà dao động tại hai điểm đó",
+      "options": [
+        "A. ngược pha.",
+        "B. vuông pha.",
+        "C. cùng pha.",
+        "D. lệch pha π/4."
+      ],
+      "correct_answer": "C. cùng pha.",
+      "explain": "Định nghĩa: Bước sóng λ là quãng đường sóng truyền đi trong một chu kì, đồng thời là khoảng cách giữa 2 điểm gần nhất cùng pha trên phương truyền sóng."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Một sóng cơ truyền với tốc độ v = 10 m/s và tần số f = 50 Hz. Bước sóng có giá trị là",
+      "options": [
+        "A. 0,2 m",
+        "B. 5 m",
+        "C. 500 m",
+        "D. 0,5 m"
+      ],
+      "correct_answer": "A. 0,2 m",
+      "explain": "Áp dụng công thức λ = v / f = 10 / 50 = 0,2 m."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Trong giao thoa sóng cơ trên mặt nước của 2 nguồn kết hợp cùng pha, khoảng cách giữa 2 cực đại liên tiếp trên đoạn nối hai nguồn là",
+      "options": [
+        "A. λ",
+        "B. λ/2",
+        "C. λ/4",
+        "D. 2λ"
+      ],
+      "correct_answer": "B. λ/2",
+      "explain": "Hai cực đại giao thoa liên tiếp trên đường thẳng nối hai nguồn cách nhau khoảng λ/2."
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Đặc trưng sinh lý nào dưới đây gắn liền với tần số của âm?",
+      "options": [
+        "A. Độ to của âm",
+        "B. Độ cao của âm",
+        "C. Âm sắc",
+        "D. Mức cường độ âm"
+      ],
+      "correct_answer": "B. Độ cao của âm",
+      "explain": "Độ cao của âm là một đặc trưng sinh lý gắn liền với tần số âm."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Khi có sóng dừng trên một sợi dây đàn hồi có hai đầu cố định, khoảng cách giữa một nút sóng và một bụng sóng liền kề là",
+      "options": [
+        "A. λ/4",
+        "B. λ/2",
+        "C. λ",
+        "D. 2λ"
+      ],
+      "correct_answer": "A. λ/4",
+      "explain": "Khoảng cách từ một nút đến một bụng liền kề luôn bằng λ/4."
+    }
+  ]
+}

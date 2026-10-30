@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_sinhhoc_01_thi_thu",
+  "file_name": "sinhhoc_01_thi_thu.pdf",
+  "format_type": "pdf",
+  "subject": "Sinh học",
+  "style": "bottom_text",
+  "style_description": "PDF đề thi thử Sinh học Hệ sinh thái & Tiến hóa, bảng đáp án text cuối trang",
+  "tags": [
+    "sinh_hoc",
+    "pdf",
+    "he_sinh_thai"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Sinh vật nào sau đây đóng vai trò là sinh vật sản xuất trong hệ sinh thái?",
+      "options": [
+        "A. Nấm hoại sinh",
+        "B. Động vật ăn cỏ",
+        "C. Giun đất",
+        "D. Thực vật quang hợp"
+      ],
+      "correct_answer": "D. Thực vật quang hợp"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Nhân tố tiến hóa nào sau đây có thể làm thay đổi tần số alen của quần thể theo một hướng xác định?",
+      "options": [
+        "A. Đột biến",
+        "B. Chọn lọc tự nhiên",
+        "C. Các yếu tố ngẫu nhiên",
+        "D. Giao phối không ngẫu nhiên"
+      ],
+      "correct_answer": "B. Chọn lọc tự nhiên"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Mối quan hệ giữa nấm và tảo đơn bào trong địa y là mối quan hệ sinh thái nào?",
+      "options": [
+        "A. Cộng sinh",
+        "B. Hội sinh",
+        "C. Ký sinh",
+        "D. Cạnh tranh"
+      ],
+      "correct_answer": "A. Cộng sinh"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Tháp sinh thái nào sau đây luôn có dạng đáy rộng ở dưới và thu hẹp dần lên trên mà không bị biến dạng?",
+      "options": [
+        "A. Tháp số lượng",
+        "B. Tháp sinh khối",
+        "C. Tháp năng lượng",
+        "D. Tháp tuổi"
+      ],
+      "correct_answer": "C. Tháp năng lượng"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Tập hợp các cá thể cùng loài sống trong một khoảng không gian và thời gian xác định được gọi là",
+      "options": [
+        "A. quần xã sinh vật.",
+        "B. quần thể sinh vật.",
+        "C. hệ sinh thái.",
+        "D. sinh quyển."
+      ],
+      "correct_answer": "B. quần thể sinh vật."
+    }
+  ]
+}

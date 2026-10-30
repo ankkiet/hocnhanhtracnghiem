@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_tienganh_02_chuan_thpt",
+  "file_name": "tienganh_02_chuan_thpt.pdf",
+  "format_type": "pdf",
+  "subject": "Tiếng Anh",
+  "style": "bottom_text",
+  "style_description": "PDF đề thi thử tốt nghiệp THPT Quốc gia môn Tiếng Anh có bảng đáp án text cuối",
+  "tags": [
+    "tieng_anh",
+    "pdf",
+    "thpt"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "You ______ park your car here. It is strictly forbidden by law.",
+      "options": [
+        "A. mustn't",
+        "B. needn't",
+        "C. shouldn't",
+        "D. don't have to"
+      ],
+      "correct_answer": "A. mustn't"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "If I had known your telephone number, I ______ you right after the incident.",
+      "options": [
+        "A. will call",
+        "B. would call",
+        "C. would have called",
+        "D. had called"
+      ],
+      "correct_answer": "C. would have called"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "By the time we arrived at the cinema, the movie ______ for ten minutes.",
+      "options": [
+        "A. started",
+        "B. had started",
+        "C. has started",
+        "D. was starting"
+      ],
+      "correct_answer": "B. had started"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "The new shopping mall ______ next Monday by the city mayor.",
+      "options": [
+        "A. opens",
+        "B. will open",
+        "C. is opened",
+        "D. will be opened"
+      ],
+      "correct_answer": "D. will be opened"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Despite the severe storm, the flight landed ______ at the airport.",
+      "options": [
+        "A. safely",
+        "B. safe",
+        "C. safety",
+        "D. safeness"
+      ],
+      "correct_answer": "A. safely"
+    }
+  ]
+}

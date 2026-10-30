@@ -1,0 +1,77 @@
+{
+  "file_id": "docx_hoahoc_01_cong_thuc_sub_super",
+  "file_name": "hoahoc_01_cong_thuc_sub_super.docx",
+  "format_type": "docx",
+  "subject": "Hóa học",
+  "style": "underline",
+  "style_description": "Hóa học hữu cơ, chỉ số hóa học dưới sub (CH3COOC2H5, C6H12O6), đáp án gạch chân",
+  "tags": [
+    "hoa_hoc",
+    "underline",
+    "subscript",
+    "este_lipit"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Este etyl axetat có công thức phân tử là",
+      "options": [
+        "A. C2H4O2",
+        "B. C3H6O2",
+        "C. C4H8O2",
+        "D. C4H6O2"
+      ],
+      "correct_answer": "C. C4H8O2"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Chất nào sau đây thuộc loại monosaccarit?",
+      "options": [
+        "A. Glucozơ",
+        "B. Saccarozơ",
+        "C. Tinh bột",
+        "D. Xenlulozơ"
+      ],
+      "correct_answer": "A. Glucozơ"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Chất nào dưới đây là amin bậc một?",
+      "options": [
+        "A. CH3-NH-CH3",
+        "B. CH3-NH2",
+        "C. (CH3)3N",
+        "D. (C2H5)2NH"
+      ],
+      "correct_answer": "B. CH3-NH2"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Thủy phân hoàn toàn este CH3COOCH3 trong dung dịch NaOH đun nóng thu được muối nào?",
+      "options": [
+        "A. HCOONa",
+        "B. CH3COONa",
+        "C. C2H5COONa",
+        "D. CH3ONa"
+      ],
+      "correct_answer": "B. CH3COONa"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Polime nào sau đây được điều chế bằng phản ứng trùng ngưng?",
+      "options": [
+        "A. Polietilen",
+        "B. Poli(vinyl clorua)",
+        "C. Nilon-6,6",
+        "D. Polistiren"
+      ],
+      "correct_answer": "C. Nilon-6,6"
+    }
+  ]
+}

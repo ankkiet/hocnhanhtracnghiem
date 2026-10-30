@@ -70,3 +70,6 @@ urllib3==2.6.3
 uvicorn==0.43.0
 websockets==16.0
 gunicorn==22.0.0
+
+jinja2>=3.1.6
+MarkupSafe>=3.0.4

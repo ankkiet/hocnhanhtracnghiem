@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_diali_01_boi_do",
+  "file_name": "diali_01_boi_do.docx",
+  "format_type": "docx",
+  "subject": "Địa lý",
+  "style": "red",
+  "style_description": "Địa lý tự nhiên Việt Nam, đáp án đúng tô chữ ĐỎ (#FF0000)",
+  "tags": [
+    "dia_ly",
+    "red_font",
+    "tu_nhien_viet_nam"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Nước ta nằm hoàn toàn trong vùng nội chí tuyến của bán cầu nào?",
+      "options": [
+        "A. Bán cầu Tây",
+        "B. Bán cầu Nam",
+        "C. Bán cầu Bắc",
+        "D. Bán cầu Đông và Nam"
+      ],
+      "correct_answer": "C. Bán cầu Bắc"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Đặc điểm nổi bật của địa hình nước ta là",
+      "options": [
+        "A. đồng bằng chiếm phần lớn diện tích.",
+        "B. đồi núi chiếm 3/4 diện tích lãnh thổ.",
+        "C. chỉ có dạng địa hình núi cao hiểm trở.",
+        "D. địa hình bằng phẳng không có bậc."
+      ],
+      "correct_answer": "B. đồi núi chiếm 3/4 diện tích lãnh thổ."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Gió mùa Đông Bắc hoạt động mạnh mẽ nhất ở miền khí hậu nào của nước ta?",
+      "options": [
+        "A. Miền Bắc",
+        "B. Miền Nam",
+        "C. Tây Nguyên",
+        "D. Duyên hải Nam Trung Bộ"
+      ],
+      "correct_answer": "A. Miền Bắc"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Nhóm đất chiếm diện tích lớn nhất ở vùng đồi núi nước ta là",
+      "options": [
+        "A. đất feralit.",
+        "B. đất phù sa.",
+        "C. đất xám bạc màu.",
+        "D. đất cát ven biển."
+      ],
+      "correct_answer": "A. đất feralit."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Sông ngòi nước ta có đặc điểm nổi bật là",
+      "options": [
+        "A. mạng lưới sông ngòi thưa thớt, ít nước.",
+        "B. mạng lưới sông ngòi dày đặc, nhiều nước, giàu phù sa.",
+        "C. sông có độ dốc thấp, không có tiềm năng thủy điện.",
+        "D. dòng chảy không phụ thuộc vào chế độ mưa."
+      ],
+      "correct_answer": "B. mạng lưới sông ngòi dày đặc, nhiều nước, giàu phù sa."
+    }
+  ]
+}

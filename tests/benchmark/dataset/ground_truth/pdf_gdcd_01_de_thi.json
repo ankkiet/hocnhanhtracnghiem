@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_gdcd_01_de_thi",
+  "file_name": "gdcd_01_de_thi.pdf",
+  "format_type": "pdf",
+  "subject": "Giáo dục Kinh tế và Pháp luật",
+  "style": "bottom_text",
+  "style_description": "PDF đề thi KT&PL Pháp luật và đời sống, bảng đáp án text cuối đề",
+  "tags": [
+    "gdcd",
+    "ktpl",
+    "pdf"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Hình thức thực hiện pháp luật nào trong đó cá nhân, tổ chức chủ động làm những gì mà pháp luật quy định phải làm?",
+      "options": [
+        "A. Thi hành pháp luật",
+        "B. Sử dụng pháp luật",
+        "C. Tuân thủ pháp luật",
+        "D. Áp dụng pháp luật"
+      ],
+      "correct_answer": "A. Thi hành pháp luật"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Người điều khiển xe mô tô không đội mũ bảo hiểm khi tham gia giao thông là hành vi",
+      "options": [
+        "A. không sử dụng pháp luật.",
+        "B. không áp dụng pháp luật.",
+        "C. không tuân thủ pháp luật.",
+        "D. không thi hành pháp luật."
+      ],
+      "correct_answer": "C. không tuân thủ pháp luật."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Năng lực của chủ thể thực hiện hành vi vi phạm pháp luật và phải chịu trách nhiệm pháp lý phụ thuộc vào",
+      "options": [
+        "A. hoàn cảnh gia đình.",
+        "B. độ tuổi và khả năng nhận thức, điều khiển hành vi.",
+        "C. chức vụ trong xã hội.",
+        "D. mức thu nhập cá nhân."
+      ],
+      "correct_answer": "B. độ tuổi và khả năng nhận thức, điều khiển hành vi."
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Bất kì công dân nào vi phạm pháp luật đều phải bị xử lý theo quy định của pháp luật thể hiện công dân bình đẳng về",
+      "options": [
+        "A. quyền lợi.",
+        "B. nghĩa vụ.",
+        "C. nhu cầu.",
+        "D. trách nhiệm pháp lý."
+      ],
+      "correct_answer": "D. trách nhiệm pháp lý."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Mọi hành vi xâm phạm đến tính mạng, sức khỏe, danh dự của người khác đều bị xử lý nghiêm minh theo",
+      "options": [
+        "A. pháp luật hình sự hoặc hành chính.",
+        "B. quy tắc tôn giáo.",
+        "C. lệ làng.",
+        "D. dư luận xã hội."
+      ],
+      "correct_answer": "A. pháp luật hình sự hoặc hành chính."
+    }
+  ]
+}

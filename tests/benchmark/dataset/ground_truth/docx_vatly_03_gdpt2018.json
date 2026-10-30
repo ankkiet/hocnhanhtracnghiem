@@ -1,0 +1,94 @@
+{
+  "file_id": "docx_vatly_03_gdpt2018",
+  "file_name": "vatly_03_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Vật lý",
+  "style": "gdpt_2018",
+  "style_description": "Vật lý GDPT 2018 Nhiệt học & Khí lý tưởng: Phần I MCQ, Phần II Đúng/Sai 4 ý, Phần III Trả lời ngắn",
+  "tags": [
+    "vat_ly",
+    "gdpt_2018",
+    "nhiet_hoc"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Nhiệt độ không tuyệt đối theo thang Kelvin tương ứng với bao nhiêu độ Celsius?",
+      "options": [
+        "A. 0 °C",
+        "B. -273,15 °C",
+        "C. 273,15 °C",
+        "D. 100 °C"
+      ],
+      "correct_answer": "B. -273,15 °C"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Trong quá trình đẳng nhiệt của một lượng khí lý tưởng xác định, áp suất p và thể tích V quan hệ với nhau như thế nào?",
+      "options": [
+        "A. Tỉ lệ thuận",
+        "B. Tỉ lệ nghịch",
+        "C. Không phụ thuộc",
+        "D. Tổng p + V không đổi"
+      ],
+      "correct_answer": "B. Tỉ lệ nghịch"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Một khối khí lý tưởng chứa trong một xilanh có pit-tông di động. Xét tính đúng sai của các nhận định:",
+      "options": [
+        "a) Khi nén khí đẳng nhiệt, động năng trung bình của các phân tử khí tăng lên",
+        "b) Trong quá trình đẳng áp, thể tích của khối khí tỉ lệ thuận với nhiệt độ tuyệt đối",
+        "c) Độ biến thiên nội năng của khối khí trong chu trình kín bằng 0",
+        "d) Nếu khối khí nhận nhiệt lượng 100 J và sinh công 40 J thì nội năng tăng 60 J"
+      ],
+      "correct_answer": {
+        "a": false,
+        "b": true,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về mô hình động học phân tử chất khí:",
+      "options": [
+        "a) Các phân tử khí chuyển động hỗn loạn không ngừng về mọi phía",
+        "b) Nhiệt độ của khối khí càng cao thì các phân tử chuyển động càng chậm",
+        "c) Khoảng cách giữa các phân tử khí rất lớn so với kích thước của chúng",
+        "d) Lực tương tác giữa các phân tử khí lý tưởng chỉ đáng kể khi chúng va chạm"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Một lượng khí ở áp suất 2 atm và thể tích 10 lít được nén đẳng nhiệt đến thể tích 4 lít. Áp suất khí sau khi nén là bao nhiêu atm?",
+      "options": [],
+      "correct_answer": "5"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Cần cung cấp một nhiệt lượng bao nhiêu kJ để đun nóng 2 kg nước từ 20 °C lên 70 °C? Biết nhiệt dung riêng của nước c = 4200 J/(kg.K).",
+      "options": [],
+      "correct_answer": "420"
+    }
+  ]
+}

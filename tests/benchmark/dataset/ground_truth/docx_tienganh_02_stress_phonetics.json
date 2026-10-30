@@ -1,0 +1,77 @@
+{
+  "file_id": "docx_tienganh_02_stress_phonetics",
+  "file_name": "tienganh_02_stress_phonetics.docx",
+  "format_type": "docx",
+  "subject": "Tiếng Anh",
+  "style": "red",
+  "style_description": "Tiếng Anh ngữ âm & trọng âm, đáp án tô màu ĐỎ (#FF0000)",
+  "tags": [
+    "tieng_anh",
+    "phonetics",
+    "stress",
+    "red_font"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation:",
+      "options": [
+        "A. played",
+        "B. stayed",
+        "C. wanted",
+        "D. loved"
+      ],
+      "correct_answer": "C. wanted"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word whose underlined part differs from the other three in pronunciation:",
+      "options": [
+        "A. cats",
+        "B. books",
+        "C. maps",
+        "D. dogs"
+      ],
+      "correct_answer": "D. dogs"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word that differs from the other three in the position of primary stress:",
+      "options": [
+        "A. teacher",
+        "B. student",
+        "C. hotel",
+        "D. doctor"
+      ],
+      "correct_answer": "C. hotel"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word that differs from the other three in the position of primary stress:",
+      "options": [
+        "A. important",
+        "B. beautiful",
+        "C. dangerous",
+        "D. popular"
+      ],
+      "correct_answer": "A. important"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Mark the letter A, B, C, or D to indicate the word that differs from the other three in the position of primary stress:",
+      "options": [
+        "A. biology",
+        "B. geography",
+        "C. economy",
+        "D. economics"
+      ],
+      "correct_answer": "D. economics"
+    }
+  ]
+}

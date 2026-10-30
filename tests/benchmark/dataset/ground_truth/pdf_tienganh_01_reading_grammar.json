@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_tienganh_01_reading_grammar",
+  "file_name": "tienganh_01_reading_grammar.pdf",
+  "format_type": "pdf",
+  "subject": "Tiếng Anh",
+  "style": "bottom_text",
+  "style_description": "PDF đề thi Tiếng Anh Ngữ pháp & Điền từ, bảng đáp án text cuối đề",
+  "tags": [
+    "tieng_anh",
+    "pdf",
+    "grammar"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "The boy ______ won the first prize in the national competition is my neighbor.",
+      "options": [
+        "A. which",
+        "B. who",
+        "C. whom",
+        "D. whose"
+      ],
+      "correct_answer": "B. who"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Although he was extremely tired, ______ to complete the marathon.",
+      "options": [
+        "A. he managed",
+        "B. but he managed",
+        "C. so he managed",
+        "D. yet he managed"
+      ],
+      "correct_answer": "A. he managed"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "She suggested ______ for a picnic in the countryside this weekend.",
+      "options": [
+        "A. to go",
+        "B. go",
+        "C. gone",
+        "D. going"
+      ],
+      "correct_answer": "D. going"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "The heavier the traffic is, ______ it takes to get to work.",
+      "options": [
+        "A. the longer time",
+        "B. longer",
+        "C. the longer",
+        "D. the longest"
+      ],
+      "correct_answer": "C. the longer"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Neither Peter nor his friends ______ present at the conference yesterday.",
+      "options": [
+        "A. were",
+        "B. was",
+        "C. are",
+        "D. is"
+      ],
+      "correct_answer": "A. were"
+    }
+  ]
+}

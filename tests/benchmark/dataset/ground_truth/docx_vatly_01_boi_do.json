@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_vatly_01_boi_do",
+  "file_name": "vatly_01_boi_do.docx",
+  "format_type": "docx",
+  "subject": "Vật lý",
+  "style": "red",
+  "style_description": "Vật lý dao động cơ, đáp án đúng tô chữ màu ĐỎ (#FF0000) trong file Word",
+  "tags": [
+    "vat_ly",
+    "red_font",
+    "dao_dong_co"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Một chất điểm dao động điều hòa theo phương trình x = A cos(omega * t + phi). Đại lượng omega được gọi là",
+      "options": [
+        "A. pha ban đầu.",
+        "B. tần số góc.",
+        "C. chu kì dao động.",
+        "D. biên độ dao động."
+      ],
+      "correct_answer": "B. tần số góc."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Một con lắc lò xo gồm vật nặng khối lượng m và lò xo độ cứng k. Chu kì dao động riêng của con lắc là",
+      "options": [
+        "A. T = 2π * sqrt(k/m)",
+        "B. T = 2π * sqrt(m/k)",
+        "C. T = 1/(2π) * sqrt(m/k)",
+        "D. T = sqrt(m/k)"
+      ],
+      "correct_answer": "B. T = 2π * sqrt(m/k)"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Gia tốc của một vật dao động điều hòa luôn",
+      "options": [
+        "A. cùng pha với li độ.",
+        "B. ngược pha với li độ.",
+        "C. sớm pha π/2 so với vận tốc.",
+        "D. trễ pha π/2 so với vận tốc."
+      ],
+      "correct_answer": "B. ngược pha với li độ."
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Vận tốc cực đại của vật dao động điều hòa với biên độ A và tần số góc omega là",
+      "options": [
+        "A. v_max = omega * A",
+        "B. v_max = omega^2 * A",
+        "C. v_max = omega * A^2",
+        "D. v_max = 2 * omega * A"
+      ],
+      "correct_answer": "A. v_max = omega * A"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Khi một vật dao động điều hòa chuyển động từ vị trí biên về vị trí cân bằng thì",
+      "options": [
+        "A. động năng giảm dần, thế năng tăng dần.",
+        "B. vận tốc có độ lớn giảm dần.",
+        "C. thế năng chuyển hóa thành động năng.",
+        "D. cơ năng giảm dần."
+      ],
+      "correct_answer": "C. thế năng chuyển hóa thành động năng."
+    }
+  ]
+}

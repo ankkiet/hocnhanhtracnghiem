@@ -49,6 +49,9 @@ def extract_questions_from_pdf_locally(pdf_path: str) -> List[Dict[str, Any]]:
         doc.close()
         
         merged_text = "\n".join(full_text_list)
+        # Chuẩn hóa khoảng trắng và dấu gạch nối đặc biệt từ PDF (NBSP, soft-hyphen, en-dash, em-dash)
+        merged_text = merged_text.replace('\xa0', ' ').replace('\u202f', ' ').replace('\ufeff', '')
+        merged_text = merged_text.replace('\xad', '-').replace('\u2013', '-').replace('\u2014', '-')
         return extract_questions_from_text_bulletproof(merged_text, image_mapping)
     except Exception as e:
         print(f"[CẢNH BÁO] Lỗi đọc PDF cục bộ: {e}")

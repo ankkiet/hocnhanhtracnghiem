@@ -41,6 +41,10 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     if not raw_text or not raw_text.strip():
         return []
 
+    # Chuẩn hóa khoảng trắng và ký tự đặc biệt (NBSP, BOM, soft-hyphen, en-dash, em-dash)
+    raw_text = raw_text.replace('\xa0', ' ').replace('\u202f', ' ').replace('\ufeff', '')
+    raw_text = raw_text.replace('\xad', '-').replace('\u2013', '-').replace('\u2014', '-')
+
     # 1. Tách Bảng đáp án ở cuối văn bản trước khi xử lý
     raw_text_questions, ak_raw, detected_ak = separate_answer_key_from_text(raw_text)
     raw_text = raw_text_questions
@@ -93,7 +97,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         })
 
     q_split_pattern = re.compile(
-        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)])(?:\s+|<[^>]+>|$)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)\/])(?:\s+|<[^>]+>|$)',
         re.IGNORECASE
     )
 
@@ -173,6 +177,10 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     opt_start = opt_m.start()
                     opt_end = sub_matches[j+1].start() if j+1 < len(sub_matches) else len(block)
                     opt_content_raw = block[opt_start:opt_end].strip()
+                    if j < len(sub_matches[:4]) - 1:
+                        last_nl = opt_content_raw.rfind('\n')
+                        if last_nl != -1:
+                            opt_content_raw = opt_content_raw[:last_nl].strip()
 
                     if j == len(sub_matches[:4]) - 1:
                         ans_m = re.search(r'(?:\n|\r)\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*(.*)$', opt_content_raw, re.IGNORECASE)
@@ -228,6 +236,10 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     opt_start = opt_m.end()
                     opt_end = mcq_matches[j+1].start() if j+1 < len(mcq_matches) else len(block)
                     opt_content_raw = block[opt_start:opt_end].strip()
+                    if j < len(mcq_matches[:4]) - 1:
+                        last_nl = opt_content_raw.rfind('\n')
+                        if last_nl != -1:
+                            opt_content_raw = opt_content_raw[:last_nl].strip()
 
                     prefix_raw = opt_m.group(1)
                     full_opt_text = prefix_raw + " " + opt_content_raw
@@ -247,6 +259,17 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         correct_ans = f"{char}. {clean_opt}"
 
                     options.append(f"{char}. {clean_opt}")
+
+                # Nếu chưa phát hiện đáp án qua gạch chân/tô đỏ/sao, kiểm tra phương án in đậm nội dung
+                if not correct_ans:
+                    bold_opts = []
+                    for k_idx, opt_str in enumerate(options):
+                        raw_k = block[mcq_matches[k_idx].start():(mcq_matches[k_idx+1].start() if k_idx+1 < len(mcq_matches) else len(block))]
+                        content_after_marker = re.sub(r'^\s*<b>\s*[A-F][\.\:\)]\s*</b>', '', raw_k.strip(), flags=re.IGNORECASE)
+                        if '<b>' in content_after_marker or '<B>' in content_after_marker:
+                            bold_opts.append(opt_str)
+                    if len(bold_opts) == 1:
+                        correct_ans = bold_opts[0]
 
                 results.append({
                     "question_number": raw_q_num,

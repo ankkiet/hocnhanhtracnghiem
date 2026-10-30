@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_lichsu_02_bang_dap_an_table",
+  "file_name": "lichsu_02_bang_dap_an_table.docx",
+  "format_type": "docx",
+  "subject": "Lịch sử",
+  "style": "bottom_table",
+  "style_description": "Lịch sử Kháng chiến chống Mỹ, không đánh dấu trong câu, Bảng đáp án Table cuối đề",
+  "tags": [
+    "lich_su",
+    "bottom_table",
+    "khang_chien_chong_my"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Chiến thắng nào của quân dân miền Nam đã mở ra phong trào 'Tìm Mỹ mà đánh, lùng ngụy mà diệt'?",
+      "options": [
+        "A. Chiến thắng Vạn Tường (1965)",
+        "B. Chiến thắng Ấp Bắc (1963)",
+        "C. Chiến thắng Bình Giã (1964)",
+        "D. Chiến thắng Ba Gia (1965)"
+      ],
+      "correct_answer": "A. Chiến thắng Vạn Tường (1965)"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Chiến dịch nào đã kết thúc thắng lợi cuộc kháng chiến chống Mỹ, cứu nước của nhân dân ta?",
+      "options": [
+        "A. Chiến dịch Tây Nguyên",
+        "B. Chiến dịch Huế - Đà Nẵng",
+        "C. Chiến dịch Hồ Chí Minh",
+        "D. Chiến dịch Đường 9 - Nam Lào"
+      ],
+      "correct_answer": "C. Chiến dịch Hồ Chí Minh"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Hiệp định Pari về chấm dứt chiến tranh, lập lại hòa bình ở Việt Nam được ký kết vào năm nào?",
+      "options": [
+        "A. 1972",
+        "B. 1973",
+        "C. 1974",
+        "D. 1975"
+      ],
+      "correct_answer": "B. 1973"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Trận 'Điện Biên Phủ trên không' diễn ra vào thời gian nào?",
+      "options": [
+        "A. Tháng 12/1972",
+        "B. Tháng 10/1972",
+        "C. Tháng 1/1973",
+        "D. Tháng 5/1972"
+      ],
+      "correct_answer": "A. Tháng 12/1972"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Chiến lược 'Chiến tranh đặc biệt' (1961 - 1965) của đế quốc Mỹ ở miền Nam Việt Nam có công thức cơ bản là",
+      "options": [
+        "A. quân đội Sài Gòn + cố vấn Mỹ + vũ khí Mỹ.",
+        "B. quân viễn chinh Mỹ + quân đội Sài Gòn.",
+        "C. quân viễn chinh Mỹ + quân đồng minh của Mỹ.",
+        "D. quân đội Sài Gòn + hỏa lực không quân Mỹ."
+      ],
+      "correct_answer": "A. quân đội Sài Gòn + cố vấn Mỹ + vũ khí Mỹ."
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "file_id": "docx_diali_02_loi_giai",
+  "file_name": "diali_02_loi_giai.docx",
+  "format_type": "docx",
+  "subject": "Địa lý",
+  "style": "underline",
+  "style_description": "Địa lý kinh tế các vùng, đáp án gạch chân kèm khối 'Lời giải chi tiết:'",
+  "tags": [
+    "dia_ly",
+    "underline",
+    "explain_block",
+    "kinh_te_vung"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Thế mạnh nổi bật nhất của vùng Tây Nguyên trong nông nghiệp là",
+      "options": [
+        "A. trồng cây lương thực lúa nước.",
+        "B. trồng cây công nghiệp lâu năm.",
+        "C. nuôi trồng thủy sản nước ngọt.",
+        "D. phát triển chăn nuôi lợn lấy thịt."
+      ],
+      "correct_answer": "B. trồng cây công nghiệp lâu năm.",
+      "explain": "Tây Nguyên có diện tích đất đỏ bazan rộng lớn, khí hậu cận xích đạo phân hóa mưa nắng thuận lợi cho cây công nghiệp lâu năm như cà phê, cao su, hồ tiêu."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Vùng Đồng bằng sông Cửu Long là vùng sản xuất lương thực lớn nhất nước ta nhờ có",
+      "options": [
+        "A. diện tích đất phù sa rộng lớn và nguồn nước dồi dào.",
+        "B. mật độ dân số thấp nhất cả nước.",
+        "C. khí hậu có mùa đông lạnh.",
+        "D. cơ giới hóa cao nhất thế giới."
+      ],
+      "correct_answer": "A. diện tích đất phù sa rộng lớn và nguồn nước dồi dào.",
+      "explain": "Đồng bằng sông Cửu Long có diện tích đất phù sa ngọt rộng lớn của sông Tiền và sông Hậu bồi đắp, khí hậu ấm áp quanh năm."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Vùng kinh tế dẫn đầu cả nước về quy mô GDP và giá trị sản xuất công nghiệp là",
+      "options": [
+        "A. Vùng Đông Nam Bộ",
+        "B. Vùng Trung du miền núi Bắc Bộ",
+        "C. Vùng Bắc Trung Bộ",
+        "D. Vùng Tây Nguyên"
+      ],
+      "correct_answer": "A. Vùng Đông Nam Bộ",
+      "explain": "Đông Nam Bộ chiếm tỷ trọng cao nhất về GDP công nghiệp, thu hút nhiều vốn đầu tư trực tiếp nước ngoài (FDI)."
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Than đá của nước ta tập trung trữ lượng lớn nhất tại tỉnh nào?",
+      "options": [
+        "A. Quảng Ninh",
+        "B. Thái Nguyên",
+        "C. Lạng Sơn",
+        "D. Cao Bằng"
+      ],
+      "correct_answer": "A. Quảng Ninh",
+      "explain": "Bể than Quảng Ninh là vùng mỏ than antraxit lớn nhất và chất lượng tốt nhất nước ta."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Khó khăn lớn nhất về mặt tự nhiên đối với sản xuất nông nghiệp ở vùng Duyên hải Nam Trung Bộ là",
+      "options": [
+        "A. hạn hán kéo dài và bão lũ thất thường.",
+        "B. sương muối và rét đậm kéo dài.",
+        "C. thiếu ánh sáng mặt trời quanh năm.",
+        "D. diện tích ngập mặn bao phủ toàn vùng."
+      ],
+      "correct_answer": "A. hạn hán kéo dài và bão lũ thất thường.",
+      "explain": "Duyên hải Nam Trung Bộ có mùa khô kéo dài, hiện tượng sa mạc hóa cục bộ và thường xuyên chịu ảnh hưởng của bão đổ bộ vào cuối năm."
+    }
+  ]
+}

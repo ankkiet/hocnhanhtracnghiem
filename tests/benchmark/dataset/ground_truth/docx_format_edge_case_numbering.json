@@ -1,0 +1,82 @@
+{
+  "file_id": "docx_format_edge_case_numbering",
+  "file_name": "format_edge_case_numbering.docx",
+  "format_type": "docx",
+  "subject": "Định dạng đặc biệt",
+  "style": "underline",
+  "style_description": "Tiền tố câu hỏi không chuẩn: '1.', '2/', 'Bài 3:', 'Question 4.', 'Q5:', đáp án gạch chân",
+  "tags": [
+    "edge_case",
+    "numbering",
+    "irregular_prefix",
+    "underline"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "prefix": "1. ",
+      "type": "mcq",
+      "question": "Số nguyên tố chẵn duy nhất trong tập hợp số nguyên tố là",
+      "options": [
+        "A. 0",
+        "B. 2",
+        "C. 4",
+        "D. 6"
+      ],
+      "correct_answer": "B. 2"
+    },
+    {
+      "question_number": 2,
+      "prefix": "2/ ",
+      "type": "mcq",
+      "question": "Thủ đô của nước Cộng hòa Xã hội Chủ nghĩa Việt Nam là thành phố nào?",
+      "options": [
+        "A. TP. Hồ Chí Minh",
+        "B. Đà Nẵng",
+        "C. Hà Nội",
+        "D. Hải Phòng"
+      ],
+      "correct_answer": "C. Hà Nội"
+    },
+    {
+      "question_number": 3,
+      "prefix": "Bài 3: ",
+      "type": "mcq",
+      "question": "Nguyên tố hóa học nào phổ biến nhất trong vỏ Trái Đất?",
+      "options": [
+        "A. Oxi (O)",
+        "B. Silic (Si)",
+        "C. Nhôm (Al)",
+        "D. Sắt (Fe)"
+      ],
+      "correct_answer": "A. Oxi (O)"
+    },
+    {
+      "question_number": 4,
+      "prefix": "Question 4. ",
+      "type": "mcq",
+      "question": "Which planet in our solar system is known as the Red Planet?",
+      "options": [
+        "A. Venus",
+        "B. Mars",
+        "C. Jupiter",
+        "D. Saturn"
+      ],
+      "correct_answer": "B. Mars"
+    },
+    {
+      "question_number": 5,
+      "prefix": "Q5: ",
+      "type": "mcq",
+      "question": "Đơn vị đo cường độ dòng điện trong hệ SI là gì?",
+      "options": [
+        "A. Vôn (V)",
+        "B. Ampe (A)",
+        "C. Ôm (Ω)",
+        "D. Oát (W)"
+      ],
+      "correct_answer": "B. Ampe (A)"
+    }
+  ]
+}

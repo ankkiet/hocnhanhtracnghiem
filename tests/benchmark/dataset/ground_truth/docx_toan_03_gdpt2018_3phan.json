@@ -1,0 +1,95 @@
+{
+  "file_id": "docx_toan_03_gdpt2018_3phan",
+  "file_name": "toan_03_gdpt2018_3phan.docx",
+  "format_type": "docx",
+  "subject": "Toán học",
+  "style": "gdpt_2018",
+  "style_description": "Đề Toán chuẩn GDPT 2018: Phần I MCQ 4 lựa chọn, Phần II Đúng/Sai 4 ý, Phần III Điền số trả lời ngắn",
+  "tags": [
+    "toan",
+    "gdpt_2018",
+    "true_false",
+    "short_answer"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Tập nghiệm của bất phương trình log_2(x - 1) < 3 là",
+      "options": [
+        "A. (1; 9)",
+        "B. (-∞; 9)",
+        "C. (1; 8)",
+        "D. (9; +∞)"
+      ],
+      "correct_answer": "A. (1; 9)"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Nghiệm của phương trình 3^(2x - 1) = 27 là",
+      "options": [
+        "A. x = 1",
+        "B. x = 2",
+        "C. x = 3",
+        "D. x = 4"
+      ],
+      "correct_answer": "B. x = 2"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Cho hàm số f(x) = x^3 - 3x + 2. Xét tính đúng sai của các khẳng định sau:",
+      "options": [
+        "a) Hàm số f(x) đồng biến trên khoảng (1; +∞)",
+        "b) Giá trị cực đại của hàm số bằng 4",
+        "c) Đồ thị hàm số đi qua điểm M(0; 2)",
+        "d) Phương trình f(x) = 0 có đúng 3 nghiệm phân biệt"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": true,
+        "d": false
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Trong không gian Oxyz, cho mặt phẳng (P): 2x - y + 2z - 6 = 0 và điểm A(1; 2; 3).",
+      "options": [
+        "a) Vectơ pháp tuyến của (P) là n = (2; -1; 2)",
+        "b) Điểm A thuộc mặt phẳng (P)",
+        "c) Khoảng cách từ điểm O(0; 0; 0) đến mặt phẳng (P) bằng 2",
+        "d) Mặt phẳng (Q) song song với (P) có phương trình 2x - y + 2z + 1 = 0"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Tìm giá trị lớn nhất của hàm số y = -x^2 + 4x + 5 trên đoạn [0; 3].",
+      "options": [],
+      "correct_answer": "9"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Một người gửi tiết kiệm 100 triệu đồng với lãi suất 6%/năm. Hỏi sau 2 năm số tiền lãi người đó nhận được là bao nhiêu triệu đồng? (Làm tròn đến 2 chữ số thập phân)",
+      "options": [],
+      "correct_answer": "12.36"
+    }
+  ]
+}

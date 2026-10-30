@@ -1,0 +1,94 @@
+{
+  "file_id": "docx_diali_03_gdpt2018",
+  "file_name": "diali_03_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Địa lý",
+  "style": "gdpt_2018",
+  "style_description": "Địa lý chuẩn GDPT 2018: Phần I MCQ, Phần II Đúng/Sai, Phần III Trả lời ngắn số liệu",
+  "tags": [
+    "dia_ly",
+    "gdpt_2018",
+    "dan_cu_do_thi"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Quá trình đô thị hóa ở nước ta hiện nay đang có chuyển biến tích cực thể hiện ở",
+      "options": [
+        "A. tỉ lệ dân thành thị ngày càng tăng.",
+        "B. đô thị hóa diễn ra hoàn toàn tự phát.",
+        "C. không có sự phân hóa giữa các vùng.",
+        "D. giảm mạnh số lượng các đô thị."
+      ],
+      "correct_answer": "A. tỉ lệ dân thành thị ngày càng tăng."
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Ngành du lịch biển nước ta phát triển nhanh chóng nhờ vào lợi thế nào?",
+      "options": [
+        "A. Nhiều bãi biển đẹp, khí hậu nắng ấm và nhiều đảo ven bờ",
+        "B. Không có bão lũ thiên tai",
+        "C. Mức sống dân cư cao nhất thế giới",
+        "D. Rừng rậm rạp bao bọc ven biển"
+      ],
+      "correct_answer": "A. Nhiều bãi biển đẹp, khí hậu nắng ấm và nhiều đảo ven bờ"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Cho bảng số liệu về dân số và diện tích của nước ta qua các năm. Xét các nhận định:",
+      "options": [
+        "a) Mật độ dân số trung bình của nước ta thuộc nhóm cao trên thế giới",
+        "b) Dân cư nước ta phân bố đồng đều giữa đồng bằng và miền núi",
+        "c) Đồng bằng sông Hồng có mật độ dân số cao nhất cả nước",
+        "d) Chuyển dịch cơ cấu lao động theo ngành đang diễn ra theo hướng giảm tỷ trọng nông - lâm - thủy sản"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về vấn đề khai thác thế mạnh kinh tế biển ở nước ta:",
+      "options": [
+        "a) Nước ta có vùng biển rộng lớn với diện tích khoảng 1 triệu km2 trên Biển Đông",
+        "b) Ngành khai thác dầu khí tập trung chủ yếu ở thềm lục địa phía Bắc",
+        "c) Việc xây dựng các cảng biển nước sâu gắn liền với các khu kinh tế ven biển",
+        "d) Khai thác hải sản xa bờ giúp vừa nâng cao hiệu quả kinh tế vừa bảo vệ chủ quyền biển đảo"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Năm 2023, dân số nước ta đạt 100,3 triệu người, diện tích tự nhiên là 331.212 km2. Tính mật độ dân số nước ta năm 2023 (người/km2, làm tròn số nguyên).",
+      "options": [],
+      "correct_answer": "303"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Một tỉnh có diện tích 5000 km2, sản lượng lúa đạt 2,5 triệu tấn. Năng suất lúa trung bình trên 1 ha gieo trồng (biết diện tích gieo trồng lúa là 400.000 ha) là bao nhiêu tạ/ha? (1 tấn = 10 tạ).",
+      "options": [],
+      "correct_answer": "62.5"
+    }
+  ]
+}

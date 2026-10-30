@@ -1,43 +1,88 @@
-# Database
+# ==============================================================================
+# HOCNHANHTN - GITIGNORE CONFIGURATION
+# ==============================================================================
+
+# --- Database & Storage ---
 quizzes.db
 *.db
 *.sqlite3
 
-# Archives and build artifacts
+# --- Archives & Build Artifacts ---
 *.zip
 *.tar.gz
 *.rar
+*.7z
+build/
+dist/
+*.egg-info/
+*.egg
+*.manifest
+*.spec
 
-# Environments
+# --- Environments & Secrets ---
 .env
+.env.*
+*.env
+!.env.example
 .venv*
 env/
 venv/
+ENV/
 
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# IDEs / OS files
-.vscode/
-.idea/
-.DS_Store
-
-# Browser testing profiles
-.edge*
-
-# Temporary scratch & backup folders
-scratch/
-backup_bgd_feature/
-
-# Firebase configs
+# --- Firebase Service Account Keys ---
 *firebase-adminsdk*.json
 *serviceAccountKey*.json
 firebase-adminsdk.json
 
-# Uploads
+# --- Python Bytecode & Runtime Caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+nosetests.xml
+coverage.xml
+
+# --- IDEs, Tooling & OS Metadata ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# --- MCP, Agentic & UI Design Tool Artifacts ---
+.codegraph/*
+!.codegraph/.gitignore
+.taste-skill/
+
+# --- Browser Automation & Test Profiles ---
+.edge*
+.chrome*
+test-results/
+playwright-report/
+blob-report/
+
+# --- Logs & Runtime Output ---
+*.log
+logs/
+
+# --- Temporary Scratch & Backup Folders ---
+scratch/
+backup_bgd_feature/
+backup_perf/
+backup_*/
+
+# --- User Uploads (Keep directory structure via .gitkeep) ---
 uploads/*
 !uploads/.gitkeep
-!uploads/images/.gitkeep
-backup_perf/
+!uploads/**/.gitkeep

@@ -1,0 +1,69 @@
+{
+  "file_id": "docx_nguvan_01_doc_hieu",
+  "file_name": "nguvan_01_doc_hieu.docx",
+  "format_type": "docx",
+  "subject": "Ngữ văn",
+  "style": "underline",
+  "style_description": "Ngữ văn Đọc hiểu ngữ liệu trích dẫn thơ/văn xuôi (group_title chung), 4 câu hỏi trắc nghiệm dưới bài, đáp án gạch chân",
+  "tags": [
+    "ngu_van",
+    "doc_hieu",
+    "group_title",
+    "underline"
+  ],
+  "total_questions": 4,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "group_title": "Đọc đoạn trích sau và trả lời các câu hỏi:\n\n'Sống trong đời sống cần có một tấm lòng\nĐể làm gì em biết không?\nĐể gió cuốn đi, để gió cuốn đi...'\n(Trích 'Để gió cuốn đi' - Trịnh Công Sơn)",
+      "question": "Phương thức biểu đạt chính được sử dụng trong đoạn trích trên là gì?",
+      "options": [
+        "A. Tự sự",
+        "B. Biểu cảm",
+        "C. Thuyết minh",
+        "D. Nghị luận"
+      ],
+      "correct_answer": "B. Biểu cảm"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "group_title": "Đọc đoạn trích sau và trả lời các câu hỏi:\n\n'Sống trong đời sống cần có một tấm lòng\nĐể làm gì em biết không?\nĐể gió cuốn đi, để gió cuốn đi...'\n(Trích 'Để gió cuốn đi' - Trịnh Công Sơn)",
+      "question": "Biện pháp tu từ cú pháp nổi bật trong câu 'Để gió cuốn đi, để gió cuốn đi...' là",
+      "options": [
+        "A. Điệp ngữ",
+        "B. Nhân hóa",
+        "C. Hoán dụ",
+        "D. So sánh"
+      ],
+      "correct_answer": "A. Điệp ngữ"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "group_title": "Đọc đoạn trích sau và trả lời các câu hỏi:\n\n'Sống trong đời sống cần có một tấm lòng\nĐể làm gì em biết không?\nĐể gió cuốn đi, để gió cuốn đi...'\n(Trích 'Để gió cuốn đi' - Trịnh Công Sơn)",
+      "question": "Hình ảnh 'tấm lòng' trong đoạn trích mang ý nghĩa biểu tượng cho điều gì?",
+      "options": [
+        "A. Lòng nhân ái, sự bao dung và tình yêu thương con người",
+        "B. Sự toan tính vụ lợi cá nhân",
+        "C. Nỗi buồn bi quan tuyệt vọng",
+        "D. Sức mạnh thể chất"
+      ],
+      "correct_answer": "A. Lòng nhân ái, sự bao dung và tình yêu thương con người"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "group_title": "Đọc đoạn trích sau và trả lời các câu hỏi:\n\n'Sống trong đời sống cần có một tấm lòng\nĐể làm gì em biết không?\nĐể gió cuốn đi, để gió cuốn đi...'\n(Trích 'Để gió cuốn đi' - Trịnh Công Sơn)",
+      "question": "Thông điệp ý nghĩa sâu sắc nhất mà tác giả muốn gửi gắm qua lời ca là gì?",
+      "options": [
+        "A. Hãy sống cống hiến yêu thương mà không đòi hỏi đền đáp",
+        "B. Cuộc đời là vô nghĩa như gió cuốn",
+        "C. Nên giữ kín tình cảm của mình",
+        "D. Hãy tìm nơi thanh thản tránh xa xã hội"
+      ],
+      "correct_answer": "A. Hãy sống cống hiến yêu thương mà không đòi hỏi đền đáp"
+    }
+  ]
+}

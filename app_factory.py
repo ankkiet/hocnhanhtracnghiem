@@ -1,8 +1,8 @@
 """
 App Factory module for HocNhanhTN.
-Cung cấp hàm create_app() để khởi tạo ứng dụng FastAPI theo mô hình kiến trúc chuẩn.
+Forwards to app.core.app_factory for backward compatibility.
 """
 
-from core.app_factory import create_app
+from app.core.app_factory import create_app
 
 __all__ = ["create_app"]

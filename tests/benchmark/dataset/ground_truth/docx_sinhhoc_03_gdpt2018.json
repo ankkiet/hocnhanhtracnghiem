@@ -1,0 +1,94 @@
+{
+  "file_id": "docx_sinhhoc_03_gdpt2018",
+  "file_name": "sinhhoc_03_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Sinh học",
+  "style": "gdpt_2018",
+  "style_description": "Sinh học GDPT 2018 Di truyền phân tử & Quần thể: 3 phần MCQ, Đúng/Sai, Trả lời ngắn",
+  "tags": [
+    "sinh_hoc",
+    "gdpt_2018",
+    "di_truyen_hoc"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Enzim nào sau đây đóng vai trò tháo xoắn phân tử ADN trong quá trình nhân đôi?",
+      "options": [
+        "A. ADN polimeraza",
+        "B. Enzim tháo xoắn (Helicaza)",
+        "C. Ligaza",
+        "D. ARN polimeraza"
+      ],
+      "correct_answer": "B. Enzim tháo xoắn (Helicaza)"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Dạng đột biến cấu trúc NST nào sau đây làm tăng cường độ biểu hiện của một tính trạng?",
+      "options": [
+        "A. Mất đoạn",
+        "B. Lặp đoạn",
+        "C. Đảo đoạn",
+        "D. Chuyển đoạn tương hỗ"
+      ],
+      "correct_answer": "B. Lặp đoạn"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Xét một gen ở sinh vật nhân sơ có chiều dài 4080 Å, có số nucleotit loại A chiếm 20% tổng số nucleotit. Nhận định:",
+      "options": [
+        "a) Tổng số nucleotit của gen bằng 2400",
+        "b) Số nucleotit loại Adenin (A) của gen là 480",
+        "c) Số nucleotit loại Guanin (G) của gen là 720",
+        "d) Tổng số liên kết hiđro của gen là 3120"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về cấu trúc và chức năng của các loại ARN trong tế bào:",
+      "options": [
+        "a) mARN có chức năng truyền đạt thông tin di truyền từ nhân ra tế bào chất",
+        "b) tARN có bộ ba đối mã (anticodon) khớp bổ sung với codon trên mARN",
+        "c) rARN là thành phần cấu tạo nên riboxom",
+        "d) Cả ba loại ARN đều có cấu trúc mạch kép dạng xoắn đều đặn như ADN"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": true,
+        "d": false
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Một quần thể thực vật tự thụ phấn có thành phần kiểu gen ở thế hệ P là: 0,2 AA : 0,8 Aa. Tính tỉ lệ kiểu gen dị hợp Aa ở thế hệ F1.",
+      "options": [],
+      "correct_answer": "0.4"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Cơ thể có kiểu gen AaBbCcDd tự thụ phấn có thể tạo ra tối đa bao nhiêu loại kiểu gen khác nhau ở đời con?",
+      "options": [],
+      "correct_answer": "81"
+    }
+  ]
+}

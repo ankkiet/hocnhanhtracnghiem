@@ -1,10 +1,13 @@
 import asyncio
 import json
+import logging
 import re
+import time
 from typing import Any, Dict, List, Optional
 
-from google import genai
-from google.genai import types
+from services.gemini_tracker_service import gemini_tracker
+
+logger = logging.getLogger(__name__)
 
 try:
 
@@ -33,19 +36,14 @@ except ImportError:
 
 
 # Bộ nhớ đệm Client để tái sử dụng kết nối (Connection Pooling), tránh TLS handshake lặp lại
+_client_pool: Dict[str, Any] = {}
 
-_client_pool: Dict[str, genai.Client] = {}
-
-
-
-def get_gemini_client(api_key: str) -> genai.Client:
+def get_gemini_client(api_key: str):
     """Lấy client từ pool hoặc tạo mới nếu chưa tồn tại."""
     key_clean = api_key.strip()
-
     if key_clean not in _client_pool:
-
+        from google import genai
         _client_pool[key_clean] = genai.Client(api_key=key_clean)
-
     return _client_pool[key_clean]
 
 
@@ -710,6 +708,16 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
         else:
             tf_dict = parse_tf_answer(raw_ca)
 
+        # Đánh dấu gợi ý AI nếu không có đáp án đánh dấu sẵn từ giáo viên
+        if item.get("is_ai_suggested") is True or item.get("ai_suggested") is True:
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif not opt_tf_marks and not has_explicit_raw_ca and not item.get("from_answer_key"):
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif "is_ai_suggested" not in item:
+            item["is_ai_suggested"] = False
+
         item["correct_answer"] = tf_dict
 
         return item
@@ -731,6 +739,16 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
         if re.match(r'^-?\d+,\d+$', raw_ca):
 
             raw_ca = raw_ca.replace(',', '.')
+
+        # Đánh dấu gợi ý AI nếu không có đáp án sẵn
+        if item.get("is_ai_suggested") is True or item.get("ai_suggested") is True:
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif not raw_ca and not item.get("from_answer_key"):
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif "is_ai_suggested" not in item:
+            item["is_ai_suggested"] = False
 
         item["correct_answer"] = clean_subscripts_and_formulas(raw_ca)
 
@@ -821,11 +839,26 @@ def normalize_question_data(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 
+        is_ai_defaulted = False
         if not final_ca:
+            if option_detected_correct:
+                final_ca = option_detected_correct
+            else:
+                is_ai_defaulted = True
+                final_ca = normalized_options[0] if normalized_options else raw_ca
 
-            final_ca = option_detected_correct or (normalized_options[0] if normalized_options else raw_ca)
-
-
+        # Đánh dấu gợi ý AI nếu không có dấu hiệu đáp án của giáo viên
+        if item.get("is_ai_suggested") is True or item.get("ai_suggested") is True:
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif option_detected_correct:
+            item["is_ai_suggested"] = False
+            item["ai_suggestion_note"] = ""
+        elif (is_ai_defaulted or not option_detected_correct) and not raw_ca_obj and not item.get("from_answer_key"):
+            item["is_ai_suggested"] = True
+            item["ai_suggestion_note"] = "AI đề xuất, cần giáo viên xác nhận"
+        elif "is_ai_suggested" not in item:
+            item["is_ai_suggested"] = False
 
         item["correct_answer"] = final_ca
         return item
@@ -886,39 +919,38 @@ def chunk_marked_text(marked_text: str, questions_per_chunk: int = 15) -> List[s
 
 
 async def call_gemini_with_fallback(
-
-    prompt: str,
-
+    prompt: Any,
     api_keys: List[str],
-
     system_instruction: Optional[str] = None,
-
     thinking_budget: Optional[int] = 0
-
 ):
-
     """
-
-    Gọi Gemini AI với cơ chế tối ưu hiệu năng:
-
+    Gọi Gemini AI với cơ chế tối ưu hiệu năng và giám sát Quota:
     - Sử dụng Client Pool tái sử dụng kết nối
-
-    - Tối ưu hóa chuỗi model: gemini-2.5-flash (siêu tốc ~1.4s) -> gemini-flash-latest -> gemini-3.5-flash
-
-    - Tắt thinking_budget để loại bỏ độ trễ suy nghĩ nội bộ cho tác vụ trích xuất JSON
-
+    - Tối ưu hóa chuỗi model: gemini-2.5-flash (siêu tốc ~1.4s) -> gemini-3.8-flash -> gemini-2.5-flash-lite -> gemini-flash-latest
+    - Hỗ trợ đa phương thức Multimodal (chữ + hình ảnh/PDF scan)
+    - Tự động ghi nhận số lượt gọi, lỗi 429 quota, tính chi phí qua gemini_tracker
     - Tự động luân chuyển Key khi gặp 429 Quota Exceeded
-
     """
-
     if not api_keys:
-
         raise Exception("Hệ thống chưa được cấu hình API Key.")
 
-        
+    # Đo độ dài prompt để ước tính token
+    prompt_chars = 0
+    if isinstance(prompt, str):
+        prompt_chars = len(prompt)
+    elif isinstance(prompt, list):
+        for part in prompt:
+            if isinstance(part, str):
+                prompt_chars += len(part)
+            else:
+                prompt_chars += 1200 # Ước lượng ~300 tokens cho 1 ảnh
+    else:
+        prompt_chars = 1000
+
+    t_start = time.time()
 
     # Danh sách model tối ưu cho thế hệ mới nhất
-
     models_to_try = [
         'gemini-2.5-flash',
         'gemini-3.8-flash',
@@ -928,127 +960,108 @@ async def call_gemini_with_fallback(
 
     last_error = None
 
-    
-
     for key in api_keys:
-
         key = key.strip()
-
         if not key:
-
             continue
-
-            
 
         try:
-
             client = get_gemini_client(key)
-
         except Exception as e:
-
             last_error = e
-
+            gemini_tracker.record_call(
+                api_key=key,
+                model="unknown",
+                success=False,
+                error_message=f"Client pool error: {str(e)}",
+                prompt_chars=prompt_chars,
+                duration_ms=(time.time() - t_start) * 1000
+            )
             continue
 
-            
+        from google.genai import types
 
         for model_name in models_to_try:
-
             # Cấu hình tối ưu tốc độ
-
             config_params = {
-
                 "temperature": 0.1,
-
                 "response_mime_type": "application/json"
-
             }
 
             if system_instruction:
-
                 config_params["system_instruction"] = system_instruction
 
             if thinking_budget is not None and hasattr(types, "ThinkingConfig"):
-
                 config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
 
-                
-
             try:
-
                 response = await client.aio.models.generate_content(
-
                     model=model_name,
-
                     contents=prompt,
-
                     config=types.GenerateContentConfig(**config_params)
-
                 )
 
+                resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
+                gemini_tracker.record_call(
+                    api_key=key,
+                    model=model_name,
+                    success=True,
+                    prompt_chars=prompt_chars,
+                    response_chars=resp_len,
+                    duration_ms=(time.time() - t_start) * 1000
+                )
                 return response
 
             except Exception as e:
-
                 error_str = str(e).lower()
 
-                
-
                 # Nếu model không hỗ trợ thinking_budget, thử lại ngay không kèm thinking_config
-
                 if "thinking" in error_str or "invalid argument" in error_str:
-
                     try:
-
                         fallback_params = {k: v for k, v in config_params.items() if k != "thinking_config"}
-
                         response = await client.aio.models.generate_content(
-
                             model=model_name,
-
                             contents=prompt,
-
                             config=types.GenerateContentConfig(**fallback_params)
-
                         )
 
+                        resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
+                        gemini_tracker.record_call(
+                            api_key=key,
+                            model=model_name,
+                            success=True,
+                            prompt_chars=prompt_chars,
+                            response_chars=resp_len,
+                            duration_ms=(time.time() - t_start) * 1000
+                        )
                         return response
 
                     except Exception as inner_e:
-
                         error_str = str(inner_e).lower()
-
                         last_error = inner_e
-
                 else:
-
                     last_error = e
 
-
+                gemini_tracker.record_call(
+                    api_key=key,
+                    model=model_name,
+                    success=False,
+                    error_message=str(last_error),
+                    prompt_chars=prompt_chars,
+                    duration_ms=(time.time() - t_start) * 1000
+                )
 
                 if "api key not valid" in error_str or "invalid api key" in error_str:
-
                     break  # Key lỗi, chuyển key kế tiếp
-
                 elif "404" in error_str or "not found" in error_str or "unsupported" in error_str:
-
                     continue  # Model không tồn tại, thử model tiếp theo
-
                 elif "429" in error_str or "quota" in error_str or "503" in error_str or "overloaded" in error_str:
-
                     await asyncio.sleep(0.5)
-
                     break  # Chạm giới hạn lượt gọi, chuyển sang API Key tiếp theo
-
                 elif "deadline" in error_str or "timeout" in error_str:
-
                     continue
-
                 else:
-
                     continue
-
-                    
 
     raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
 
@@ -1203,6 +1216,17 @@ async def generate_mcq_with_gemini(
             5. TUYỆT ĐỐI KHÔNG TẠO CÂU HỎI MỚI ngoài các câu có trong văn bản đề thi.
 
             """
+
+    if not ak_prompt_section:
+        ak_prompt_section = """
+            ========================================================================
+            TÀI LIỆU KHÔNG CÓ BẢNG ĐÁP ÁN TỔNG HỢP:
+            1. AI HÃY TỰ GIẢI ĐỀ ĐỘC LẬP ĐỂ GỢI Ý ĐÁP ÁN ĐÚNG CHUẨN XÁC NHẤT KÈM LỜI GIẢI CHI TIẾT ('explain').
+            2. VỚI MỖI CÂU HỎI MÀ BẠN TỰ GIẢI ĐỀ XUẤT ĐÁP ÁN (khi không có dấu hiệu đánh dấu của giáo viên), BẮT BUỘC GÁN:
+               "is_ai_suggested": true,
+               "ai_suggestion_note": "AI đề xuất, cần giáo viên xác nhận"
+            ========================================================================
+        """
 
 
 
@@ -1699,6 +1723,427 @@ async def generate_mcq_from_pdf(
 
 
 
+async def process_pdf_with_ocr(
+    pdf_path: str,
+    api_keys: List[str],
+    task_id: Optional[str] = None,
+    active_tasks: Optional[dict] = None
+) -> List[Dict[str, Any]]:
+    """
+    OCR chuyên sâu cho PDF scan / tài liệu chụp ảnh.
+    Chuyển đổi từng trang thành ảnh chất lượng cao và dùng Gemini Multimodal để bóc tách câu hỏi,
+    công thức LaTeX và hình vẽ.
+    """
+    if not api_keys:
+        raise Exception("Hệ thống chưa được cấu hình API Key.")
+
+    if fitz is None:
+        raise Exception("Thư viện PyMuPDF chưa được cài đặt để đọc PDF.")
+
+    if active_tasks is None:
+        try:
+            from core.state import active_tasks as global_active_tasks
+            active_tasks = global_active_tasks
+        except ImportError:
+            pass
+
+    doc = fitz.open(pdf_path)
+    total_pages = len(doc)
+    all_extracted_questions = []
+
+    for page_idx in range(total_pages):
+        page_num = page_idx + 1
+        if active_tasks and task_id and task_id in active_tasks:
+            active_tasks[task_id]["message"] = f"AI đang OCR trang scan {page_num}/{total_pages}..."
+
+        page = doc[page_idx]
+        pix = page.get_pixmap(dpi=180)
+        img_bytes = pix.tobytes("jpeg")
+
+        system_instruction = (
+            "Bạn là chuyên gia OCR tài liệu đề thi trắc nghiệm Việt Nam chuẩn xác nhất.\n"
+            "Nhiệm vụ: Đọc ảnh trang đề thi chụp/scan và bóc tách CHÍNH XÁC toàn bộ câu hỏi theo chuẩn GDPT 2018 (mcq, true_false, short_answer).\n"
+            "Quy tắc sống còn:\n"
+            "1. Nhận diện trung thực mọi chữ, số, công thức toán/hóa học, bảng biểu từ ảnh.\n"
+            "2. Biểu thức toán BẮT BUỘC đặt trong \\( và \\). Công thức hóa học / chỉ số dưới dùng thẻ HTML <sub> và <sup> (vd: H<sub>2</sub>SO<sub>4</sub>, Fe<sup>3+</sup>).\n"
+            "3. ĐÁP ÁN: Nếu đề có dấu hiệu đáp án của giáo viên (khoanh tròn, gạch chân, dấu tick, dấu *, hoặc bảng đáp án): "
+            "hãy gán đúng đáp án đó và đặt is_ai_suggested: false.\n"
+            "Nếu KHÔNG có bất kỳ dấu hiệu đáp án nào: HÃY TỰ GIẢI ĐỂ GỢI Ý ĐÁP ÁN ĐÚNG KÈM LỜI GIẢI ('explain'), "
+            "và BẮT BUỘC đặt is_ai_suggested: true, ai_suggestion_note: 'AI đề xuất, cần giáo viên xác nhận'.\n"
+            "4. Định dạng trả về: DUY NHẤT một JSON array [...] gồm các câu hỏi của trang này."
+        )
+
+        prompt_text = f"""
+        Trang đề thi số {page_num}/{total_pages}. Hãy nhận diện toàn bộ câu hỏi và trích xuất thành mảng JSON:
+        [
+          {{
+            "question_number": {page_num},
+            "type": "mcq",
+            "group_title": "",
+            "question": "Nội dung câu hỏi...",
+            "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+            "correct_answer": "A. ...",
+            "explain": "Lời giải chi tiết...",
+            "is_ai_suggested": true,
+            "ai_suggestion_note": "AI đề xuất, cần giáo viên xác nhận"
+          }}
+        ]
+        """
+
+        from google.genai import types
+        image_part = types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
+        multimodal_contents = [image_part, prompt_text]
+
+        try:
+            response = await call_gemini_with_fallback(
+                prompt=multimodal_contents,
+                api_keys=api_keys,
+                system_instruction=system_instruction,
+                thinking_budget=0
+            )
+
+            raw_text = response.text
+            fixed_raw = fix_json_latex_escapes(raw_text)
+            parsed_page = None
+
+            if json_repair is not None:
+                try:
+                    parsed_page = json_repair.loads(fixed_raw)
+                except Exception:
+                    try:
+                        parsed_page = json_repair.loads(raw_text)
+                    except Exception:
+                        pass
+
+            if parsed_page is None:
+                match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
+                json_text = match.group(0) if match else fixed_raw
+                try:
+                    parsed_page = json.loads(json_text, strict=False)
+                except Exception:
+                    pass
+
+            if isinstance(parsed_page, dict):
+                for k in ["questions", "data", "quiz", "result", "items", "cau_hoi", "list"]:
+                    if isinstance(parsed_page.get(k), list):
+                        parsed_page = parsed_page[k]
+                        break
+                else:
+                    if "question" in parsed_page:
+                        parsed_page = [parsed_page]
+                    else:
+                        parsed_page = []
+
+            if isinstance(parsed_page, list):
+                for q in parsed_page:
+                    if isinstance(q, dict):
+                        norm_q = normalize_question_data(q)
+                        all_extracted_questions.append(norm_q)
+        except Exception as page_err:
+            logger.warning(f"[CẢNH BÁO] OCR trang {page_num} gặp lỗi: {page_err}")
+
+    doc.close()
+
+    if not all_extracted_questions:
+        raise Exception("Không thể nhận diện câu hỏi từ tài liệu PDF scan / ảnh.")
+
+    return all_extracted_questions
+
+
+async def process_image_with_ocr(
+    image_bytes: bytes,
+    api_keys: List[str],
+    mime_type: str = "image/jpeg",
+    task_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """OCR xử lý trực tiếp 1 ảnh chụp đề thi (.png, .jpg, .webp)."""
+    from google.genai import types
+    image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+    prompt_text = """
+    Hãy đọc kỹ ảnh chụp đề thi này và bóc tách toàn bộ câu hỏi trắc nghiệm thành danh sách JSON chuẩn.
+    Nếu đề không có đáp án đánh dấu sẵn, hãy tự giải và gán is_ai_suggested: true, ai_suggestion_note: 'AI đề xuất, cần giáo viên xác nhận'.
+    Trả về DUY NHẤT một mảng JSON các câu hỏi.
+    """
+    system_instruction = (
+        "Bạn là chuyên gia OCR tài liệu sư phạm đề thi trắc nghiệm Việt Nam. "
+        "Nhận diện chính xác chữ, ký hiệu, công thức LaTeX \\( ... \\), chỉ số dưới HTML <sub>, <sup>. "
+        "Chuẩn hóa 3 dạng câu hỏi GDPT 2018 (mcq, true_false, short_answer). "
+        "Gợi ý đáp án kèm lời giải nếu đề chưa có đáp án và đánh dấu is_ai_suggested: true."
+    )
+    response = await call_gemini_with_fallback(
+        prompt=[image_part, prompt_text],
+        api_keys=api_keys,
+        system_instruction=system_instruction,
+        thinking_budget=0
+    )
+    raw_text = response.text
+    fixed_raw = fix_json_latex_escapes(raw_text)
+    parsed = None
+    if json_repair is not None:
+        try:
+            parsed = json_repair.loads(fixed_raw)
+        except Exception:
+            pass
+    if parsed is None:
+        match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
+        json_text = match.group(0) if match else fixed_raw
+        try:
+            parsed = json.loads(json_text, strict=False)
+        except Exception:
+            pass
+    if isinstance(parsed, dict):
+        for k in ["questions", "data", "quiz", "result", "items"]:
+            if isinstance(parsed.get(k), list):
+                parsed = parsed[k]
+                break
+        else:
+            parsed = [parsed] if "question" in parsed else []
+    if isinstance(parsed, list):
+        return [normalize_question_data(q) for q in parsed if isinstance(q, dict)]
+    return []
+
+
+async def cross_check_answers(
+    quiz_data: List[Dict[str, Any]],
+    api_keys: List[str]
+) -> Dict[str, Any]:
+    """
+    Kiểm tra chéo đáp án độc lập:
+    AI tự giải lại từng câu hỏi mà KHÔNG nhìn vào đáp án của giáo viên,
+    sau đó so sánh và phát hiện những câu có đáp án lệch nhau để cảnh báo giáo viên rà soát.
+    """
+    if not quiz_data:
+        return {"status": "success", "total_checked": 0, "mismatch_count": 0, "mismatches": [], "data": quiz_data}
+
+    # Chuẩn bị dữ liệu chỉ chứa câu hỏi và phương án (loại bỏ correct_answer để AI không bị thiên vị)
+    blind_questions = []
+    for idx, q in enumerate(quiz_data):
+        blind_questions.append({
+            "index": idx,
+            "type": q.get("type", "mcq"),
+            "question": q.get("question", ""),
+            "options": q.get("options", [])
+        })
+
+    system_instruction = (
+        "Bạn là Giám khảo Khảo thí Độc lập và Chuyên gia Giải đề cấp cao. "
+        "Nhiệm vụ của bạn là GIẢI ĐỘC LẬP VÀ TUYỆT ĐỐI CHÍNH XÁC từng câu hỏi được giao. "
+        "Hãy tính toán, suy luận logic, sư phạm để đưa ra đáp án chuẩn nhất. "
+        "Đối với câu mcq: chọn đúng chữ cái A, B, C, D (ví dụ 'A. ...'). "
+        "Đối với câu true_false: xác định đúng/sai cho từng ý a, b, c, d: {'a': bool, 'b': bool, 'c': bool, 'd': bool}. "
+        "Đối với câu short_answer: điền đáp số ngắn. "
+        "Trả về DUY NHẤT một mảng JSON các kết quả giải: "
+        "[{\"index\": 0, \"ai_solved_answer\": \"...\", \"explain\": \"...\"}]"
+    )
+
+    prompt = f"""
+    Hãy giải độc lập danh sách {len(blind_questions)} câu hỏi sau và cung cấp đáp án đúng cùng lời giải:
+    {json.dumps(blind_questions, ensure_ascii=False)}
+    """
+
+    response = await call_gemini_with_fallback(
+        prompt=prompt,
+        api_keys=api_keys,
+        system_instruction=system_instruction,
+        thinking_budget=0
+    )
+
+    fixed_raw = fix_json_latex_escapes(response.text)
+    solved_list = None
+    if json_repair is not None:
+        try:
+            solved_list = json_repair.loads(fixed_raw)
+        except Exception:
+            pass
+    if solved_list is None:
+        m = re.search(r'\[.*\]', fixed_raw, re.DOTALL)
+        if m:
+            try:
+                solved_list = json.loads(m.group(0), strict=False)
+            except Exception:
+                pass
+
+    if isinstance(solved_list, dict):
+        for k in ["results", "data", "solutions", "answers"]:
+            if isinstance(solved_list.get(k), list):
+                solved_list = solved_list[k]
+                break
+
+    if not isinstance(solved_list, list):
+        solved_list = []
+
+    solved_map = {item["index"]: item for item in solved_list if isinstance(item, dict) and "index" in item}
+
+    mismatches = []
+    updated_quiz_data = []
+
+    for idx, orig_q in enumerate(quiz_data):
+        q_copy = dict(orig_q)
+        teacher_ca = q_copy.get("correct_answer")
+        q_type = q_copy.get("type", "mcq")
+
+        if idx in solved_map:
+            ai_item = solved_map[idx]
+            ai_ans = ai_item.get("ai_solved_answer")
+            ai_explain = ai_item.get("explain", "")
+
+            # So sánh đáp án
+            is_different = False
+            if q_type == "mcq":
+                t_char_m = re.search(r'^[A-F]', str(teacher_ca).strip(), re.IGNORECASE)
+                a_char_m = re.search(r'^[A-F]', str(ai_ans).strip(), re.IGNORECASE)
+                t_char = t_char_m.group(0).upper() if t_char_m else ""
+                a_char = a_char_m.group(0).upper() if a_char_m else ""
+                if t_char and a_char and t_char != a_char:
+                    is_different = True
+                elif not t_char and str(teacher_ca).strip().lower() != str(ai_ans).strip().lower():
+                    is_different = True
+            elif q_type == "true_false":
+                if isinstance(teacher_ca, dict) and isinstance(ai_ans, dict):
+                    for sub_k in ["a", "b", "c", "d"]:
+                        if sub_k in teacher_ca and sub_k in ai_ans:
+                            if bool(teacher_ca[sub_k]) != bool(ai_ans[sub_k]):
+                                is_different = True
+                                break
+            else: # short_answer
+                t_clean = re.sub(r'[\s\.\,]', '', str(teacher_ca).lower())
+                a_clean = re.sub(r'[\s\.\,]', '', str(ai_ans).lower())
+                if t_clean != a_clean:
+                    is_different = True
+
+            if is_different:
+                mismatch_record = {
+                    "question_index": idx,
+                    "teacher_answer": teacher_ca,
+                    "ai_answer": ai_ans,
+                    "ai_explain": ai_explain,
+                    "reason": f"AI giải ra kết quả khác: {ai_ans}",
+                    "warning_message": f"Cảnh báo lệch đáp án: Giáo viên chọn [{teacher_ca}], AI giải ra [{ai_ans}]. Cần rà soát lại."
+                }
+                mismatches.append(mismatch_record)
+                q_copy["has_cross_check_warning"] = True
+                q_copy["cross_check_info"] = mismatch_record
+            else:
+                q_copy["has_cross_check_warning"] = False
+                q_copy["cross_check_info"] = None
+        else:
+            q_copy["has_cross_check_warning"] = False
+            q_copy["cross_check_info"] = None
+
+        updated_quiz_data.append(q_copy)
+
+    return {
+        "status": "success",
+        "total_checked": len(quiz_data),
+        "mismatch_count": len(mismatches),
+        "mismatches": mismatches,
+        "data": updated_quiz_data
+    }
+
+
+async def generate_similar_questions(
+    base_question: Dict[str, Any],
+    count: int = 1,
+    mode: str = "change_numbers",
+    difficulty: str = "keep",
+    api_keys: List[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Sinh các câu hỏi tương tự từ một câu hỏi có sẵn:
+    - mode="change_numbers": Thay đổi số liệu, tính toán lại chính xác đáp án và lời giải.
+    - mode="change_context": Thay đổi tình huống đời sống / ngữ cảnh thực tế nhưng giữ nguyên dạng toán.
+    - mode="both": Thay đổi toàn diện cả số liệu và ngữ cảnh.
+    """
+    if not api_keys:
+        raise Exception("Chưa cấu hình API Key.")
+
+    q_type = base_question.get("type", "mcq")
+    mode_instructions = {
+        "change_numbers": (
+            "THAY ĐỔI SỐ LIỆU: Giữ nguyên hoàn toàn dạng bài, công thức và cấu trúc câu hỏi. "
+            "Thay đổi các số liệu tham số đầu vào bằng các con số hợp lý, tính toán lại 100% ĐÁP ÁN ĐÚNG "
+            "và tạo các phương án nhiễu logic. BẮT BUỘC cập nhật lời giải 'explain' từng bước theo số liệu mới."
+        ),
+        "change_context": (
+            "THAY ĐỔI NGỮ CẢNH: Giữ nguyên dạng toán, mức độ tư duy và cốt lõi lý thuyết. "
+            "Đổi tình huống thực tế, tên nhân vật, vật thể hoặc bối cảnh ứng dụng đời sống "
+            "để học sinh tiếp cận dưới góc nhìn mới phong phú."
+        ),
+        "both": (
+            "KẾT HỢP CẢ HAI: Thay đổi cả số liệu tính toán và đổi mới toàn diện tình huống đời sống / ngữ cảnh thực tế. "
+            "Tính toán lại đáp án chuẩn xác 100% kèm lời giải chi tiết."
+        )
+    }.get(mode, "THAY ĐỔI SỐ LIỆU VÀ NGỮ CẢNH")
+
+    system_instruction = (
+        f"Bạn là Chuyên gia Khảo thí và Biên soạn Ngân hàng Đề thi chuẩn GDPT 2018. "
+        f"Nhiệm vụ của bạn là sinh ra {count} câu hỏi tương tự từ câu hỏi gốc được cung cấp.\n"
+        f"Yêu cầu nghiệp vụ:\n"
+        f"1. {mode_instructions}\n"
+        f"2. Đảm bảo câu hỏi mới có cùng kiểu loại (type: '{q_type}') và mức độ tư duy tương đương.\n"
+        f"3. Công thức toán học bọc trong \\( và \\), chỉ số dưới hóa học dùng <sub> / <sup>.\n"
+        f"4. Trả về DUY NHẤT một JSON array [...] gồm đúng {count} câu hỏi mới."
+    )
+
+    prompt = f"""
+    Câu hỏi gốc:
+    {json.dumps(base_question, ensure_ascii=False)}
+
+    Hãy sinh ra đúng {count} câu hỏi tương tự theo chế độ '{mode}' (độ khó: '{difficulty}').
+    Trả về định dạng JSON array:
+    [
+      {{
+        "type": "{q_type}",
+        "group_title": "",
+        "question": "Nội dung câu hỏi mới...",
+        "options": [...],
+        "correct_answer": ...,
+        "explain": "Lời giải chi tiết từng bước..."
+      }}
+    ]
+    """
+
+    response = await call_gemini_with_fallback(
+        prompt=prompt,
+        api_keys=api_keys,
+        system_instruction=system_instruction,
+        thinking_budget=0
+    )
+
+    fixed_raw = fix_json_latex_escapes(response.text)
+    new_questions = None
+    if json_repair is not None:
+        try:
+            new_questions = json_repair.loads(fixed_raw)
+        except Exception:
+            pass
+    if new_questions is None:
+        m = re.search(r'\[.*\]', fixed_raw, re.DOTALL)
+        if m:
+            try:
+                new_questions = json.loads(m.group(0), strict=False)
+            except Exception:
+                pass
+
+    if isinstance(new_questions, dict):
+        for k in ["questions", "data", "items", "list"]:
+            if isinstance(new_questions.get(k), list):
+                new_questions = new_questions[k]
+                break
+
+    if not isinstance(new_questions, list):
+        new_questions = []
+
+    normalized_results = []
+    for q in new_questions[:count]:
+        if isinstance(q, dict):
+            q["is_ai_generated_variant"] = True
+            norm_q = normalize_question_data(q)
+            normalized_results.append(norm_q)
+
+    return normalized_results
+
+
 class AIService:
     """
     Dịch vụ AI thông minh (AI Service) tương tác với Google Gemini.
@@ -1734,6 +2179,35 @@ class AIService:
     ) -> Optional[str]:
         """Gọi mô hình Gemini an toàn với cơ chế tự động luân phiên khóa API và sửa lỗi."""
         return await call_gemini_with_fallback(prompt, api_keys, json_mode=json_mode)
+
+    async def process_pdf_ocr(
+        self,
+        pdf_path: str,
+        api_keys: List[str],
+        task_id: Optional[str] = None,
+        active_tasks: Optional[dict] = None
+    ) -> List[dict]:
+        """OCR bóc tách đề thi từ PDF scan / tài liệu chụp ảnh."""
+        return await process_pdf_with_ocr(pdf_path, api_keys, task_id, active_tasks)
+
+    async def cross_check_quiz(
+        self,
+        quiz_data: List[dict],
+        api_keys: List[str]
+    ) -> Dict[str, Any]:
+        """Kiểm tra chéo đáp án độc lập và cảnh báo câu lệch đáp án."""
+        return await cross_check_answers(quiz_data, api_keys)
+
+    async def generate_variants(
+        self,
+        base_question: dict,
+        count: int = 1,
+        mode: str = "change_numbers",
+        difficulty: str = "keep",
+        api_keys: List[str] = None
+    ) -> List[dict]:
+        """Sinh câu hỏi tương tự từ câu hỏi gốc."""
+        return await generate_similar_questions(base_question, count, mode, difficulty, api_keys)
 
 
 # Thực thể singleton dùng chung

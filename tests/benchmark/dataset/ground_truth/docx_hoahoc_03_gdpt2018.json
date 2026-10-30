@@ -1,0 +1,94 @@
+{
+  "file_id": "docx_hoahoc_03_gdpt2018",
+  "file_name": "hoahoc_03_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Hóa học",
+  "style": "gdpt_2018",
+  "style_description": "Hóa học GDPT 2018 Cân bằng hóa học & Nhiệt hóa học: 3 phần MCQ, Đúng/Sai, Trả lời ngắn",
+  "tags": [
+    "hoa_hoc",
+    "gdpt_2018",
+    "can_bang_hoa_hoc"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Biểu thức hằng số cân bằng Kc của phản ứng N2(k) + 3H2(k) <=> 2NH3(k) là",
+      "options": [
+        "A. Kc = [NH3]^2 / ([N2] * [H2]^3)",
+        "B. Kc = ([N2] * [H2]^3) / [NH3]^2",
+        "C. Kc = [NH3] / ([N2] * [H2])",
+        "D. Kc = [NH3]^2 / ([N2] + [H2]^3)"
+      ],
+      "correct_answer": "A. Kc = [NH3]^2 / ([N2] * [H2]^3)"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Theo thuyết Bronsted - Lowry, axit là chất có khả năng",
+      "options": [
+        "A. cho proton (H+)",
+        "B. nhận proton (H+)",
+        "C. cho electron",
+        "D. nhận electron"
+      ],
+      "correct_answer": "A. cho proton (H+)"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Cho phản ứng tổng hợp amoniac: N2(k) + 3H2(k) <=> 2NH3(k); Delta_r H_298 = -92 kJ. Xét các nhận định:",
+      "options": [
+        "a) Phản ứng thuận là phản ứng tỏa nhiệt",
+        "b) Khi tăng nhiệt độ, cân bằng chuyển dịch theo chiều thuận",
+        "c) Khi tăng áp suất của hệ, cân bằng chuyển dịch sang chiều thuận làm tăng hiệu suất tạo NH3",
+        "d) Chất xúc tác bột sắt giúp làm tăng tốc độ đạt trạng thái cân bằng nhưng không làm chuyển dịch cân bằng"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về dung dịch nước và thang đo pH:",
+      "options": [
+        "a) Ở 25 °C, tích số ion của nước Kw = [H+] * [OH-] = 1,0 * 10^-14",
+        "b) Dung dịch có pH = 3 có môi trường bazơ",
+        "c) Khi pha loãng dung dịch HCl bằng nước cất thì độ pH của dung dịch tăng dần",
+        "d) Dung dịch muối NaCl trong nước có pH xấp xỉ bằng 7"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": false,
+        "c": true,
+        "d": true
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Tính nồng độ pH của dung dịch HCl 0,001 M ở 25 °C.",
+      "options": [],
+      "correct_answer": "3"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Hòa tan hoàn toàn 2,4 gam Mg vào dung dịch HCl dư. Thể tích khí H2 thu được ở điều kiện chuẩn (đkc, 1 mol = 24,79 lít) là bao nhiêu lít? (Làm tròn đến 2 chữ số thập phân)",
+      "options": [],
+      "correct_answer": "2.48"
+    }
+  ]
+}

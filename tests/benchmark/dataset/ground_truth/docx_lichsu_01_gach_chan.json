@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_lichsu_01_gach_chan",
+  "file_name": "lichsu_01_gach_chan.docx",
+  "format_type": "docx",
+  "subject": "Lịch sử",
+  "style": "underline",
+  "style_description": "Lịch sử Việt Nam 1930 - 1945, đáp án đúng gạch chân trong câu",
+  "tags": [
+    "lich_su",
+    "underline",
+    "cach_mang_thang_tam"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Đảng Cộng sản Việt Nam ra đời vào đầu năm 1930 là kết quả của sự kết hợp giữa",
+      "options": [
+        "A. chủ nghĩa Mác - Lênin với phong trào công nhân và phong trào yêu nước.",
+        "B. chủ nghĩa Mác - Lênin với phong trào nông dân.",
+        "C. phong trào công nhân với phong trào dân chủ tư sản.",
+        "D. phong trào yêu nước với tư tưởng Tam dân của Tôn Trung Sơn."
+      ],
+      "correct_answer": "A. chủ nghĩa Mác - Lênin với phong trào công nhân và phong trào yêu nước."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Hội nghị thành lập Đảng Cộng sản Việt Nam (đầu năm 1930) do ai chủ trì?",
+      "options": [
+        "A. Trần Phú",
+        "B. Nguyễn Ái Quốc",
+        "C. Lê Hồng Phong",
+        "D. Hà Huy Tập"
+      ],
+      "correct_answer": "B. Nguyễn Ái Quốc"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Mặt trận Việt Minh được thành lập vào thời gian nào?",
+      "options": [
+        "A. Tháng 5 năm 1941",
+        "B. Tháng 11 năm 1939",
+        "C. Tháng 1 năm 1941",
+        "D. Tháng 8 năm 1945"
+      ],
+      "correct_answer": "A. Tháng 5 năm 1941"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Bản Tuyên ngôn Độc lập do Chủ tịch Hồ Chí Minh đọc tại Quảng trường Ba Đình vào ngày",
+      "options": [
+        "A. 19/8/1945",
+        "B. 2/9/1945",
+        "C. 23/8/1945",
+        "D. 30/8/1945"
+      ],
+      "correct_answer": "B. 2/9/1945"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Cách mạng tháng Tám năm 1945 ở Việt Nam đã lật đổ ách thống trị của",
+      "options": [
+        "A. phát xít Nhật và thực dân Pháp.",
+        "B. đế quốc Mỹ và chính quyền tay sai.",
+        "C. thực dân Anh và quân Trung Hoa Dân quốc.",
+        "D. thực dân Bồ Đào Nha."
+      ],
+      "correct_answer": "A. phát xít Nhật và thực dân Pháp."
+    }
+  ]
+}

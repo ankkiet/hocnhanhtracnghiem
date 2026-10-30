@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_vatly_01_de_thi_hoc_ky",
+  "file_name": "vatly_01_de_thi_hoc_ky.pdf",
+  "format_type": "pdf",
+  "subject": "Vật lý",
+  "style": "bottom_text",
+  "style_description": "PDF đề kiểm tra học kỳ Vật lý Dòng điện xoay chiều, có bảng đáp án text cuối đề",
+  "tags": [
+    "vat_ly",
+    "pdf",
+    "dong_dien_xoay_chieu"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Điện áp hiệu dụng của mạng điện xoay chiều u = 220sqrt(2)cos(100πt) V có giá trị là",
+      "options": [
+        "A. 110 V",
+        "B. 220sqrt(2) V",
+        "C. 220 V",
+        "D. 100 V"
+      ],
+      "correct_answer": "C. 220 V"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Dòng điện xoay chiều i = I_0 cos(omega * t) chạy qua cuộn cảm thuần có độ tự cảm L. Cảm kháng của cuộn cảm là",
+      "options": [
+        "A. Z_L = omega * L",
+        "B. Z_L = 1 / (omega * L)",
+        "C. Z_L = omega / L",
+        "D. Z_L = L / omega"
+      ],
+      "correct_answer": "A. Z_L = omega * L"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Hiện tượng cộng hưởng điện xảy ra trong đoạn mạch RLC nối tiếp khi thỏa mãn điều kiện nào?",
+      "options": [
+        "A. omega * L = R",
+        "B. omega * C = R",
+        "C. omega^2 * L * C = 2",
+        "D. omega^2 * L * C = 1"
+      ],
+      "correct_answer": "D. omega^2 * L * C = 1"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Hệ số công suất cos(phi) của đoạn mạch xoay chiều RLC nối tiếp được tính bằng",
+      "options": [
+        "A. Z / R",
+        "B. R / Z",
+        "C. R / Z_L",
+        "D. Z_C / R"
+      ],
+      "correct_answer": "B. R / Z"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Máy biến áp là thiết bị có chức năng",
+      "options": [
+        "A. biến đổi tần số dòng điện xoay chiều.",
+        "B. biến đổi dòng điện xoay chiều thành một chiều.",
+        "C. biến đổi điện áp dòng điện xoay chiều.",
+        "D. làm tăng công suất dòng điện."
+      ],
+      "correct_answer": "C. biến đổi điện áp dòng điện xoay chiều."
+    }
+  ]
+}

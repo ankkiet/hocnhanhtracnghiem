@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_lichsu_01_on_tap",
+  "file_name": "lichsu_01_on_tap.pdf",
+  "format_type": "pdf",
+  "subject": "Lịch sử",
+  "style": "bottom_text",
+  "style_description": "PDF đề ôn tập Lịch sử thế giới hiện đại có bảng đáp án text cuối đề",
+  "tags": [
+    "lich_su",
+    "pdf",
+    "the_gioi_hien_dai"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Hội nghị Ianta (tháng 2/1945) có sự tham gia của nguyên thủ ba cường quốc nào?",
+      "options": [
+        "A. Liên Xô, Mỹ, Pháp",
+        "B. Mỹ, Anh, Pháp",
+        "C. Liên Xô, Mỹ, Anh",
+        "D. Mỹ, Anh, Trung Quốc"
+      ],
+      "correct_answer": "C. Liên Xô, Mỹ, Anh"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Mục đích tối cao của tổ chức Liên hợp quốc khi thành lập là",
+      "options": [
+        "A. duy trì hòa bình và an ninh thế giới.",
+        "B. thúc đẩy phát triển kinh tế toàn cầu.",
+        "C. ngăn chặn sự phát triển của chủ nghĩa xã hội.",
+        "D. hỗ trợ tài chính cho các nước nghèo."
+      ],
+      "correct_answer": "A. duy trì hòa bình và an ninh thế giới."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Chiến tranh lạnh chính thức kết thúc vào thời điểm nào?",
+      "options": [
+        "A. Năm 1975",
+        "B. Năm 1985",
+        "C. Năm 1989",
+        "D. Năm 1991"
+      ],
+      "correct_answer": "D. Năm 1991"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Năm 1960 được lịch sử ghi nhận là 'Năm châu Phi' vì có bao nhiêu quốc gia giành được độc lập?",
+      "options": [
+        "A. 15 quốc gia",
+        "B. 17 quốc gia",
+        "C. 20 quốc gia",
+        "D. 25 quốc gia"
+      ],
+      "correct_answer": "B. 17 quốc gia"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Xu thế phát triển chung của thế giới sau khi Chiến tranh lạnh chấm dứt là",
+      "options": [
+        "A. hòa bình, ổn định và hợp tác phát triển kinh tế.",
+        "B. chạy đua vũ trang và căng thẳng quân sự.",
+        "C. đối đầu gay gắt giữa hai khối tư bản và xã hội chủ nghĩa.",
+        "D. chia rẽ sâu sắc về địa chính trị."
+      ],
+      "correct_answer": "A. hòa bình, ổn định và hợp tác phát triển kinh tế."
+    }
+  ]
+}

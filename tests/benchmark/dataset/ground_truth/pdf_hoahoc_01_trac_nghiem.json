@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_hoahoc_01_trac_nghiem",
+  "file_name": "hoahoc_01_trac_nghiem.pdf",
+  "format_type": "pdf",
+  "subject": "Hóa học",
+  "style": "bottom_text",
+  "style_description": "PDF trắc nghiệm Hóa học vô cơ tổng hợp có bảng đáp án text cuối đề",
+  "tags": [
+    "hoa_hoc",
+    "pdf",
+    "vo_co"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Chất khí nào sau đây gây ra hiệu ứng nhà kính mạnh nhất trong khí quyển?",
+      "options": [
+        "A. O2",
+        "B. CO2",
+        "C. N2",
+        "D. H2"
+      ],
+      "correct_answer": "B. CO2"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Kim loại nào sau đây phản ứng mãnh liệt với nước ở nhiệt độ thường?",
+      "options": [
+        "A. Fe",
+        "B. Cu",
+        "C. Na",
+        "D. Ag"
+      ],
+      "correct_answer": "C. Na"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Quặng bauxit là nguyên liệu chính để sản xuất kim loại nào sau đây?",
+      "options": [
+        "A. Nhôm (Al)",
+        "B. Sắt (Fe)",
+        "C. Đồng (Cu)",
+        "D. Kẽm (Zn)"
+      ],
+      "correct_answer": "A. Nhôm (Al)"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Số oxi hóa của nguyên tố lưu huỳnh (S) trong hợp chất H2SO4 là",
+      "options": [
+        "A. -2",
+        "B. 0",
+        "C. +4",
+        "D. +6"
+      ],
+      "correct_answer": "D. +6"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Để khử chua cho đất trồng bị nhiễm phèn, người nông dân thường bón vào đất chất nào?",
+      "options": [
+        "A. Muối ăn (NaCl)",
+        "B. Vôi sống (CaO)",
+        "C. Phân đạm ure",
+        "D. Thạch cao"
+      ],
+      "correct_answer": "B. Vôi sống (CaO)"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_tienganh_04_soan_bang_2cot",
+  "file_name": "tienganh_04_soan_bang_2cot.docx",
+  "format_type": "docx",
+  "subject": "Tiếng Anh",
+  "style": "asterisk",
+  "style_description": "Tiếng Anh Giao tiếp hội thoại, đáp án có dấu hoa thị * trước ký tự",
+  "tags": [
+    "tieng_anh",
+    "conversation",
+    "asterisk"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "David: 'Would you like some coffee?' - Sarah: '______'",
+      "options": [
+        "A. Yes, I'd love to.",
+        "B. No, thanks. I'm full.",
+        "C. It's too late.",
+        "D. Never mind."
+      ],
+      "correct_answer": "A. Yes, I'd love to."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Tom: 'Thank you very much for your great assistance.' - Mary: '______'",
+      "options": [
+        "A. You're welcome.",
+        "B. No problem at all.",
+        "C. Don't mention it.",
+        "D. All of the above."
+      ],
+      "correct_answer": "D. All of the above."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Peter: 'I have passed the university entrance examination!' - Lisa: '______'",
+      "options": [
+        "A. Good luck!",
+        "B. Congratulations!",
+        "C. What a pity!",
+        "D. That's a bad idea."
+      ],
+      "correct_answer": "B. Congratulations!"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Customer: 'Could I try this jacket on?' - Shop assistant: '______'",
+      "options": [
+        "A. Yes, of course. The fitting room is over there.",
+        "B. No, you can't buy it.",
+        "C. It is too expensive.",
+        "D. I don't know."
+      ],
+      "correct_answer": "A. Yes, of course. The fitting room is over there."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Jack: 'What a lovely garden you have!' - Emily: '______'",
+      "options": [
+        "A. It's very kind of you to say so.",
+        "B. No, it isn't nice.",
+        "C. You are right.",
+        "D. I like it too."
+      ],
+      "correct_answer": "A. It's very kind of you to say so."
+    }
+  ]
+}

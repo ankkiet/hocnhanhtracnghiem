@@ -1,0 +1,94 @@
+{
+  "file_id": "docx_tinhoc_02_gdpt2018",
+  "file_name": "tinhoc_02_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Tin học",
+  "style": "gdpt_2018",
+  "style_description": "Tin học chuẩn GDPT 2018: Hệ CSDL, Mạng máy tính, Phần III tính giá trị thuật toán",
+  "tags": [
+    "tin_hoc",
+    "gdpt_2018",
+    "csdl_sql"
+  ],
+  "total_questions": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Khóa chính (Primary Key) trong một bảng cơ sở dữ liệu quan hệ có đặc điểm quan trọng nhất là",
+      "options": [
+        "A. giá trị không được trùng lặp và không được rỗng (NULL).",
+        "B. bắt buộc phải là kiểu dữ liệu số nguyên.",
+        "C. có thể chứa nhiều giá trị giống nhau.",
+        "D. chỉ được đặt tên là ID."
+      ],
+      "correct_answer": "A. giá trị không được trùng lặp và không được rỗng (NULL)."
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Giao thức truyền tải siêu văn bản an toàn được sử dụng trên các trang web có mã hóa SSL/TLS là",
+      "options": [
+        "A. HTTP",
+        "B. FTP",
+        "C. HTTPS",
+        "D. SMTP"
+      ],
+      "correct_answer": "C. HTTPS"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về an toàn thông tin và bảo mật trên không gian mạng:",
+      "options": [
+        "a) Mật khẩu mạnh nên bao gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt",
+        "b) Xác thực 2 yếu tố (2FA) giúp tăng cường bảo mật cho tài khoản cá nhân",
+        "c) Nhấp vào các liên kết lạ trong email không rõ nguồn gốc là hoàn toàn an toàn",
+        "d) Phần mềm diệt virus có thể giúp ngăn ngừa mã độc hại xâm nhập vào máy tính"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": false,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về ngôn ngữ truy vấn cơ sở dữ liệu SQL:",
+      "options": [
+        "a) Câu lệnh SELECT dùng để truy vấn và trích xuất dữ liệu từ các bảng",
+        "b) Mệnh đề WHERE được dùng để lọc các bản ghi thỏa mãn điều kiện nhất định",
+        "c) Câu lệnh DELETE dùng để tạo mới một bảng cơ sở dữ liệu",
+        "d) Mệnh đề ORDER BY dùng để sắp xếp kết quả trả về theo thứ tự tăng hoặc giảm dần"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": false,
+        "d": true
+      }
+    },
+    {
+      "question_number": 1,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Cho thuật toán tính tổng: S = 0; for i in range(1, 6): S += i. Giá trị cuối cùng của biến S là bao nhiêu?",
+      "options": [],
+      "correct_answer": "15"
+    },
+    {
+      "question_number": 2,
+      "part": 3,
+      "type": "short_answer",
+      "question": "Một tệp hình ảnh có kích thước 2 MB. Đổi dung lượng tệp đó ra đơn vị Kilobyte (KB). (Quy ước: 1 MB = 1024 KB).",
+      "options": [],
+      "correct_answer": "2048"
+    }
+  ]
+}

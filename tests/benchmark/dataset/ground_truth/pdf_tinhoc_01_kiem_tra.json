@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_tinhoc_01_kiem_tra",
+  "file_name": "tinhoc_01_kiem_tra.pdf",
+  "format_type": "pdf",
+  "subject": "Tin học",
+  "style": "bottom_text",
+  "style_description": "PDF kiểm tra Tin học Cấu trúc dữ liệu & Thuật toán, có bảng đáp án text cuối đề",
+  "tags": [
+    "tin_hoc",
+    "pdf",
+    "thuat_toan"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Thuật toán tìm kiếm nhị phân (Binary Search) chỉ áp dụng được trên danh sách nào?",
+      "options": [
+        "A. Danh sách bất kì chưa được sắp xếp",
+        "B. Danh sách có số phần tử là số chẵn",
+        "C. Danh sách đã được sắp xếp theo thứ tự",
+        "D. Danh sách chứa toàn số nguyên dương"
+      ],
+      "correct_answer": "C. Danh sách đã được sắp xếp theo thứ tự"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Độ phức tạp thời gian trung bình của thuật toán sắp xếp nhanh (Quick Sort) là",
+      "options": [
+        "A. O(n)",
+        "B. O(n log n)",
+        "C. O(n^2)",
+        "D. O(log n)"
+      ],
+      "correct_answer": "B. O(n log n)"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Cấu trúc dữ liệu hàng đợi (Queue) hoạt động theo nguyên tắc nào sau đây?",
+      "options": [
+        "A. FIFO (Vào trước ra trước)",
+        "B. LIFO (Vào sau ra trước)",
+        "C. Ngẫu nhiên",
+        "D. Ưu tiên số lớn hơn"
+      ],
+      "correct_answer": "A. FIFO (Vào trước ra trước)"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Trong hệ nhị phân, số thập phân 13 được biểu diễn tương ứng là",
+      "options": [
+        "A. 1010",
+        "B. 1100",
+        "C. 1110",
+        "D. 1101"
+      ],
+      "correct_answer": "D. 1101"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Một byte trong kiến trúc máy tính bao gồm bao nhiêu bit?",
+      "options": [
+        "A. 4 bit",
+        "B. 8 bit",
+        "C. 16 bit",
+        "D. 32 bit"
+      ],
+      "correct_answer": "B. 8 bit"
+    }
+  ]
+}

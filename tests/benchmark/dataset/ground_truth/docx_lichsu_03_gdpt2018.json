@@ -1,0 +1,91 @@
+{
+  "file_id": "docx_lichsu_03_gdpt2018",
+  "file_name": "lichsu_03_gdpt2018.docx",
+  "format_type": "docx",
+  "subject": "Lịch sử",
+  "style": "gdpt_2018",
+  "style_description": "Lịch sử chuẩn GDPT 2018: Phần I MCQ 3 câu, Phần II Đúng/Sai 2 câu phân tích đoạn tư liệu lịch sử",
+  "tags": [
+    "lich_su",
+    "gdpt_2018",
+    "tu_lieu_lich_su"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Tổ chức Hiệp hội các quốc gia Đông Nam Á (ASEAN) được thành lập tại Bangkok (Thái Lan) vào năm nào?",
+      "options": [
+        "A. 1967",
+        "B. 1975",
+        "C. 1995",
+        "D. 1999"
+      ],
+      "correct_answer": "A. 1967"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Việt Nam chính thức trở thành thành viên thứ 7 của ASEAN vào năm nào?",
+      "options": [
+        "A. 1992",
+        "B. 1995",
+        "C. 1997",
+        "D. 1998"
+      ],
+      "correct_answer": "B. 1995"
+    },
+    {
+      "question_number": 3,
+      "part": 1,
+      "type": "mcq",
+      "question": "Nguyên tắc cơ bản nào sau đây được ghi nhận trong Hiến chương ASEAN?",
+      "options": [
+        "A. Không can thiệp vào công việc nội bộ của nhau",
+        "B. Xây dựng liên minh quân sự chung",
+        "C. Sử dụng đồng tiền chung",
+        "D. Bãi bỏ hoàn toàn biên giới quốc gia"
+      ],
+      "correct_answer": "A. Không can thiệp vào công việc nội bộ của nhau"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Đọc đoạn tư liệu sau đây: 'Toàn thể dân tộc Việt Nam quyết đem tất cả tinh thần và lực lượng, tính mạng và của cải để giữ vững quyền tự do, độc lập ấy.' (Tuyên ngôn Độc lập, 1945). Xét các mệnh đề:",
+      "options": [
+        "a) Đoạn trích khẳng định ý chí sắt đá của nhân dân Việt Nam trong việc bảo vệ nền độc lập dân tộc",
+        "b) Văn bản này được đọc tại thủ đô Hà Nội sau khi Cách mạng tháng Tám thành công trọn vẹn",
+        "c) Tuyên ngôn Độc lập năm 1945 tuyên bố xóa bỏ hoàn toàn chế độ phong kiến tồn tại hàng nghìn năm ở Việt Nam",
+        "d) Bản Tuyên ngôn Độc lập chỉ có ý nghĩa đối với nội bộ nước Việt Nam, không có giá trị quốc tế"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": true,
+        "d": false
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về quá trình mở rộng và phát triển của ASEAN từ 5 nước sáng lập thành 10 nước thành viên:",
+      "options": [
+        "a) Sự gia nhập của Việt Nam năm 1995 đã mở đầu cho việc kết nạp các nước còn lại trên bán đảo Đông Dương",
+        "b) ASEAN đã thành lập Cộng đồng ASEAN với 3 trụ cột vững chắc vào cuối năm 2015",
+        "c) Mọi quyết định của ASEAN đều phải đạt được sự đồng thuận tuyệt đối của tất cả các quốc gia thành viên",
+        "d) ASEAN là một tổ chức liên minh phòng thủ quân sự tương tự như NATO ở châu Âu"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": true,
+        "d": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_hoahoc_02_bang_dap_an_text",
+  "file_name": "hoahoc_02_bang_dap_an_text.docx",
+  "format_type": "docx",
+  "subject": "Hóa học",
+  "style": "bottom_text",
+  "style_description": "Hóa học vô cơ Kim loại, không đánh dấu trong câu, có dòng text BẢNG ĐÁP ÁN: 1.A 2.D 3.B 4.C 5.A",
+  "tags": [
+    "hoa_hoc",
+    "bottom_text",
+    "kim_loai"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Kim loại nào sau đây có tính dẫn điện tốt nhất?",
+      "options": [
+        "A. Bạc (Ag)",
+        "B. Đồng (Cu)",
+        "C. Vàng (Au)",
+        "D. Nhôm (Al)"
+      ],
+      "correct_answer": "A. Bạc (Ag)"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Kim loại nào sau đây là kim loại kiềm thổ?",
+      "options": [
+        "A. Natri (Na)",
+        "B. Kali (K)",
+        "C. Nhôm (Al)",
+        "D. Canxi (Ca)"
+      ],
+      "correct_answer": "D. Canxi (Ca)"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Để bảo vệ vỏ tàu biển bằng thép người ta thường gắn vào vỏ tàu các tấm kim loại nào?",
+      "options": [
+        "A. Đồng (Cu)",
+        "B. Kẽm (Zn)",
+        "C. Chì (Pb)",
+        "D. Bạc (Ag)"
+      ],
+      "correct_answer": "B. Kẽm (Zn)"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Dung dịch chất nào sau đây làm quỳ tím chuyển sang màu đỏ?",
+      "options": [
+        "A. NaOH",
+        "B. NaCl",
+        "C. HCl",
+        "D. Ba(OH)2"
+      ],
+      "correct_answer": "C. HCl"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Khí nào sau đây thoát ra khi cho Fe tác dụng với dung dịch H2SO4 loãng?",
+      "options": [
+        "A. H2",
+        "B. SO2",
+        "C. H2S",
+        "D. O2"
+      ],
+      "correct_answer": "A. H2"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_diali_01_kiem_tra",
+  "file_name": "diali_01_kiem_tra.pdf",
+  "format_type": "pdf",
+  "subject": "Địa lý",
+  "style": "bottom_text",
+  "style_description": "PDF kiểm tra Địa lý Khí hậu & Sông ngòi có bảng đáp án text cuối đề",
+  "tags": [
+    "dia_ly",
+    "pdf",
+    "khi_hau"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Tính chất nhiệt đới ẩm gió mùa của khí hậu nước ta được quy định bởi",
+      "options": [
+        "A. địa hình đồi núi chiếm ưu thế.",
+        "B. vị trí địa lý trong vùng nội chí tuyến và tác động của các khối khí gió mùa.",
+        "C. diện tích đất liền hẹp ngang kéo dài.",
+        "D. sự phát triển của hệ thống rừng nhiệt đới ẩm."
+      ],
+      "correct_answer": "B. vị trí địa lý trong vùng nội chí tuyến và tác động của các khối khí gió mùa."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Hằng năm, nước ta nhận được lượng bức xạ mặt trời lớn do",
+      "options": [
+        "A. có nhiều núi cao.",
+        "B. nằm gần đường xích đạo và góc nhập xạ lớn quanh năm.",
+        "C. góc nhập xạ lớn và hai lần mặt trời lên thiên đỉnh trong năm.",
+        "D. chịu ảnh hưởng của bão biển."
+      ],
+      "correct_answer": "C. góc nhập xạ lớn và hai lần mặt trời lên thiên đỉnh trong năm."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Hệ thống sông có mạng lưới phân lưu dạng nan quạt ở miền Bắc nước ta là",
+      "options": [
+        "A. Sông Hồng",
+        "B. Sông Thái Bình",
+        "C. Sông Mã",
+        "D. Sông Cả"
+      ],
+      "correct_answer": "A. Sông Hồng"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Vùng có mùa mưa lệch hẳn về thu - đông ở nước ta là",
+      "options": [
+        "A. Bắc Bộ",
+        "B. Nam Bộ",
+        "C. Tây Nguyên",
+        "D. Duyên hải miền Trung"
+      ],
+      "correct_answer": "D. Duyên hải miền Trung"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Đai cao cận nhiệt đới gió mùa trên núi ở nước ta xuất hiện từ độ cao nào ở miền Bắc?",
+      "options": [
+        "A. Từ 300 - 400 m",
+        "B. Từ 600 - 700 m",
+        "C. Từ 900 - 1000 m",
+        "D. Từ 2600 m trở lên"
+      ],
+      "correct_answer": "B. Từ 600 - 700 m"
+    }
+  ]
+}

@@ -1,0 +1,597 @@
+{
+  "dataset_name": "HocNhanhTN Parser Benchmark Dataset",
+  "version": "1.0.0",
+  "total_files": 40,
+  "format_counts": {
+    "docx": 30,
+    "pdf": 10
+  },
+  "subject_counts": {
+    "Toán học": 5,
+    "Vật lý": 4,
+    "Hóa học": 4,
+    "Sinh học": 4,
+    "Tiếng Anh": 6,
+    "Lịch sử": 4,
+    "Địa lý": 4,
+    "Giáo dục Kinh tế và Pháp luật": 3,
+    "Tin học": 3,
+    "Ngữ văn": 1,
+    "Định dạng đặc biệt": 2
+  },
+  "total_questions": 204,
+  "files": [
+    {
+      "file_id": "docx_toan_01_gach_chan",
+      "file_name": "toan_01_gach_chan.docx",
+      "format_type": "docx",
+      "subject": "Toán học",
+      "style": "underline",
+      "style_description": "Toán giải tích, đáp án gạch chân trực tiếp trong câu, ký hiệu đạo hàm cực trị",
+      "tags": [
+        "toan",
+        "underline",
+        "giai_tich"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_toan_02_bang_dap_an_cuoi",
+      "file_name": "toan_02_bang_dap_an_cuoi.docx",
+      "format_type": "docx",
+      "subject": "Toán học",
+      "style": "bottom_table",
+      "style_description": "Toán hình học không gian, các câu không đánh dấu, có BẢNG ĐÁP ÁN dạng bảng Word ở cuối bài",
+      "tags": [
+        "toan",
+        "bottom_table",
+        "hinh_hoc"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_toan_03_gdpt2018_3phan",
+      "file_name": "toan_03_gdpt2018_3phan.docx",
+      "format_type": "docx",
+      "subject": "Toán học",
+      "style": "gdpt_2018",
+      "style_description": "Đề Toán chuẩn GDPT 2018: Phần I MCQ 4 lựa chọn, Phần II Đúng/Sai 4 ý, Phần III Điền số trả lời ngắn",
+      "tags": [
+        "toan",
+        "gdpt_2018",
+        "true_false",
+        "short_answer"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "docx_toan_04_dau_sao_asterisk",
+      "file_name": "toan_04_dau_sao_asterisk.docx",
+      "format_type": "docx",
+      "subject": "Toán học",
+      "style": "asterisk",
+      "style_description": "Toán số phức và tọa độ, đánh dấu dấu sao * trước đáp án đúng, 4 đáp án trên 1 dòng phân cách Tab",
+      "tags": [
+        "toan",
+        "asterisk",
+        "single_line_options"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "pdf_toan_01_chuan_thpt",
+      "file_name": "toan_01_chuan_thpt.pdf",
+      "format_type": "pdf",
+      "subject": "Toán học",
+      "style": "bottom_text",
+      "style_description": "PDF đề thi thử THPT Quốc gia môn Toán, bảng đáp án text ở cuối đề thi",
+      "tags": [
+        "toan",
+        "pdf",
+        "bottom_text"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_vatly_01_boi_do",
+      "file_name": "vatly_01_boi_do.docx",
+      "format_type": "docx",
+      "subject": "Vật lý",
+      "style": "red",
+      "style_description": "Vật lý dao động cơ, đáp án đúng tô chữ màu ĐỎ (#FF0000) trong file Word",
+      "tags": [
+        "vat_ly",
+        "red_font",
+        "dao_dong_co"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_vatly_02_loi_giai_chi_tiet",
+      "file_name": "vatly_02_loi_giai_chi_tiet.docx",
+      "format_type": "docx",
+      "subject": "Vật lý",
+      "style": "underline",
+      "style_description": "Vật lý sóng cơ, đáp án gạch chân kèm khối 'Lời giải chi tiết:' dưới mỗi câu hỏi",
+      "tags": [
+        "vat_ly",
+        "underline",
+        "explain_block",
+        "song_co"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_vatly_03_gdpt2018",
+      "file_name": "vatly_03_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Vật lý",
+      "style": "gdpt_2018",
+      "style_description": "Vật lý GDPT 2018 Nhiệt học & Khí lý tưởng: Phần I MCQ, Phần II Đúng/Sai 4 ý, Phần III Trả lời ngắn",
+      "tags": [
+        "vat_ly",
+        "gdpt_2018",
+        "nhiet_hoc"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "pdf_vatly_01_de_thi_hoc_ky",
+      "file_name": "vatly_01_de_thi_hoc_ky.pdf",
+      "format_type": "pdf",
+      "subject": "Vật lý",
+      "style": "bottom_text",
+      "style_description": "PDF đề kiểm tra học kỳ Vật lý Dòng điện xoay chiều, có bảng đáp án text cuối đề",
+      "tags": [
+        "vat_ly",
+        "pdf",
+        "dong_dien_xoay_chieu"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_hoahoc_01_cong_thuc_sub_super",
+      "file_name": "hoahoc_01_cong_thuc_sub_super.docx",
+      "format_type": "docx",
+      "subject": "Hóa học",
+      "style": "underline",
+      "style_description": "Hóa học hữu cơ, chỉ số hóa học dưới sub (CH3COOC2H5, C6H12O6), đáp án gạch chân",
+      "tags": [
+        "hoa_hoc",
+        "underline",
+        "subscript",
+        "este_lipit"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_hoahoc_02_bang_dap_an_text",
+      "file_name": "hoahoc_02_bang_dap_an_text.docx",
+      "format_type": "docx",
+      "subject": "Hóa học",
+      "style": "bottom_text",
+      "style_description": "Hóa học vô cơ Kim loại, không đánh dấu trong câu, có dòng text BẢNG ĐÁP ÁN: 1.A 2.D 3.B 4.C 5.A",
+      "tags": [
+        "hoa_hoc",
+        "bottom_text",
+        "kim_loai"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_hoahoc_03_gdpt2018",
+      "file_name": "hoahoc_03_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Hóa học",
+      "style": "gdpt_2018",
+      "style_description": "Hóa học GDPT 2018 Cân bằng hóa học & Nhiệt hóa học: 3 phần MCQ, Đúng/Sai, Trả lời ngắn",
+      "tags": [
+        "hoa_hoc",
+        "gdpt_2018",
+        "can_bang_hoa_hoc"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "pdf_hoahoc_01_trac_nghiem",
+      "file_name": "hoahoc_01_trac_nghiem.pdf",
+      "format_type": "pdf",
+      "subject": "Hóa học",
+      "style": "bottom_text",
+      "style_description": "PDF trắc nghiệm Hóa học vô cơ tổng hợp có bảng đáp án text cuối đề",
+      "tags": [
+        "hoa_hoc",
+        "pdf",
+        "vo_co"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_sinhhoc_01_boi_dam",
+      "file_name": "sinhhoc_01_boi_dam.docx",
+      "format_type": "docx",
+      "subject": "Sinh học",
+      "style": "bold",
+      "style_description": "Sinh học di truyền học Menđen, đáp án đúng in ĐẬM trong file Word",
+      "tags": [
+        "sinh_hoc",
+        "bold",
+        "di_truyen"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_sinhhoc_02_phuong_an_1_dong",
+      "file_name": "sinhhoc_02_phuong_an_1_dong.docx",
+      "format_type": "docx",
+      "subject": "Sinh học",
+      "style": "asterisk",
+      "style_description": "Sinh học tế bào và NST, các phương án A B C D nằm trên cùng 1 dòng, có dấu sao trước đáp án đúng",
+      "tags": [
+        "sinh_hoc",
+        "asterisk",
+        "single_line_options"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_sinhhoc_03_gdpt2018",
+      "file_name": "sinhhoc_03_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Sinh học",
+      "style": "gdpt_2018",
+      "style_description": "Sinh học GDPT 2018 Di truyền phân tử & Quần thể: 3 phần MCQ, Đúng/Sai, Trả lời ngắn",
+      "tags": [
+        "sinh_hoc",
+        "gdpt_2018",
+        "di_truyen_hoc"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "pdf_sinhhoc_01_thi_thu",
+      "file_name": "sinhhoc_01_thi_thu.pdf",
+      "format_type": "pdf",
+      "subject": "Sinh học",
+      "style": "bottom_text",
+      "style_description": "PDF đề thi thử Sinh học Hệ sinh thái & Tiến hóa, bảng đáp án text cuối trang",
+      "tags": [
+        "sinh_hoc",
+        "pdf",
+        "he_sinh_thai"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tienganh_01_reading_passage",
+      "file_name": "tienganh_01_reading_passage.docx",
+      "format_type": "docx",
+      "subject": "Tiếng Anh",
+      "style": "underline",
+      "style_description": "Tiếng Anh có đoạn văn đọc hiểu chung (group_title) cho 3 câu, tiếp theo là 2 câu ngữ pháp riêng, đáp án gạch chân",
+      "tags": [
+        "tieng_anh",
+        "reading_comprehension",
+        "group_title",
+        "underline"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tienganh_02_stress_phonetics",
+      "file_name": "tienganh_02_stress_phonetics.docx",
+      "format_type": "docx",
+      "subject": "Tiếng Anh",
+      "style": "red",
+      "style_description": "Tiếng Anh ngữ âm & trọng âm, đáp án tô màu ĐỎ (#FF0000)",
+      "tags": [
+        "tieng_anh",
+        "phonetics",
+        "stress",
+        "red_font"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tienganh_03_synonym_antonym",
+      "file_name": "tienganh_03_synonym_antonym.docx",
+      "format_type": "docx",
+      "subject": "Tiếng Anh",
+      "style": "bottom_table",
+      "style_description": "Tiếng Anh Từ đồng nghĩa / Trái nghĩa, có Bảng đáp án Table ở cuối bài",
+      "tags": [
+        "tieng_anh",
+        "synonym",
+        "antonym",
+        "bottom_table"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tienganh_04_soan_bang_2cot",
+      "file_name": "tienganh_04_soan_bang_2cot.docx",
+      "format_type": "docx",
+      "subject": "Tiếng Anh",
+      "style": "asterisk",
+      "style_description": "Tiếng Anh Giao tiếp hội thoại, đáp án có dấu hoa thị * trước ký tự",
+      "tags": [
+        "tieng_anh",
+        "conversation",
+        "asterisk"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "pdf_tienganh_01_reading_grammar",
+      "file_name": "tienganh_01_reading_grammar.pdf",
+      "format_type": "pdf",
+      "subject": "Tiếng Anh",
+      "style": "bottom_text",
+      "style_description": "PDF đề thi Tiếng Anh Ngữ pháp & Điền từ, bảng đáp án text cuối đề",
+      "tags": [
+        "tieng_anh",
+        "pdf",
+        "grammar"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "pdf_tienganh_02_chuan_thpt",
+      "file_name": "tienganh_02_chuan_thpt.pdf",
+      "format_type": "pdf",
+      "subject": "Tiếng Anh",
+      "style": "bottom_text",
+      "style_description": "PDF đề thi thử tốt nghiệp THPT Quốc gia môn Tiếng Anh có bảng đáp án text cuối",
+      "tags": [
+        "tieng_anh",
+        "pdf",
+        "thpt"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_lichsu_01_gach_chan",
+      "file_name": "lichsu_01_gach_chan.docx",
+      "format_type": "docx",
+      "subject": "Lịch sử",
+      "style": "underline",
+      "style_description": "Lịch sử Việt Nam 1930 - 1945, đáp án đúng gạch chân trong câu",
+      "tags": [
+        "lich_su",
+        "underline",
+        "cach_mang_thang_tam"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_lichsu_02_bang_dap_an_table",
+      "file_name": "lichsu_02_bang_dap_an_table.docx",
+      "format_type": "docx",
+      "subject": "Lịch sử",
+      "style": "bottom_table",
+      "style_description": "Lịch sử Kháng chiến chống Mỹ, không đánh dấu trong câu, Bảng đáp án Table cuối đề",
+      "tags": [
+        "lich_su",
+        "bottom_table",
+        "khang_chien_chong_my"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_lichsu_03_gdpt2018",
+      "file_name": "lichsu_03_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Lịch sử",
+      "style": "gdpt_2018",
+      "style_description": "Lịch sử chuẩn GDPT 2018: Phần I MCQ 3 câu, Phần II Đúng/Sai 2 câu phân tích đoạn tư liệu lịch sử",
+      "tags": [
+        "lich_su",
+        "gdpt_2018",
+        "tu_lieu_lich_su"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "pdf_lichsu_01_on_tap",
+      "file_name": "lichsu_01_on_tap.pdf",
+      "format_type": "pdf",
+      "subject": "Lịch sử",
+      "style": "bottom_text",
+      "style_description": "PDF đề ôn tập Lịch sử thế giới hiện đại có bảng đáp án text cuối đề",
+      "tags": [
+        "lich_su",
+        "pdf",
+        "the_gioi_hien_dai"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_diali_01_boi_do",
+      "file_name": "diali_01_boi_do.docx",
+      "format_type": "docx",
+      "subject": "Địa lý",
+      "style": "red",
+      "style_description": "Địa lý tự nhiên Việt Nam, đáp án đúng tô chữ ĐỎ (#FF0000)",
+      "tags": [
+        "dia_ly",
+        "red_font",
+        "tu_nhien_viet_nam"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_diali_02_loi_giai",
+      "file_name": "diali_02_loi_giai.docx",
+      "format_type": "docx",
+      "subject": "Địa lý",
+      "style": "underline",
+      "style_description": "Địa lý kinh tế các vùng, đáp án gạch chân kèm khối 'Lời giải chi tiết:'",
+      "tags": [
+        "dia_ly",
+        "underline",
+        "explain_block",
+        "kinh_te_vung"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_diali_03_gdpt2018",
+      "file_name": "diali_03_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Địa lý",
+      "style": "gdpt_2018",
+      "style_description": "Địa lý chuẩn GDPT 2018: Phần I MCQ, Phần II Đúng/Sai, Phần III Trả lời ngắn số liệu",
+      "tags": [
+        "dia_ly",
+        "gdpt_2018",
+        "dan_cu_do_thi"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "pdf_diali_01_kiem_tra",
+      "file_name": "diali_01_kiem_tra.pdf",
+      "format_type": "pdf",
+      "subject": "Địa lý",
+      "style": "bottom_text",
+      "style_description": "PDF kiểm tra Địa lý Khí hậu & Sông ngòi có bảng đáp án text cuối đề",
+      "tags": [
+        "dia_ly",
+        "pdf",
+        "khi_hau"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_gdcd_01_tinh_huong_phap_luat",
+      "file_name": "gdcd_01_tinh_huong_phap_luat.docx",
+      "format_type": "docx",
+      "subject": "Giáo dục Kinh tế và Pháp luật",
+      "style": "underline",
+      "style_description": "Câu hỏi tình huống pháp luật dài nhiều dòng, có các nhân vật Ông A Bà B, đáp án gạch chân",
+      "tags": [
+        "gdcd",
+        "ktpl",
+        "tinh_huong_dai",
+        "underline"
+      ],
+      "total_questions": 4
+    },
+    {
+      "file_id": "docx_gdcd_02_gdpt2018_dung_sai",
+      "file_name": "gdcd_02_gdpt2018_dung_sai.docx",
+      "format_type": "docx",
+      "subject": "Giáo dục Kinh tế và Pháp luật",
+      "style": "gdpt_2018",
+      "style_description": "KT&PL chuẩn GDPT 2018: Phần I MCQ 3 câu, Phần II Đúng/Sai 2 câu đánh giá hành vi pháp luật",
+      "tags": [
+        "gdcd",
+        "ktpl",
+        "gdpt_2018",
+        "true_false"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "pdf_gdcd_01_de_thi",
+      "file_name": "gdcd_01_de_thi.pdf",
+      "format_type": "pdf",
+      "subject": "Giáo dục Kinh tế và Pháp luật",
+      "style": "bottom_text",
+      "style_description": "PDF đề thi KT&PL Pháp luật và đời sống, bảng đáp án text cuối đề",
+      "tags": [
+        "gdcd",
+        "ktpl",
+        "pdf"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tinhoc_01_code_python",
+      "file_name": "tinhoc_01_code_python.docx",
+      "format_type": "docx",
+      "subject": "Tin học",
+      "style": "underline",
+      "style_description": "Tin học Lập trình Python, câu hỏi có chứa đoạn mã code, đáp án đúng gạch chân",
+      "tags": [
+        "tin_hoc",
+        "code_snippet",
+        "python",
+        "underline"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_tinhoc_02_gdpt2018",
+      "file_name": "tinhoc_02_gdpt2018.docx",
+      "format_type": "docx",
+      "subject": "Tin học",
+      "style": "gdpt_2018",
+      "style_description": "Tin học chuẩn GDPT 2018: Hệ CSDL, Mạng máy tính, Phần III tính giá trị thuật toán",
+      "tags": [
+        "tin_hoc",
+        "gdpt_2018",
+        "csdl_sql"
+      ],
+      "total_questions": 6
+    },
+    {
+      "file_id": "pdf_tinhoc_01_kiem_tra",
+      "file_name": "tinhoc_01_kiem_tra.pdf",
+      "format_type": "pdf",
+      "subject": "Tin học",
+      "style": "bottom_text",
+      "style_description": "PDF kiểm tra Tin học Cấu trúc dữ liệu & Thuật toán, có bảng đáp án text cuối đề",
+      "tags": [
+        "tin_hoc",
+        "pdf",
+        "thuat_toan"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_nguvan_01_doc_hieu",
+      "file_name": "nguvan_01_doc_hieu.docx",
+      "format_type": "docx",
+      "subject": "Ngữ văn",
+      "style": "underline",
+      "style_description": "Ngữ văn Đọc hiểu ngữ liệu trích dẫn thơ/văn xuôi (group_title chung), 4 câu hỏi trắc nghiệm dưới bài, đáp án gạch chân",
+      "tags": [
+        "ngu_van",
+        "doc_hieu",
+        "group_title",
+        "underline"
+      ],
+      "total_questions": 4
+    },
+    {
+      "file_id": "docx_format_edge_case_numbering",
+      "file_name": "format_edge_case_numbering.docx",
+      "format_type": "docx",
+      "subject": "Định dạng đặc biệt",
+      "style": "underline",
+      "style_description": "Tiền tố câu hỏi không chuẩn: '1.', '2/', 'Bài 3:', 'Question 4.', 'Q5:', đáp án gạch chân",
+      "tags": [
+        "edge_case",
+        "numbering",
+        "irregular_prefix",
+        "underline"
+      ],
+      "total_questions": 5
+    },
+    {
+      "file_id": "docx_format_edge_case_no_space_options",
+      "file_name": "format_edge_case_no_space_options.docx",
+      "format_type": "docx",
+      "subject": "Định dạng đặc biệt",
+      "style": "bottom_table",
+      "style_description": "Các phương án ngắn phân tách không có dòng mới, có Bảng đáp án Table ở cuối trang",
+      "tags": [
+        "edge_case",
+        "bottom_table",
+        "short_options"
+      ],
+      "total_questions": 5
+    }
+  ]
+}

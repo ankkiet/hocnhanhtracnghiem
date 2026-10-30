@@ -1,0 +1,81 @@
+{
+  "file_id": "docx_toan_04_dau_sao_asterisk",
+  "file_name": "toan_04_dau_sao_asterisk.docx",
+  "format_type": "docx",
+  "subject": "Toán học",
+  "style": "asterisk",
+  "style_description": "Toán số phức và tọa độ, đánh dấu dấu sao * trước đáp án đúng, 4 đáp án trên 1 dòng phân cách Tab",
+  "tags": [
+    "toan",
+    "asterisk",
+    "single_line_options"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Số phức liên hợp của số phức z = 3 - 4i là",
+      "options": [
+        "A. 3 + 4i",
+        "B. -3 - 4i",
+        "C. -3 + 4i",
+        "D. 4 - 3i"
+      ],
+      "correct_answer": "A. 3 + 4i"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Môđun của số phức z = 1 + 2i bằng",
+      "options": [
+        "A. 5",
+        "B. sqrt(5)",
+        "C. 3",
+        "D. sqrt(3)"
+      ],
+      "correct_answer": "B. sqrt(5)"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Phần thực của số phức w = (2 + i)(1 - i) là",
+      "options": [
+        "A. 1",
+        "B. 2",
+        "C. 3",
+        "D. -1"
+      ],
+      "correct_answer": "C. 3"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Trong mặt phẳng tọa độ, điểm biểu diễn số phức z = -2 + 5i có tọa độ là",
+      "options": [
+        "A. (5; -2)",
+        "B. (2; 5)",
+        "C. (-2; -5)",
+        "D. (-2; 5)"
+      ],
+      "correct_answer": "D. (-2; 5)"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Tập hợp các điểm biểu diễn số phức z thỏa mãn |z| = 2 là đường tròn có bán kính bằng",
+      "options": [
+        "A. 2",
+        "B. 4",
+        "C. 1",
+        "D. sqrt(2)"
+      ],
+      "correct_answer": "A. 2"
+    }
+  ]
+}

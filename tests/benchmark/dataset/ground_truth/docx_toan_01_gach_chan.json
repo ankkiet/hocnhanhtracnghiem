@@ -1,0 +1,81 @@
+{
+  "file_id": "docx_toan_01_gach_chan",
+  "file_name": "toan_01_gach_chan.docx",
+  "format_type": "docx",
+  "subject": "Toán học",
+  "style": "underline",
+  "style_description": "Toán giải tích, đáp án gạch chân trực tiếp trong câu, ký hiệu đạo hàm cực trị",
+  "tags": [
+    "toan",
+    "underline",
+    "giai_tich"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Cho hàm số y = f(x) có bảng xét dấu đạo hàm f'(x). Hàm số đã cho đồng biến trên khoảng nào dưới đây?",
+      "options": [
+        "A. (-∞; -1)",
+        "B. (-1; 1)",
+        "C. (1; +∞)",
+        "D. (-∞; 1)"
+      ],
+      "correct_answer": "B. (-1; 1)",
+      "explain": "Đạo hàm f'(x) > 0 với mọi x thuộc (-1; 1) nên hàm số đồng biến trên (-1; 1)."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Hàm số y = x^4 - 2x^2 + 3 có bao nhiêu điểm cực trị?",
+      "options": [
+        "A. 1",
+        "B. 2",
+        "C. 3",
+        "D. 0"
+      ],
+      "correct_answer": "C. 3",
+      "explain": "Ta có y' = 4x^3 - 4x = 4x(x^2 - 1) = 0 có 3 nghiệm phân biệt đổi dấu, nên có 3 điểm cực trị."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Đồ thị của hàm số y = (2x + 1)/(x - 1) có tiệm cận đứng là đường thẳng nào sau đây?",
+      "options": [
+        "A. x = 1",
+        "B. y = 2",
+        "C. x = -1",
+        "D. y = 1/2"
+      ],
+      "correct_answer": "A. x = 1",
+      "explain": "Mẫu số x - 1 = 0 suy ra x = 1 là đường tiệm cận đứng."
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Tính tích phân I = int_0^1 (2x + 1) dx.",
+      "options": [
+        "A. 1",
+        "B. 2",
+        "C. 3",
+        "D. 4"
+      ],
+      "correct_answer": "B. 2",
+      "explain": "Nguyên hàm là x^2 + x, thay cận từ 0 đến 1: (1 + 1) - 0 = 2."
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Trong không gian Oxyz, mặt cầu (S): (x - 1)^2 + (y + 2)^2 + (z - 3)^2 = 16 có bán kính bằng",
+      "options": [
+        "A. 16",
+        "B. 4",
+        "C. 8",
+        "D. 2"
+      ],
+      "correct_answer": "B. 4",
+      "explain": "Bán kính R = sqrt(16) = 4."
+    }
+  ]
+}

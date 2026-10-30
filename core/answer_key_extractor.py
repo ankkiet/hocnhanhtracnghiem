@@ -268,7 +268,11 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
             ans_section = full_text[pos:]
             break
     if not ans_section:
-        ans_section = full_text
+        # Chỉ quét toàn bộ văn bản nếu văn bản rất ngắn (người dùng paste riêng bảng đáp án, không phải toàn bộ đề thi)
+        if not doc and len(full_text.strip()) < 500:
+            ans_section = full_text
+        else:
+            ans_section = ""
 
     if ans_section:
         part_splits = re.split(r'(\bPHẦN\s+(?:III|II|I|3|2|1)\b[^\n]*)', ans_section, flags=re.IGNORECASE)
@@ -535,6 +539,8 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
         )
 
         if official_ans is not None:
+            q_item['is_ai_suggested'] = False
+            q_item['ai_suggestion_note'] = ''
             if q_type == 'true_false':
                 if isinstance(official_ans, dict):
                     q_item['correct_answer'] = official_ans

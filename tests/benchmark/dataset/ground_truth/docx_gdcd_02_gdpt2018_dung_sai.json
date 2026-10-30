@@ -1,0 +1,92 @@
+{
+  "file_id": "docx_gdcd_02_gdpt2018_dung_sai",
+  "file_name": "gdcd_02_gdpt2018_dung_sai.docx",
+  "format_type": "docx",
+  "subject": "Giáo dục Kinh tế và Pháp luật",
+  "style": "gdpt_2018",
+  "style_description": "KT&PL chuẩn GDPT 2018: Phần I MCQ 3 câu, Phần II Đúng/Sai 2 câu đánh giá hành vi pháp luật",
+  "tags": [
+    "gdcd",
+    "ktpl",
+    "gdpt_2018",
+    "true_false"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "part": 1,
+      "type": "mcq",
+      "question": "Quy luật kinh tế nào dưới đây điều tiết sản xuất và lưu thông hàng hóa thông qua sự biến động của giá cả thị trường?",
+      "options": [
+        "A. Quy luật giá trị",
+        "B. Quy luật cạnh tranh",
+        "C. Quy luật cung - cầu",
+        "D. Quy luật lưu thông tiền tệ"
+      ],
+      "correct_answer": "C. Quy luật cung - cầu"
+    },
+    {
+      "question_number": 2,
+      "part": 1,
+      "type": "mcq",
+      "question": "Hệ thống các quy tắc xử sự chung do Nhà nước ban hành và được bảo đảm thực hiện bằng quyền lực Nhà nước là",
+      "options": [
+        "A. đạo đức xã hội.",
+        "B. pháp luật.",
+        "C. phong tục tập quán.",
+        "D. điều lệ tổ chức."
+      ],
+      "correct_answer": "B. pháp luật."
+    },
+    {
+      "question_number": 3,
+      "part": 1,
+      "type": "mcq",
+      "question": "Công dân từ đủ bao nhiêu tuổi trở lên có quyền bầu cử đại biểu Quốc hội và Hội đồng nhân dân các cấp?",
+      "options": [
+        "A. Đủ 16 tuổi",
+        "B. Đủ 18 tuổi",
+        "C. Đủ 20 tuổi",
+        "D. Đủ 21 tuổi"
+      ],
+      "correct_answer": "B. Đủ 18 tuổi"
+    },
+    {
+      "question_number": 1,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về quyền tự do kinh doanh và nghĩa vụ đóng thuế của công dân:",
+      "options": [
+        "a) Công dân có quyền kinh doanh bất kì ngành nghề nào mà pháp luật không cấm",
+        "b) Người kinh doanh có nghĩa vụ nộp thuế đầy đủ và đúng thời hạn theo quy định của Luật Thuế",
+        "c) Doanh nghiệp được phép tự do sản xuất hàng giả, hàng nhái nếu đem lại lợi nhuận cao",
+        "d) Nhà nước khuyến khích các hoạt động kinh doanh bảo vệ môi trường và tạo việc làm cho xã hội"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": false,
+        "d": true
+      }
+    },
+    {
+      "question_number": 2,
+      "part": 2,
+      "type": "true_false",
+      "question": "Về quyền bất khả xâm phạm về thân thể và quyền được pháp luật bảo hộ về tính mạng, sức khỏe, danh dự, nhân phẩm:",
+      "options": [
+        "a) Không ai bị bắt nếu không có quyết định của Tòa án hoặc phê chuẩn của Viện kiểm sát, trừ trường hợp phạm tội quả tang",
+        "b) Mọi hành vi tự ý vào chỗ ở của người khác khi chưa được cho phép đều là vi phạm pháp luật",
+        "c) Bạn bè thân thiết có quyền tùy tiện bêu riếu hình ảnh xúc phạm danh dự người khác trên mạng xã hội",
+        "d) Công dân có quyền tự vệ chính đáng khi tính mạng của mình bị đe dọa trái pháp luật"
+      ],
+      "correct_answer": {
+        "a": true,
+        "b": true,
+        "c": false,
+        "d": true
+      }
+    }
+  ]
+}

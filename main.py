@@ -7,15 +7,14 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from core.app_factory import create_app
-from core.config import settings
-from core.logging_config import get_logger
+from app.config.logging import get_logger
+from app.config.settings import settings
+from app.core.app_factory import create_app
 
 logger = get_logger(__name__)
 
 # Khởi tạo thực thể FastAPI bằng App Factory
 app = create_app()
-
 
 # ==============================================================================
 # RE-EXPORTS ĐẢM BẢO TƯƠNG THÍCH NGƯỢC (BACKWARDS COMPATIBILITY)

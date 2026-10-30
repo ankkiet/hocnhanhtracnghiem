@@ -174,7 +174,13 @@ async function initStudio() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const taskId = urlParams.get('task_id') || sessionStorage.getItem('editor_pending_task_id');
-    const quizId = urlParams.get('id') || urlParams.get('quiz_id');
+    let quizId = urlParams.get('id') || urlParams.get('quiz_id');
+    if (!quizId) {
+        const pathMatch = window.location.pathname.match(/\/editor\/([^\/?#]+)/);
+        if (pathMatch && pathMatch[1]) {
+            quizId = decodeURIComponent(pathMatch[1]);
+        }
+    }
     const titleParam = urlParams.get('title') || sessionStorage.getItem('editor_quiz_title');
     const modeParam = urlParams.get('mode') || sessionStorage.getItem('editor_pending_mode');
 
@@ -963,7 +969,17 @@ function renderPreviewAll() {
             typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge}</div>`;
+        let aiSuggestedBadge = '';
+        if (q.is_ai_suggested) {
+            aiSuggestedBadge = `
+                <span class="badge-ai-suggested" style="background: #fffbeb; color: #b45309; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;" title="${escapeHtml(q.ai_suggestion_note || 'AI đề xuất, cần giáo viên xác nhận')}">
+                    <i class="ri-sparkling-fill" style="color: #d97706;"></i> AI đề xuất, cần giáo viên xác nhận
+                    <button type="button" onclick="confirmAISuggestedAnswer(${qIndex}, event)" style="margin-left: 6px; background: #d97706; color: #fff; border: none; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; cursor: pointer; font-weight: 600;" title="Xác nhận đáp án này đúng và gỡ cảnh báo">Xác nhận</button>
+                </span>
+            `;
+        }
+
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
         
         if (qType === 'true_false') {
             // Giao diện xem trước cho câu hỏi Đúng / Sai
@@ -1021,6 +1037,48 @@ function renderPreviewAll() {
                 <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
             </div>`;
         }
+
+        // KIỂM TRA CHÉO ĐÁP ÁN: CẢNH BÁO NẾU AI GIẢI KHÁC ĐÁP ÁN GỐC
+        if (q.has_cross_check_warning && q.cross_check_info) {
+            let info = q.cross_check_info;
+            let tAns = typeof info.teacher_answer === 'object' ? JSON.stringify(info.teacher_answer) : String(info.teacher_answer || 'Chưa rõ');
+            let aiAns = typeof info.ai_answer === 'object' ? JSON.stringify(info.ai_answer) : String(info.ai_answer || 'Chưa rõ');
+            let aiExp = info.ai_explain || '';
+            
+            html += `
+                <div class="cross-check-warning-box" style="margin-top: 12px; margin-bottom: 8px; padding: 12px 14px; background: #fff7ed; border: 1.5px solid #fdba74; border-radius: 8px;" onclick="event.stopPropagation();">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #c2410c; display: flex; align-items: center; gap: 6px; font-size: 0.92rem;">
+                            <i class="ri-alert-fill" style="color: #ea580c; font-size: 1.15rem;"></i>
+                            CẢNH BÁO KIỂM TRA CHÉO: AI giải khác đáp án của Giáo viên!
+                        </span>
+                        <span style="font-size: 0.78rem; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Cần rà soát</span>
+                    </div>
+                    <div style="font-size: 0.88rem; color: #7c2d12; margin-bottom: 10px; line-height: 1.5;">
+                        <div><b>Đáp án hiện tại (Giáo viên / Gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
+                        <div style="margin-top: 5px;"><b>Đáp án do AI độc lập giải:</b> <span style="background: #bbf7d0; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(aiAns)}</span></div>
+                        ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="padding: 5px 12px; font-size: 0.82rem; background: #ea580c; border: none; border-radius: 6px; cursor: pointer;" onclick="acceptAICrossCheckAnswer(${qIndex}); event.stopPropagation();">
+                            <i class="ri-check-line"></i> Dùng đáp án AI giải
+                        </button>
+                        <button type="button" class="btn-studio-outline" style="padding: 5px 12px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer;" onclick="dismissAICrossCheck(${qIndex}); event.stopPropagation();">
+                            <i class="ri-close-line"></i> Giữ đáp án Giáo viên & Bỏ qua
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // TOOLBAR MỖI CÂU HỎI (SINH CÂU TƯƠNG TỰ)
+        html += `
+            <div class="q-card-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;" onclick="event.stopPropagation();">
+                <button type="button" class="btn-studio-outline" style="padding: 4px 10px; font-size: 0.82rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; color: #6366f1; border-color: #c7d2fe; background: #eef2ff;" onclick="openSimilarModal(${qIndex}); event.stopPropagation();" title="Sinh các câu hỏi tương tự từ câu này để luyện tập">
+                    <i class="ri-file-copy-2-line"></i> Sinh câu tương tự
+                </button>
+            </div>
+        `;
         
         prevBox.innerHTML = html;
         
@@ -2238,3 +2296,246 @@ function setAIQuickPrompt(text) {
         input.focus();
     }
 }
+
+// ----------------------------------------------------
+// TÍNH NĂNG AI THÔNG MINH: GỢI Ý ĐÁP ÁN, KIỂM TRA CHÉO & SINH CÂU TƯƠNG TỰ
+// ----------------------------------------------------
+
+window.confirmAISuggestedAnswer = function(qIndex, event) {
+    if (event) event.stopPropagation();
+    if (!currentData[qIndex]) return;
+    delete currentData[qIndex].is_ai_suggested;
+    delete currentData[qIndex].ai_suggestion_note;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã xác nhận đáp án do AI đề xuất!");
+};
+
+window.runCrossCheckAI = async function() {
+    const btn = document.getElementById('btnCrossCheckAI');
+    if (!currentData || currentData.length === 0) {
+        alert("Chưa có câu hỏi nào trong đề để kiểm tra chéo!");
+        return;
+    }
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang đối chiếu...';
+    }
+    if (typeof showStudioLoader === 'function') {
+        showStudioLoader({
+            title: "⚖️ AI đang giải độc lập & kiểm tra chéo đáp án...",
+            subtitle: "AI độc lập giải lại từng câu hỏi không nhìn trước đáp án gốc để tìm kiếm sai sót (10-30s)..."
+        });
+    }
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teacher/cross_check_answers`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                teacher_token: authToken,
+                quiz_data: currentData
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            currentData = data.quiz_data || currentData;
+            const mismatches = data.mismatches_found || 0;
+            syncDataToEditor();
+            renderPreviewAll();
+            saveDraftToSession();
+            if (mismatches > 0) {
+                alert(`⚠️ Phát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu! Vui lòng rà soát các thẻ cảnh báo màu cam.`);
+            } else {
+                showToast("Tuyệt vời! 100% đáp án khớp với kết quả AI giải độc lập.");
+            }
+        } else {
+            alert("Lỗi kiểm tra chéo: " + (data.detail || "Không thể thực hiện kiểm tra chéo"));
+        }
+    } catch(err) {
+        console.error("Cross-check error:", err);
+        alert("Lỗi mạng khi kiểm tra chéo đáp án.");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml || '<i class="ri-scales-3-line"></i> Kiểm tra chéo đáp án';
+        }
+        if (typeof hideStudioLoader === 'function') hideStudioLoader();
+    }
+};
+
+window.acceptAICrossCheckAnswer = function(qIndex) {
+    if (!currentData[qIndex] || !currentData[qIndex].cross_check_info) return;
+    const info = currentData[qIndex].cross_check_info;
+    const aiAns = info.ai_answer;
+    if (aiAns !== undefined && aiAns !== null) {
+        const qType = getRealQuestionType(currentData[qIndex]);
+        if (qType === 'mcq' && Array.isArray(currentData[qIndex].options)) {
+            let foundOpt = currentData[qIndex].options.find(opt => {
+                let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
+                return opt === aiAns || (optLetter && optLetter.toUpperCase() === String(aiAns).trim().toUpperCase());
+            });
+            currentData[qIndex].correct_answer = foundOpt || aiAns;
+        } else {
+            currentData[qIndex].correct_answer = aiAns;
+        }
+        if (info.ai_explain && (!currentData[qIndex].explain || currentData[qIndex].explain.trim().length === 0)) {
+            currentData[qIndex].explain = info.ai_explain;
+        }
+    }
+    delete currentData[qIndex].has_cross_check_warning;
+    delete currentData[qIndex].cross_check_info;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật sang đáp án do AI giải!");
+};
+
+window.dismissAICrossCheck = function(qIndex) {
+    if (!currentData[qIndex]) return;
+    delete currentData[qIndex].has_cross_check_warning;
+    delete currentData[qIndex].cross_check_info;
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã giữ lại đáp án của Giáo viên.");
+};
+
+let activeSimilarBaseIndex = null;
+let activeGeneratedSimilarQuestions = [];
+
+window.openSimilarModal = function(qIndex) {
+    if (!currentData[qIndex]) return;
+    activeSimilarBaseIndex = qIndex;
+    activeGeneratedSimilarQuestions = [];
+    
+    const modal = document.getElementById('similarQuestionModal');
+    const preview = document.getElementById('similarBaseQPreview');
+    const resContainer = document.getElementById('simResultsContainer');
+    const addBtn = document.getElementById('btnAddSimilarToQuiz');
+    const runBtn = document.getElementById('btnRunGenerateSimilar');
+
+    const baseQ = currentData[qIndex];
+    let qClean = (baseQ.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+    let optsHtml = '';
+    if (Array.isArray(baseQ.options)) {
+        optsHtml = `<div style="margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.85rem; color: #475569;">
+            ${baseQ.options.map(o => `<div>• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('')}
+        </div>`;
+    }
+    let ansHtml = baseQ.correct_answer ? `<div style="margin-top: 6px; font-size: 0.85rem; font-weight: 600; color: #16a34a;">Đáp án: ${escapeHtml(typeof baseQ.correct_answer === 'object' ? JSON.stringify(baseQ.correct_answer) : String(baseQ.correct_answer))}</div>` : '';
+
+    if (preview) {
+        preview.innerHTML = `
+            <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">Câu gốc (Câu ${qIndex + 1}):</div>
+            <div style="color: #334155; line-height: 1.4;">${formatSubscriptsAndFormulas(escapeHtml(qClean))}</div>
+            ${optsHtml}
+            ${ansHtml}
+        `;
+    }
+
+    if (resContainer) resContainer.style.display = 'none';
+    if (addBtn) addBtn.style.display = 'none';
+    if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo ngay với AI';
+    }
+
+    if (modal) {
+        modal.style.display = 'flex';
+        if (typeof renderMathJax === 'function') renderMathJax(preview);
+    }
+};
+
+window.closeSimilarModal = function() {
+    const modal = document.getElementById('similarQuestionModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitGenerateSimilar = async function() {
+    if (activeSimilarBaseIndex === null || !currentData[activeSimilarBaseIndex]) {
+        alert("Không tìm thấy câu hỏi gốc để sinh tương tự.");
+        return;
+    }
+    const modeRadio = document.querySelector('input[name="simMode"]:checked');
+    const mode = modeRadio ? modeRadio.value : 'change_numbers';
+    const count = parseInt(document.getElementById('simCountSelect')?.value || '3', 10);
+    const difficulty = document.getElementById('simDifficultySelect')?.value || 'keep';
+
+    const runBtn = document.getElementById('btnRunGenerateSimilar');
+    const resContainer = document.getElementById('simResultsContainer');
+    const genList = document.getElementById('simGeneratedList');
+    const addBtn = document.getElementById('btnAddSimilarToQuiz');
+
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang sinh câu hỏi...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teacher/generate_similar_questions`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                teacher_token: authToken,
+                base_question: currentData[activeSimilarBaseIndex],
+                count: count,
+                mode: mode,
+                difficulty: difficulty
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success' && Array.isArray(data.similar_questions)) {
+            activeGeneratedSimilarQuestions = data.similar_questions;
+            if (genList) {
+                genList.innerHTML = '';
+                activeGeneratedSimilarQuestions.forEach((sq, idx) => {
+                    let sqCard = document.createElement('div');
+                    sqCard.style.cssText = 'padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;';
+                    let opts = Array.isArray(sq.options) ? sq.options.map(o => `<div style="padding: 2px 0;">• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('') : '';
+                    let ans = sq.correct_answer ? `<div style="margin-top: 6px; font-weight: 700; color: #16a34a;">Đáp án: ${escapeHtml(typeof sq.correct_answer === 'object' ? JSON.stringify(sq.correct_answer) : String(sq.correct_answer))}</div>` : '';
+                    let exp = sq.explain ? `<div style="margin-top: 4px; font-size: 0.85rem; color: #64748b;"><b>Lời giải:</b> ${formatSubscriptsAndFormulas(escapeHtml(sq.explain))}</div>` : '';
+                    
+                    sqCard.innerHTML = `
+                        <div style="font-weight: 700; color: #7c3aed; margin-bottom: 4px;">Câu tương tự #${idx + 1}:</div>
+                        <div style="color: #1e293b; margin-bottom: 6px;">${formatSubscriptsAndFormulas(escapeHtml(sq.question || ''))}</div>
+                        ${opts ? `<div style="margin-left: 8px; color: #475569;">${opts}</div>` : ''}
+                        ${ans}
+                        ${exp}
+                    `;
+                    genList.appendChild(sqCard);
+                });
+                if (typeof renderMathJax === 'function') renderMathJax(genList);
+            }
+            if (resContainer) resContainer.style.display = 'block';
+            if (addBtn) addBtn.style.display = 'inline-flex';
+            showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
+        } else {
+            alert("Lỗi khi sinh câu hỏi tương tự: " + (data.detail || "Không nhận được phản hồi"));
+        }
+    } catch(err) {
+        console.error("Generate similar error:", err);
+        alert("Lỗi kết nối khi sinh câu hỏi tương tự.");
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo lại';
+        }
+    }
+};
+
+window.applySimilarQuestionsToQuiz = function() {
+    if (!activeGeneratedSimilarQuestions || activeGeneratedSimilarQuestions.length === 0) {
+        alert("Chưa có câu hỏi tương tự nào được sinh.");
+        return;
+    }
+    let insertIndex = activeSimilarBaseIndex !== null ? activeSimilarBaseIndex + 1 : currentData.length;
+    currentData.splice(insertIndex, 0, ...activeGeneratedSimilarQuestions);
+    
+    syncDataToEditor();
+    renderPreviewAll();
+    updateQCountBadge();
+    saveDraftToSession();
+    closeSimilarModal();
+    showToast(`Đã thêm ${activeGeneratedSimilarQuestions.length} câu hỏi mới vào đề thi!`);
+};

@@ -1,0 +1,81 @@
+{
+  "file_id": "docx_format_edge_case_no_space_options",
+  "file_name": "format_edge_case_no_space_options.docx",
+  "format_type": "docx",
+  "subject": "Định dạng đặc biệt",
+  "style": "bottom_table",
+  "style_description": "Các phương án ngắn phân tách không có dòng mới, có Bảng đáp án Table ở cuối trang",
+  "tags": [
+    "edge_case",
+    "bottom_table",
+    "short_options"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Năm 2024 là năm nhuận có bao nhiêu ngày?",
+      "options": [
+        "A. 365",
+        "B. 366",
+        "C. 364",
+        "D. 360"
+      ],
+      "correct_answer": "B. 366"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Hình tam giác đều có số trục đối xứng là",
+      "options": [
+        "A. 1",
+        "B. 2",
+        "C. 3",
+        "D. 0"
+      ],
+      "correct_answer": "C. 3"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Một giờ bằng bao nhiêu giây?",
+      "options": [
+        "A. 3600",
+        "B. 60",
+        "C. 1200",
+        "D. 2400"
+      ],
+      "correct_answer": "A. 3600"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Trong bảng tuần hoàn, chu kỳ 1 gồm bao nhiêu nguyên tố?",
+      "options": [
+        "A. 8",
+        "B. 2",
+        "C. 18",
+        "D. 32"
+      ],
+      "correct_answer": "B. 2"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "layout": "single_line",
+      "question": "Âm thanh không truyền được trong môi trường nào?",
+      "options": [
+        "A. Chân không",
+        "B. Không khí",
+        "C. Nước",
+        "D. Thép"
+      ],
+      "correct_answer": "A. Chân không"
+    }
+  ]
+}

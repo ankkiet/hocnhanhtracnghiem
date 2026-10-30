@@ -1,228 +1,46 @@
-import hashlib
-import hmac
-import logging
-import os
-import secrets
-import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Tuple
+"""
+Core Security for HocNhanhTN (Backward Compatibility Shim).
+Forwards to app.utils.security.
+"""
 
-import jwt
-from fastapi import HTTPException
+from app.utils.security import (
+    ADMIN_EMAILS,
+    ALGORITHM,
+    SECRET_KEY,
+    ACCESS_TOKEN_EXPIRE_DAYS,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    check_and_assign_admin,
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+    decode_refresh_token,
+    get_user_from_token,
+    hash_password,
+    invalidate_user_cache,
+    is_legacy_hash,
+    verify_admin_access,
+    verify_password,
+    verify_student_access,
+    verify_teacher_access,
+)
 
-from core.state import USER_CACHE
-
-logger = logging.getLogger(__name__)
-
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "hocnhanhtn-secret-jwt-key-2026-secure-token-999")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_ACCESS_EXPIRE_DAYS", 30))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("JWT_REFRESH_EXPIRE_DAYS", 14))
-
-
-def hash_password(password: str) -> str:
-    """Băm mật khẩu sử dụng PBKDF2-HMAC-SHA256 kèm Salt ngẫu nhiên chống tấn công Rainbow Table."""
-    salt = secrets.token_hex(16)
-    key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
-    return f"pbkdf2_sha256$100000${salt}${key.hex()}"
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Xác minh mật khẩu, hỗ trợ tương thích ngược cả chuẩn SHA256 cũ lẫn PBKDF2 mới.
-    """
-    if not hashed_password:
-        return False
-        
-    # Chuẩn mới: pbkdf2_sha256$iterations$salt$hash
-    if hashed_password.startswith("pbkdf2_sha256$"):
-        parts = hashed_password.split("$")
-        if len(parts) == 4:
-            iterations = int(parts[1])
-            salt = parts[2]
-            stored_hash = parts[3]
-            calculated_key = hashlib.pbkdf2_hmac('sha256', plain_password.encode('utf-8'), salt.encode('utf-8'), iterations)
-            return hmac.compare_digest(calculated_key.hex(), stored_hash)
-            
-    # Chuẩn cũ: SHA-256 thuần (64 ký tự hex)
-    old_hash = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
-    return hmac.compare_digest(old_hash, hashed_password)
-
-
-def is_legacy_hash(hashed_password: str) -> bool:
-    """Kiểm tra xem mật khẩu có đang dùng chuẩn cũ SHA-256 không để tự nâng cấp."""
-    return not hashed_password.startswith("pbkdf2_sha256$")
-
-
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Tạo JWT Access Token có thời hạn và chữ ký điện tử an toàn."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    to_encode.setdefault("type", "access")
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Tạo JWT Refresh Token có thời hạn dài (mặc định 14 ngày) để làm mới Access Token."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    jti = secrets.token_hex(16)
-    to_encode.update({
-        "exp": expire,
-        "type": "refresh",
-        "jti": jti
-    })
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
-    """Giải mã JWT Access Token an toàn (chặn dùng nhầm refresh token)."""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") == "refresh":
-            return None
-        return payload
-    except Exception:
-        return None
-
-
-def decode_refresh_token(token: str) -> Optional[Dict[str, Any]]:
-    """Giải mã và xác thực tính hợp lệ của JWT Refresh Token."""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
-            return None
-        return payload
-    except Exception:
-        return None
-
-
-ADMIN_EMAILS = {"kiet0905478167@gmail.com", "admin"}
-
-
-def check_and_assign_admin(user_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Tự động cấp quyền Admin cao nhất cho tài khoản chỉ định."""
-    username = (user_data.get('username') or '').strip().lower()
-    email = (user_data.get('email') or '').strip().lower()
-    if username in ADMIN_EMAILS or email in ADMIN_EMAILS:
-        user_data['role'] = 'admin'
-        user_data['status'] = 'approved'
-    return user_data
-
-
-def invalidate_user_cache(user_id_or_token: Optional[str] = None):
-    """Xóa cache người dùng trong bộ nhớ RAM khi có thay đổi quyền, duyệt tài khoản, hoặc đổi mật khẩu."""
-    if not user_id_or_token:
-        USER_CACHE.clear()
-    else:
-        key = str(user_id_or_token).strip()
-        keys_to_del = [
-            k for k, v in list(USER_CACHE.items())
-            if k == key or (isinstance(v, dict) and isinstance(v.get('user'), dict) and v['user'].get('id') == key)
-        ]
-        for k in keys_to_del:
-            USER_CACHE.pop(k, None)
-
-
-def get_user_from_token(token: str, db) -> Optional[Dict[str, Any]]:
-    """
-    Xác thực token người dùng kèm Cache bộ nhớ đệm (TTL 300 giây):
-    1. Kiểm tra cache RAM trước để KHÔNG tốn lượt đọc Firestore vô ích.
-    2. Ưu tiên giải mã JWT.
-    3. Nếu không phải JWT (token cũ là Firestore Doc ID), tra cứu trực tiếp trong Firestore để tương thích ngược.
-    """
-    if not token or db is None:
-        return None
-        
-    token = str(token).strip()
-    now = time.time()
-    
-    # 1. Kiểm tra cache theo token (TTL 1800s = 30 phút để tiết kiệm tối đa lượt đọc Firestore)
-    if token in USER_CACHE and (now - USER_CACHE[token]['time'] < 1800):
-        return USER_CACHE[token]['user'].copy()
-
-    payload = decode_access_token(token)
-    if payload and "sub" in payload:
-        user_id = str(payload["sub"]).strip()
-        
-        # Kiểm tra cache theo user_id
-        if user_id in USER_CACHE and (now - USER_CACHE[user_id]['time'] < 1800):
-            cached_user = USER_CACHE[user_id]['user'].copy()
-            USER_CACHE[token] = {'time': now, 'user': cached_user}
-            return cached_user
-            
-        try:
-            doc = db.collection('users').document(user_id).get()
-            if doc.exists:
-                user_data = doc.to_dict()
-                user_data['id'] = doc.id
-                final_user = check_and_assign_admin(user_data)
-                USER_CACHE[user_id] = {'time': now, 'user': final_user}
-                USER_CACHE[token] = {'time': now, 'user': final_user}
-                return final_user.copy()
-        except Exception as e:
-            logger.warning(f"Không thể đọc users/{user_id} từ Firestore ({e}). Tự động phục hồi thông tin từ JWT token.")
-
-        # PHỤC HỒI AN TOÀN TỪ JWT TOKEN ĐÃ ĐƯỢC KÝ ĐIỆN TỬ BỞI SECRET_KEY:
-        payload_role = payload.get("role") or ("teacher" if "teacher" in str(token).lower() else "student")
-        fallback_user = {
-            "id": user_id,
-            "username": payload.get("username", user_id),
-            "role": payload_role,
-            "full_name": payload.get("full_name", payload.get("username", user_id)),
-            "status": "approved",
-            "is_approved": True
-        }
-        final_user = check_and_assign_admin(fallback_user)
-        USER_CACHE[user_id] = {'time': now, 'user': final_user}
-        USER_CACHE[token] = {'time': now, 'user': final_user}
-        return final_user.copy()
-            
-    try:
-        doc = db.collection('users').document(token).get()
-        if doc.exists:
-            user_data = doc.to_dict()
-            user_data['id'] = doc.id
-            final_user = check_and_assign_admin(user_data)
-            USER_CACHE[token] = {'time': now, 'user': final_user}
-            USER_CACHE[final_user['id']] = {'time': now, 'user': final_user}
-            return final_user.copy()
-    except Exception:
-        pass
-        
-    return None
-
-
-def verify_admin_access(token: str, db) -> Tuple[Dict[str, Any], str]:
-    """Xác minh quyền quản trị viên (Admin)."""
-    user = get_user_from_token(token, db)
-    if not user or user.get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập Quản trị viên.")
-    return user, user['id']
-
-
-def verify_teacher_access(token: str, db) -> Tuple[Dict[str, Any], str]:
-    """Xác minh quyền giáo viên hoặc quản trị viên."""
-    user = get_user_from_token(token, db)
-    if not user:
-        raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
-    if user.get('role') not in ['teacher', 'admin']:
-        raise HTTPException(status_code=403, detail="Tài khoản không có quyền Giáo viên.")
-    return user, user['id']
-
-
-def verify_student_access(token: str, db) -> Tuple[Dict[str, Any], str]:
-    """Xác minh quyền học sinh."""
-    user = get_user_from_token(token, db)
-    if not user:
-        raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ hoặc đã hết hạn.")
-    return user, user['id']
+__all__ = [
+    "SECRET_KEY",
+    "ALGORITHM",
+    "ACCESS_TOKEN_EXPIRE_DAYS",
+    "REFRESH_TOKEN_EXPIRE_DAYS",
+    "ADMIN_EMAILS",
+    "hash_password",
+    "verify_password",
+    "is_legacy_hash",
+    "create_access_token",
+    "create_refresh_token",
+    "decode_access_token",
+    "decode_refresh_token",
+    "get_user_from_token",
+    "verify_teacher_access",
+    "verify_student_access",
+    "verify_admin_access",
+    "invalidate_user_cache",
+    "check_and_assign_admin",
+]

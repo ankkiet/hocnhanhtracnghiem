@@ -1,0 +1,76 @@
+{
+  "file_id": "pdf_toan_01_chuan_thpt",
+  "file_name": "toan_01_chuan_thpt.pdf",
+  "format_type": "pdf",
+  "subject": "Toán học",
+  "style": "bottom_text",
+  "style_description": "PDF đề thi thử THPT Quốc gia môn Toán, bảng đáp án text ở cuối đề thi",
+  "tags": [
+    "toan",
+    "pdf",
+    "bottom_text"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Cho cấp số cộng (u_n) có u_1 = 3 và công sai d = 2. Số hạng thứ hai u_2 bằng",
+      "options": [
+        "A. 6",
+        "B. 5",
+        "C. 1",
+        "D. 8"
+      ],
+      "correct_answer": "B. 5"
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Có bao nhiêu cách chọn 2 học sinh từ một nhóm gồm 10 học sinh?",
+      "options": [
+        "A. 20",
+        "B. 90",
+        "C. 45",
+        "D. 100"
+      ],
+      "correct_answer": "C. 45"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Đạo hàm của hàm số y = 2^x là",
+      "options": [
+        "A. y' = 2^x * ln 2",
+        "B. y' = x * 2^(x - 1)",
+        "C. y' = 2^x / ln 2",
+        "D. y' = 2^x"
+      ],
+      "correct_answer": "A. y' = 2^x * ln 2"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Tập xác định D của hàm số y = log_3(x - 2) là",
+      "options": [
+        "A. D = R \\ {2}",
+        "B. D = [2; +∞)",
+        "C. D = (-∞; 2)",
+        "D. D = (2; +∞)"
+      ],
+      "correct_answer": "D. D = (2; +∞)"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Hàm số nào dưới đây nghịch biến trên toàn bộ tập số thực R?",
+      "options": [
+        "A. y = -x^3 - x",
+        "B. y = x^3 + 2x",
+        "C. y = (x - 1)/(x + 1)",
+        "D. y = -x^4 + 2"
+      ],
+      "correct_answer": "A. y = -x^3 - x"
+    }
+  ]
+}

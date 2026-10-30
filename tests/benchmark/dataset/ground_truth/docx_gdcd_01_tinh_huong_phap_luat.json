@@ -1,0 +1,65 @@
+{
+  "file_id": "docx_gdcd_01_tinh_huong_phap_luat",
+  "file_name": "gdcd_01_tinh_huong_phap_luat.docx",
+  "format_type": "docx",
+  "subject": "Giáo dục Kinh tế và Pháp luật",
+  "style": "underline",
+  "style_description": "Câu hỏi tình huống pháp luật dài nhiều dòng, có các nhân vật Ông A Bà B, đáp án gạch chân",
+  "tags": [
+    "gdcd",
+    "ktpl",
+    "tinh_huong_dai",
+    "underline"
+  ],
+  "total_questions": 4,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Anh A và chị B cùng nộp hồ sơ xin việc vào công ty X. Dù có trình độ chuyên môn cao hơn nhưng chị B bị giám đốc loại chỉ vì là phụ nữ. Giám đốc công ty X đã vi phạm quyền bình đẳng nào dưới đây của công dân?",
+      "options": [
+        "A. Bình đẳng trong kinh doanh.",
+        "B. Bình đẳng trong lao động.",
+        "C. Bình đẳng về quyền sở hữu tài sản.",
+        "D. Bình đẳng trong việc kết hôn."
+      ],
+      "correct_answer": "B. Bình đẳng trong lao động."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Ông H là chủ nhà hàng xả nước thải chưa qua xử lý ra dòng suối gần khu dân cư gây ô nhiễm môi trường nghiêm trọng. Khi bị cán bộ môi trường lập biên bản, ông H đã dùng tiền hối lộ để bỏ qua vi phạm. Hành vi của ông H thuộc hình thức vi phạm pháp luật nào sau đây?",
+      "options": [
+        "A. Vi phạm kỷ luật và vi phạm dân sự.",
+        "B. Vi phạm hành chính và vi phạm hình sự.",
+        "C. Chỉ vi phạm dân sự.",
+        "D. Không vi phạm pháp luật."
+      ],
+      "correct_answer": "B. Vi phạm hành chính và vi phạm hình sự."
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Anh C phát hiện đại lý phân phối thuốc tân dược của bà M bán thuốc hết hạn sử dụng nên đã gửi đơn tố cáo tới cơ quan quản lý thị trường. Anh C đã thực hiện quyền nào dưới đây của công dân?",
+      "options": [
+        "A. Quyền khiếu nại",
+        "B. Quyền tố cáo",
+        "C. Quyền tự do kinh doanh",
+        "D. Quyền ứng cử"
+      ],
+      "correct_answer": "B. Quyền tố cáo"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Trong cuộc bầu cử đại biểu Quốc hội, bà T vì bận việc riêng đã nhờ con trai mình là anh V bỏ phiếu hộ cho mình. Hành vi này của bà T đã vi phạm nguyên tắc bầu cử nào?",
+      "options": [
+        "A. Nguyên tắc phổ thông",
+        "B. Nguyên tắc bình đẳng",
+        "C. Nguyên tắc trực tiếp",
+        "D. Nguyên tắc bỏ phiếu kín"
+      ],
+      "correct_answer": "C. Nguyên tắc trực tiếp"
+    }
+  ]
+}

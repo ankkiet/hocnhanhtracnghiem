@@ -1,0 +1,76 @@
+{
+  "file_id": "docx_sinhhoc_01_boi_dam",
+  "file_name": "sinhhoc_01_boi_dam.docx",
+  "format_type": "docx",
+  "subject": "Sinh học",
+  "style": "bold",
+  "style_description": "Sinh học di truyền học Menđen, đáp án đúng in ĐẬM trong file Word",
+  "tags": [
+    "sinh_hoc",
+    "bold",
+    "di_truyen"
+  ],
+  "total_questions": 5,
+  "questions": [
+    {
+      "question_number": 1,
+      "type": "mcq",
+      "question": "Theo quy luật phân li của Menđen, mỗi tính trạng do một cặp alen quy định, các alen tồn tại trong tế bào",
+      "options": [
+        "A. hòa lẫn vào nhau.",
+        "B. độc lập và không hòa lẫn vào nhau.",
+        "C. dính liền nhau.",
+        "D. lấn át nhau hoàn toàn."
+      ],
+      "correct_answer": "B. độc lập và không hòa lẫn vào nhau."
+    },
+    {
+      "question_number": 2,
+      "type": "mcq",
+      "question": "Cơ thể có kiểu gen nào sau đây được gọi là thể đồng hợp lặn?",
+      "options": [
+        "A. Aa",
+        "B. AA",
+        "C. aa",
+        "D. AaBb"
+      ],
+      "correct_answer": "C. aa"
+    },
+    {
+      "question_number": 3,
+      "type": "mcq",
+      "question": "Phép lai P: Aa x Aa cho đời con F1 có tỉ lệ kiểu gen là",
+      "options": [
+        "A. 1 AA : 2 Aa : 1 aa",
+        "B. 3 AA : 1 aa",
+        "C. 1 Aa : 1 aa",
+        "D. 100% Aa"
+      ],
+      "correct_answer": "A. 1 AA : 2 Aa : 1 aa"
+    },
+    {
+      "question_number": 4,
+      "type": "mcq",
+      "question": "Ở ruồi giấm (Drosophila melanogaster), Morgan phát hiện hiện tượng liên kết gen ở giới tính nào?",
+      "options": [
+        "A. Chỉ ruồi cái",
+        "B. Chỉ ruồi đực",
+        "C. Cả ruồi đực và ruồi cái",
+        "D. Không có ở ruồi giấm"
+      ],
+      "correct_answer": "B. Chỉ ruồi đực"
+    },
+    {
+      "question_number": 5,
+      "type": "mcq",
+      "question": "Một gen có chiều dài 5100 Å thì tổng số nucleotit của gen đó là",
+      "options": [
+        "A. 1500",
+        "B. 3000",
+        "C. 4050",
+        "D. 6000"
+      ],
+      "correct_answer": "B. 3000"
+    }
+  ]
+}
