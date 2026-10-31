@@ -347,7 +347,6 @@ def get_db(force_refresh: bool = False):
     Lấy đối tượng Firestore Client.
     Hỗ trợ tham số force_refresh=True để chủ động làm mới token và tái kết nối gRPC.
     """
-    global db
     if force_refresh or db is None:
         if force_refresh and db is not None:
             return reconnect_firebase()

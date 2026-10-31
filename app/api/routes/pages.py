@@ -102,14 +102,24 @@ def _render_index_with_meta(
     description: Optional[str] = None,
     canonical_url: Optional[str] = None,
     og_image_url: Optional[str] = None,
+    route_class: str = "hntn-not-home-route",
 ) -> HTMLResponse:
-    """Render index.html gốc với các thẻ title & OpenGraph được tùy biến chính xác."""
+    """Render index.html gốc với các thẻ title & OpenGraph được tùy biến chính xác, loại bỏ triệt để FOUC ám trang chủ."""
     index_path = os.path.join(settings.TEMPLATES_DIR, "index.html")
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy index.html")
 
     with open(index_path, "r", encoding="utf-8") as f:
         html_content = f.read()
+
+    if route_class:
+        html_content = re.sub(
+            r'<html([^>]*)lang=["\']vi["\']([^>]*)>',
+            rf'<html\1lang="vi" class="{route_class}"\2>',
+            html_content,
+            count=1,
+            flags=re.IGNORECASE
+        )
 
     if title:
         html_content = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)}</title>', html_content, flags=re.IGNORECASE)
@@ -162,7 +172,7 @@ async def home_page(request: Request, id: Optional[str] = None, quiz_id: Optiona
         og_t = quiz_title if quiz_title else f"Đề thi #{target_quiz_id}"
         desc = quiz_desc if quiz_desc else f"Làm bài kiểm tra: {quiz_title or target_quiz_id}. Hệ thống học nhanh trắc nghiệm chuẩn GDPT 2018."
         canon = f"{site_domain}/?id={target_quiz_id}"
-        return _render_index_with_meta(title=full_title, og_title=og_t, description=desc, canonical_url=canon, og_image_url=og_image_url)
+        return _render_index_with_meta(title=full_title, og_title=og_t, description=desc, canonical_url=canon, og_image_url=og_image_url, route_class="hntn-not-home-route hntn-is-quiz-route")
 
     # Trang chủ sạch sẽ nguyên bản 100% như giao diện gốc
     index_path = os.path.join(settings.TEMPLATES_DIR, "index.html")
@@ -187,6 +197,7 @@ async def login_page(request: Request):
         description="Đăng nhập tài khoản giáo viên hoặc học sinh để quản lý đề thi và lưu trữ tiến độ làm bài thi trắc nghiệm trên HocNhanhTN.",
         canonical_url=f"{site_domain}/dang-nhap",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-auth-route",
     )
 
 
@@ -202,6 +213,7 @@ async def quiz_list_page(request: Request):
         description="Khám phá danh sách các đề thi trắc nghiệm phong phú bám sát cấu trúc Bộ Giáo dục và Đào tạo mới nhất.",
         canonical_url=f"{site_domain}/de-thi",
         og_image_url=og_image_url,
+        route_class="",
     )
 
 
@@ -228,6 +240,7 @@ async def exam_page(request: Request, quiz_id: str):
         description=desc,
         canonical_url=f"{site_domain}/thi/{quiz_id}",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-quiz-route",
     )
 
 
@@ -247,6 +260,7 @@ async def result_page(request: Request, submission_id: str):
         description="Xem chi tiết điểm số, đáp án đúng/sai và phân tích giải thích bài thi tại HocNhanhTN.",
         canonical_url=f"{site_domain}/ket-qua/{submission_id}",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-quiz-route",
     )
 
 
@@ -262,6 +276,7 @@ async def history_page(request: Request):
         description="Xem lại lịch sử các bài kiểm tra đã làm, đối chiếu bảng điểm và lời giải chi tiết từng câu hỏi.",
         canonical_url=f"{site_domain}/lich-su",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-student-route",
     )
 
 
@@ -284,6 +299,7 @@ async def leaderboard_page(request: Request, quiz_id: str):
         description=f"Xem bảng vinh danh và kết quả bài thi {label} tại HocNhanhTN.",
         canonical_url=f"{site_domain}/xep-hang/{quiz_id}",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-quiz-route",
     )
 
 
@@ -299,6 +315,7 @@ async def teacher_page(request: Request):
         description="Quản lý kho đề thi, số hóa đề từ Word/PDF bằng AI và theo dõi kết quả làm bài của học sinh.",
         canonical_url=f"{site_domain}/giao-vien",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-teacher-route",
     )
 
 
@@ -321,6 +338,7 @@ async def teacher_quiz_detail_page(request: Request, quiz_id: str):
         description=f"Chỉnh sửa câu hỏi, xuất bản phòng thi và xem phổ điểm chi tiết của đề thi {label}.",
         canonical_url=f"{site_domain}/giao-vien/de/{quiz_id}",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-teacher-route",
     )
 
 
@@ -354,6 +372,7 @@ async def admin_page(request: Request):
         description="Trang quản trị toàn diện: Thống kê Quota & Chi phí Gemini AI, danh sách đề thi và tài khoản người dùng.",
         canonical_url=f"{site_domain}/admin",
         og_image_url=og_image_url,
+        route_class="hntn-not-home-route hntn-is-admin-route",
     )
 
 
@@ -367,9 +386,7 @@ async def privacy_page(request: Request):
         title="Chính sách bảo mật (Privacy Policy) - HocNhanhTN",
         og_title="Chính sách bảo mật (Privacy Policy) - HocNhanhTN",
         description="Chính sách bảo mật quyền riêng tư và cam kết an toàn dữ liệu cho học sinh & giáo viên trên HocNhanhTN.",
-        canonical_url=f"{site_domain}/privacy",
-        og_image_url=og_image_url,
-    )
+        canonical_url=f"{site_domain}/privacy", og_image_url=og_image_url, route_class="")
 
 
 @router.get("/terms", response_class=HTMLResponse, summary="Điều khoản dịch vụ & sử dụng")
@@ -379,9 +396,7 @@ async def terms_page(request: Request):
         title="Điều khoản dịch vụ (Terms of Service) - HocNhanhTN",
         og_title="Điều khoản dịch vụ (Terms of Service) - HocNhanhTN",
         description="Điều khoản sử dụng dịch vụ và quy định nền tảng thi trắc nghiệm trực tuyến HocNhanhTN.",
-        canonical_url=f"{site_domain}/terms",
-        og_image_url=og_image_url,
-    )
+        canonical_url=f"{site_domain}/terms", og_image_url=og_image_url, route_class="")
 
 
 @router.get("/about", response_class=HTMLResponse, summary="Giới thiệu về Dự án HocNhanhTN")
@@ -391,9 +406,7 @@ async def about_page(request: Request):
         title="Về chúng tôi - Nền tảng số hóa đề thi HocNhanhTN",
         og_title="Về chúng tôi - Nền tảng số hóa đề thi HocNhanhTN",
         description="Dự án phi lợi nhuận hỗ trợ giáo viên và học sinh Việt Nam chuyển đổi số đề thi chuẩn GDPT 2018.",
-        canonical_url=f"{site_domain}/about",
-        og_image_url=og_image_url,
-    )
+        canonical_url=f"{site_domain}/about", og_image_url=og_image_url, route_class="")
 
 
 @router.get("/contact", response_class=HTMLResponse, summary="Liên hệ & Hỗ trợ kỹ thuật")
@@ -403,9 +416,7 @@ async def contact_page(request: Request):
         title="Liên hệ & Hỗ trợ - HocNhanhTN",
         og_title="Liên hệ & Hỗ trợ - HocNhanhTN",
         description="Kênh tiếp nhận phản hồi, hỗ trợ kỹ thuật và đóng góp ý kiến nâng cấp hệ thống HocNhanhTN.",
-        canonical_url=f"{site_domain}/contact",
-        og_image_url=og_image_url,
-    )
+        canonical_url=f"{site_domain}/contact", og_image_url=og_image_url, route_class="")
 
 
 @router.get("/canvas", summary="Interactive Component Canvas cho Design System & UI Variants")

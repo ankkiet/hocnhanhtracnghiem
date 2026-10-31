@@ -243,6 +243,109 @@ class TestGenerateSimilarQuestions(unittest.TestCase):
         self.assertEqual(variants[0]["correct_answer"], "A. 80m")
         self.assertEqual(len(variants[0]["options"]), 4)
 
+    @patch("app.api.routes.teacher._get_db")
+    @patch("services.ai_service.generate_similar_questions")
+    def test_endpoint_generate_similar_with_base_question(self, mock_gen, mock_get_db):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api.routes.teacher import router as teacher_router
+
+        mock_get_db.return_value = None
+        mock_gen.return_value = [
+            {
+                "question": "Câu tương tự 1",
+                "options": ["A. 1", "B. 2", "C. 3", "D. 4"],
+                "correct_answer": "A. 1",
+                "type": "mcq"
+            }
+        ]
+
+        app = FastAPI()
+        app.include_router(teacher_router)
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key-123"}):
+            resp = client.post(
+                "/api/teacher/generate_similar_questions",
+                json={
+                    "teacher_token": "",
+                    "base_question": {
+                        "question": "Câu gốc",
+                        "options": ["A. 1", "B. 2"],
+                        "correct_answer": "A. 1",
+                        "type": "mcq"
+                    },
+                    "count": 1,
+                    "mode": "change_numbers"
+                }
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertIn("similar_questions", data)
+        self.assertIn("data", data)
+        self.assertEqual(len(data["similar_questions"]), 1)
+        self.assertEqual(data["similar_questions"][0]["question"], "Câu tương tự 1")
+
+    @patch("app.api.routes.teacher._get_db")
+    @patch("services.ai_service.generate_similar_questions")
+    def test_endpoint_generate_similar_with_question(self, mock_gen, mock_get_db):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api.routes.teacher import router as teacher_router
+
+        mock_get_db.return_value = None
+        mock_gen.return_value = [
+            {
+                "question": "Câu biến thể",
+                "options": ["A. 10", "B. 20"],
+                "correct_answer": "A. 10",
+                "type": "mcq"
+            }
+        ]
+
+        app = FastAPI()
+        app.include_router(teacher_router)
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key-123"}):
+            resp = client.post(
+                "/api/teacher/generate_similar_questions",
+                json={
+                    "teacher_token": "any_token",
+                    "question": {
+                        "question": "Câu gốc",
+                        "options": ["A. 10", "B. 20"],
+                        "correct_answer": "A. 10",
+                        "type": "mcq"
+                    },
+                    "count": 1,
+                    "mode": "both"
+                }
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(len(data["similar_questions"]), 1)
+        self.assertEqual(data["similar_questions"][0]["question"], "Câu biến thể")
+
+    def test_endpoint_generate_similar_missing_question(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api.routes.teacher import router as teacher_router
+
+        app = FastAPI()
+        app.include_router(teacher_router)
+        client = TestClient(app)
+
+        resp = client.post(
+            "/api/teacher/generate_similar_questions",
+            json={"teacher_token": ""}
+        )
+        self.assertEqual(resp.status_code, 400)
+
 
 class TestScannedPdfAndImageOCR(unittest.TestCase):
     def test_document_scanned_pdf_threshold_logic(self):

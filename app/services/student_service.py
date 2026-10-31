@@ -20,6 +20,11 @@ from app.schemas.student import (
     SubmitScoreRequest,
     SyncHistoryRequest,
 )
+from app.utils.helpers import (
+    evaluate_mcq_answer,
+    evaluate_short_answer,
+    evaluate_true_false_answer,
+)
 from core.logging_config import get_logger
 from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SUBMISSIONS_CACHE
 from services.exam_session_service import exam_session_service
@@ -134,7 +139,7 @@ class StudentService:
             quiz_data = quiz_doc.to_dict()
             QUIZ_CACHE[req.quiz_id] = {'time': now, 'data': quiz_data}
 
-        questions = quiz_data.get('data', [])
+        questions = quiz_data.get('data') or quiz_data.get('questions') or []
 
         score = 0
         results = []
@@ -151,93 +156,15 @@ class StudentService:
             earned = 0.0
 
             if q_type == 'true_false' or isinstance(correct_ans, dict):
-                # Quy chuẩn chấm trắc nghiệm Đúng/Sai của Bộ GD&ĐT:
-                # 1 ý đúng = 0.1đ | 2 ý đúng = 0.25đ | 3 ý đúng = 0.5đ | 4 ý đúng = 1.0đ
-                if isinstance(user_ans, dict) and isinstance(correct_ans, dict):
-                    def norm_tf(d):
-                        res = {}
-                        for k, v in d.items():
-                            lk = str(k).lower().strip()
-                            if isinstance(v, bool):
-                                res[lk] = v
-                            elif isinstance(v, str):
-                                res[lk] = v.strip().lower() in ['true', 't', 'đúng', 'dung', 'd', '1']
-                            elif isinstance(v, (int, float)):
-                                res[lk] = bool(v)
-                            else:
-                                res[lk] = bool(v)
-                        return res
-
-                    u_norm = norm_tf(user_ans)
-                    c_norm = norm_tf(correct_ans)
-                    total_tf = len(c_norm)
-                    if total_tf == 0:
-                        earned = 0.0
-                        is_correct = False
-                    else:
-                        matches = sum(1 for k in c_norm if k in u_norm and u_norm[k] == c_norm[k])
-                        # Thang điểm chuẩn Bộ GD&ĐT cho câu Đúng/Sai 4 ý:
-                        # 1 ý đúng = 0.1đ | 2 ý đúng = 0.25đ | 3 ý đúng = 0.5đ | 4 ý đúng = 1.0đ
-                        tf_scale = {0: 0.0, 1: 0.1, 2: 0.25, 3: 0.5, 4: 1.0}
-                        earned = tf_scale.get(matches, float(matches) / float(total_tf))
-                        is_correct = (matches == total_tf)
+                is_correct, earned = evaluate_true_false_answer(user_ans, correct_ans)
                 score += earned
             elif q_type == 'short_answer':
-                u_clean = str(user_ans or '').strip().lower().replace(',', '.').replace(' ', '')
-                c_clean = str(correct_ans or '').strip().lower().replace(',', '.').replace(' ', '')
-                is_correct = bool(u_clean and u_clean == c_clean)
+                is_correct = evaluate_short_answer(user_ans, correct_ans)
                 earned = 1.0 if is_correct else 0.0
                 score += earned
             else:
-                # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt
-                is_correct = False
-                if user_ans is not None and correct_ans is not None:
-                    u_str = str(user_ans).strip()
-                    c_str = str(correct_ans).strip()
-
-                    # Sửa lỗi: Nếu correct_answer là index (VD: "0", "1") do AI sinh ra (dùng c_idx tránh ghi đè idx vòng lặp)
-                    if c_str.isdigit() and q.get('options') and isinstance(q.get('options'), list):
-                        c_idx = int(c_str)
-                        if 0 <= c_idx < len(q['options']):
-                            c_str = str(q['options'][c_idx]).strip()
-
-                    if u_str.upper() == c_str.upper():
-                        is_correct = True
-                    else:
-                        def clean_compare_text(text: str) -> str:
-                            t = re.sub(r'<[^>]+>', '', str(text or ''))
-                            t = re.sub(r'\\(|\\)|[\$]', '', t)
-                            t = re.sub(r'[ ​\s]+', ' ', t)
-                            return t.strip().lower()
-
-                        # Ràng buộc chặt chẽ: Lấy A-F nếu nó đứng đầu và theo sau là dấu câu hoặc khoảng trắng
-                        re_prefix = r'^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])(?:[\.\:\)]\s*|\s+|$)'
-                        u_m = re.match(re_prefix, u_str)
-                        c_m = re.match(re_prefix, c_str)
-                        u_char = u_m.group(1).upper() if u_m else None
-                        c_char = c_m.group(1).upper() if c_m else None
-
-                        u_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', u_str))
-                        c_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', c_str))
-
-                        opt_clean = c_clean
-                        if not opt_clean and c_char and q.get('options') and isinstance(q.get('options'), list):
-                            idx_opt = ord(c_char) - ord('A')
-                            if 0 <= idx_opt < len(q['options']):
-                                opt_str = str(q['options'][idx_opt]).strip()
-                                opt_clean = clean_compare_text(re.sub(r'^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*', '', opt_str))
-                                if clean_compare_text(u_str) == clean_compare_text(opt_str):
-                                    is_correct = True
-
-                        if not is_correct:
-                            if u_clean and opt_clean:
-                                # Ưu tiên so khớp nội dung: Giải quyết lỗi đảo vị trí đáp án nhưng bị trùng chữ cái A,B,C,D
-                                if u_clean == opt_clean:
-                                    is_correct = True
-                            else:
-                                # Fallback: Nếu không có text, mới so khớp bằng chữ cái đại diện
-                                if u_char and c_char and u_char == c_char:
-                                    is_correct = True
+                # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt, miễn nhiễm đảo vị trí phương án
+                is_correct = evaluate_mcq_answer(user_ans, correct_ans, q.get('options'))
                 earned = 1.0 if is_correct else 0.0
                 score += earned
 

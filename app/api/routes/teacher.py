@@ -1,8 +1,13 @@
 import datetime
 import json
 import logging
+from app.utils.helpers import (
+    evaluate_mcq_answer,
+    evaluate_short_answer,
+    evaluate_true_false_answer,
+)
 import re
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 import time
@@ -74,12 +79,13 @@ class CheckQuizRequest(BaseModel):
     custom_prompt: str = ""
 
 class CrossCheckAnswersRequest(BaseModel):
-    teacher_token: str
+    teacher_token: Optional[str] = ""
     quiz_data: list
 
 class GenerateSimilarQuestionsRequest(BaseModel):
-    teacher_token: str
-    question: dict
+    teacher_token: Optional[str] = ""
+    question: Optional[Dict[str, Any]] = None
+    base_question: Optional[Dict[str, Any]] = None
     count: int = 1
     mode: str = "change_numbers"
     difficulty: str = "keep"
@@ -622,7 +628,7 @@ async def export_quiz_docx(quiz_id: str, teacher_token: Optional[str] = None):
         
     quiz_data = doc.to_dict()
     title = quiz_data.get('title', 'Đề thi trắc nghiệm')
-    questions = quiz_data.get('data', [])
+    questions = quiz_data.get('data') or quiz_data.get('questions') or []
     time_limit = quiz_data.get('time_limit', 0)
     
     docx_stream = export_quiz_to_docx(title, questions, time_limit)
@@ -662,7 +668,7 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
         if creator != user_uid and creator != teacher_token and user.get('role') != 'admin':
             raise HTTPException(status_code=403, detail="Không có quyền xem phân tích bài nộp của đề thi này")
         
-    questions = quiz_data.get('data', [])
+    questions = quiz_data.get('data') or quiz_data.get('questions') or []
     total_q = len(questions)
     
     # Lấy danh sách bài nộp của học sinh (sử dụng cache 300s = 5 phút nếu không force_refresh)
@@ -802,31 +808,15 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
                 q_stats[idx]["correct"] += 1
             elif u_ans is not None and correct_ans is not None:
                 if q_type == 'true_false' or isinstance(correct_ans, dict):
-                    if isinstance(u_ans, dict) and isinstance(correct_ans, dict):
-                        matches = sum(1 for k in ['a', 'b', 'c', 'd'] 
-                                      if k in u_ans and k in correct_ans and bool(u_ans[k]) == bool(correct_ans[k]))
-                        if matches == 4:
-                            q_stats[idx]["correct"] += 1
+                    is_c, _ = evaluate_true_false_answer(u_ans, correct_ans)
+                    if is_c:
+                        q_stats[idx]["correct"] += 1
                 elif q_type == 'short_answer':
-                    u_clean = str(u_ans).strip().lower().replace(',', '.').replace(' ', '')
-                    c_clean = str(correct_ans).strip().lower().replace(',', '.').replace(' ', '')
-                    if u_clean and u_clean == c_clean:
+                    if evaluate_short_answer(u_ans, correct_ans):
                         q_stats[idx]["correct"] += 1
                 else:
-                    # MCQ: So khớp an toàn chữ cái và nội dung
-                    def _clean(t):
-                        t = re.sub(r'<[^>]+>', '', str(t or ''))
-                        t = re.sub(r'\\(|\\)|[\$]', '', t)
-                        return re.sub(r'[ ​\s]+', ' ', t).strip().lower()
-                    u_clean = _clean(re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', str(u_ans)))
-                    c_clean = _clean(re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', str(correct_ans)))
-                    if u_clean and c_clean and u_clean == c_clean:
+                    if evaluate_mcq_answer(u_ans, correct_ans, questions[idx].get('options')):
                         q_stats[idx]["correct"] += 1
-                    else:
-                        u_m = re.match(r'^\*?\s*([A-Fa-f])(?:[\.\:\)]|\s|$)', str(u_ans).strip())
-                        c_m = re.match(r'^\*?\s*([A-Fa-f])(?:[\.\:\)]|\s|$)', str(correct_ans).strip())
-                        if u_m and c_m and u_m.group(1).upper() == c_m.group(1).upper():
-                            q_stats[idx]["correct"] += 1
 
             # Thống kê phân bố lựa chọn của học sinh an toàn theo từng loại câu
             if u_ans is not None:
@@ -905,20 +895,43 @@ async def cross_check_quiz_answers(req: CrossCheckAnswersRequest):
     sau đó so sánh và phát hiện những câu có đáp án khác nhau để cảnh báo rà soát.
     """
     db = _get_db()
-    if db is None:
-        raise HTTPException(status_code=500, detail="Lỗi kết nối cơ sở dữ liệu")
-        
-    _verify_teacher_access(req.teacher_token, db)
     
+    # Xác minh quyền nếu có token; cho phép dùng thử nếu chưa đăng nhập
+    if req.teacher_token and req.teacher_token.strip():
+        try:
+            if db is not None:
+                _verify_teacher_access(req.teacher_token, db)
+        except HTTPException:
+            logger.info("Token giáo viên không hợp lệ hoặc đã hết hạn, tiếp tục phiên kiểm tra chéo dùng thử.")
+        except Exception as e:
+            logger.warning(f"Lỗi kiểm tra token giáo viên: {e}")
+    
+    api_keys = []
     now = time.time()
     if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
         api_keys = SETTINGS_CACHE['gemini']['data']
-    else:
-        settings_doc = db.collection('settings').document('gemini').get()
-        if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
-            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
-        api_keys = settings_doc.to_dict().get('api_keys')
-        SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+    elif db is not None:
+        try:
+            settings_doc = db.collection('settings').document('gemini').get()
+            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                api_keys = settings_doc.to_dict().get('api_keys')
+                SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+        except Exception as e:
+            logger.warning(f"Không thể đọc gemini api keys từ Firestore: {e}")
+
+    # Fallback sang cấu hình môi trường nếu Firestore chưa có keys
+    if not api_keys:
+        import os
+        from core.config import settings
+        env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
+        if env_keys:
+            if isinstance(env_keys, str):
+                api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
+            elif isinstance(env_keys, list):
+                api_keys = env_keys
+
+    if not api_keys:
+        raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
 
     from services.ai_service import cross_check_answers
     try:
@@ -935,33 +948,65 @@ async def generate_similar_quiz_questions(req: GenerateSimilarQuestionsRequest):
     Sinh câu hỏi tương tự từ một câu hỏi có sẵn (đổi số liệu, đổi ngữ cảnh thực tế, hoặc cả hai)
     để tạo đề luyện tập phong phú.
     """
+    base_q = req.question or req.base_question
+    if not base_q or not isinstance(base_q, dict):
+        raise HTTPException(status_code=400, detail="Thiếu dữ liệu câu hỏi gốc để sinh câu hỏi tương tự.")
+
     db = _get_db()
-    if db is None:
-        raise HTTPException(status_code=500, detail="Lỗi kết nối cơ sở dữ liệu")
-        
-    _verify_teacher_access(req.teacher_token, db)
     
+    # Xác minh quyền giáo viên nếu có token; cho phép dùng thử nếu phiên khách/chưa đăng nhập
+    if req.teacher_token and req.teacher_token.strip():
+        try:
+            if db is not None:
+                _verify_teacher_access(req.teacher_token, db)
+        except HTTPException:
+            logger.info("Token giáo viên không hợp lệ hoặc đã hết hạn, tiếp tục phiên tạo câu hỏi thử nghiệm.")
+        except Exception as e:
+            logger.warning(f"Lỗi kiểm tra token giáo viên: {e}")
+    
+    api_keys = []
     now = time.time()
     if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
         api_keys = SETTINGS_CACHE['gemini']['data']
-    else:
-        settings_doc = db.collection('settings').document('gemini').get()
-        if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
-            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
-        api_keys = settings_doc.to_dict().get('api_keys')
-        SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+    elif db is not None:
+        try:
+            settings_doc = db.collection('settings').document('gemini').get()
+            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                api_keys = settings_doc.to_dict().get('api_keys')
+                SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+        except Exception as e:
+            logger.warning(f"Không thể đọc gemini api keys từ Firestore: {e}")
+
+    # Fallback sang cấu hình môi trường nếu Firestore chưa có keys
+    if not api_keys:
+        import os
+        from core.config import settings
+        env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
+        if env_keys:
+            if isinstance(env_keys, str):
+                api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
+            elif isinstance(env_keys, list):
+                api_keys = env_keys
+
+    if not api_keys:
+        raise HTTPException(status_code=400, detail="Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin cấu hình API Key.")
 
     from services.ai_service import generate_similar_questions
     try:
         count = max(1, min(req.count, 5))
         generated = await generate_similar_questions(
-            base_question=req.question,
+            base_question=base_q,
             count=count,
             mode=req.mode,
             difficulty=req.difficulty,
             api_keys=api_keys
         )
-        return {"status": "success", "count": len(generated), "data": generated}
+        return {
+            "status": "success",
+            "count": len(generated),
+            "data": generated,
+            "similar_questions": generated
+        }
     except Exception as e:
         logger.error(f"[LỖI] Sinh câu hỏi tương tự thất bại: {e}")
         raise HTTPException(status_code=500, detail=f"Lỗi sinh câu hỏi: {str(e)}")

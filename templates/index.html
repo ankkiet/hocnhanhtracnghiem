@@ -3,6 +3,92 @@
 <head>
     <base href="/">
 
+    <!-- CHỐNG FOUC & TRIỆT TIÊU HOÀN TOÀN ÁM TRANG CHỦ KHI TẢI LẠI TRANG -->
+    <script>
+    (function() {
+        try {
+            var rawPath = window.location.pathname || '';
+            var search = window.location.search || '';
+            var hash = window.location.hash || '';
+            
+            var path = rawPath.replace(/\/+$/, '') || '/';
+            if (path.endsWith('/index.html')) path = path.slice(0, -11) || '/';
+            else if (path === '/index.html') path = '/';
+
+            var token = localStorage.getItem('auth_token');
+            var role = localStorage.getItem('auth_role');
+            var isLoggedIn = !!token;
+
+            var isQuiz = /[?&](id|quiz_id)=/i.test(search) || /^\/(quiz|thi|xep-hang|ket-qua)(\/|$)/i.test(path);
+            var isAuth = /^\/(dang-nhap|login|register|auth)(\/|$)/i.test(path) || /^#(auth|login|register)$/i.test(hash);
+            var isApp = /^\/(giao-vien|admin|lich-su|editor)(\/|$)/i.test(path) || (isLoggedIn && (path === '/' || path === ''));
+
+            var isPureHome = !isLoggedIn && (path === '/' || path === '/de-thi') && !isQuiz && !isAuth;
+
+            if (!isPureHome) {
+                document.documentElement.classList.add('hntn-not-home-route');
+                if (isQuiz) {
+                    document.documentElement.classList.add('hntn-is-quiz-route');
+                }
+                if (isAuth) {
+                    document.documentElement.classList.add('hntn-is-auth-route');
+                }
+                if (path === '/giao-vien' || /^\/giao-vien(\/|$)/i.test(path) || (token && role === 'teacher')) {
+                    document.documentElement.classList.add('hntn-is-teacher-route');
+                }
+                if (path === '/admin' || /^\/admin(\/|$)/i.test(path) || (token && role === 'admin')) {
+                    document.documentElement.classList.add('hntn-is-admin-route');
+                }
+                if (path === '/lich-su' || /^\/lich-su(\/|$)/i.test(path) || (token && role === 'student')) {
+                    document.documentElement.classList.add('hntn-is-student-route');
+                }
+            }
+        } catch(e) {}
+    })();
+    </script>
+    <style id="hntn-anti-fouc-css">
+        /* 1. Triệt tiêu 100% ám trang chủ: Ẩn tuyệt đối toàn bộ khối Landing công khai khi không phải khách xem trang chủ */
+        html.hntn-not-home-route #publicHeader,
+        html.hntn-not-home-route #mainLandingContent,
+        html.hntn-not-home-route #landingHero,
+        html.hntn-not-home-route #landingStats,
+        html.hntn-not-home-route #publicLandingExtras {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+        }
+
+        /* 2. Hiển thị Preloader thương hiệu HocNhanhTN chuyên nghiệp trong thời gian tải dữ liệu các trang con/phòng thi */
+        html.hntn-not-home-route #pageInitialLoader:not(.hntn-loaded) {
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        /* 3. Trang chủ công khai (khách xem trang chủ) không hiển thị preloader để LCP đạt điểm tối đa */
+        html:not(.hntn-not-home-route) #pageInitialLoader {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* 4. Trang đăng nhập / đăng ký: cho phép authContainer sẵn sàng hiển thị */
+        html.hntn-is-auth-route #authContainer {
+            display: flex !important;
+            visibility: visible !important;
+        }
+        html.hntn-is-auth-route #pageInitialLoader {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+    </style>
+
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
@@ -195,9 +281,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="/style.css?v=20261030_anticheat">
-    <link rel="stylesheet" href="/style.css?v=20261030_anticheat" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="/style.css?v=20261030_anticheat"></noscript>
+    <link rel="preload" as="style" href="/style.css?v=20261031_anti_fouc_v3">
+    <link rel="stylesheet" href="/style.css?v=20261031_anti_fouc_v3" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="/style.css?v=20261031_anti_fouc_v3"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
@@ -4857,6 +4943,6 @@ body.minimal-mode #publicLandingExtras {
 <script>
     window.ENABLE_REWARD_ADS = false;
 </script>
-<script src="/script.js?v=20261030_anticheat"></script>
+<script src="/script.js?v=20261031_anti_fouc_v3"></script>
 </body>
 </html>

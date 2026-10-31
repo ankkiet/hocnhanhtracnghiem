@@ -387,7 +387,7 @@ async function loadQuizById(quizId) {
             showToast("✅ Đã nạp dữ liệu đề thi thành công!");
         } else {
             alert("Không tìm thấy đề thi hoặc bạn không có quyền chỉnh sửa.");
-            window.location.href = "index.html";
+            window.location.href = "/giao-vien";
         }
     } catch(e) {
         console.error(e);
@@ -2000,7 +2000,7 @@ async function confirmPublishQuiz() {
 
     if (!authToken) {
         alert("Vui lòng đăng nhập tài khoản Giáo viên để lưu và xuất bản đề thi!");
-        window.location.href = "index.html";
+        window.location.href = "/dang-nhap";
         return;
     }
 
@@ -2199,7 +2199,7 @@ async function handleDiscardOrDelete() {
             const data = await res.json();
             if (res.ok && data.status === 'success') {
                 alert("Đã đưa đề thi vào thùng rác!");
-                window.location.href = "index.html";
+                window.location.href = "/giao-vien";
             } else {
                 hideStudioLoader();
                 alert("Lỗi khi xóa: " + (data.detail || "Không thể xóa đề thi"));
@@ -2224,7 +2224,7 @@ async function handleDiscardOrDelete() {
         subtitle: "Đang giải phóng dung lượng bộ nhớ và Cloudflare R2..."
     });
     await discardCurrentDraft();
-    window.location.href = "index.html";
+    window.location.href = "/giao-vien";
 }
 
 async function handleDiscardAndExit() {
@@ -2247,11 +2247,11 @@ async function handleBackToDashboard() {
             subtitle: "Đang chuẩn bị đưa bạn quay lại bảng điều khiển..."
         });
         await discardCurrentDraft();
-        window.location.href = "index.html";
+        window.location.href = "/giao-vien";
         return;
     }
     
-    window.location.href = "index.html";
+    window.location.href = "/giao-vien";
 }
 
 // Tự động dọn dẹp R2 nếu người dùng đóng tab / tắt trình duyệt khi chưa xuất bản
@@ -2473,20 +2473,23 @@ window.submitGenerateSimilar = async function() {
     }
 
     try {
+        const payload = {
+            teacher_token: authToken || '',
+            base_question: currentData[activeSimilarBaseIndex],
+            question: currentData[activeSimilarBaseIndex],
+            count: count,
+            mode: mode,
+            difficulty: difficulty
+        };
         const res = await fetch(`${API_BASE_URL}/api/teacher/generate_similar_questions`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                teacher_token: authToken,
-                base_question: currentData[activeSimilarBaseIndex],
-                count: count,
-                mode: mode,
-                difficulty: difficulty
-            })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (res.ok && data.status === 'success' && Array.isArray(data.similar_questions)) {
-            activeGeneratedSimilarQuestions = data.similar_questions;
+        const similarList = (Array.isArray(data.similar_questions) && data.similar_questions) || (Array.isArray(data.data) && data.data);
+        if (res.ok && data.status === 'success' && similarList) {
+            activeGeneratedSimilarQuestions = similarList;
             if (genList) {
                 genList.innerHTML = '';
                 activeGeneratedSimilarQuestions.forEach((sq, idx) => {
@@ -2511,7 +2514,13 @@ window.submitGenerateSimilar = async function() {
             if (addBtn) addBtn.style.display = 'inline-flex';
             showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
         } else {
-            alert("Lỗi khi sinh câu hỏi tương tự: " + (data.detail || "Không nhận được phản hồi"));
+            let errMsg = data.detail || data.message || "Không nhận được phản hồi";
+            if (typeof errMsg === 'object') {
+                try {
+                    errMsg = Array.isArray(errMsg) ? errMsg.map(e => e.msg || JSON.stringify(e)).join(', ') : JSON.stringify(errMsg);
+                } catch(e) {}
+            }
+            alert("Lỗi khi sinh câu hỏi tương tự: " + errMsg);
         }
     } catch(err) {
         console.error("Generate similar error:", err);

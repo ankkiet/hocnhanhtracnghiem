@@ -5833,3 +5833,267 @@ button, .btn {
 .azota-review-num.flagged {
     box-shadow: 0 0 0 2px #f59e0b;
 }
+
+
+/* ======================================================== */
+/* BÀN PHÍM RIÊNG CHUYÊN BIỆT CHO CÂU TRẢ LỜI NGẮN (GDPT 2018) */
+/* ======================================================== */
+.azota-sa-box {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.azota-sa-box:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.azota-sa-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-family: 'Consolas', 'Fira Code', -apple-system, BlinkMacSystemFont, monospace, sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    letter-spacing: 0.5px;
+}
+
+.azota-sa-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.azota-sa-input.guard-flash {
+    animation: saGuardFlash 0.4s ease;
+}
+
+@keyframes saGuardFlash {
+    0% { border-color: #ef4444; background: #fef2f2; }
+    50% { border-color: #f87171; background: #fee2e2; }
+    100% { border-color: #cbd5e1; background: #ffffff; }
+}
+
+.azota-sa-guard-warn {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-top: 6px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #b91c1c;
+    font-size: 0.82rem;
+    font-weight: 600;
+    animation: fadeIn 0.2s ease;
+}
+
+.azota-sa-guard-warn.active {
+    display: flex;
+}
+
+/* Thanh điều khiển Keypad Header */
+.hntn-keypad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.hntn-keypad-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hntn-keypad-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hntn-kp-toggle-btn {
+    padding: 4px 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.hntn-kp-toggle-btn:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    border-color: #94a3b8;
+}
+
+.hntn-kp-toggle-btn.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #93c5fd;
+}
+
+/* Khung bàn phím số riêng */
+.hntn-custom-keypad {
+    margin-top: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    max-width: 420px;
+}
+
+.hntn-custom-keypad.collapsed {
+    display: none;
+}
+
+/* Hàng ký hiệu toán trên cùng */
+.hntn-kp-math-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.hntn-kp-math-btn {
+    flex: 1;
+    min-width: 38px;
+    height: 36px;
+    padding: 0;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0369a1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s ease;
+    user-select: none;
+}
+
+.hntn-kp-math-btn:hover {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #0284c7;
+    transform: translateY(-1px);
+}
+
+.hntn-kp-math-btn:active {
+    transform: scale(0.96);
+}
+
+/* Khối Numpad 4 cột */
+.hntn-kp-numpad {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.hntn-kp-key {
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    user-select: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.hntn-kp-key:active {
+    transform: scale(0.95);
+}
+
+/* Phím số chính */
+.hntn-kp-key.key-num {
+    background: #ffffff;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.hntn-kp-key.key-num:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+}
+
+/* Phím toán học & dấu */
+.hntn-kp-key.key-op {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+    font-size: 1.15rem;
+}
+
+.hntn-kp-key.key-op:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e40af;
+}
+
+/* Phím xóa lùi Backspace */
+.hntn-kp-key.key-backspace {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #cbd5e1;
+}
+
+.hntn-kp-key.key-backspace:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+/* Phím xóa hết Clear */
+.hntn-kp-key.key-clear {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+    font-weight: 800;
+}
+
+.hntn-kp-key.key-clear:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Phím đảo dấu +/- */
+.hntn-kp-key.key-sign {
+    background: #f8fafc;
+    color: #64748b;
+    border-color: #cbd5e1;
+}
+
+.hntn-kp-key.key-sign:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+
