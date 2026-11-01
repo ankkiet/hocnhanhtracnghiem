@@ -367,6 +367,7 @@ function escapeHtml(str) {
 // Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
 function renderMarkdownTables(text) {
     if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
+    text = text.replace(/\\?earrow\b/g, '\\nearrow');
     let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
     let lines = textNorm.split('\n');
     let result = [];

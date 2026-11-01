@@ -87,6 +87,15 @@ async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, ap
             "đúng 4 lựa chọn A, B, C, D rõ ràng, và luôn kèm lời giải chi tiết (explain). "
             "Nếu có công thức toán/lý/hóa, dùng cú pháp LaTeX bọc trong \\( và \\) (ví dụ \\(\\text{CH}_2\\)) hoặc thẻ HTML <sub>/<sup> (ví dụ CH<sub>2</sub>, H<sub>2</sub>O). "
             "TUYỆT ĐỐI KHÔNG viết dạng gạch dưới trần như CH_2, CO_2, H_2O. "
+            "QUY TẮC ĐỊNH DẠNG BẢNG (Bảng biến thiên, bảng xét dấu, bảng số liệu thống kê): "
+            "BẮT BUỘC dùng định dạng bảng HTML thực chất (<table class=\"quiz-table\" border=\"1\">...</table>) chuẩn mực như tạo bảng trong Word, với các thẻ <tr>, <th>, <td> kẻ viền rõ ràng. "
+            "TUYỆT ĐỐI KHÔNG dùng bảng Markdown ký tự gạch đứng (|...|) hay gạch nối thô sơ. "
+            "Ví dụ bảng biến thiên chuẩn: "
+            "<table class=\"quiz-table\" border=\"1\" style=\"margin: 10px auto; border-collapse: collapse; text-align: center;\">"
+            "<tr style=\"background: #f8fafc;\"><th style=\"width: 45px;\">x</th><th>-\infty</th><th></th><th>-1</th><th></th><th>1</th><th></th><th>+\infty</th></tr>"
+            "<tr><td>y'</td><td></td><td>+</td><td>0</td><td>-</td><td>0</td><td>+</td><td></td></tr>"
+            "<tr><td>y</td><td>-\infty</td><td>\nearrow</td><td>2</td><td>\searrow</td><td>-2</td><td>\nearrow</td><td>+\infty</td></tr>"
+            "</table>. "
             "Định dạng trả về bắt buộc là một JSON array duy nhất."
         )
         

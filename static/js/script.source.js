@@ -367,6 +367,7 @@ function escapeHtml(str) {
 // Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
 function renderMarkdownTables(text) {
     if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
+    text = text.replace(/\\?earrow\b/g, '\\nearrow');
     let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
     let lines = textNorm.split('\n');
     let result = [];
@@ -7035,7 +7036,7 @@ function renderPreviewAll() {
         }
 
         let html = "";
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
         let qClean = (q.question || '').replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
         
         let qType = getRealQuestionType(q);
@@ -7056,7 +7057,7 @@ function renderPreviewAll() {
             `;
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${qClean.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        html += `${groupTitleHtml}<div class="question-title" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${formatRichContent(qClean)} ${typeBadge} ${aiSuggestedBadge}</div>`;
 
         if (qType === 'true_false') {
             let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
@@ -7099,7 +7100,7 @@ function renderPreviewAll() {
 
         if (q.explain && q.explain.trim()) {
             html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
-                <b>💡 Lời giải:</b> ${q.explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                <b>💡 Lời giải:</b> ${formatRichContent(q.explain)}
             </div>`;
         }
 
@@ -8310,7 +8311,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         card.id = `review_q_${qIndex}`;
         card.dataset.resultStatus = status;
 
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
 
         let typeBadge = '';
         if (qType === 'true_false') {
@@ -8382,7 +8383,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 </div>
                 <div>${statusBadge}</div>
             </div>
-            <div class="review-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+            <div class="review-q-text">${formatRichContent(cleanQText)}</div>
             ${summaryBannerHtml}
         `;
 
@@ -8472,7 +8473,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
             cardHtml += `
                 <div class="review-explain-box">
                     <div class="review-explain-title"><i class="ri-lightbulb-fill"></i> Hướng dẫn giải chi tiết:</div>
-                    <div class="review-explain-body">${explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+                    <div class="review-explain-body">${formatRichContent(explain)}</div>
                 </div>
             `;
         } else if (correctCharDisplay) {

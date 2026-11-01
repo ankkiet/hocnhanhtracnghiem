@@ -70,12 +70,15 @@ def fix_json_latex_escapes(json_str: str) -> str:
 
         r'frac|sqrt|text|textbf|textit|mathrm|times|tan|tau|theta|to|'
 
+        r'nearrow|searrow|nwarrow|swarrow|uparrow|downarrow|'
         r'neq|nu|nabla|rho|right|rightarrow|rightleftharpoons|'
 
         r'beta|bar|begin|binom|bf|sum|prod|int|lim|vec|hat|left|ln|log|sin|cos|alpha|lambda|pi|phi|omega|gamma|delta|sigma|mu|epsilon|subset|supset|in|notin|cap|cup|forall|exists|le|ge|cdot'
 
     )
 
+    # Bảo vệ toàn bộ lệnh LaTeX có 2 ký tự trở lên (như \nearrow, \searrow, \frac, \text, \begin, \rho...)
+    protected = re.sub(r'(?<!\\)\\(?=[a-zA-Z]{2,})', r'\\\\', protected)
     protected = re.sub(rf'(?<!\\)\\(?={latex_sensitive}\b)', r'\\\\', protected)
 
     # Bảo vệ dấu ngoặc LaTeX \\( \\) \\[ \\]
@@ -1295,8 +1298,9 @@ async def generate_mcq_with_gemini(
         "Nhiệm vụ của bạn là bóc tách chuẩn xác toàn bộ câu hỏi và đáp án từ tài liệu được cung cấp. "
         "Quy tắc bất di bất dịch:\n"
         "1. Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) và placeholder ảnh [IMG_X]. "
-        "BẢO TOÀN BẢNG DỮ LIỆU HTML: Nếu câu hỏi có bảng dữ liệu HTML (<table class=\"quiz-table\" ...>...</table>), "
-        "BẮT BUỘC giữ nguyên vẹn 100% cấu trúc thẻ <table> trong trường 'question', tuyệt đối không xóa bảng hay biến thành văn bản trơn. " 
+        "BẢO TOÀN BẢNG DỮ LIỆU HTML VÀ BẢNG BIẾN THIÊN: Nếu câu hỏi có bảng dữ liệu hoặc bảng biến thiên, "
+        "BẮT BUỘC giữ nguyên vẹn 100% cấu trúc thẻ <table> thực chất trong trường 'question' (hoặc dựng thẻ <table class=\"quiz-table\" border=\"1\">...</table> như tạo bảng trong Word), tuyệt đối không xóa bảng hay làm xáo trộn các cột. "
+        "BẮT BUỘC giữ nguyên vẹn 100% cấu trúc thẻ <table> trong trường 'question'. Nếu câu hỏi có bảng biến thiên/bảng số liệu, "
         "2. CÔNG THỨC HÓA HỌC / CHỈ SỐ DƯỚI (SUBSCRIPT): Tuyệt đối KHÔNG viết chỉ số dưới thành dấu gạch dưới trần như CH_2, CO_2, H_2O, Fe_2O_3, C_2H_5OH, x_1. "
         "BẮT BUỘC giữ nguyên thẻ HTML <sub> và <sup> (ví dụ: CH<sub>2</sub>, H<sub>2</sub>O, CO<sub>2</sub>, C<sub>2</sub>H<sub>5</sub>OH, cm<sup>2</sup>) "
         "hoặc đặt trọn vẹn trong công thức LaTeX \\( ... \\) như \\(\\text{CH}_2\\). "
@@ -2115,7 +2119,7 @@ async def generate_similar_questions(
         f"Yêu cầu nghiệp vụ:\n"
         f"1. {mode_instructions}\n"
         f"2. Đảm bảo câu hỏi mới có cùng kiểu loại (type: '{q_type}') và mức độ tư duy tương đương.\n"
-        f"3. Công thức toán học bọc trong \\( và \\), chỉ số dưới hóa học dùng <sub> / <sup>.\n"
+        f"3. Công thức toán học bọc trong \\( và \\), chỉ số dưới hóa học dùng <sub> / <sup>. Nếu câu hỏi có bảng biến thiên hoặc bảng số liệu, BẮT BUỘC dùng định dạng bảng HTML thực chất <table class=\"quiz-table\" border=\"1\">...</table> chuẩn mực như tạo bảng trong Word.\n"
         f"4. Trả về DUY NHẤT một JSON array [...] gồm đúng {count} câu hỏi mới."
     )
 

@@ -212,6 +212,41 @@ class TestDocxMath(unittest.TestCase):
         # 3. Chứa bảng HTML được render chuẩn thành w:tbl trong Word
         self.assertGreaterEqual(len(doc.tables), 2)
 
+    def test_export_quiz_with_markdown_table(self):
+        """Kiểm tra xuất đề thi chứa bảng Markdown (|...|...|) tự động chuyển thành bảng Word."""
+        from core.docx_exporter import export_quiz_to_docx
+
+        md_table_q = (
+            "Cho hàm số $y = f(x)$ có bảng biến thiên như sau:\\n"
+            "| x | -\\infty | -1 | 0 | 1 | +\\infty |\\n"
+            "|---|--------------|-----|-----|-----|-------------|\\n"
+            "| f'(x) | + | 0 | - | 0 | + |\\n"
+            "| f(x) | -\\infty | 2 | 1 | 2 | +\\infty |\\n"
+            "Số nghiệm của phương trình $f(x) = 2$ là:"
+        )
+
+        questions = [
+            {
+                "question": md_table_q,
+                "options": ["A. 2", "B. 3", "C. 4", "D. 1"],
+                "correct_answer": "A. 2",
+                "explain": "Từ bảng biến thiên, đường thẳng y = 2 cắt đồ thị tại 2 điểm phân biệt."
+            }
+        ]
+
+        stream = export_quiz_to_docx("ĐỀ THI CÓ BẢNG MARKDOWN", questions)
+        self.assertIsNotNone(stream)
+        doc = Document(stream)
+
+        # Kiểm tra bảng biến thiên đã được chuyển thành bảng Word (doc.tables)
+        # Ít nhất 2 bảng: bảng biến thiên + bảng đáp án tổng hợp (nếu có)
+        self.assertGreaterEqual(len(doc.tables), 1)
+
+        # Đảm bảo không còn các ký tự ngăn cách thô "|---|---|" trong văn bản
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        self.assertNotIn("|---|", full_text)
+        self.assertNotIn("|-----|", full_text)
+
 
 if __name__ == '__main__':
     unittest.main()

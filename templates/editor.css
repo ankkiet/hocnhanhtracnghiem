@@ -1027,3 +1027,65 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
 .dark .quiz-table tr:nth-child(even) td {
     background-color: #1e293b;
 }
+
+
+/* Enhanced Quiz Table & Markdown Table Styling */
+.quiz-table-wrapper {
+    overflow-x: auto;
+    margin: 14px 0;
+    display: block;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.quiz-content-table {
+    border-collapse: collapse;
+    margin: 0 auto;
+    width: auto;
+    max-width: 100%;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    border: 1.5px solid #cbd5e1;
+    background-color: #ffffff;
+    border-radius: 6px;
+    overflow: hidden;
+    text-align: center;
+}
+
+.dark .quiz-content-table {
+    border-color: #334155;
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+.quiz-content-table th,
+.quiz-content-table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 14px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.dark .quiz-content-table th,
+.dark .quiz-content-table td {
+    border-color: #334155;
+}
+
+.quiz-content-table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.dark .quiz-content-table th {
+    background-color: #334155;
+    color: #f8fafc;
+}
+
+.quiz-content-table tr:nth-child(even) td {
+    background-color: #fcfdfe;
+}
+
+.dark .quiz-content-table tr:nth-child(even) td {
+    background-color: #1e293b;
+}

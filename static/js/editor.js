@@ -498,7 +498,7 @@ function getRichEditorText(node) {
         if (child.nodeType === Node.TEXT_NODE) {
             result += child.nodeValue;
         } else if (child.nodeType === Node.ELEMENT_NODE) {
-            if (child.tagName === 'IMG') {
+            if (child.tagName === 'IMG' || child.tagName === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
                 result += child.outerHTML;
             } else if (child.tagName === 'BR') {
                 result += '\n';
@@ -671,6 +671,9 @@ function isLineInsideMath(accumulatedText) {
 
 function parseEditorText(text) {
     let restoredText = text;
+    if (typeof renderMarkdownTables === 'function') {
+        restoredText = renderMarkdownTables(restoredText);
+    }
     
     const data = [];
     let currentQ = null;
@@ -842,15 +845,28 @@ function parseEditorText(text) {
         } else if (groupRegex.test(line)) {
             sharedContext += (sharedContext ? "<br>" : "") + line;
         } else {
+            const isInsideMathOrTable = (textToCheck) => {
+                if (line.trim().startsWith('|') || (line.trim().endsWith('|') && line.includes('|'))) return true;
+                if (textToCheck) {
+                    let openTbl = (textToCheck.match(/<table\b/gi) || []).length;
+                    let closeTbl = (textToCheck.match(/<\/table>/gi) || []).length;
+                    if (openTbl > closeTbl) return true;
+                    let lastLine = textToCheck.split(/\r?\n|<br\s*\/?>/i).pop().trim();
+                    if (lastLine.startsWith('|')) return true;
+                }
+                if (line.includes('<table') || line.includes('</table>') || line.includes('<tr>') || line.includes('</tr>') || line.includes('<td>') || line.includes('<th>') || line.includes('<tbody>') || line.includes('<thead>')) return true;
+                return isLineInsideMath(textToCheck);
+            };
+
             if (currentQ && currentQ.explain) {
-                const sep = isLineInsideMath(currentQ.explain) ? "\n" : "<br>";
+                const sep = isInsideMathOrTable(currentQ.explain) ? "\n" : "<br>";
                 currentQ.explain += sep + line;
             } else if (currentQ && currentQ.options.length > 0) {
                 const lastIdx = currentQ.options.length - 1;
-                const sep = isLineInsideMath(currentQ.options[lastIdx]) ? "\n" : "<br>";
+                const sep = isInsideMathOrTable(currentQ.options[lastIdx]) ? "\n" : "<br>";
                 currentQ.options[lastIdx] += sep + line;
             } else if (currentQ) {
-                const sep = isLineInsideMath(currentQ.question) ? "\n" : "<br>";
+                const sep = isInsideMathOrTable(currentQ.question) ? "\n" : "<br>";
                 currentQ.question += (currentQ.question ? sep : "") + line;
             } else {
                 sharedContext += (sharedContext ? "<br>" : "") + line;
@@ -883,6 +899,76 @@ function updateSyntaxHighlight() {
     // Đã loại bỏ do chuyển sang giao diện WYSIWYG
 }
 
+// Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
+function renderMarkdownTables(text) {
+    if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
+    let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
+    let lines = textNorm.split('\n');
+    let result = [];
+    let tableLines = [];
+    let inTable = false;
+
+    function processTable(tbl) {
+        let validRows = tbl.map(l => l.trim()).filter(l => l.includes('|'));
+        if (validRows.length < 2) return tbl.join('<br>');
+        let rowsData = [];
+        let hasSeparator = false;
+        for (let r of validRows) {
+            let cleaned = r.replace(/^\|/, '').replace(/\|$/, '');
+            let cells = cleaned.split('|').map(c => c.trim());
+            let isSep = cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+            if (isSep) { hasSeparator = true; continue; }
+            rowsData.push(cells);
+        }
+        if (rowsData.length === 0) return tbl.join('<br>');
+        let maxCols = Math.max(...rowsData.map(r => r.length));
+        let html = '<div class="quiz-table-wrapper" style="overflow-x: auto; margin: 12px 0; display: block;"><table class="quiz-content-table" style="margin: 0 auto; border-collapse: collapse; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; text-align: center;">';
+        let startIdx = 0;
+        if (hasSeparator && rowsData.length > 0) {
+            html += '<thead><tr>';
+            for (let c of rowsData[0]) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc; font-weight: 600; text-align: center;">' + c + '</th>';
+            }
+            for (let i = rowsData[0].length; i < maxCols; i++) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc;"></th>';
+            }
+            html += '</tr></thead>';
+            startIdx = 1;
+        }
+        html += '<tbody>';
+        for (let i = startIdx; i < rowsData.length; i++) {
+            let row = rowsData[i];
+            html += '<tr>';
+            for (let c of row) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px; text-align: center;">' + c + '</td>';
+            }
+            for (let j = row.length; j < maxCols; j++) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px;"></td>';
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    for (let line of lines) {
+        let stripped = line.trim();
+        if (stripped.startsWith('|') || (stripped.endsWith('|') && stripped.includes('|'))) {
+            tableLines.push(stripped);
+            inTable = true;
+        } else {
+            if (inTable) {
+                result.push(processTable(tableLines));
+                tableLines = [];
+                inTable = false;
+            }
+            result.push(line);
+        }
+    }
+    if (inTable) result.push(processTable(tableLines));
+    return result.join('\n');
+}
+
 function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     if (!text || typeof text !== 'string') return text;
     const placeholders = [];
@@ -894,6 +980,8 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
+    // Chuyển đổi bảng Markdown sang bảng HTML có cấu trúc
+    safe = renderMarkdownTables(safe);
     safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<[^>]+>)/gi, (m) => {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
@@ -2831,3 +2919,78 @@ window.openDedicatedExportPage = function() {
     window.open(targetUrl, '_blank');
     if (typeof closeExportDocxModal === 'function') closeExportDocxModal();
 };
+
+// Hàm chèn Bảng chuẩn / Bảng biến thiên trực tiếp vào Code Editor như Word
+function insertTableToEditor(type) {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+    codeEditor.focus();
+    
+    let tableHtml = '';
+    if (type === 'bbt') {
+        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 380px;">
+  <thead>
+    <tr style="background: #f8fafc;">
+      <th style="width: 50px; padding: 6px 12px;">x</th>
+      <th style="padding: 6px 12px;">$-\\infty$</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">-1</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">1</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">$+\\infty$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight: bold; padding: 6px 12px;">y'</td>
+      <td style="padding: 6px 12px;"></td>
+      <td style="padding: 6px 12px;">+</td>
+      <td style="padding: 6px 12px;">0</td>
+      <td style="padding: 6px 12px;">-</td>
+      <td style="padding: 6px 12px;">0</td>
+      <td style="padding: 6px 12px;">+</td>
+      <td style="padding: 6px 12px;"></td>
+    </tr>
+    <tr>
+      <td style="font-weight: bold; padding: 6px 12px;">y</td>
+      <td style="padding: 6px 12px;">$-\\infty$</td>
+      <td style="padding: 6px 12px;">$\\nearrow$</td>
+      <td style="padding: 6px 12px; font-weight: bold;">2</td>
+      <td style="padding: 6px 12px;">$\\searrow$</td>
+      <td style="padding: 6px 12px; font-weight: bold;">-2</td>
+      <td style="padding: 6px 12px;">$\\nearrow$</td>
+      <td style="padding: 6px 12px;">$+\\infty$</td>
+    </tr>
+  </tbody>
+</table>\n`;
+    } else {
+        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 320px;">
+  <thead>
+    <tr style="background: #f8fafc;">
+      <th style="padding: 6px 14px;">Tiêu đề 1</th>
+      <th style="padding: 6px 14px;">Tiêu đề 2</th>
+      <th style="padding: 6px 14px;">Tiêu đề 3</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 6px 14px;">Dữ liệu 1</td>
+      <td style="padding: 6px 14px;">Dữ liệu 2</td>
+      <td style="padding: 6px 14px;">Dữ liệu 3</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 14px;">Dữ liệu 4</td>
+      <td style="padding: 6px 14px;">Dữ liệu 5</td>
+      <td style="padding: 6px 14px;">Dữ liệu 6</td>
+    </tr>
+  </tbody>
+</table>\n`;
+    }
+    
+    document.execCommand('insertHTML', false, tableHtml);
+    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof showToast === 'function') {
+        showToast(type === 'bbt' ? 'Đã chèn khung Bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
+    }
+}

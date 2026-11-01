@@ -133,7 +133,7 @@ def latex_to_clean_unicode(latex_str: str) -> str:
         r'\leq': '≤', r'\le': '≤', r'\geq': '≥', r'\ge': '≥', r'\neq': '≠', r'\ne': '≠',
         r'\approx': '≈', r'\equiv': '≡', r'\in': '∈', r'\notin': '∉', r'\subset': '⊂',
         r'\cup': '∪', r'\cap': '∩', r'\emptyset': '∅', r'\infty': '∞',
-        r'\rightarrow': '→', r'\to': '→', r'\longrightarrow': '⟶',
+        r'\rightarrow': '→', r'\to': '→', r'\longrightarrow': '⟶', r'\nearrow': '↗', r'\searrow': '↘', r'\nwarrow': '↖', r'\swarrow': '↙', r'\uparrow': '↑', r'\downarrow': '↓',
         r'\Rightarrow': '⇒', r'\Leftrightarrow': '⇔', r'\rightleftharpoons': '⇌',
         r'\forall': '∀', r'\exists': '∃', r'\perp': '⊥', r'\parallel': '∥',
         r'\angle': '∠', r'\circ': '°', r'\degree': '°',
@@ -285,7 +285,7 @@ def add_formatted_text(
         lower_part = part.lower().strip()
 
         # 1. Thẻ HTML xuống dòng hoặc ký tự newline
-        if lower_part in ('<br>', '<br/>', '<br />', '\n', '\r\n') or part in ('\n', '\r\n'):
+        if re.match(r'^<br\b[^>]*\/?>$', lower_part) or lower_part in ('\n', '\r\n', '&lt;br&gt;', '&lt;br/&gt;', '&lt;br /&gt;') or part in ('\n', '\r\n'):
             run = paragraph.add_run()
             run.add_break()
             continue
@@ -389,9 +389,14 @@ def markdown_table_to_html(text: str) -> str:
     if not text or '|' not in text:
         return text
 
+    # Sửa lỗi lịch sử earrow bị rớt ký tự \n khi parse JSON
+    text = re.sub(r'\\?\s*\bearrow\b', r'\\nearrow', text)
+    text = re.sub(r'\\?\s*\bsearrow\b', r'\\searrow', text)
+
     # Chuẩn hóa các ký tự xuống dòng thoát \\n hoặc <br> thành newline
     text_norm = re.sub(r'\\n', '\n', text)
-    text_norm = re.sub(r'<br\s*\/?>', '\n', text_norm)
+    text_norm = re.sub(r'\\?&lt;br\s*\/?&gt;', '\n', text_norm)
+    text_norm = re.sub(r'\\?<br\s*\/?>', '\n', text_norm)
 
     lines = text_norm.split('\n')
     new_lines = []
