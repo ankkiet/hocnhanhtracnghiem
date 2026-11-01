@@ -364,6 +364,76 @@ function escapeHtml(str) {
               .replace(/'/g, '&#039;');
 }
 
+// Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
+function renderMarkdownTables(text) {
+    if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
+    let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
+    let lines = textNorm.split('\n');
+    let result = [];
+    let tableLines = [];
+    let inTable = false;
+
+    function processTable(tbl) {
+        let validRows = tbl.map(l => l.trim()).filter(l => l.includes('|'));
+        if (validRows.length < 2) return tbl.join('<br>');
+        let rowsData = [];
+        let hasSeparator = false;
+        for (let r of validRows) {
+            let cleaned = r.replace(/^\|/, '').replace(/\|$/, '');
+            let cells = cleaned.split('|').map(c => c.trim());
+            let isSep = cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+            if (isSep) { hasSeparator = true; continue; }
+            rowsData.push(cells);
+        }
+        if (rowsData.length === 0) return tbl.join('<br>');
+        let maxCols = Math.max(...rowsData.map(r => r.length));
+        let html = '<div class="quiz-table-wrapper" style="overflow-x: auto; margin: 12px 0; display: block;"><table class="quiz-content-table" style="margin: 0 auto; border-collapse: collapse; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; text-align: center;">';
+        let startIdx = 0;
+        if (hasSeparator && rowsData.length > 0) {
+            html += '<thead><tr>';
+            for (let c of rowsData[0]) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc; font-weight: 600; text-align: center;">' + c + '</th>';
+            }
+            for (let i = rowsData[0].length; i < maxCols; i++) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc;"></th>';
+            }
+            html += '</tr></thead>';
+            startIdx = 1;
+        }
+        html += '<tbody>';
+        for (let i = startIdx; i < rowsData.length; i++) {
+            let row = rowsData[i];
+            html += '<tr>';
+            for (let c of row) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px; text-align: center;">' + c + '</td>';
+            }
+            for (let j = row.length; j < maxCols; j++) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px;"></td>';
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    for (let line of lines) {
+        let stripped = line.trim();
+        if (stripped.startsWith('|') || (stripped.endsWith('|') && stripped.includes('|'))) {
+            tableLines.push(stripped);
+            inTable = true;
+        } else {
+            if (inTable) {
+                result.push(processTable(tableLines));
+                tableLines = [];
+                inTable = false;
+            }
+            result.push(line);
+        }
+    }
+    if (inTable) result.push(processTable(tableLines));
+    return result.join('\n');
+}
+
 // Hàm chuẩn hóa & hiển thị nội dung phong phú (LaTeX, In đậm, In nghiêng, Hình ảnh Base64/URL, Xuống dòng)
 function formatRichContent(content) {
     if (content === null || content === undefined) return '';
@@ -371,7 +441,7 @@ function formatRichContent(content) {
     if (!str) return '';
 
     // 0. Nếu chuỗi đã từng bị escape trước đó (vd: &lt;b&gt;, &lt;img ...&gt;), khôi phục lại các thẻ an toàn
-    str = str.replace(/&lt;(\/?(?:b|strong|i|em|u|s|sub|sup|span|mark|font|p|div|br|img))\b([^&]*)&gt;/gi, '<$1$2>');
+    str = str.replace(/&lt;(\/?(?:b|strong|i|em|u|s|sub|sup|span|mark|font|p|div|br|img|table|thead|tbody|tfoot|tr|th|td))\b([^&]*)&gt;/gi, '<$1$2>');
 
     // 1. Bảo vệ toàn bộ công thức toán LaTeX ($$...$$, \[...\], \(...\), $...$)
     const mathBlocks = [];
@@ -395,6 +465,9 @@ function formatRichContent(content) {
         mathBlocks.push(`$${mathContent}$`);
         return `${prefix}\uFFF0MATH${mathBlocks.length - 1}\uFFF1`;
     });
+
+    // 1.5. Chuyển đổi bảng Markdown sang bảng HTML có cấu trúc
+    str = renderMarkdownTables(str);
 
     // 2. Phục hồi ảnh từ bộ nhớ tạm Code Editor nếu có placeholder [HÌNH_ẢNH_X]
     if (typeof globalEditorImageStorage === 'object' && globalEditorImageStorage !== null) {
@@ -5719,7 +5792,7 @@ function renderData() {
         let answeredCount = 0;
 
         currentData.forEach((q, qIndex) => {
-            let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+            let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
             
             let qType = getRealQuestionType(q);
             let typeBadge = '';
@@ -5741,7 +5814,7 @@ function renderData() {
                             <i class="ri-flag-${isFlagged ? 'fill' : 'line'}"></i> ${isFlagged ? 'Đang phân vân' : 'Đánh dấu xem lại'}
                         </button>
                     </div>
-                    <div class="question-title azota-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+                    <div class="question-title azota-q-text">${formatRichContent(cleanQText)}</div>
             `;
 
             let ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : undefined;
@@ -5894,7 +5967,7 @@ function renderPracticeQuestion() {
     box.className = 'card question-box azota-question-card';
     box.id = `practice_box_${currentQuestionIndex}`;
 
-    let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+    let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
     let typeBadge = '';
     if (qType === 'true_false') {
         typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
@@ -5909,7 +5982,7 @@ function renderPracticeQuestion() {
         <div class="azota-q-header">
             <span class="azota-q-num">Câu ${currentQuestionIndex + 1} / ${currentData.length} ${typeBadge}</span>
         </div>
-        <div class="question-title azota-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+        <div class="question-title azota-q-text">${formatRichContent(cleanQText)}</div>
     `;
 
     if (qType === 'true_false') {
@@ -6264,7 +6337,7 @@ function renderPracticeFeedbackHtml(q, qIndex, matchCount, earned) {
     }
 
     if (q.explain) {
-        msgHtml += `<div class="pract-explain-box">💡 <b>Lời giải chi tiết:</b><br>${q.explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>`;
+        msgHtml += `<div class="pract-explain-box">💡 <b>Lời giải chi tiết:</b><br>${formatRichContent(q.explain)}</div>`;
     }
     return msgHtml;
 }
@@ -6962,7 +7035,7 @@ function renderPreviewAll() {
         }
 
         let html = "";
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
         let qClean = (q.question || '').replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
         
         let qType = getRealQuestionType(q);
@@ -6983,7 +7056,7 @@ function renderPreviewAll() {
             `;
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${qClean.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        html += `${groupTitleHtml}<div class="question-title" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${formatRichContent(qClean)} ${typeBadge} ${aiSuggestedBadge}</div>`;
 
         if (qType === 'true_false') {
             let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
@@ -7026,7 +7099,7 @@ function renderPreviewAll() {
 
         if (q.explain && q.explain.trim()) {
             html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
-                <b>💡 Lời giải:</b> ${q.explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                <b>💡 Lời giải:</b> ${formatRichContent(q.explain)}
             </div>`;
         }
 
@@ -8237,7 +8310,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
         card.id = `review_q_${qIndex}`;
         card.dataset.resultStatus = status;
 
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${q.group_title.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatRichContent(q.group_title)}</div>` : '';
 
         let typeBadge = '';
         if (qType === 'true_false') {
@@ -8309,7 +8382,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 </div>
                 <div>${statusBadge}</div>
             </div>
-            <div class="review-q-text">${cleanQText.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+            <div class="review-q-text">${formatRichContent(cleanQText)}</div>
             ${summaryBannerHtml}
         `;
 
@@ -8399,7 +8472,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
             cardHtml += `
                 <div class="review-explain-box">
                     <div class="review-explain-title"><i class="ri-lightbulb-fill"></i> Hướng dẫn giải chi tiết:</div>
-                    <div class="review-explain-body">${explain.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>
+                    <div class="review-explain-body">${formatRichContent(explain)}</div>
                 </div>
             `;
         } else if (correctCharDisplay) {

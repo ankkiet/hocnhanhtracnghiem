@@ -384,6 +384,82 @@ def add_formatted_text(
             run.font.color.rgb = base_color
 
 
+def markdown_table_to_html(text: str) -> str:
+    """Chuyển đổi cú pháp bảng Markdown (| ... | ... |) sang HTML <table> chuẩn."""
+    if not text or '|' not in text:
+        return text
+
+    # Chuẩn hóa các ký tự xuống dòng thoát \\n hoặc <br> thành newline
+    text_norm = re.sub(r'\\n', '\n', text)
+    text_norm = re.sub(r'<br\s*\/?>', '\n', text_norm)
+
+    lines = text_norm.split('\n')
+    new_lines = []
+    table_lines = []
+    in_table = False
+
+    def process_table(tbl_lines):
+        if not tbl_lines:
+            return ''
+        valid_rows = [l.strip() for l in tbl_lines if '|' in l]
+        if len(valid_rows) < 2:
+            return '\n'.join(tbl_lines)
+
+        rows_data = []
+        has_separator = False
+
+        for r in valid_rows:
+            raw_cells = r.strip().strip('|').split('|')
+            cells = [c.strip() for c in raw_cells]
+            if all(re.match(r'^:?-+:?$', c) for c in cells if c):
+                has_separator = True
+                continue
+            rows_data.append(cells)
+
+        if not rows_data:
+            return '\n'.join(tbl_lines)
+
+        max_cols = max(len(r) for r in rows_data)
+        html_tbl = ['<table class="quiz-content-table">']
+        start_idx = 0
+        if has_separator and len(rows_data) > 0:
+            html_tbl.append('<thead><tr>')
+            for c in rows_data[0]:
+                html_tbl.append(f'<th>{c}</th>')
+            for _ in range(len(rows_data[0]), max_cols):
+                html_tbl.append('<th></th>')
+            html_tbl.append('</tr></thead>')
+            start_idx = 1
+
+        html_tbl.append('<tbody>')
+        for row in rows_data[start_idx:]:
+            html_tbl.append('<tr>')
+            for c in row:
+                html_tbl.append(f'<td>{c}</td>')
+            for _ in range(len(row), max_cols):
+                html_tbl.append('<td></td>')
+            html_tbl.append('</tr>')
+        html_tbl.append('</tbody></table>')
+        return ''.join(html_tbl)
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('|') or (stripped.endswith('|') and '|' in stripped):
+            table_lines.append(stripped)
+            in_table = True
+        else:
+            if in_table:
+                new_lines.append(process_table(table_lines))
+                table_lines = []
+                in_table = False
+            new_lines.append(line)
+
+    if in_table:
+        new_lines.append(process_table(table_lines))
+
+    return '\n'.join(new_lines)
+
+
 def render_html_table_in_docx(doc, table_html: str, font_name: str = "Times New Roman", font_size_pt: float = 10.5):
     """Chuyển đổi thẻ HTML <table> thành bảng Word chuyên nghiệp."""
     try:
@@ -399,6 +475,7 @@ def render_html_table_in_docx(doc, table_html: str, font_name: str = "Times New 
 
         grid_data = []
         max_cols = 0
+        has_thead = bool(tbl.xpath('.//thead//tr'))
         for tr in rows:
             cells = tr.xpath('./td | ./th')
             cell_texts = []
@@ -422,6 +499,7 @@ def render_html_table_in_docx(doc, table_html: str, font_name: str = "Times New 
         for r_idx, row_cells in enumerate(grid_data):
             trPr = word_tbl.rows[r_idx]._tr.get_or_add_trPr()
             trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+            is_header_row = (r_idx == 0 and has_thead)
             for c_idx, cell_content in enumerate(row_cells):
                 cell = word_tbl.cell(r_idx, c_idx)
                 p = cell.paragraphs[0]
@@ -429,7 +507,10 @@ def render_html_table_in_docx(doc, table_html: str, font_name: str = "Times New 
                 p.paragraph_format.space_before = Pt(1)
                 p.paragraph_format.space_after = Pt(1)
                 p.paragraph_format.line_spacing = 1.05
-                add_formatted_text(p, cell_content, font_name=font_name, font_size_pt=font_size_pt)
+                if is_header_row:
+                    shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="F8FAFC"/>')
+                    cell._tc.get_or_add_tcPr().append(shd)
+                add_formatted_text(p, cell_content, font_name=font_name, font_size_pt=font_size_pt, base_bold=is_header_row)
     except Exception as e:
         print(f"Warning: Không thể render HTML table sang docx: {e}")
 
@@ -437,11 +518,12 @@ def render_html_table_in_docx(doc, table_html: str, font_name: str = "Times New 
 def add_block_content(doc, text: str, font_name: str = "Times New Roman", font_size_pt: float = 11,
                       first_p=None, space_before: Pt = Pt(2), space_after: Pt = Pt(2), line_spacing: float = 1.05):
     """
-    Hỗ trợ xuất nội dung có thể chứa cả thẻ HTML <table> lẫn text/LaTeX vào tài liệu Word.
-    Nếu có thẻ <table>, tự động render thành bảng Word căn giữa chuyên nghiệp.
+    Hỗ trợ xuất nội dung có thể chứa cả thẻ HTML <table>, bảng Markdown (|...|),
+    lẫn text/LaTeX vào tài liệu Word.
     """
     if not text:
         return
+    text = markdown_table_to_html(text)
     if "<table" not in text.lower():
         p = first_p if first_p is not None else doc.add_paragraph()
         if first_p is None:

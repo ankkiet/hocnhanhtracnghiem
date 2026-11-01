@@ -190,21 +190,27 @@ export default {
           headers: { 'User-Agent': 'Cloudflare-Pages-Edge/1.0' }
         });
         if (backendRes.ok) {
-          const quizJson = await backendRes.json();
-          const quizData = quizJson.data || quizJson;
-          const quizTitle = quizData.title || `Đề thi #${exportQuizId}`;
-          let html = await exportResponse.text();
-          html = html.replace(/<title>.*?<\/title>/i, `<title>Xuất bản: ${escapeHtml(quizTitle)} - HocNhanhTN</title>`);
-          return new Response(html, {
-            status: 200,
-            headers: {
-              'Content-Type': 'text/html; charset=utf-8',
-              'Cache-Control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400'
-            }
-          });
+          const quizData = await backendRes.json();
+          const quizTitle = quizData.title || (quizData.data && quizData.data.title) || `Đề thi #${exportQuizId}`;
+          const pageTitle = `Xuất bản: ${quizTitle} - HocNhanhTN`;
+          return new HTMLRewriter()
+            .on('title', { element(el) { el.setInnerContent(pageTitle); } })
+            .on('meta[property="og:title"]', { element(el) { el.setAttribute('content', pageTitle); } })
+            .on('meta[name="twitter:title"]', { element(el) { el.setAttribute('content', pageTitle); } })
+            .on('meta[property="og:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[property="og:image:secure_url"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
+            .transform(exportResponse);
         }
       } catch (e) {}
-      return exportResponse;
+
+      return new HTMLRewriter()
+        .on('meta[property="og:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[property="og:image:secure_url"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
+        .transform(exportResponse);
     }
 
     // 1. Xử lý riêng cho Studio Soát lỗi & Biên tập (/editor, /editor/*, /editor.html)
