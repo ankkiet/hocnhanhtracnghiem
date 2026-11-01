@@ -168,11 +168,44 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             ak.set_answer(2, q_num, tf_dict)
                     continue
 
+                        # Dạng D: Bảng đáp án Đúng/Sai dạng nhiều bộ ba cột: [Câu, Lệnh hỏi, Đáp án (Đ/S)]
+            if num_cols >= 3 and num_cols % 3 == 0 and num_rows >= 2:
+                r0 = [c.text.strip().lower() for c in table.rows[0].cells]
+                has_cau = any('câu' in h for h in r0)
+                has_lenh = any('lệnh hỏi' in h or 'ý' in h or 'phương án' in h for h in r0)
+                has_ans = any('đáp án' in h or 'đ/s' in h or 'đúng' in h for h in r0)
+                if has_cau and has_lenh and has_ans:
+                    for r in table.rows[1:]:
+                        cells = r.cells
+                        for col_i in range(0, num_cols, 3):
+                            if col_i + 2 >= len(cells):
+                                break
+                            q_txt = cells[col_i].text.strip()
+                            sub_txt = cells[col_i+1].text.strip()
+                            ans_txt = cells[col_i+2].text.strip()
+                            q_m = re.search(r'\d+', q_txt)
+                            sub_m = re.search(r'[a-d]', sub_txt, re.IGNORECASE)
+                            if q_m and sub_m and ans_txt:
+                                q_num = int(q_m.group(0))
+                                sub_char = sub_m.group(0).lower()
+                                is_true = any(k in ans_txt.lower() for k in ['đ', 'd', 'true', 't', '1', '✓', '✔']) and not any(k in ans_txt.lower() for k in ['s', 'sai', 'false', '0'])
+                                if q_num not in ak.part2:
+                                    ak.part2[q_num] = {}
+                                ak.part2[q_num][sub_char] = is_true
+                                ak[q_num] = ak.part2[q_num]
+                    continue
+
             # Dạng B: Bảng 2 hàng kế tiếp (Hàng trên: Câu 1, Câu 2... Hàng dưới: Đáp án)
             if num_rows >= 2:
                 for r_idx in range(num_rows - 1):
                     row_top = [c.text.strip() for c in table.rows[r_idx].cells]
                     row_bot = [c.text.strip() for c in table.rows[r_idx + 1].cells]
+
+                    # Bắt buộc hàng trên phải chứa ít nhất một chữ 'Câu' / 'Bài' hoặc từ khóa 'Đáp án'
+                    has_cau_top = any(re.search(r'(?:Câu|Bài|Question)\s*\d+', c, re.IGNORECASE) for c in row_top)
+                    has_ak_header = any(k in ' '.join(row_top).lower() for k in ['đáp án', 'đ/a', 'chọn', 'kết quả', 'lệnh hỏi', 'đ/s'])
+                    if not (has_cau_top or has_ak_header):
+                        continue
 
                     for c_top, c_bot in zip(row_top, row_bot):
                         num_m = re.search(r'(?:Câu\s*)?(\d+)', c_top)
@@ -215,45 +248,53 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                                 clean_sa = clean_sa.replace(',', '.')
                             ak.set_answer(3, q_num, clean_sa)
 
-            # Dạng C: Bảng 2 cột (Cột 0: Câu, Cột 1: Đáp án)
-            if num_cols == 2 and num_rows >= 3:
+            # Dạng C: Bảng theo cặp cột [Câu, Đáp án] (2 cột, 4 cột, 6 cột, 8 cột...)
+            if num_cols >= 2 and num_cols % 2 == 0 and num_rows >= 2:
                 for r_idx in range(num_rows):
-                    c0 = table.rows[r_idx].cells[0].text.strip()
-                    c1 = table.rows[r_idx].cells[1].text.strip()
-                    num_m = re.search(r'(?:Câu\s*)?(\d+)', c0)
-                    if not num_m or not c1:
-                        continue
-                    q_num = int(num_m.group(1))
+                    cells = table.rows[r_idx].cells
+                    for col_pair in range(0, num_cols, 2):
+                        if col_pair + 1 >= len(cells):
+                            continue
+                        c0 = cells[col_pair].text.strip()
+                        c1 = cells[col_pair + 1].text.strip()
+                        has_col_header_cau = any(k in table.rows[0].cells[col_pair].text.lower() for k in ['câu', 'stt', 'bài'])
+                        if has_col_header_cau:
+                            num_m = re.search(r'(?:Câu\s*)?(\d+)', c0)
+                        else:
+                            num_m = re.search(r'(?:Câu|Bài|Question)\s*(\d+)', c0, re.IGNORECASE)
+                        if not num_m or not c1:
+                            continue
+                        q_num = int(num_m.group(1))
 
-                    tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', c1, re.IGNORECASE)
-                    if tf_m or len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)) >= 3:
-                        from services.ai_service import parse_tf_answer
-                        tf_dict = parse_tf_answer(c1)
-                        if tf_dict and any(tf_dict.values()):
-                            ak.set_answer(2, q_num, tf_dict)
+                        tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', c1, re.IGNORECASE)
+                        if tf_m or len(re.findall(r'(Đ|S|ĐÚNG|SAI)', c1, re.IGNORECASE)) >= 3:
+                            from services.ai_service import parse_tf_answer
+                            tf_dict = parse_tf_answer(c1)
+                            if tf_dict and any(tf_dict.values()):
+                                ak.set_answer(2, q_num, tf_dict)
+                                continue
+
+                        seq_tf = re.findall(r'(Đ|S|ĐÚNG|SAI)', c1, re.IGNORECASE)
+                        if len(seq_tf) == 4:
+                            ak.set_answer(2, q_num, {
+                                'a': seq_tf[0].lower() in ['đ', 'đúng'],
+                                'b': seq_tf[1].lower() in ['đ', 'đúng'],
+                                'c': seq_tf[2].lower() in ['đ', 'đúng'],
+                                'd': seq_tf[3].lower() in ['đ', 'đúng']
+                            })
                             continue
 
-                    seq_tf = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)
-                    if len(seq_tf) == 4:
-                        ak.set_answer(2, q_num, {
-                            'a': seq_tf[0].lower() in ['đ', 'đúng'],
-                            'b': seq_tf[1].lower() in ['đ', 'đúng'],
-                            'c': seq_tf[2].lower() in ['đ', 'đúng'],
-                            'd': seq_tf[3].lower() in ['đ', 'đúng']
-                        })
-                        continue
+                        ans_m = re.match(r'^\s*([A-F])', c1, re.IGNORECASE)
+                        if ans_m and len(c1.strip()) <= 3:
+                            ak.set_answer(1, q_num, ans_m.group(1).upper())
+                            continue
 
-                    ans_m = re.match(r'^\s*([A-F])\b', c1, re.IGNORECASE)
-                    if ans_m and len(c1.strip()) <= 3:
-                        ak.set_answer(1, q_num, ans_m.group(1).upper())
-                        continue
-
-                    if len(c1) <= 35:
-                        clean_sa = c1.strip()
-                        clean_sa = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', clean_sa, flags=re.IGNORECASE).strip()
-                        if re.match(r'^-?\d+,\d+$', clean_sa):
-                            clean_sa = clean_sa.replace(',', '.')
-                        ak.set_answer(3, q_num, clean_sa)
+                        if len(c1) <= 35:
+                            clean_sa = c1.strip()
+                            clean_sa = re.sub(r'^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*', '', clean_sa, flags=re.IGNORECASE).strip()
+                            if re.match(r'^-?\d+,\d+$', clean_sa):
+                                clean_sa = clean_sa.replace(',', '.')
+                            ak.set_answer(3, q_num, clean_sa)
 
     # 2. Quét trong khối văn bản cuối tài liệu sau tiêu đề BẢNG ĐÁP ÁN (bổ sung/kết hợp thêm)
     key_headers = [
@@ -352,6 +393,13 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
     Trả về: (văn_bản_câu_hỏi_đã_lược_bỏ_bảng_đáp_án, văn_bản_bảng_đáp_án_gốc, AnswerKeyMap)
     Giúp AI chỉ bóc tách câu hỏi thực sự, không bị nhầm bảng đáp án thành câu hỏi.
     """
+    # 0. Kiểm tra marker [ANSWER_KEY_START] ... [ANSWER_KEY_END]
+    ak_m = re.search(r'\[ANSWER_KEY_START\](.*?)\[ANSWER_KEY_END\]', full_text, re.DOTALL)
+    if ak_m:
+        ans_raw = ak_m.group(1).strip()
+        ak = extract_answer_key_from_doc(None, ans_raw)
+        text_questions = full_text[:ak_m.start()].strip() + "\n\n" + full_text[ak_m.end():].strip()
+        return text_questions, ans_raw, ak
     section_patterns = [
         r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:BẢNG\s+ĐÁP\s+ÁN|BANG\s+DAP\s+AN|BẢNG\s+ĐÁP\s+SỐ|ANSWER\s+KEY|HƯỚNG\s+DẪN\s+CHẤM|ĐÁP\s+ÁN\s+CHI\s+TIẾT|ĐÁP\s+ÁN\s+VÀ\s+LỜI\s+GIẢI)[^\n]*(?:\n|$)',
         r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:ĐÁP\s+ÁN|DAP\s+AN)\s*[:\-]?\s*(?:[-=~_*#]{2,})?\s*(?:</[^>]+>\s*)*(?:\n|$)'
@@ -367,6 +415,16 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
                     found_pos = pos
 
     if found_pos != -1:
+        tail_text = full_text[found_pos:]
+        # Kiểm tra xem sau found_pos có tiêu đề PHẦN mới (như PHẦN III) không
+        next_sec_m = re.search(r'(?:^|\n)\s*(?:<[^>]+>\s*)*((?:PHẦN\s+(?:III|II|I|3|2|1)|(?:III|II|I)\.|\bPHẦN\s+THỨ\b)[^\n]*)', tail_text[100:], re.IGNORECASE)
+        if next_sec_m:
+            cut_end = found_pos + 100 + next_sec_m.start()
+            ans_raw = full_text[found_pos:cut_end].strip()
+            text_questions = full_text[:found_pos].strip() + "\n\n" + full_text[cut_end:].strip()
+            ak = extract_answer_key_from_doc(None, ans_raw)
+            return text_questions, ans_raw, ak
+
         text_questions = full_text[:found_pos].strip()
         ans_raw = full_text[found_pos:].strip()
         ak = extract_answer_key_from_doc(None, ans_raw)

@@ -227,10 +227,28 @@ def clean_option_text(opt: str) -> tuple:
     has_correct_tag = bool(re.search(r'\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔|☑', opt_str, re.IGNORECASE))
     is_correct = has_leading_asterisk or has_underline_marker or has_mark_prefix or has_correct_tag or has_mark_tag or has_underline_tag or has_star or has_tick
 
-    is_false = bool(re.search(r'\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|✗|✘', opt_str, re.IGNORECASE))
+        # Phát hiện đánh dấu ở cuối dòng (ví dụ \tĐ, \tS, - Đ, - S, - Đúng, - Sai, : Đúng, : Sai)
+    trailing_corr_m = re.search(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(Đúng|ĐÚNG|DUNG|dung|Đ)\s*$', opt_str, re.IGNORECASE)
+    trailing_fls_m = re.search(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(Sai|SAI|S)\s*$', opt_str, re.IGNORECASE)
 
-    # 2. Xóa các thẻ đánh dấu explicit [ĐÚNG], [SAI], checkmarks
+    has_correct_tag = bool(re.search(r'\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔|☑', opt_str, re.IGNORECASE))
+    is_correct = has_leading_asterisk or has_underline_marker or has_mark_prefix or has_correct_tag or has_mark_tag or has_underline_tag or has_star or has_tick or bool(trailing_corr_m)
+
+    is_false = bool(re.search(r'\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|✗|✘', opt_str, re.IGNORECASE)) or bool(trailing_fls_m)
+
+    if trailing_fls_m:
+        is_correct = False
+        is_false = True
+    elif trailing_corr_m:
+        is_correct = True
+        is_false = False
+
+    # 2. Xóa các thẻ đánh dấu explicit [ĐÚNG], [SAI], checkmarks và đánh dấu Đ/S ở đuôi
     cleaned = re.sub(r'\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘', '', opt_str, flags=re.IGNORECASE).strip()
+    if trailing_corr_m:
+        cleaned = re.sub(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(?:Đúng|ĐÚNG|DUNG|dung|Đ)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
+    if trailing_fls_m:
+        cleaned = re.sub(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(?:Sai|SAI|S)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
 
     # 3. Trích xuất tag ma trận HocNhanhTN (ví dụ [0, NB], [1, TH], [NB]...) nếu có trước phương án
     azota_tag = ""
@@ -373,7 +391,14 @@ def extract_mcq_options_from_text(text: str) -> tuple:
         r'(?:<MARK>\s*|<u>\s*|<b>\s*)*'
         r'(?:\(?\[?(\*?[A-F])[\.\:\)]|\b(\*?[A-F])[\.\:\)]))\s*'
     )
-    matches = list(pattern.finditer(text))
+    table_ranges = [
+        (tbl_m.start(), tbl_m.end())
+        for tbl_m in re.finditer(r'<table\b[^>]*>.*?</table>', text, flags=re.DOTALL | re.IGNORECASE)
+    ]
+    def is_inside_table(pos: int) -> bool:
+        return any(t_start <= pos < t_end for t_start, t_end in table_ranges)
+
+    matches = [m for m in pattern.finditer(text) if not is_inside_table(m.start())]
     if len(matches) < 2:
         return text, []
 
@@ -426,7 +451,14 @@ def extract_sub_statements_from_text(text: str) -> tuple:
         r'(?:<MARK>\s*|<u>\s*)*'
         r'(?:\(?\[?(\*?[a-d])[\.\:\)\/\]\-]|\b(\*?[a-d])[\.\:\)\/]))\s*'
     )
-    matches = list(pattern.finditer(text))
+    table_ranges = [
+        (tbl_m.start(), tbl_m.end())
+        for tbl_m in re.finditer(r'<table\b[^>]*>.*?</table>', text, flags=re.DOTALL | re.IGNORECASE)
+    ]
+    def is_inside_table_sub(pos: int) -> bool:
+        return any(t_start <= pos < t_end for t_start, t_end in table_ranges)
+
+    matches = [m for m in pattern.finditer(text) if not is_inside_table_sub(m.start())]
     if len(matches) < 2:
         return text, []
 
@@ -1263,6 +1295,8 @@ async def generate_mcq_with_gemini(
         "Nhiệm vụ của bạn là bóc tách chuẩn xác toàn bộ câu hỏi và đáp án từ tài liệu được cung cấp. "
         "Quy tắc bất di bất dịch:\n"
         "1. Giữ nguyên các thẻ định dạng HTML (<b>, <i>, <u>, <sub>, <sup>) và placeholder ảnh [IMG_X]. "
+        "BẢO TOÀN BẢNG DỮ LIỆU HTML: Nếu câu hỏi có bảng dữ liệu HTML (<table class=\"quiz-table\" ...>...</table>), "
+        "BẮT BUỘC giữ nguyên vẹn 100% cấu trúc thẻ <table> trong trường 'question', tuyệt đối không xóa bảng hay biến thành văn bản trơn. " 
         "2. CÔNG THỨC HÓA HỌC / CHỈ SỐ DƯỚI (SUBSCRIPT): Tuyệt đối KHÔNG viết chỉ số dưới thành dấu gạch dưới trần như CH_2, CO_2, H_2O, Fe_2O_3, C_2H_5OH, x_1. "
         "BẮT BUỘC giữ nguyên thẻ HTML <sub> và <sup> (ví dụ: CH<sub>2</sub>, H<sub>2</sub>O, CO<sub>2</sub>, C<sub>2</sub>H<sub>5</sub>OH, cm<sup>2</sup>) "
         "hoặc đặt trọn vẹn trong công thức LaTeX \\( ... \\) như \\(\\text{CH}_2\\). "

@@ -1,7 +1,7 @@
 {
   "dataset_name": "HocNhanhTN Parser Benchmark Dataset",
   "version": "1.0.0",
-  "total_files": 40,
+  "total_files": 41,
   "format_counts": {
     "docx": 30,
     "pdf": 10
@@ -19,7 +19,7 @@
     "Ngữ văn": 1,
     "Định dạng đặc biệt": 2
   },
-  "total_questions": 204,
+  "total_questions": 341,
   "files": [
     {
       "file_id": "docx_toan_01_gach_chan",
@@ -592,6 +592,19 @@
         "short_options"
       ],
       "total_questions": 5
+    },
+    {
+      "file_id": "docx_media_1793541879976_699578c7",
+      "file_name": "media_1793541879976_699578c7.docx",
+      "format_type": "docx",
+      "subject": "Vật lý",
+      "style": "real_world_complex",
+      "style_description": "Đề cương Vật Lí 12 - bảng bố cục ngang, đồ thị hình ảnh, Đúng Sai bảng và đáp án bộ ba cột",
+      "tags": [
+        "vat_ly",
+        "docx"
+      ],
+      "total_questions": 137
     }
   ]
 }

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    
+    <title>Liên hệ & Hỗ trợ kỹ thuật - HocNhanhTN</title>
+    <meta name="description" content="Kênh liên hệ chính thức của HocNhanhTN. Tiếp nhận hỗ trợ kỹ thuật số hóa đề thi, báo cáo bản quyền học liệu và đóng góp ý kiến phát triển từ giáo viên & học sinh.">
+    <link rel="canonical" href="https://hocnhanhtn.online/contact">
+    
+    <!-- Open Graph & Social -->
+    <meta property="og:site_name" content="HocNhanhTN">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://hocnhanhtn.online/contact">
+    <meta property="og:title" content="Liên hệ & Hỗ trợ kỹ thuật - HocNhanhTN">
+    <meta property="og:description" content="Trung tâm hỗ trợ kỹ thuật và giải đáp thắc mắc người dùng nền tảng HocNhanhTN.">
+    <meta property="og:image" content="https://hocnhanhtn.online/unnamed.jpg">
+    <meta property="og:locale" content="vi_VN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Liên hệ hỗ trợ - HocNhanhTN">
+    <meta name="twitter:description" content="Chúng tôi luôn sẵn sàng lắng nghe và giải đáp mọi thắc mắc của quý thầy cô và các bạn học sinh.">
+    <meta name="twitter:image" content="https://hocnhanhtn.online/unnamed.jpg">
+
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#1d4ed8">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-soft: #eff6ff;
+            --text-dark: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --bg-page: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* NAVBAR */
+        .site-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: 68px;
+            display: flex;
+            align-items: center;
+        }
+        .nav-container {
+            max-width: 1140px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .brand-text {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .nav-item a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-item a:hover,
+        .nav-item a.active {
+            color: var(--primary);
+        }
+        .btn-nav-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #ffffff !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-nav-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* HERO HEADER */
+        .page-header {
+            background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 56px 20px 48px;
+            text-align: center;
+        }
+        .header-inner {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 0.825rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 999px;
+            margin-bottom: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .header-title {
+            font-size: 2.35rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 16px;
+            line-height: 1.25;
+            letter-spacing: -0.025em;
+        }
+        .header-subtitle {
+            font-size: 1.12rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* MAIN CONTENT LAYOUT */
+        .content-wrap {
+            max-width: 1040px;
+            margin: -24px auto 60px;
+            padding: 0 20px;
+        }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.35fr;
+            gap: 28px;
+        }
+        @media (max-width: 860px) {
+            .contact-grid { grid-template-columns: 1fr; }
+            .header-title { font-size: 1.85rem; }
+            .nav-menu .nav-item-hide-sm { display: none; }
+        }
+
+        .info-card, .form-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            padding: 36px 32px;
+        }
+
+        /* INFO CHANNELS */
+        .info-card h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin: 0 0 16px;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-card p {
+            color: var(--text-body);
+            font-size: 0.98rem;
+            margin-bottom: 24px;
+        }
+        .channel-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .channel-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+        }
+        .channel-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        .channel-meta strong {
+            display: block;
+            color: var(--text-dark);
+            font-size: 0.92rem;
+            margin-bottom: 2px;
+        }
+        .channel-meta span, .channel-meta a {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .channel-meta a:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .faq-box {
+            border-top: 1px solid var(--border);
+            padding-top: 22px;
+            margin-top: 20px;
+        }
+        .faq-box h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin: 0 0 12px;
+            color: var(--text-dark);
+        }
+        .faq-item {
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+        }
+        .faq-question {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        .faq-answer {
+            color: var(--text-muted);
+        }
+
+        /* CONTACT FORM */
+        .form-card h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin: 0 0 8px;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+        .form-label span {
+            color: #ef4444;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            background: #ffffff;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+        .form-textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 540px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+        .btn-submit {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-submit:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        .btn-submit:active {
+            transform: translateY(0);
+        }
+
+        .alert-toast {
+            display: none;
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+        .alert-success {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        /* FOOTER */
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 36px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+    </style>
+
+    <!-- Schema.org ContactPage Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      "name": "Liên hệ & Hỗ trợ kỹ thuật - HocNhanhTN",
+      "url": "https://hocnhanhtn.online/contact",
+      "description": "Kênh tiếp nhận góp ý, báo cáo lỗi và hỗ trợ kỹ thuật số hóa đề thi của HocNhanhTN.",
+      "mainEntity": {
+        "@type": "Organization",
+        "name": "HocNhanhTN",
+        "email": "kiet0905478167@gmail.com",
+        "url": "https://hocnhanhtn.online/"
+      }
+    }
+    </script>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header class="site-nav">
+        <nav class="nav-container" aria-label="Điều hướng chính">
+            <a href="/" class="brand-link">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="brand-logo" width="34" height="34">
+                <span class="brand-text">HocNhanhTN</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item nav-item-hide-sm"><a href="/"><i class="ri-home-5-line"></i> Trang chủ</a></li>
+                <li class="nav-item"><a href="/de-thi"><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
+                <li class="nav-item"><a href="/about"><i class="ri-information-line"></i> Giới thiệu</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/contact" class="active"><i class="ri-customer-service-line"></i> Liên hệ</a></li>
+                <li>
+                    <a href="/" class="btn-nav-primary">
+                        <i class="ri-file-upload-line"></i> Tạo đề thi ngay
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- HERO HEADER -->
+    <section class="page-header">
+        <div class="header-inner">
+            <div class="badge-pill">
+                <i class="ri-headphone-line"></i> Hỗ trợ người dùng 24/7
+            </div>
+            <h1 class="header-title">Liên Hệ & Hỗ Trợ Kỹ Thuật</h1>
+            <p class="header-subtitle">
+                Chúng tôi luôn trân trọng mọi ý kiến đóng góp từ quý thầy cô giáo, các bạn học sinh và đối tác giáo dục trên toàn quốc nhằm hoàn thiện nền tảng ngày một tốt hơn.
+            </p>
+        </div>
+    </section>
+
+    <!-- MAIN BODY -->
+    <main class="content-wrap">
+        <div class="contact-grid">
+            
+            <!-- LEFT: INFO & FAQ -->
+            <div class="info-card">
+                <h2><i class="ri-contacts-book-2-line" style="color: var(--primary);"></i> Thông tin tiếp nhận</h2>
+                <p>
+                    Quý thầy cô và các bạn có thể liên hệ trực tiếp với chúng tôi qua các kênh thông tin chính thức dưới đây:
+                </p>
+
+                <ul class="channel-list">
+                    <li class="channel-item">
+                        <div class="channel-icon"><i class="ri-mail-unread-line"></i></div>
+                        <div class="channel-meta">
+                            <strong>Hộp thư hỗ trợ kỹ thuật</strong>
+                            <a href="mailto:kiet0905478167@gmail.com">kiet0905478167@gmail.com</a>
+                        </div>
+                    </li>
+                    <li class="channel-item">
+                        <div class="channel-icon"><i class="ri-time-line"></i></div>
+                        <div class="channel-meta">
+                            <strong>Thời gian phản hồi</strong>
+                            <span>Trong vòng 24 - 48 giờ làm việc (Từ thứ 2 đến thứ 7)</span>
+                        </div>
+                    </li>
+                    <li class="channel-item">
+                        <div class="channel-icon"><i class="ri-global-line"></i></div>
+                        <div class="channel-meta">
+                            <strong>Website chính thức</strong>
+                            <a href="https://hocnhanhtn.online/">https://hocnhanhtn.online</a>
+                        </div>
+                    </li>
+                    <li class="channel-item">
+                        <div class="channel-icon"><i class="ri-shield-check-line"></i></div>
+                        <div class="channel-meta">
+                            <strong>Xử lý bản quyền học liệu</strong>
+                            <span>Tiếp nhận yêu cầu gỡ bỏ tài liệu vi phạm bản quyền theo quy định DMCA</span>
+                        </div>
+                    </li>
+                </ul>
+
+                <div class="faq-box">
+                    <h3><i class="ri-question-line" style="color: var(--primary);"></i> Câu hỏi thường gặp</h3>
+                    <div class="faq-item">
+                        <div class="faq-question">1. Đề thi Word tải lên bị lỗi hiển thị công thức Toán?</div>
+                        <div class="faq-answer">Hệ thống hỗ trợ công thức toán học định dạng MathType hoặc Office Math dạng chuẩn LaTeX. Vui lòng đảm bảo tệp Word định dạng .docx.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">2. Làm sao để chia sẻ link thi cho học sinh?</div>
+                        <div class="faq-answer">Sau khi số hóa và xuất bản đề thi, hãy nhấn nút <strong>Sao chép liên kết</strong> trên thanh công cụ để gửi link rút gọn kèm tên đề thi qua Zalo/Facebook.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-question">3. Dùng HocNhanhTN có mất phí không?</div>
+                        <div class="faq-answer">Nền tảng mở cửa 100% miễn phí cho mọi giáo viên và học sinh ôn luyện kiến thức.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: CONTACT FORM -->
+            <div class="form-card">
+                <h2><i class="ri-send-plane-2-line" style="color: var(--primary);"></i> Gửi tin nhắn cho chúng tôi</h2>
+                <p>Điền thông tin vào mẫu bên dưới, ban quản trị sẽ phản hồi qua email của bạn trong thời gian sớm nhất.</p>
+
+                <div id="contactAlert" class="alert-toast alert-success" role="alert">
+                    <i class="ri-checkbox-circle-fill"></i> <strong>Cảm ơn bạn đã liên hệ!</strong><br>
+                    Yêu cầu của bạn đã được ghi nhận. Ban quản trị HocNhanhTN sẽ phản hồi qua email của bạn trong vòng 24 - 48 giờ tới.
+                </div>
+
+                <form id="contactForm" onsubmit="handleContactSubmit(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="contactName">Họ và tên của bạn <span>*</span></label>
+                            <input type="text" id="contactName" name="name" class="form-input" placeholder="Ví dụ: Thầy Nguyễn Văn A" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="contactEmail">Địa chỉ Email nhận phản hồi <span>*</span></label>
+                            <input type="email" id="contactEmail" name="email" class="form-input" placeholder="name@domain.com" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="contactRole">Bạn là <span>*</span></label>
+                            <select id="contactRole" name="role" class="form-select" required>
+                                <option value="teacher">Giáo viên / Giảng viên</option>
+                                <option value="student">Học sinh / Sinh viên</option>
+                                <option value="parent">Phụ huynh học sinh</option>
+                                <option value="school">Đại diện trường / Cơ sở giáo dục</option>
+                                <option value="other">Đối tác khác</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="contactSubject">Chủ đề cần hỗ trợ <span>*</span></label>
+                            <select id="contactSubject" name="subject" class="form-select" required>
+                                <option value="tech_issue">Báo lỗi kỹ thuật số hóa đề thi</option>
+                                <option value="feature_request">Đóng góp ý kiến nâng cấp tính năng</option>
+                                <option value="copyright">Báo cáo khiếu nại bản quyền học liệu</option>
+                                <option value="partnership">Đề xuất hợp tác giáo dục</option>
+                                <option value="other_inquiry">Yêu cầu khác</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="contactMessage">Nội dung chi tiết <span>*</span></label>
+                        <textarea id="contactMessage" name="message" class="form-textarea" placeholder="Mô tả cụ thể thắc mắc, mã đề thi hoặc sự cố bạn đang gặp phải..." required></textarea>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn-submit">
+                        <i class="ri-mail-send-fill"></i> Gửi tin nhắn ngay
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-links">
+                <a href="/">Trang chủ</a>
+                <span>•</span>
+                <a href="/de-thi">Kho đề thi</a>
+                <span>•</span>
+                <a href="/about">Về chúng tôi</a>
+                <span>•</span>
+                <a href="/privacy">Chính sách bảo mật</a>
+                <span>•</span>
+                <a href="/terms">Điều khoản sử dụng</a>
+                <span>•</span>
+                <a href="/contact">Liên hệ hỗ trợ</a>
+            </div>
+            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+        </div>
+    </footer>
+
+    <script>
+        function handleContactSubmit(event) {
+            event.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const alertBox = document.getElementById('contactAlert');
+            const form = document.getElementById('contactForm');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang gửi thông tin...';
+
+            setTimeout(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ri-mail-send-fill"></i> Gửi tin nhắn ngay';
+                alertBox.style.display = 'block';
+                form.reset();
+                alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 800);
+        }
+    </script>
+</body>
+</html>

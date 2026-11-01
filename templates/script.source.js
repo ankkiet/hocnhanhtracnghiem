@@ -387,6 +387,10 @@ function formatRichContent(content) {
         mathBlocks.push(m);
         return `\uFFF0MATH${mathBlocks.length - 1}\uFFF1`;
     });
+    str = str.replace(/\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}/gi, (m) => {
+        mathBlocks.push(m);
+        return `\uFFF0MATH${mathBlocks.length - 1}\uFFF1`;
+    });
     str = str.replace(/(^|[^\\])\$([^\$\n]+?)\$/g, (m, prefix, mathContent) => {
         mathBlocks.push(`$${mathContent}$`);
         return `${prefix}\uFFF0MATH${mathBlocks.length - 1}\uFFF1`;
@@ -421,9 +425,9 @@ function formatRichContent(content) {
         return `\uFFF0IMG${imgBlocks.length - 1}\uFFF1`;
     });
 
-    // 5. Bảo vệ các thẻ HTML định dạng hợp lệ: <b>, <i>, <u>, <s>, <sub>, <sup>, <span>, <mark>, <font>, <p>, <div>, <br>
+    // 5. Bảo vệ các thẻ HTML định dạng hợp lệ: <b>, <i>, <u>, <s>, <sub>, <sup>, <span>, <mark>, <font>, <p>, <div>, <br>, <table>
     const tagBlocks = [];
-    str = str.replace(/<\/?(?:b|strong|i|em|u|s|strike|sub|sup|span|mark|font|p|div|br)\b[^>]*>/gi, (m) => {
+    str = str.replace(/<\/?(?:b|strong|i|em|u|s|strike|sub|sup|span|mark|font|p|div|br|table|thead|tbody|tfoot|tr|th|td)\b[^>]*>/gi, (m) => {
         tagBlocks.push(m);
         return `\uFFF0TAG${tagBlocks.length - 1}\uFFF1`;
     });
@@ -1296,6 +1300,18 @@ function checkAuthState() {
         document.documentElement.classList.add('hntn-not-home-route');
     }
 
+    // 0. ROUTE PHÒNG VỆ: STUDIO BIÊN TẬP (/editor hoặc /editor/{id})
+    if (path === '/editor' || path.startsWith('/editor/')) {
+        const pathMatch = path.match(/^\/editor\/([^\/?#]+)/);
+        const qId = urlParams.get('id') || urlParams.get('quiz_id') || (pathMatch ? pathMatch[1] : null);
+        if (qId) {
+            window.location.replace('/editor?id=' + encodeURIComponent(qId));
+        } else {
+            window.location.replace('/editor');
+        }
+        return;
+    }
+
     // 1. ROUTE: BẢNG XẾP HẠNG (/xep-hang/{ma_de})
     if (path.startsWith('/xep-hang/')) {
         const pubHeader = document.getElementById('publicHeader');
@@ -1708,26 +1724,27 @@ function logout() {
 
 
 
-// Hàm trợ giúp trích xuất mã đề thi từ query param (?id=, ?quiz_id=) hoặc URL path (/quiz/...)
+// Hàm trợ giúp trích xuất mã đề thi từ query param (?id=, ?quiz_id=) hoặc URL path (/quiz/..., /thi/...)
 function getCurrentQuizId() {
     const urlParams = new URLSearchParams(window.location.search);
     let quizId = urlParams.get('quiz_id') || urlParams.get('id');
     if (!quizId) {
         const path = window.location.pathname.replace(/^\/|\/$/g, '');
-        if (path.startsWith('quiz/')) {
-            quizId = path.split('/')[1];
-        } else if (path.startsWith('thi/')) {
-            quizId = path.split('/')[1];
-        } else if (path.startsWith('xep-hang/')) {
-            quizId = path.split('/')[1];
+        const segments = path.split('/');
+        const prefix = (segments[0] || '').toLowerCase();
+        if (prefix === 'quiz' || prefix === 'thi' || prefix === 'xep-hang') {
+            quizId = decodeURIComponent(segments[1] || '');
         } else if (path.startsWith('giao-vien/de/')) {
-            quizId = path.split('/')[2];
+            quizId = decodeURIComponent(segments[2] || '');
         } else if (path && path.length >= 5 && path.length <= 15 && !path.includes('.html') && !path.includes('/')) {
             const reserved = ['login', 'admin', 'auth', 'register', 'dang-nhap', 'giao-vien', 'lich-su', 'editor', 'privacy', 'terms', 'about', 'contact', 'de-thi'];
             if (!reserved.includes(path.toLowerCase())) {
                 quizId = path;
             }
         }
+    }
+    if (quizId) {
+        quizId = quizId.replace(/\.html$/i, '').trim();
     }
     return quizId || null;
 }
@@ -1749,9 +1766,16 @@ async function initApp() {
                 const serverUpdatedAt = result.updated_at || 0;
                 currentQuizServerUpdatedAt = serverUpdatedAt;
                 
-                // Cập nhật tiêu đề trang web
+                // Cập nhật tiêu đề trang web & URL thân thiện kèm slug tiêu đề
                 if (result.title) {
                     document.title = `${result.title} - HocNhanhTN`;
+                    try {
+                        const slug = slugifyVietnamese(result.title);
+                        const curPath = window.location.pathname;
+                        if (slug && (curPath === `/thi/${quizId}` || curPath === `/thi/${quizId}/` || curPath === `/quiz/${quizId}` || curPath === `/quiz/${quizId}/`)) {
+                            history.replaceState({ page: 'exam', quizId: quizId }, '', `/thi/${encodeURIComponent(quizId)}/${slug}`);
+                        }
+                    } catch(e) {}
                 }
 
                 // --- Thiết lập Giao diện Dành riêng cho Học sinh ---
@@ -3298,10 +3322,50 @@ function copyQuizCode(quizId) {
     });
 }
 
-function copyQuizLink(quizId) {
-    if (!quizId) return;
+function slugifyVietnamese(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function getQuizExamUrl(quizId, quizTitle = '') {
+    if (!quizId) return '';
     const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
-    const fullUrl = `${origin}/thi/${encodeURIComponent(quizId)}`;
+    let slug = slugifyVietnamese(quizTitle);
+    if (!slug && typeof rawTeacherQuizzes !== 'undefined' && Array.isArray(rawTeacherQuizzes)) {
+        const found = rawTeacherQuizzes.find(q => q && q.id === quizId);
+        if (found && found.title) {
+            slug = slugifyVietnamese(found.title);
+        }
+    }
+    if (!slug && typeof allTeacherQuizzes !== 'undefined' && Array.isArray(allTeacherQuizzes)) {
+        const found = allTeacherQuizzes.find(q => q && q.id === quizId);
+        if (found && found.title) {
+            slug = slugifyVietnamese(found.title);
+        }
+    }
+    if (!slug && typeof currentStatsQuizId !== 'undefined' && currentStatsQuizId === quizId && typeof currentStatsQuizTitle !== 'undefined' && currentStatsQuizTitle) {
+        slug = slugifyVietnamese(currentStatsQuizTitle);
+    }
+    const cleanId = encodeURIComponent(quizId);
+    return slug ? `${origin}/thi/${cleanId}/${slug}` : `${origin}/thi/${cleanId}`;
+}
+
+function copyQuizLink(quizId, quizTitle = '') {
+    if (!quizId) return;
+    if (!quizTitle && typeof rawTeacherQuizzes !== 'undefined' && Array.isArray(rawTeacherQuizzes)) {
+        const found = rawTeacherQuizzes.find(q => q && q.id === quizId);
+        if (found && found.title) quizTitle = found.title;
+    }
+    const fullUrl = getQuizExamUrl(quizId, quizTitle);
     navigator.clipboard.writeText(fullUrl).then(() => {
         showToast("Đã sao chép Link làm bài thi cho học sinh!", 'success');
     }).catch(() => {
@@ -3309,8 +3373,219 @@ function copyQuizLink(quizId) {
     });
 }
 
-function exportQuizDocx(quizId) {
-    window.open(`${API_BASE_URL}/api/teacher/export_docx/${quizId}?teacher_token=${authToken}`, '_blank');
+// ========================================================
+// MODAL TÙY CHỌN XUẤT FILE WORD (.DOCX) CHUẨN IN ẤN
+// ========================================================
+let currentExportQuizId = null;
+
+function exportQuizDocx(quizId, quizTitle = "") {
+    if (!quizId) {
+        window.location.href = '/export';
+        return;
+    }
+    window.location.href = `/export/${encodeURIComponent(quizId)}`;
+}
+
+function openExportDocxModal(quizId, quizTitle = "") {
+    currentExportQuizId = quizId;
+    const modal = document.getElementById('exportDocxModal');
+    if (!modal) {
+        window.open(`${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(quizId)}?teacher_token=${encodeURIComponent(authToken)}`, '_blank');
+        return;
+    }
+    
+    const titleEl = document.getElementById('exportDocxQuizTitle');
+    if (titleEl) {
+        titleEl.textContent = quizTitle || "Đề thi trắc nghiệm";
+    }
+    
+    setDocxAudienceUI('teacher');
+    setDocxLayoutUI('compact');
+    const optSelect = document.getElementById('docxOptionsLayout');
+    if (optSelect) optSelect.value = 'auto';
+
+    modal.style.display = 'flex';
+}
+
+function closeExportDocxModal() {
+    const modal = document.getElementById('exportDocxModal');
+    if (modal) modal.style.display = 'none';
+    currentExportQuizId = null;
+}
+
+function onDocxAudienceChange(audience) {
+    setDocxAudienceUI(audience);
+}
+
+function setDocxAudienceUI(audience) {
+    const cardTeacher = document.getElementById('cardAudienceTeacher');
+    const cardStudent = document.getElementById('cardAudienceStudent');
+    const chkAnswers = document.getElementById('docxShowAnswers');
+    const chkKeyTable = document.getElementById('docxShowKeyTable');
+    const chkExplains = document.getElementById('docxShowExplains');
+    const lblGrid = document.getElementById('lblDocxStudentGrid');
+    const chkGrid = document.getElementById('docxStudentGrid');
+
+    if (audience === 'student') {
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#2563eb';
+            cardStudent.style.background = '#eff6ff';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#1e40af';
+        }
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#e2e8f0';
+            cardTeacher.style.background = '#f8fafc';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="student"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = false; chkAnswers.disabled = true; }
+        if (chkKeyTable) { chkKeyTable.checked = false; chkKeyTable.disabled = true; }
+        if (chkExplains) { chkExplains.checked = false; chkExplains.disabled = true; }
+        if (lblGrid) lblGrid.style.display = 'flex';
+        if (chkGrid) chkGrid.checked = false;
+    } else {
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#2563eb';
+            cardTeacher.style.background = '#eff6ff';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#1e40af';
+        }
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#e2e8f0';
+            cardStudent.style.background = '#f8fafc';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="teacher"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = true; chkAnswers.disabled = false; }
+        if (chkKeyTable) { chkKeyTable.checked = true; chkKeyTable.disabled = false; }
+        if (chkExplains) { chkExplains.checked = true; chkExplains.disabled = false; }
+        if (lblGrid) lblGrid.style.display = 'none';
+        if (chkGrid) chkGrid.checked = false;
+    }
+}
+
+function onDocxLayoutChange(layout) {
+    setDocxLayoutUI(layout);
+}
+
+function setDocxLayoutUI(layout) {
+    const cardCompact = document.getElementById('cardLayoutCompact');
+    const cardStandard = document.getElementById('cardLayoutStandard');
+    
+    if (layout === 'compact') {
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#16a34a';
+            cardCompact.style.background = '#f0fdf4';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#15803d';
+        }
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#e2e8f0';
+            cardStandard.style.background = '#f8fafc';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="compact"]');
+        if (radio) radio.checked = true;
+    } else {
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#16a34a';
+            cardStandard.style.background = '#f0fdf4';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#15803d';
+        }
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#e2e8f0';
+            cardCompact.style.background = '#f8fafc';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="standard"]');
+        if (radio) radio.checked = true;
+    }
+}
+
+async function confirmDownloadDocx() {
+    if (!currentExportQuizId) {
+        closeExportDocxModal();
+        return;
+    }
+    
+    const audienceRadio = document.querySelector('input[name="docxAudience"]:checked');
+    const audience = audienceRadio ? audienceRadio.value : 'teacher';
+    
+    const layoutRadio = document.querySelector('input[name="docxLayoutMode"]:checked');
+    const layout = layoutRadio ? layoutRadio.value : 'compact';
+    
+    const optLayoutSelect = document.getElementById('docxOptionsLayout');
+    const optionsLayout = optLayoutSelect ? optLayoutSelect.value : 'auto';
+    
+    const showAnswers = document.getElementById('docxShowAnswers')?.checked ?? (audience === 'teacher');
+    const showKeyTable = document.getElementById('docxShowKeyTable')?.checked ?? (audience === 'teacher');
+    const showExplains = document.getElementById('docxShowExplains')?.checked ?? (audience === 'teacher');
+    const studentGrid = document.getElementById('docxStudentGrid')?.checked ?? false;
+    
+    const token = typeof authToken !== 'undefined' ? authToken : '';
+    const url = `${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(currentExportQuizId)}?teacher_token=${encodeURIComponent(token)}`
+        + `&target_audience=${encodeURIComponent(audience)}`
+        + `&layout_mode=${encodeURIComponent(layout)}`
+        + `&options_layout=${encodeURIComponent(optionsLayout)}`
+        + `&show_answers=${showAnswers}`
+        + `&show_key_table=${showKeyTable}`
+        + `&show_explains=${showExplains}`
+        + `&include_student_answer_grid=${studentGrid}`;
+
+    const btnSubmit = document.querySelector('#exportDocxModal .btn-primary');
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang tạo file Word...';
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        let filename = `de_thi_${audience}.docx`;
+        const disp = response.headers.get('content-disposition');
+        if (disp && disp.includes('filename=')) {
+            const m = disp.match(/filename=["']?([^"';]+)["']?/);
+            if (m && m[1]) filename = m[1];
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+
+        if (typeof showToast === 'function') {
+            showToast("Đã xuất file Word (.docx) thành công!", "success");
+        }
+        closeExportDocxModal();
+    } catch (err) {
+        console.warn("Lỗi fetch blob docx, fallback sang mở link trực tiếp:", err);
+        window.open(url, '_blank');
+        closeExportDocxModal();
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = originalBtnHtml;
+        }
+    }
 }
 
 // ========================================================
@@ -4171,7 +4446,8 @@ async function handleQuizAction(quizId, action) {
 }
 
 function editQuiz(quizId) {
-    window.location.href = `/editor/${encodeURIComponent(quizId)}`;
+    if (!quizId) return;
+    window.location.href = `/editor?id=${encodeURIComponent(quizId)}`;
 }
 
 function openStudioNewQuiz() {
@@ -10070,3 +10346,9 @@ function destroyExamSessionUnique() {
     }
     closeExamSessionConflictModal();
 }
+
+window.openDedicatedExportPageFromIndex = function() {
+    const targetUrl = currentExportQuizId ? `/export/${encodeURIComponent(currentExportQuizId)}` : '/export';
+    window.open(targetUrl, '_blank');
+    if (typeof closeExportDocxModal === 'function') closeExportDocxModal();
+};

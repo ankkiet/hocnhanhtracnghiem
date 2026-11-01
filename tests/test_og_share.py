@@ -57,6 +57,15 @@ def test_og_share():
         assert '<title>Kiem Tra 15 Phut Toan 12 - HocNhanhTN</title>' in html_thi
         print("Test 4 Passed: /thi/test12345 serves exam page with dynamic title")
 
+        # Test /thi/test12345/ten-de-thi (Làm bài kèm friendly slug sau mã đề)
+        res_thi_slug = client.get('/thi/test12345/kiem-tra-15-phut-toan-12')
+        assert res_thi_slug.status_code == 200
+        html_thi_slug = res_thi_slug.text
+        assert '<title>Kiem Tra 15 Phut Toan 12 - HocNhanhTN</title>' in html_thi_slug
+        assert 'property="og:title" content="Kiem Tra 15 Phut Toan 12"' in html_thi_slug
+        assert '/thi/test12345/kiem-tra-15-phut-toan-12' in html_thi_slug
+        print("Test 4b Passed: /thi/test12345/slug serves exam page with slug in canonical URL and dynamic title")
+
         # Test /xep-hang/test12345 (Bảng xếp hạng)
         res_xh = client.get('/xep-hang/test12345')
         assert res_xh.status_code == 200

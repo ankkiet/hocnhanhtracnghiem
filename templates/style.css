@@ -377,3 +377,57 @@ body.minimal-mode.exam-mode:not(.quiz-completed) #quiz-container textarea {
     color: #334155;
 }
 
+
+/* ==========================================================================
+   Quiz Data Table Styling (Tables in question stems)
+   ========================================================================== */
+.quiz-table {
+    border-collapse: collapse;
+    margin: 12px 0;
+    width: auto;
+    max-width: 100%;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.dark .quiz-table {
+    border-color: #334155;
+    background-color: #1e293b;
+    color: #e2e8f0;
+}
+
+.quiz-table th,
+.quiz-table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.dark .quiz-table th,
+.dark .quiz-table td {
+    border-color: #334155;
+}
+
+.quiz-table th {
+    background-color: #f1f5f9;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.dark .quiz-table th {
+    background-color: #334155;
+    color: #f8fafc;
+}
+
+.quiz-table tr:nth-child(even) td {
+    background-color: #f8fafc;
+}
+
+.dark .quiz-table tr:nth-child(even) td {
+    background-color: #1e293b;
+}

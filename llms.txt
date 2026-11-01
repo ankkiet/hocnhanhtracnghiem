@@ -6,8 +6,14 @@ HocNhanhTN là nền tảng số hóa đề thi Word (.docx) và PDF thành phò
 
 ## Tính năng & Liên kết chính
 - [Trang chủ HocNhanhTN](https://hocnhanhtn.online/): Nền tảng số hóa và tổ chức phòng thi trực tuyến.
-- [Quy trình số hóa đề thi](https://hocnhanhtn.online/#quy-trinh): Tự động nhận diện công thức Toán Lý Hóa và hình ảnh minh họa.
-- [Định dạng chuẩn GDPT 2018](https://hocnhanhtn.online/#dang-thuc-gdpt): Trắc nghiệm nhiều lựa chọn, đúng sai, trả lời ngắn.
+- [Kho đề thi](https://hocnhanhtn.online/de-thi): Danh mục đề thi và ôn tập trắc nghiệm THCS & THPT.
+- [Cẩm nang GDPT 2018](https://hocnhanhtn.online/cam-nang): Kho bài viết chuyên sâu về cấu trúc đề thi, bí quyết giải trắc nghiệm Đúng/Sai, trả lời ngắn và cẩm nang cho giáo viên.
+  - [Cấu trúc đề thi Tốt nghiệp THPT môn Toán GDPT 2018](https://hocnhanhtn.online/cam-nang/cau-truc-de-thi-tot-nghiep-thpt-2025-gdpt-2018): Phân tích 3 dạng thức trắc nghiệm và chiến thuật 90 phút.
+  - [Bí quyết làm trắc nghiệm Đúng/Sai điểm tối đa](https://hocnhanhtn.online/cam-nang/cach-lam-trac-nghiem-dung-sai-diem-toi-da): Thang điểm lũy tiến và cách tránh bẫy câu hỏi đa ý.
+  - [Hướng dẫn giáo viên số hóa đề thi Word/PDF](https://hocnhanhtn.online/cam-nang/huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien): Chuyển đổi số đề thi bằng AI trong 5 giây.
+  - [Kỹ năng làm trắc nghiệm trả lời ngắn](https://hocnhanhtn.online/cam-nang/ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn): Triệt tiêu sai số và quy tắc làm tròn số học.
 - [Studio Biên tập Đề thi](https://hocnhanhtn.online/editor): Giao diện biên soạn và soát lỗi đề thi trực quan.
-- [Chính sách bảo mật](https://hocnhanhtn.online/#privacy): Cam kết bảo vệ quyền riêng tư người dùng.
-- [Điều khoản dịch vụ](https://hocnhanhtn.online/#terms): Quy định dịch vụ và bản quyền học liệu.
+- [Giới thiệu về chúng tôi](https://hocnhanhtn.online/about): Sứ mệnh giáo dục, chuyển đổi số và công nghệ AI OCR.
+- [Chính sách bảo mật](https://hocnhanhtn.online/privacy): Cam kết bảo vệ quyền riêng tư người dùng và tuân thủ Google AdSense.
+- [Điều khoản dịch vụ](https://hocnhanhtn.online/terms): Quy định dịch vụ và bản quyền học liệu.
+- [Liên hệ & Hỗ trợ](https://hocnhanhtn.online/contact): Kênh tiếp nhận góp ý và hỗ trợ kỹ thuật 24/7.

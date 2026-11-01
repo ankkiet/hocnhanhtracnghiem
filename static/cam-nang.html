@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    
+    <title>Cẩm Nang Giáo Dục & Ôn Thi Trắc Nghiệm GDPT 2018 - HocNhanhTN</title>
+    <meta name="description" content="Chuyên mục cẩm nang ôn thi trắc nghiệm GDPT 2018, phương pháp giải nhanh Toán - Lý - Hóa - Sinh, hướng dẫn giáo viên chuyển đổi số đề thi Word/PDF chuẩn Bộ GD&ĐT.">
+    <link rel="canonical" href="https://hocnhanhtn.online/cam-nang">
+    
+    <!-- Open Graph & Social -->
+    <meta property="og:site_name" content="HocNhanhTN">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://hocnhanhtn.online/cam-nang">
+    <meta property="og:title" content="Cẩm Nang Giáo Dục & Ôn Thi Trắc Nghiệm GDPT 2018 - HocNhanhTN">
+    <meta property="og:description" content="Kho tri thức, cẩm nang ôn tập trắc nghiệm và hướng dẫn sư phạm chuẩn chương trình GDPT 2018 dành cho thầy cô và học sinh.">
+    <meta property="og:image" content="https://hocnhanhtn.online/unnamed.jpg">
+    <meta property="og:locale" content="vi_VN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cẩm Nang Giáo Dục GDPT 2018 - HocNhanhTN">
+    <meta name="twitter:description" content="Kinh nghiệm ôn luyện trắc nghiệm Đúng/Sai, Trả lời ngắn và số hóa đề thi thông minh.">
+    <meta name="twitter:image" content="https://hocnhanhtn.online/unnamed.jpg">
+
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#1d4ed8">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-soft: #eff6ff;
+            --text-dark: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --bg-page: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* NAVBAR */
+        .site-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: 68px;
+            display: flex;
+            align-items: center;
+        }
+        .nav-container {
+            max-width: 1140px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .brand-text {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .nav-item a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-item a:hover,
+        .nav-item a.active {
+            color: var(--primary);
+        }
+        .btn-nav-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #ffffff !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-nav-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* HERO HEADER */
+        .page-header {
+            background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 56px 20px 48px;
+            text-align: center;
+        }
+        .header-inner {
+            max-width: 860px;
+            margin: 0 auto;
+        }
+        .badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 0.825rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 999px;
+            margin-bottom: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .header-title {
+            font-size: 2.35rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 16px;
+            line-height: 1.25;
+            letter-spacing: -0.025em;
+        }
+        .header-subtitle {
+            font-size: 1.12rem;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* MAIN LAYOUT */
+        .content-wrap {
+            max-width: 1140px;
+            margin: -24px auto 60px;
+            padding: 0 20px;
+        }
+        .hub-grid {
+            display: grid;
+            grid-template-columns: 2.2fr 1fr;
+            gap: 32px;
+        }
+        @media (max-width: 900px) {
+            .hub-grid { grid-template-columns: 1fr; }
+            .header-title { font-size: 1.85rem; }
+            .nav-menu .nav-item-hide-sm { display: none; }
+        }
+
+        /* FEATURED HERO ARTICLE CARD */
+        .featured-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+            margin-bottom: 32px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .featured-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.12);
+            border-color: #bfdbfe;
+        }
+        .featured-header-tag {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+            color: #ffffff;
+            padding: 10px 24px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .featured-body {
+            padding: 32px;
+        }
+        .featured-title {
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 14px;
+            line-height: 1.35;
+        }
+        .featured-title:hover {
+            color: var(--primary);
+        }
+        .featured-desc {
+            font-size: 1.02rem;
+            color: var(--text-body);
+            margin: 0 0 20px;
+            line-height: 1.65;
+        }
+        .article-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .article-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* ARTICLE LIST CARDS */
+        .article-list {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .article-item {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            padding: 28px;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            transition: all 0.2s ease;
+        }
+        .article-item:hover {
+            transform: translateY(-2px);
+            border-color: #93c5fd;
+            box-shadow: 0 8px 24px -3px rgba(37, 99, 235, 0.1);
+        }
+        .article-tag {
+            display: inline-block;
+            background: var(--primary-soft);
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        .article-item-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0 0 10px;
+            line-height: 1.4;
+        }
+        .article-item-title:hover {
+            color: var(--primary);
+        }
+        .article-item-desc {
+            font-size: 0.95rem;
+            color: var(--text-body);
+            margin: 0 0 16px;
+            line-height: 1.6;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .sidebar-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            padding: 24px;
+        }
+        .sidebar-title {
+            font-size: 1.12rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0 0 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-soft);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .topic-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .topic-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            text-decoration: none;
+            color: var(--text-body);
+            font-size: 0.92rem;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .topic-link:hover {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+        .topic-count {
+            background: #e2e8f0;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+            color: #ffffff;
+            border-radius: var(--radius-lg);
+            padding: 26px 22px;
+            text-align: center;
+        }
+        .cta-box h4 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin: 0 0 8px;
+        }
+        .cta-box p {
+            color: #dbeafe;
+            font-size: 0.9rem;
+            margin: 0 0 18px;
+            line-height: 1.5;
+        }
+        .cta-box a {
+            background: #ffffff;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.92rem;
+            padding: 10px 18px;
+            border-radius: 8px;
+            display: inline-block;
+            transition: all 0.2s ease;
+        }
+        .cta-box a:hover {
+            background: #f8fafc;
+            transform: translateY(-1px);
+        }
+
+        /* FOOTER */
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 36px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+    </style>
+
+    <!-- Schema.org Blog/CollectionPage Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": "Cẩm Nang Giáo Dục & Ôn Thi Trắc Nghiệm GDPT 2018 - HocNhanhTN",
+      "url": "https://hocnhanhtn.online/cam-nang",
+      "description": "Kho cẩm nang tri thức chuyên sâu, cấu trúc đề thi và chiến thuật làm bài trắc nghiệm chuẩn GDPT 2018.",
+      "publisher": {
+        "@type": "Organization",
+        "name": "HocNhanhTN",
+        "logo": "https://hocnhanhtn.online/logohocnhanhtn.png"
+      }
+    }
+    </script>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header class="site-nav">
+        <nav class="nav-container" aria-label="Điều hướng chính">
+            <a href="/" class="brand-link">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="brand-logo" width="34" height="34">
+                <span class="brand-text">HocNhanhTN</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item nav-item-hide-sm"><a href="/"><i class="ri-home-5-line"></i> Trang chủ</a></li>
+                <li class="nav-item"><a href="/de-thi"><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
+                <li class="nav-item"><a href="/cam-nang" class="active"><i class="ri-article-line"></i> Cẩm nang</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/about"><i class="ri-information-line"></i> Giới thiệu</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/contact"><i class="ri-customer-service-line"></i> Liên hệ</a></li>
+                <li>
+                    <a href="/" class="btn-nav-primary">
+                        <i class="ri-file-upload-line"></i> Tạo đề thi ngay
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- HERO HEADER -->
+    <section class="page-header">
+        <div class="header-inner">
+            <div class="badge-pill">
+                <i class="ri-book-open-fill"></i> Tri thức Giáo dục & Hướng dẫn GDPT 2018
+            </div>
+            <h1 class="header-title">Cẩm Nang Ôn Thi & Chuyển Đổi Số Giáo Dục</h1>
+            <p class="header-subtitle">
+                Tổng hợp các bài viết chuyên sâu về phương pháp giải nhanh trắc nghiệm, phân tích cấu trúc đề thi Tốt nghiệp THPT mới và cẩm nang số hóa bài giảng cho thầy cô giáo.
+            </p>
+        </div>
+    </section>
+
+    <!-- MAIN BODY -->
+    <main class="content-wrap">
+        <div class="hub-grid">
+            
+            <!-- LEFT COLUMN: ARTICLES -->
+            <div class="article-col">
+                
+                <!-- FEATURED ARTICLE -->
+                <a href="/cam-nang/cau-truc-de-thi-tot-nghiep-thpt-2025-gdpt-2018" class="featured-card">
+                    <div class="featured-header-tag">
+                        <span><i class="ri-star-smile-fill"></i> BÀI VIẾT TIÊU BIỂU GDPT 2018</span>
+                        <span>Đọc 8 phút</span>
+                    </div>
+                    <div class="featured-body">
+                        <h2 class="featured-title">Phân tích chi tiết cấu trúc đề thi Tốt nghiệp THPT môn Toán theo chương trình GDPT 2018</h2>
+                        <p class="featured-desc">
+                            Bộ Giáo dục và Đào tạo đã chính thức áp dụng 3 phần cấu trúc trắc nghiệm hoàn toàn mới: Trắc nghiệm 4 lựa chọn, Trắc nghiệm Đúng/Sai đa ý và Trắc nghiệm điền đáp số ngắn. Cùng phân tích ma trận kiến thức và chiến thuật phân bổ thời gian đạt điểm 9+.
+                        </p>
+                        <div class="article-meta">
+                            <span><i class="ri-user-3-line"></i> Ban Chuyên môn HocNhanhTN</span>
+                            <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                            <span><i class="ri-price-tag-3-line"></i> Chuẩn GDPT 2018 • Môn Toán</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- ARTICLE LIST -->
+                <div class="article-list">
+                    
+                    <!-- Article 2 -->
+                    <a href="/cam-nang/cach-lam-trac-nghiem-dung-sai-diem-toi-da" class="article-item">
+                        <span class="article-tag">Bí quyết đạt điểm tối đa</span>
+                        <h3 class="article-item-title">Chiến thuật chinh phục dạng bài trắc nghiệm Đúng/Sai GDPT 2018: Tránh bẫy câu hỏi và tối ưu điểm lũy tiến</h3>
+                        <p class="article-item-desc">
+                            Với quy tắc tính điểm độc đáo (đúng 1 ý được 0.1đ, 2 ý được 0.25đ, 3 ý được 0.5đ, đúng cả 4 ý được 1.0đ), việc nắm vững tư duy loại trừ và phương pháp kiểm chứng từng mệnh đề là chìa khóa để giành trọn vẹn điểm số.
+                        </p>
+                        <div class="article-meta">
+                            <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                            <span><i class="ri-time-line"></i> 6 phút đọc</span>
+                            <span><i class="ri-bookmark-line"></i> Kỹ năng làm bài</span>
+                        </div>
+                    </a>
+
+                    <!-- Article 3 -->
+                    <a href="/cam-nang/huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien" class="article-item">
+                        <span class="article-tag">Cẩm nang giáo viên</span>
+                        <h3 class="article-item-title">Hướng dẫn giáo viên chuyển đổi số đề thi từ Word/PDF sang phòng thi trắc nghiệm trực tuyến bằng AI trong 5 giây</h3>
+                        <p class="article-item-desc">
+                            Giải pháp tiết kiệm 80% thời gian cho thầy cô: Tự động bóc tách câu hỏi, giữ nguyên công thức toán học MathType/LaTeX, tạo bảng đáp án tự động và cấp mã thi trực tuyến cho học sinh chỉ với 1 cú click.
+                        </p>
+                        <div class="article-meta">
+                            <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                            <span><i class="ri-time-line"></i> 7 phút đọc</span>
+                            <span><i class="ri-bookmark-line"></i> Công nghệ trợ giảng</span>
+                        </div>
+                    </a>
+
+                    <!-- Article 4 -->
+                    <a href="/cam-nang/ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn" class="article-item">
+                        <span class="article-tag">Chiến thuật thi cử</span>
+                        <h3 class="article-item-title">Kỹ năng xử lý câu hỏi trắc nghiệm trả lời ngắn (Phần III) môn Toán & KHTN: Triệt tiêu sai số và quy tắc làm tròn</h3>
+                        <p class="article-item-desc">
+                            Phần thi loại bỏ hoàn toàn yếu tố may rủi đánh lụi. Hướng dẫn học sinh cách trình bày đáp số, quy định làm tròn chữ số thập phân chuẩn theo barem chấm của Bộ GD&ĐT để không bị mất điểm oan uổng.
+                        </p>
+                        <div class="article-meta">
+                            <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                            <span><i class="ri-time-line"></i> 5 phút đọc</span>
+                            <span><i class="ri-bookmark-line"></i> KHTN & Toán</span>
+                        </div>
+                    </a>
+
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: SIDEBAR -->
+            <aside class="sidebar">
+                
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title"><i class="ri-folders-line" style="color: var(--primary);"></i> Chủ đề cẩm nang</h3>
+                    <ul class="topic-list">
+                        <li>
+                            <a href="/cam-nang" class="topic-link">
+                                <span>Cấu trúc đề GDPT 2018</span>
+                                <span class="topic-count">12 bài</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/cam-nang" class="topic-link">
+                                <span>Phương pháp giải nhanh</span>
+                                <span class="topic-count">18 bài</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/cam-nang" class="topic-link">
+                                <span>Hướng dẫn giáo viên</span>
+                                <span class="topic-count">9 bài</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/cam-nang" class="topic-link">
+                                <span>Kinh nghiệm thi cử THPT</span>
+                                <span class="topic-count">15 bài</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="cta-box">
+                    <i class="ri-magic-line" style="font-size: 2rem; margin-bottom: 10px; display: inline-block;"></i>
+                    <h4>Số Hóa Đề Thi Bằng AI</h4>
+                    <p>Thầy cô có đề thi Word (.docx) hoặc PDF? Hãy trải nghiệm công cụ bóc tách câu hỏi tự động chuẩn GDPT 2018 hoàn toàn miễn phí!</p>
+                    <a href="/"><i class="ri-upload-cloud-line"></i> Thử nghiệm ngay</a>
+                </div>
+
+                <div class="sidebar-card">
+                    <h3 class="sidebar-title"><i class="ri-shield-check-line" style="color: var(--primary);"></i> Cam kết chất lượng</h3>
+                    <p style="font-size: 0.92rem; color: var(--text-body); margin: 0; line-height: 1.6;">
+                        Mọi bài viết trong chuyên mục Cẩm nang đều được biên soạn và kiểm duyệt kỹ lưỡng bởi đội ngũ giáo viên giàu kinh nghiệm, bám sát công văn hướng dẫn chuyên môn mới nhất của Bộ Giáo dục và Đào tạo.
+                    </p>
+                </div>
+
+            </aside>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-links">
+                <a href="/">Trang chủ</a>
+                <span>•</span>
+                <a href="/de-thi">Kho đề thi</a>
+                <span>•</span>
+                <a href="/cam-nang">Cẩm nang</a>
+                <span>•</span>
+                <a href="/about">Về chúng tôi</a>
+                <span>•</span>
+                <a href="/privacy">Chính sách bảo mật</a>
+                <span>•</span>
+                <a href="/terms">Điều khoản sử dụng</a>
+                <span>•</span>
+                <a href="/contact">Liên hệ hỗ trợ</a>
+            </div>
+            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

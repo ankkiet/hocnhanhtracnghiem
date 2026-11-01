@@ -616,29 +616,98 @@ async def check_quiz_ai(req: CheckQuizRequest):
         raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
 
 @router.get("/export_docx/{quiz_id}", summary="Xuất đề thi ra file Word (.docx) chuẩn in ấn")
-async def export_quiz_docx(quiz_id: str, teacher_token: Optional[str] = None):
-    """Xuất đề thi ra định dạng Word .docx kèm Bảng đáp án để in ấn."""
+async def export_quiz_docx(
+    quiz_id: str,
+    teacher_token: Optional[str] = None,
+    target_audience: Optional[str] = "teacher",
+    layout_mode: Optional[str] = "compact",
+    options_layout: Optional[str] = "auto",
+    show_answers: Optional[bool] = None,
+    show_key_table: Optional[bool] = None,
+    show_explains: Optional[bool] = None,
+    include_student_answer_grid: Optional[bool] = False,
+):
+    """Xuất đề thi ra định dạng Word .docx kèm tùy chọn đối tượng (Giáo viên / Học sinh) và tiết kiệm giấy."""
     db = _get_db()
     if db is None:
         raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
-        
-    doc = db.collection('quizzes').document(quiz_id).get()
-    if not doc.exists:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
-        
-    quiz_data = doc.to_dict()
+
+    now = time.time()
+    if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id].get('time', 0) < 300):
+        quiz_data = QUIZ_CACHE[quiz_id]['data']
+    else:
+        doc = db.collection('quizzes').document(quiz_id).get()
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        quiz_data = doc.to_dict()
+        QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
+
     title = quiz_data.get('title', 'Đề thi trắc nghiệm')
     questions = quiz_data.get('data') or quiz_data.get('questions') or []
     time_limit = quiz_data.get('time_limit', 0)
     
-    docx_stream = export_quiz_to_docx(title, questions, time_limit)
+    docx_stream = export_quiz_to_docx(
+        title=title,
+        questions=questions,
+        time_limit=time_limit,
+        target_audience=target_audience or "teacher",
+        layout_mode=layout_mode or "compact",
+        options_layout=options_layout or "auto",
+        show_answers=show_answers,
+        show_key_table=show_key_table,
+        show_explains=show_explains,
+        include_student_answer_grid=bool(include_student_answer_grid),
+    )
     safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', quiz_id)
+    audience_suffix = "_hoc_sinh" if target_audience == "student" else "_giao_vien"
     
     return StreamingResponse(
         docx_stream,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
-            "Content-Disposition": f"attachment; filename=de_thi_{safe_filename}.docx"
+            "Content-Disposition": f"attachment; filename=de_thi_{safe_filename}{audience_suffix}.docx"
+        }
+    )
+
+class ExportDocxCustomRequest(BaseModel):
+    title: Optional[str] = "Đề thi trắc nghiệm"
+    questions: Optional[list] = []
+    time_limit: Optional[int] = 0
+    target_audience: Optional[str] = "teacher"
+    layout_mode: Optional[str] = "compact"
+    options_layout: Optional[str] = "auto"
+    show_answers: Optional[bool] = None
+    show_key_table: Optional[bool] = None
+    show_explains: Optional[bool] = None
+    include_student_answer_grid: Optional[bool] = False
+
+@router.post("/export_docx_custom", summary="Xuất đề thi ra file Word (.docx) từ dữ liệu tùy biến")
+async def export_quiz_docx_custom(request: ExportDocxCustomRequest):
+    """Xuất file Word .docx trực tiếp từ danh sách câu hỏi tùy biến trong trang Export Studio."""
+    title = request.title or "Đề thi trắc nghiệm"
+    questions = request.questions or []
+    time_limit = request.time_limit or 0
+
+    docx_stream = export_quiz_to_docx(
+        title=title,
+        questions=questions,
+        time_limit=time_limit,
+        target_audience=request.target_audience or "teacher",
+        layout_mode=request.layout_mode or "compact",
+        options_layout=request.options_layout or "auto",
+        show_answers=request.show_answers,
+        show_key_table=request.show_key_table,
+        show_explains=request.show_explains,
+        include_student_answer_grid=bool(request.include_student_answer_grid),
+    )
+    safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', title)[:30] or "de_thi"
+    audience_suffix = "_hoc_sinh" if request.target_audience == "student" else "_giao_vien"
+
+    return StreamingResponse(
+        docx_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f"attachment; filename={safe_filename}{audience_suffix}.docx"
         }
     )
 

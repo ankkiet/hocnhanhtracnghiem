@@ -99,7 +99,7 @@ class TestDocxMath(unittest.TestCase):
         # Kiểm tra đọc lại được tài liệu bằng docx.Document
         doc = Document(stream)
         self.assertGreaterEqual(len(doc.paragraphs), 5)
-        self.assertEqual(len(doc.tables), 1)
+        self.assertGreaterEqual(len(doc.tables), 1)
 
         # Kiểm tra sự tồn tại của oMath trong XML
         full_xml = ""
@@ -109,6 +109,109 @@ class TestDocxMath(unittest.TestCase):
         # Đảm bảo không còn nguyên mã LaTeX thô như \frac hoặc \Delta trong văn bản thông thường
         self.assertNotIn(r"\frac", full_xml)
         self.assertNotIn(r"\Delta", full_xml)
+
+    def test_export_quiz_to_docx_student_and_compact_options(self):
+        from core.docx_exporter import export_quiz_to_docx
+
+        questions = [
+            {
+                "question": "Giải phương trình 2x + 4 = 0",
+                "options": ["A. x = -2", "B. x = 2", "C. x = 0", "D. x = 4"],
+                "correct_answer": "A",
+                "explain": "Ta có 2x = -4 suy ra x = -2."
+            },
+            {
+                "question": "Tính tích phân sau:",
+                "type": "short_answer",
+                "correct_answer": "100"
+            }
+        ]
+
+        # 1. Xuất bản cho học sinh (Student Mode)
+        s_stream = export_quiz_to_docx(
+            "ĐỀ THI HỌC SINH",
+            questions,
+            time_limit=15,
+            target_audience="student",
+            layout_mode="compact",
+            include_student_answer_grid=True
+        )
+        self.assertIsNotNone(s_stream)
+        s_doc = Document(s_stream)
+        s_text = "\n".join(p.text for p in s_doc.paragraphs)
+        self.assertIn("Họ và tên thí sinh:", s_text)
+        self.assertIn("Lớp:", s_text)
+        self.assertNotIn("--- BẢNG ĐÁP ÁN ---", s_text)
+        self.assertNotIn("--- HƯỚNG DẪN GIẢI CHI TIẾT ---", s_text)
+        self.assertNotIn("100", s_text)  # Không được lộ đáp án học sinh
+
+        # 2. Xuất bản cho giáo viên (Teacher Mode)
+        t_stream = export_quiz_to_docx(
+            "ĐỀ THI GIÁO VIÊN",
+            questions,
+            time_limit=15,
+            target_audience="teacher",
+            layout_mode="standard",
+            options_layout="4_col"
+        )
+        self.assertIsNotNone(t_stream)
+        t_doc = Document(t_stream)
+        t_text = "\n".join(p.text for p in t_doc.paragraphs)
+        self.assertIn("--- BẢNG ĐÁP ÁN ---", t_text)
+        self.assertIn("HƯỚNG DẪN GIẢI CHI TIẾT", t_text)
+        self.assertIn("Ta có 2x = -4", t_text)
+
+    def test_export_quiz_with_variation_table_and_html_table(self):
+        """Kiểm tra xuất bảng biến thiên LaTeX chứa thẻ <br>, chuỗi \\nx và bảng HTML."""
+        from core.docx_exporter import export_quiz_to_docx
+
+        broken_table_q = (
+            "Cho hàm số $y = f(x)$ có bảng biến thiên như sau:\\\n"
+            "$$\\begin{array}{c|cccc} \\nx & -\\infty & -1 & 1 & +\\infty \\\\<br> "
+            "y' & + & 0 & - & 0 & + \\\\<br> "
+            "y & \\nearrow & 3 & \\searrow & -1 & \\nearrow <br>\\n "
+            "\\end{array}$$Hàm số đạt cực đại tại điểm nào?"
+        )
+
+        questions = [
+            {
+                "question": broken_table_q,
+                "options": ["A. x = -1", "B. x = 1", "C. y = 3", "D. y = -1"],
+                "correct_answer": "A. x = -1",
+                "explain": "Hàm số đạt cực đại tại x = -1 với giá trị y = 3."
+            },
+            {
+                "question": "Bảng số liệu thống kê:<br><table><tr><th>Năm</th><th>2023</th><th>2024</th></tr><tr><td>Điểm</td><td>8.5</td><td>9.0</td></tr></table>Chọn nhận xét đúng:",
+                "options": ["A. Điểm tăng", "B. Điểm giảm"],
+                "correct_answer": "A. Điểm tăng"
+            }
+        ]
+
+        stream = export_quiz_to_docx("ĐỀ THI TOÁN CÓ BẢNG BIẾN THIÊN", questions)
+        self.assertIsNotNone(stream)
+        doc = Document(stream)
+
+        full_xml = "".join(p._p.xml for p in doc.paragraphs)
+        for t in doc.tables:
+            full_xml += t._tbl.xml
+
+        # 1. Bắt buộc tạo được đối tượng công thức Office MathML (oMath)
+        self.assertIn("oMath", full_xml)
+
+        # 2. Không chứa rác thẻ <br> hay \nx trong văn bản
+        import re
+        text_nodes = re.findall(r'<(?:m:t|w:t)[^>]*>([^<]*)</(?:m:t|w:t)>', full_xml)
+        all_text = " ".join(text_nodes)
+
+        self.assertNotIn("<br>", all_text)
+        self.assertNotIn("< br >", all_text)
+        self.assertNotIn(r"\nx", all_text)
+        self.assertNotIn("như sau:\\", all_text)
+        self.assertIn("như sau:", all_text)
+
+        # 3. Chứa bảng HTML được render chuẩn thành w:tbl trong Word
+        self.assertGreaterEqual(len(doc.tables), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

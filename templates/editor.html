@@ -762,6 +762,136 @@
         </div>
     </div>
 
-    <script src="/editor.js?v=20261031_anti_fouc_v3"></script>
+    <!-- MODAL TÙY CHỌN XUẤT FILE WORD (.DOCX) -->
+    <div id="exportDocxModal" role="dialog" aria-modal="true" aria-labelledby="exportDocxModalTitle" onclick="if(event.target === this) closeExportDocxModal()" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); z-index:99999; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(4px);">
+        <div style="background:#ffffff; width:100%; max-width:560px; border-radius:16px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; display:flex; flex-direction:column;">
+            <!-- Header -->
+            <div style="padding:16px 20px; background:linear-gradient(135deg, #1e40af, #2563eb); color:#ffffff; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:22px;">
+                        <i class="ri-file-word-2-line"></i>
+                    </div>
+                    <div>
+                        <h3 id="exportDocxModalTitle" style="margin:0; font-size:1.15rem; font-weight:700; color:#ffffff;">Tùy chọn xuất file Word (.docx)</h3>
+                        <p style="margin:2px 0 0; font-size:0.82rem; color:rgba(255,255,255,0.88); max-width:380px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" id="exportDocxQuizTitle">Đề thi trắc nghiệm</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeExportDocxModal()" style="background:none; border:none; color:#ffffff; font-size:24px; cursor:pointer; opacity:0.85; transition:opacity 0.2s; padding:4px;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" aria-label="Đóng">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div style="padding:20px; display:flex; flex-direction:column; gap:16px; max-height:calc(85vh - 120px); overflow-y:auto;">
+                <!-- 1. Chọn đối tượng xuất đề -->
+                <div>
+                    <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                        1. Mục đích xuất đề thi
+                    </label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <label id="cardAudienceTeacher" style="border:2px solid #2563eb; background:#eff6ff; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho Giáo viên</span>
+                                <input type="radio" name="docxAudience" value="teacher" checked onchange="onDocxAudienceChange('teacher')" style="accent-color:#2563eb; width:16px; height:16px;">
+                            </div>
+                            <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Có đáp án tô đỏ, bảng đáp án và lời giải chi tiết.</span>
+                        </label>
+
+                        <label id="cardAudienceStudent" style="border:2px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <span style="font-weight:700; font-size:0.92rem; color:#334155;">👨‍🎓 Cho Học sinh</span>
+                                <input type="radio" name="docxAudience" value="student" onchange="onDocxAudienceChange('student')" style="accent-color:#2563eb; width:16px; height:16px;">
+                            </div>
+                            <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Đề thi sạch làm bài, không đáp án, không lời giải.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 2. Định dạng trang & Tiết kiệm giấy -->
+                <div>
+                    <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                        2. Chế độ in ấn & Tiết kiệm giấy
+                    </label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <label id="cardLayoutCompact" style="border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <span style="font-weight:700; font-size:0.92rem; color:#15803d;">🌱 Tiết kiệm giấy</span>
+                                <input type="radio" name="docxLayoutMode" value="compact" checked onchange="onDocxLayoutChange('compact')" style="accent-color:#16a34a; width:16px; height:16px;">
+                            </div>
+                            <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Lề hẹp 1.27cm, dồn đáp án 1-2 dòng, giảm số trang in.</span>
+                        </label>
+
+                        <label id="cardLayoutStandard" style="border:2px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
+                            <div style="display:flex; align-items:center; justify-content:space-between;">
+                                <span style="font-weight:700; font-size:0.92rem; color:#334155;">📖 Rộng rãi thoáng</span>
+                                <input type="radio" name="docxLayoutMode" value="standard" onchange="onDocxLayoutChange('standard')" style="accent-color:#16a34a; width:16px; height:16px;">
+                            </div>
+                            <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Lề chuẩn 1.9cm, giãn dòng 1.2, bảng đáp án ngắt trang mới.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 3. Bố cục đáp án trắc nghiệm -->
+                <div>
+                    <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+                        3. Bố cục các đáp án (A, B, C, D)
+                    </label>
+                    <select id="docxOptionsLayout" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.9rem; color:#1e293b; background:#ffffff; outline:none; transition:border-color 0.2s;">
+                        <option value="auto" selected>⚡ Tự động thông minh (Khuyên dùng: 1 - 2 - 4 hàng tùy độ dài)</option>
+                        <option value="4_col">4 cột (Dồn cả 4 đáp án trên 1 hàng ngang nếu đủ chỗ)</option>
+                        <option value="2_col">2 cột (Chia 2 đáp án mỗi hàng)</option>
+                        <option value="1_col">1 cột (Mỗi đáp án 1 hàng riêng truyền thống)</option>
+                    </select>
+                    <div style="font-size:0.76rem; color:#64748b; margin-top:4px;">
+                        <i class="ri-information-line"></i> Khi chọn tự động: công thức/từ ngắn dồn 4 cột, trung bình 2 cột, dài để 1 cột.
+                    </div>
+                </div>
+
+                <!-- 4. Chi tiết bổ sung -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+                    <span style="font-size:0.8rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">
+                        Tùy chọn chi tiết
+                    </span>
+
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
+                        <input type="checkbox" id="docxShowAnswers" checked style="width:17px; height:17px; accent-color:#2563eb;">
+                        <span>Đánh dấu đáp án đúng trong câu hỏi (Gạch chân & tô đỏ)</span>
+                    </label>
+
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
+                        <input type="checkbox" id="docxShowKeyTable" checked style="width:17px; height:17px; accent-color:#2563eb;">
+                        <span>In bảng đáp án nhanh ở cuối đề thi</span>
+                    </label>
+
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
+                        <input type="checkbox" id="docxShowExplains" checked style="width:17px; height:17px; accent-color:#2563eb;">
+                        <span>In hướng dẫn giải chi tiết (nếu có lời giải)</span>
+                    </label>
+
+                    <label id="lblDocxStudentGrid" style="display:none; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
+                        <input type="checkbox" id="docxStudentGrid" style="width:17px; height:17px; accent-color:#2563eb;">
+                        <span>Kèm phiếu trả lời trắc nghiệm ở đầu đề cho học sinh</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:14px 20px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button type="button" class="btn-outline" onclick="openDedicatedExportPage()" style="padding:9px 16px; border-radius:10px; font-weight:600; border:1.5px solid #2563eb; background:#eff6ff; color:#1d4ed8; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <i class="ri-eye-line"></i> Xem trước A4 (Word / PDF) ↗
+                </button>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button type="button" class="btn-outline" onclick="closeExportDocxModal()" style="padding:9px 18px; border-radius:10px; font-weight:600; border:1px solid #cbd5e1; background:#ffffff; color:#475569; cursor:pointer;">
+                        Hủy
+                    </button>
+                    <button type="button" class="btn-primary" onclick="confirmDownloadDocx()" style="padding:9px 20px; border-radius:10px; font-weight:600; background:linear-gradient(135deg, #1e40af, #2563eb); color:#ffffff; border:none; display:flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 6px -1px rgba(37,99,235,0.25);">
+                        <i class="ri-download-2-line"></i> Tải file Word (.docx)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/editor.js?v=20261101_v5"></script>
 </body>
 </html>

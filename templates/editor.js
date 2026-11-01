@@ -655,6 +655,20 @@ function dataToEditorText(data) {
     return html;
 }
 
+function isLineInsideMath(accumulatedText) {
+    if (!accumulatedText) return false;
+    const doubleDollars = (accumulatedText.match(/\$\$/g) || []).length;
+    if (doubleDollars % 2 !== 0) return true;
+    const openDisplay = (accumulatedText.match(/\\\[/g) || []).length;
+    const closeDisplay = (accumulatedText.match(/\\\]/g) || []).length;
+    if (openDisplay > closeDisplay) return true;
+    const mathEnvs = 'array|matrix|pmatrix|bmatrix|cases|aligned|align';
+    const openEnvs = (accumulatedText.match(new RegExp(`\\\\begin\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
+    const closeEnvs = (accumulatedText.match(new RegExp(`\\\\end\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
+    if (openEnvs > closeEnvs) return true;
+    return false;
+}
+
 function parseEditorText(text) {
     let restoredText = text;
     
@@ -829,11 +843,15 @@ function parseEditorText(text) {
             sharedContext += (sharedContext ? "<br>" : "") + line;
         } else {
             if (currentQ && currentQ.explain) {
-                currentQ.explain += "<br>" + line;
+                const sep = isLineInsideMath(currentQ.explain) ? "\n" : "<br>";
+                currentQ.explain += sep + line;
             } else if (currentQ && currentQ.options.length > 0) {
-                currentQ.options[currentQ.options.length - 1] += "<br>" + line;
+                const lastIdx = currentQ.options.length - 1;
+                const sep = isLineInsideMath(currentQ.options[lastIdx]) ? "\n" : "<br>";
+                currentQ.options[lastIdx] += sep + line;
             } else if (currentQ) {
-                currentQ.question += (currentQ.question ? "<br>" : "") + line;
+                const sep = isLineInsideMath(currentQ.question) ? "\n" : "<br>";
+                currentQ.question += (currentQ.question ? sep : "") + line;
             } else {
                 sharedContext += (sharedContext ? "<br>" : "") + line;
             }
@@ -865,18 +883,18 @@ function updateSyntaxHighlight() {
     // Đã loại bỏ do chuyển sang giao diện WYSIWYG
 }
 
-function formatSubscriptsAndFormulas(text) {
+function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     if (!text || typeof text !== 'string') return text;
     const placeholders = [];
     let safe = text.replace(/(\[IMG_\d+\]|\[HÌNH_ẢNH_\d+\])/g, (m) => {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
-    safe = safe.replace(/(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)/g, (m) => {
+    safe = safe.replace(/(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$|\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\})/gi, (m) => {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
-    safe = safe.replace(/(<[^>]+>)/g, (m) => {
+    safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<[^>]+>)/gi, (m) => {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
@@ -887,6 +905,10 @@ function formatSubscriptsAndFormulas(text) {
     safe = safe.replace(/([A-Z][a-z]?|\b[uvxyzmkn])_([a-z0-9]+)/g, '$1<sub>$2</sub>');
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\^\{([^}]+)\}/g, '$1<sup>$2</sup>');
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\^([0-9\+\-]+)/g, '$1<sup>$2</sup>');
+
+    if (convertNewlines) {
+        safe = safe.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
+    }
 
     for (let i = placeholders.length - 1; i >= 0; i--) {
         safe = safe.split(`XYZPH${i}XYZ`).join(placeholders[i]);
@@ -957,9 +979,9 @@ function renderPreviewAll() {
         }
 
         let html = "";
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
         let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-        let formattedQ = formatSubscriptsAndFormulas(qClean).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
+        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
         
         let qType = getRealQuestionType(q);
         let typeBadge = '';
@@ -1034,7 +1056,7 @@ function renderPreviewAll() {
         // Lời giải chi tiết
         if (q.explain && q.explain.trim()) {
             html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
-                <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain, true)}
             </div>`;
         }
 
@@ -1057,7 +1079,7 @@ function renderPreviewAll() {
                     <div style="font-size: 0.88rem; color: #7c2d12; margin-bottom: 10px; line-height: 1.5;">
                         <div><b>Đáp án hiện tại (Giáo viên / Gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
                         <div style="margin-top: 5px;"><b>Đáp án do AI độc lập giải:</b> <span style="background: #bbf7d0; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(aiAns)}</span></div>
-                        ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : ''}
+                        ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp, true)}</div>` : ''}
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button type="button" class="btn-primary" style="padding: 5px 12px; font-size: 0.82rem; background: #ea580c; border: none; border-radius: 6px; cursor: pointer;" onclick="acceptAICrossCheckAnswer(${qIndex}); event.stopPropagation();">
@@ -1193,7 +1215,7 @@ function renderPreviewAll() {
                     ${explainText ? `
                         <div style="margin-top: 8px; padding: 10px 14px; background: #ffffff; border-radius: 8px; font-size: 0.9rem; color: #1e293b; line-height: 1.6; border: 1px solid #dcfce7; border-left: 4px solid #10b981;">
                             <b style="color: #15803d;"><i class="ri-lightbulb-line"></i> Nội dung lời giải:</b><br>
-                            ${formatSubscriptsAndFormulas(explainText).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}
+                            ${formatSubscriptsAndFormulas(explainText, true)}
                         </div>
                     ` : ''}
                     <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
@@ -1765,9 +1787,9 @@ function renderInteractiveTest(mode) {
 
     let html = "";
     currentData.forEach((q, qIndex) => {
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>')}</div>` : '';
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
         let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-        let formattedQ = formatSubscriptsAndFormulas(qClean).replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
+        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
 
         html += `
             <div class="question-box" id="test_q_box_${qIndex}" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); border: 1px solid var(--border);">
@@ -1940,38 +1962,253 @@ function handleTestExamSubmit() {
 // ----------------------------------------------------
 // XUẤT FILE WORD (.DOCX)
 // ----------------------------------------------------
+let currentExportQuizId = null;
+
 async function exportWordDocument() {
-    if (!editingQuizId) {
-        alert("Vui lòng 'Lưu & Xuất bản' đề thi trước khi tải file Word chuẩn in ấn!");
-        openPublishModal();
+    let quizTitle = "Đề thi Studio";
+    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
+    if (titleEl && titleEl.value) quizTitle = titleEl.value;
+    else if (editingQuizSettings && editingQuizSettings.title) quizTitle = editingQuizSettings.title;
+
+    const exportData = {
+        title: quizTitle,
+        questions: currentData || [],
+        time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0
+    };
+
+    try {
+        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
+        if (editingQuizId) {
+            sessionStorage.setItem(`export_quiz_${editingQuizId}`, JSON.stringify(exportData));
+        }
+    } catch(e) {}
+
+    if (editingQuizId) {
+        try {
+            const payload = {
+                quiz_id: editingQuizId,
+                title: quizTitle,
+                data: currentData,
+                mode: (editingQuizSettings && editingQuizSettings.mode) || "practice",
+                time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0,
+                is_shuffle: (editingQuizSettings && editingQuizSettings.isShuffle) || false,
+                creator_id: authToken,
+                status: "published"
+            };
+            fetch(`${API_BASE_URL}/api/save_quiz`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
+        } catch(e) {}
+    }
+
+    const targetUrl = editingQuizId ? `/export/${encodeURIComponent(editingQuizId)}` : '/export';
+    window.location.href = targetUrl;
+}
+
+function openExportDocxModal(quizId, quizTitle = "") {
+    currentExportQuizId = quizId;
+    const modal = document.getElementById('exportDocxModal');
+    if (!modal) {
+        window.open(`${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(quizId)}?teacher_token=${encodeURIComponent(authToken)}`, '_blank');
         return;
     }
-    // Tự động lưu cập nhật mới nhất trước khi tải file Word
-    showStudioLoader({
-        title: "📄 Đang xuất file Word đề thi...",
-        subtitle: "Đang đồng bộ bản mới nhất và kết xuất định dạng in ấn..."
-    });
-    try {
-        const payload = {
-            quiz_id: editingQuizId,
-            title: editingQuizSettings.title || "Đề thi",
-            data: currentData,
-            mode: editingQuizSettings.mode || "practice",
-            time_limit: editingQuizSettings.timeLimit || 0,
-            is_shuffle: editingQuizSettings.isShuffle || false,
-            creator_id: authToken,
-            status: "published"
-        };
-        await fetch(`${API_BASE_URL}/api/save_quiz`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-    } catch(e) {}
-    finally {
-        setTimeout(hideStudioLoader, 1200);
+    
+    const titleEl = document.getElementById('exportDocxQuizTitle');
+    if (titleEl) {
+        titleEl.textContent = quizTitle || editingQuizSettings.title || "Đề thi trắc nghiệm";
     }
-    window.open(`${API_BASE_URL}/api/teacher/export_docx/${editingQuizId}?teacher_token=${authToken}`, '_blank');
+    
+    setDocxAudienceUI('teacher');
+    setDocxLayoutUI('compact');
+    const optSelect = document.getElementById('docxOptionsLayout');
+    if (optSelect) optSelect.value = 'auto';
+
+    modal.style.display = 'flex';
+}
+
+function closeExportDocxModal() {
+    const modal = document.getElementById('exportDocxModal');
+    if (modal) modal.style.display = 'none';
+    currentExportQuizId = null;
+}
+
+function onDocxAudienceChange(audience) {
+    setDocxAudienceUI(audience);
+}
+
+function setDocxAudienceUI(audience) {
+    const cardTeacher = document.getElementById('cardAudienceTeacher');
+    const cardStudent = document.getElementById('cardAudienceStudent');
+    const chkAnswers = document.getElementById('docxShowAnswers');
+    const chkKeyTable = document.getElementById('docxShowKeyTable');
+    const chkExplains = document.getElementById('docxShowExplains');
+    const lblGrid = document.getElementById('lblDocxStudentGrid');
+    const chkGrid = document.getElementById('docxStudentGrid');
+
+    if (audience === 'student') {
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#2563eb';
+            cardStudent.style.background = '#eff6ff';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#1e40af';
+        }
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#e2e8f0';
+            cardTeacher.style.background = '#f8fafc';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="student"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = false; chkAnswers.disabled = true; }
+        if (chkKeyTable) { chkKeyTable.checked = false; chkKeyTable.disabled = true; }
+        if (chkExplains) { chkExplains.checked = false; chkExplains.disabled = true; }
+        if (lblGrid) lblGrid.style.display = 'flex';
+        if (chkGrid) chkGrid.checked = false;
+    } else {
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#2563eb';
+            cardTeacher.style.background = '#eff6ff';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#1e40af';
+        }
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#e2e8f0';
+            cardStudent.style.background = '#f8fafc';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="teacher"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = true; chkAnswers.disabled = false; }
+        if (chkKeyTable) { chkKeyTable.checked = true; chkKeyTable.disabled = false; }
+        if (chkExplains) { chkExplains.checked = true; chkExplains.disabled = false; }
+        if (lblGrid) lblGrid.style.display = 'none';
+        if (chkGrid) chkGrid.checked = false;
+    }
+}
+
+function onDocxLayoutChange(layout) {
+    setDocxLayoutUI(layout);
+}
+
+function setDocxLayoutUI(layout) {
+    const cardCompact = document.getElementById('cardLayoutCompact');
+    const cardStandard = document.getElementById('cardLayoutStandard');
+    
+    if (layout === 'compact') {
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#16a34a';
+            cardCompact.style.background = '#f0fdf4';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#15803d';
+        }
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#e2e8f0';
+            cardStandard.style.background = '#f8fafc';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="compact"]');
+        if (radio) radio.checked = true;
+    } else {
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#16a34a';
+            cardStandard.style.background = '#f0fdf4';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#15803d';
+        }
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#e2e8f0';
+            cardCompact.style.background = '#f8fafc';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="standard"]');
+        if (radio) radio.checked = true;
+    }
+}
+
+async function confirmDownloadDocx() {
+    if (!currentExportQuizId) {
+        closeExportDocxModal();
+        return;
+    }
+    
+    const audienceRadio = document.querySelector('input[name="docxAudience"]:checked');
+    const audience = audienceRadio ? audienceRadio.value : 'teacher';
+    
+    const layoutRadio = document.querySelector('input[name="docxLayoutMode"]:checked');
+    const layout = layoutRadio ? layoutRadio.value : 'compact';
+    
+    const optLayoutSelect = document.getElementById('docxOptionsLayout');
+    const optionsLayout = optLayoutSelect ? optLayoutSelect.value : 'auto';
+    
+    const showAnswers = document.getElementById('docxShowAnswers')?.checked ?? (audience === 'teacher');
+    const showKeyTable = document.getElementById('docxShowKeyTable')?.checked ?? (audience === 'teacher');
+    const showExplains = document.getElementById('docxShowExplains')?.checked ?? (audience === 'teacher');
+    const studentGrid = document.getElementById('docxStudentGrid')?.checked ?? false;
+    
+    const token = typeof authToken !== 'undefined' ? authToken : '';
+    const url = `${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(currentExportQuizId)}?teacher_token=${encodeURIComponent(token)}`
+        + `&target_audience=${encodeURIComponent(audience)}`
+        + `&layout_mode=${encodeURIComponent(layout)}`
+        + `&options_layout=${encodeURIComponent(optionsLayout)}`
+        + `&show_answers=${showAnswers}`
+        + `&show_key_table=${showKeyTable}`
+        + `&show_explains=${showExplains}`
+        + `&include_student_answer_grid=${studentGrid}`;
+
+    const btnSubmit = document.querySelector('#exportDocxModal .btn-primary');
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang tạo file Word...';
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        let filename = `de_thi_${audience}.docx`;
+        const disp = response.headers.get('content-disposition');
+        if (disp && disp.includes('filename=')) {
+            const m = disp.match(/filename=["']?([^"';]+)["']?/);
+            if (m && m[1]) filename = m[1];
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+
+        if (typeof showToast === 'function') {
+            showToast("Đã xuất file Word (.docx) thành công!", "success");
+        } else {
+            alert("Đã xuất file Word (.docx) thành công!");
+        }
+        closeExportDocxModal();
+    } catch (err) {
+        console.warn("Lỗi fetch blob docx, fallback sang mở link trực tiếp:", err);
+        window.open(url, '_blank');
+        closeExportDocxModal();
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = originalBtnHtml;
+        }
+    }
 }
 
 // ----------------------------------------------------
@@ -2077,15 +2314,29 @@ async function confirmPublishQuiz() {
     }
 }
 
+function slugifyVietnamese(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
 function showSuccessModal(quizId) {
     const modal = document.getElementById('successModal');
     if (!modal) return;
 
     document.getElementById('successQuizCode').innerText = quizId;
     const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
-    let path = window.location.pathname.replace('editor.html', 'index.html').replace(/\/editor\/?$/, '/index.html');
-    if (!path.includes('index.html')) path = path.replace(/\/+$/, '') + '/index.html';
-    const fullShareUrl = `${origin}${path}?id=${quizId}`;
+    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
+    const slug = slugifyVietnamese(title);
+    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(quizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(quizId)}`;
     
     document.getElementById('successShareLink').value = fullShareUrl;
     modal.style.display = 'flex';
@@ -2119,9 +2370,9 @@ function copyCurrentStudioLink() {
         return;
     }
     const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
-    let path = window.location.pathname.replace('editor.html', 'index.html').replace(/\/editor\/?$/, '/index.html');
-    if (!path.includes('index.html')) path = path.replace(/\/+$/, '') + '/index.html';
-    const fullShareUrl = `${origin}${path}?id=${editingQuizId}`;
+    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
+    const slug = slugifyVietnamese(title);
+    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(editingQuizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(editingQuizId)}`;
     
     navigator.clipboard.writeText(fullShareUrl).then(() => {
         showToast("✓ Đã sao chép link đề thi!");
@@ -2547,4 +2798,36 @@ window.applySimilarQuestionsToQuiz = function() {
     saveDraftToSession();
     closeSimilarModal();
     showToast(`Đã thêm ${activeGeneratedSimilarQuestions.length} câu hỏi mới vào đề thi!`);
+};
+
+window.openDedicatedExportPage = function() {
+    let quizTitle = "Đề thi trắc nghiệm";
+    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
+    if (titleEl && titleEl.value) quizTitle = titleEl.value;
+    else if (window.currentQuizTitle) quizTitle = window.currentQuizTitle;
+
+    let questions = [];
+    if (typeof window.getParsedQuestions === 'function') {
+        try { questions = window.getParsedQuestions(); } catch(e){}
+    }
+    if (!questions || !questions.length) {
+        questions = window.currentQuizData || window.currentData || [];
+    }
+
+    const exportData = {
+        title: quizTitle,
+        questions: questions,
+        time_limit: parseInt(document.getElementById('quizTimeLimit')?.value || '45', 10) || 45
+    };
+
+    try {
+        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
+        if (window.currentQuizId) {
+            sessionStorage.setItem(`export_quiz_${window.currentQuizId}`, JSON.stringify(exportData));
+        }
+    } catch (e) {}
+
+    const targetUrl = window.currentQuizId ? `/export/${encodeURIComponent(window.currentQuizId)}` : '/export';
+    window.open(targetUrl, '_blank');
+    if (typeof closeExportDocxModal === 'function') closeExportDocxModal();
 };

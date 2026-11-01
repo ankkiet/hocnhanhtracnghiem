@@ -11,6 +11,7 @@ exclude =
     .venv-3,
     uploads,
     scratch,
-    .cache
+    .cache,
+    backup_bgd_feature
 per-file-ignores =
     __init__.py: F401

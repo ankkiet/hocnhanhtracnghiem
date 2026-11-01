@@ -157,6 +157,22 @@ def _render_editor_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
     return HTMLResponse(content=html_content, media_type="text/html")
 
 
+def _render_export_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
+    """Render export.html với tiêu đề đề thi nếu có."""
+    export_path = os.path.join(settings.TEMPLATES_DIR, "export.html")
+    if not os.path.exists(export_path):
+        raise HTTPException(status_code=404, detail="Không tìm thấy trang export.html")
+
+    with open(export_path, "r", encoding="utf-8") as f:
+        html_content = f.read()
+
+    if quiz_title:
+        title = f"Xuất bản Word & PDF: {quiz_title} - HocNhanhTN"
+        html_content = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)}</title>', html_content, flags=re.IGNORECASE)
+
+    return HTMLResponse(content=html_content, media_type="text/html")
+
+
 # -------------------------------------------------------------
 # 1. TRANG CHỦ & ĐỀ THI TRỰC TIẾP (?id=... / ?quiz_id=...)
 # -------------------------------------------------------------
@@ -221,8 +237,10 @@ async def quiz_list_page(request: Request):
 # 4. PHÒNG THI / LÀM BÀI (/thi/{ma_de}, /quiz/{ma_de})
 # -------------------------------------------------------------
 @router.get("/thi/{quiz_id}", response_class=HTMLResponse, summary="Phòng thi trực tuyến làm bài")
+@router.get("/thi/{quiz_id}/{slug:path}", response_class=HTMLResponse, summary="Phòng thi trực tuyến làm bài với slug tiêu đề")
 @router.get("/quiz/{quiz_id}", response_class=HTMLResponse, summary="Link trực tiếp tới đề thi (alias)")
-async def exam_page(request: Request, quiz_id: str):
+@router.get("/quiz/{quiz_id}/{slug:path}", response_class=HTMLResponse, summary="Link trực tiếp tới đề thi kèm slug (alias)")
+async def exam_page(request: Request, quiz_id: str, slug: Optional[str] = None):
     guard = _guard_static_asset(quiz_id)
     if guard:
         return guard
@@ -233,12 +251,13 @@ async def exam_page(request: Request, quiz_id: str):
     full_title = f"{quiz_title} - HocNhanhTN" if quiz_title else f"Phòng thi trực tuyến #{quiz_id} - HocNhanhTN"
     og_title = quiz_title if quiz_title else f"Phòng thi #{quiz_id}"
     desc = quiz_desc if quiz_desc else f"Làm bài kiểm tra: {quiz_title or quiz_id}. Hệ thống học nhanh trắc nghiệm chuẩn GDPT 2018."
+    canonical_url = f"{site_domain}/thi/{quiz_id}/{slug}" if slug else f"{site_domain}/thi/{quiz_id}"
 
     return _render_index_with_meta(
         title=full_title,
         og_title=og_title,
         description=desc,
-        canonical_url=f"{site_domain}/thi/{quiz_id}",
+        canonical_url=canonical_url,
         og_image_url=og_image_url,
         route_class="hntn-not-home-route hntn-is-quiz-route",
     )
@@ -284,7 +303,8 @@ async def history_page(request: Request):
 # 7. BẢNG XẾP HẠNG (/xep-hang/{ma_de})
 # -------------------------------------------------------------
 @router.get("/xep-hang/{quiz_id}", response_class=HTMLResponse, summary="Bảng xếp hạng vinh danh đề thi")
-async def leaderboard_page(request: Request, quiz_id: str):
+@router.get("/xep-hang/{quiz_id}/{slug:path}", response_class=HTMLResponse, summary="Bảng xếp hạng vinh danh đề thi kèm slug")
+async def leaderboard_page(request: Request, quiz_id: str, slug: Optional[str] = None):
     guard = _guard_static_asset(quiz_id)
     if guard:
         return guard
@@ -292,12 +312,13 @@ async def leaderboard_page(request: Request, quiz_id: str):
     site_domain, og_image_url = _get_site_urls(request)
     quiz_title, _ = _get_quiz_meta(quiz_id)
     label = quiz_title if quiz_title else f"#{quiz_id}"
+    canonical_url = f"{site_domain}/xep-hang/{quiz_id}/{slug}" if slug else f"{site_domain}/xep-hang/{quiz_id}"
 
     return _render_index_with_meta(
         title=f"Bảng xếp hạng: {label} - HocNhanhTN",
         og_title=f"Bảng xếp hạng: {label}",
         description=f"Xem bảng vinh danh và kết quả bài thi {label} tại HocNhanhTN.",
-        canonical_url=f"{site_domain}/xep-hang/{quiz_id}",
+        canonical_url=canonical_url,
         og_image_url=og_image_url,
         route_class="hntn-not-home-route hntn-is-quiz-route",
     )
@@ -346,8 +367,12 @@ async def teacher_quiz_detail_page(request: Request, quiz_id: str):
 # 10. STUDIO BIÊN TẬP & SOÁT LỖI ĐỀ THI (/editor, /editor/{id})
 # -------------------------------------------------------------
 @router.get("/editor", response_class=HTMLResponse, summary="Giao diện Studio Biên tập & Soát lỗi Đề thi")
-def get_editor_page():
-    return _render_editor_with_meta()
+def get_editor_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
+    target_quiz_id = quiz_id or id
+    quiz_title = None
+    if target_quiz_id:
+        quiz_title, _ = _get_quiz_meta(target_quiz_id)
+    return _render_editor_with_meta(quiz_title=quiz_title or target_quiz_id)
 
 
 @router.get("/editor/{quiz_id}", response_class=HTMLResponse, summary="Soát lỗi đề thi cụ thể trong Studio")
@@ -358,6 +383,28 @@ async def editor_quiz_page(request: Request, quiz_id: str):
 
     quiz_title, _ = _get_quiz_meta(quiz_id)
     return _render_editor_with_meta(quiz_title=quiz_title or quiz_id)
+
+
+# -------------------------------------------------------------
+# 10b. STUDIO XUẤT BẢN & XEM TRƯỚC WORD/PDF (/export, /export/{id})
+# -------------------------------------------------------------
+@router.get("/export", response_class=HTMLResponse, summary="Giao diện Studio Xuất bản Word/PDF")
+def get_export_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
+    target_quiz_id = quiz_id or id
+    quiz_title = None
+    if target_quiz_id:
+        quiz_title, _ = _get_quiz_meta(target_quiz_id)
+    return _render_export_with_meta(quiz_title=quiz_title or target_quiz_id)
+
+
+@router.get("/export/{quiz_id}", response_class=HTMLResponse, summary="Xuất bản đề thi cụ thể ra Word/PDF")
+async def export_quiz_page(request: Request, quiz_id: str):
+    guard = _guard_static_asset(quiz_id)
+    if guard:
+        return guard
+
+    quiz_title, _ = _get_quiz_meta(quiz_id)
+    return _render_export_with_meta(quiz_title=quiz_title or quiz_id)
 
 
 # -------------------------------------------------------------
@@ -379,44 +426,60 @@ async def admin_page(request: Request):
 # -------------------------------------------------------------
 # 12. CÁC TRANG CHÍNH SÁCH & PHỤ TRỢ (Legal / Canvas)
 # -------------------------------------------------------------
+def _render_static_page(filename: str) -> HTMLResponse:
+    """Đọc và phục vụ trực tiếp tệp HTML độc lập cho các trang chính sách, AdSense và thông tin."""
+    file_path = os.path.join(settings.TEMPLATES_DIR, filename)
+    if not os.path.exists(file_path):
+        file_path = os.path.join(settings.BASE_DIR, filename)
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return HTMLResponse(content=content, media_type="text/html; charset=utf-8")
+    raise HTTPException(status_code=404, detail=f"Không tìm thấy trang {filename}")
+
+
 @router.get("/privacy", response_class=HTMLResponse, summary="Chính sách bảo mật quyền riêng tư")
+@router.get("/privacy/", response_class=HTMLResponse, include_in_schema=False)
 async def privacy_page(request: Request):
-    site_domain, og_image_url = _get_site_urls(request)
-    return _render_index_with_meta(
-        title="Chính sách bảo mật (Privacy Policy) - HocNhanhTN",
-        og_title="Chính sách bảo mật (Privacy Policy) - HocNhanhTN",
-        description="Chính sách bảo mật quyền riêng tư và cam kết an toàn dữ liệu cho học sinh & giáo viên trên HocNhanhTN.",
-        canonical_url=f"{site_domain}/privacy", og_image_url=og_image_url, route_class="")
+    return _render_static_page("privacy.html")
 
 
 @router.get("/terms", response_class=HTMLResponse, summary="Điều khoản dịch vụ & sử dụng")
+@router.get("/terms/", response_class=HTMLResponse, include_in_schema=False)
 async def terms_page(request: Request):
-    site_domain, og_image_url = _get_site_urls(request)
-    return _render_index_with_meta(
-        title="Điều khoản dịch vụ (Terms of Service) - HocNhanhTN",
-        og_title="Điều khoản dịch vụ (Terms of Service) - HocNhanhTN",
-        description="Điều khoản sử dụng dịch vụ và quy định nền tảng thi trắc nghiệm trực tuyến HocNhanhTN.",
-        canonical_url=f"{site_domain}/terms", og_image_url=og_image_url, route_class="")
+    return _render_static_page("terms.html")
 
 
 @router.get("/about", response_class=HTMLResponse, summary="Giới thiệu về Dự án HocNhanhTN")
+@router.get("/about/", response_class=HTMLResponse, include_in_schema=False)
 async def about_page(request: Request):
-    site_domain, og_image_url = _get_site_urls(request)
-    return _render_index_with_meta(
-        title="Về chúng tôi - Nền tảng số hóa đề thi HocNhanhTN",
-        og_title="Về chúng tôi - Nền tảng số hóa đề thi HocNhanhTN",
-        description="Dự án phi lợi nhuận hỗ trợ giáo viên và học sinh Việt Nam chuyển đổi số đề thi chuẩn GDPT 2018.",
-        canonical_url=f"{site_domain}/about", og_image_url=og_image_url, route_class="")
+    return _render_static_page("about.html")
 
 
 @router.get("/contact", response_class=HTMLResponse, summary="Liên hệ & Hỗ trợ kỹ thuật")
+@router.get("/contact/", response_class=HTMLResponse, include_in_schema=False)
 async def contact_page(request: Request):
-    site_domain, og_image_url = _get_site_urls(request)
-    return _render_index_with_meta(
-        title="Liên hệ & Hỗ trợ - HocNhanhTN",
-        og_title="Liên hệ & Hỗ trợ - HocNhanhTN",
-        description="Kênh tiếp nhận phản hồi, hỗ trợ kỹ thuật và đóng góp ý kiến nâng cấp hệ thống HocNhanhTN.",
-        canonical_url=f"{site_domain}/contact", og_image_url=og_image_url, route_class="")
+    return _render_static_page("contact.html")
+
+
+@router.get("/cam-nang", response_class=HTMLResponse, summary="Cẩm nang ôn thi & Hướng dẫn GDPT 2018")
+@router.get("/cam-nang/", response_class=HTMLResponse, include_in_schema=False)
+async def cam_nang_hub(request: Request):
+    return _render_static_page("cam-nang.html")
+
+
+@router.get("/cam-nang/{slug}", response_class=HTMLResponse, summary="Bài viết cẩm nang chi tiết")
+async def cam_nang_article(slug: str, request: Request):
+    clean_slug = slug.removesuffix(".html").strip()
+    article_rel_path = os.path.join("cam-nang", f"{clean_slug}.html")
+    article_path = os.path.join(settings.TEMPLATES_DIR, article_rel_path)
+    if not os.path.exists(article_path):
+        article_path = os.path.join(settings.BASE_DIR, "templates", article_rel_path)
+    if os.path.exists(article_path):
+        with open(article_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return HTMLResponse(content=content, media_type="text/html; charset=utf-8")
+    raise HTTPException(status_code=404, detail="Không tìm thấy bài viết cẩm nang yêu cầu")
 
 
 @router.get("/canvas", summary="Interactive Component Canvas cho Design System & UI Variants")

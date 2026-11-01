@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    
+    <title>Kỹ Năng Làm Trắc Nghiệm Trả Lời Ngắn GDPT 2018 - HocNhanhTN</title>
+    <meta name="description" content="Chiến thuật giải câu hỏi trắc nghiệm trả lời ngắn (Phần III) môn Toán và KHTN chuẩn GDPT 2018. Quy tắc làm tròn chữ số thập phân, tránh bẫy sai số và tô kết quả chuẩn.">
+    <link rel="canonical" href="https://hocnhanhtn.online/cam-nang/ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn">
+    
+    <!-- Open Graph & Social -->
+    <meta property="og:site_name" content="HocNhanhTN">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://hocnhanhtn.online/cam-nang/ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn">
+    <meta property="og:title" content="Kỹ Năng Làm Trắc Nghiệm Trả Lời Ngắn GDPT 2018 - HocNhanhTN">
+    <meta property="og:description" content="Cẩm nang xử lý câu hỏi điền số tự luận ngắn môn Toán & KHTN: Triệt tiêu sai số và quy tắc làm tròn chuẩn Bộ GD&ĐT.">
+    <meta property="og:image" content="https://hocnhanhtn.online/unnamed.jpg">
+    <meta property="og:locale" content="vi_VN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Kỹ năng làm trắc nghiệm trả lời ngắn GDPT 2018">
+    <meta name="twitter:description" content="Bí quyết giành trọn vẹn điểm số Phần III không phụ thuộc vào may rủi.">
+    <meta name="twitter:image" content="https://hocnhanhtn.online/unnamed.jpg">
+
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#1d4ed8">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-soft: #eff6ff;
+            --text-dark: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --bg-page: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* NAVBAR */
+        .site-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: 68px;
+            display: flex;
+            align-items: center;
+        }
+        .nav-container {
+            max-width: 1140px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .brand-text {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .nav-item a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-item a:hover,
+        .nav-item a.active {
+            color: var(--primary);
+        }
+        .btn-nav-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #ffffff !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-nav-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* ARTICLE LAYOUT */
+        .article-wrap {
+            max-width: 860px;
+            margin: 40px auto 70px;
+            padding: 0 20px;
+        }
+        .article-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            padding: 48px 52px;
+        }
+        @media (max-width: 768px) {
+            .article-card { padding: 28px 20px; }
+            .article-title { font-size: 1.85rem; }
+            .nav-menu .nav-item-hide-sm { display: none; }
+        }
+
+        /* BREADCRUMB */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+        .breadcrumb a:hover {
+            color: var(--primary);
+        }
+        .breadcrumb-sep {
+            color: #cbd5e1;
+        }
+
+        /* ARTICLE HEADER */
+        .article-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.825rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .article-title {
+            font-size: 2.35rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 18px;
+            line-height: 1.3;
+            letter-spacing: -0.025em;
+        }
+        .article-info-bar {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 16px 0 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .article-info-bar span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ARTICLE BODY TYPOGRAPHY */
+        .article-content h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--primary-soft);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .article-content h3 {
+            font-size: 1.22rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 26px 0 12px;
+        }
+        .article-content p {
+            font-size: 1.04rem;
+            color: var(--text-body);
+            margin: 0 0 20px;
+            line-height: 1.8;
+        }
+        .article-content ul, .article-content ol {
+            font-size: 1.02rem;
+            color: var(--text-body);
+            padding-left: 26px;
+            margin: 0 0 22px;
+        }
+        .article-content li {
+            margin-bottom: 10px;
+        }
+
+        /* TABLES */
+        .table-responsive {
+            overflow-x: auto;
+            margin: 24px 0 32px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            text-align: left;
+        }
+        .data-table th {
+            background: #f1f5f9;
+            color: var(--text-dark);
+            font-weight: 700;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table td {
+            padding: 13px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: var(--text-body);
+        }
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        .data-table tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        /* CALLOUT & SUMMARY BOX */
+        .callout-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 20px 24px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            margin: 28px 0;
+            font-size: 1rem;
+            color: #1e3a8a;
+            line-height: 1.7;
+        }
+
+        .highlight-quote {
+            background: #fefce8;
+            border-left: 4px solid #eab308;
+            padding: 18px 22px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            margin: 24px 0;
+            font-size: 0.98rem;
+            color: #713f12;
+        }
+
+        /* AUTHOR BIO */
+        .author-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin: 44px 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .author-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+        .author-info h4 {
+            margin: 0 0 4px;
+            font-size: 1.05rem;
+            color: var(--text-dark);
+        }
+        .author-info p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* FOOTER */
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 36px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+    </style>
+
+    <!-- Schema.org Article Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "Kỹ Năng Xử Lý Câu Hỏi Trắc Nghiệm Trả Lời Ngắn GDPT 2018",
+      "url": "https://hocnhanhtn.online/cam-nang/ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn",
+      "image": "https://hocnhanhtn.online/unnamed.jpg",
+      "datePublished": "2026-11-01T09:00:00+07:00",
+      "dateModified": "2026-11-01T22:30:00+07:00",
+      "author": {
+        "@type": "Organization",
+        "name": "Ban Chuyên Môn HocNhanhTN"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HocNhanhTN",
+        "logo": "https://hocnhanhtn.online/logohocnhanhtn.png"
+      },
+      "description": "Hướng dẫn chi tiết phương pháp làm bài trắc nghiệm trả lời ngắn Phần III môn Toán và các môn KHTN chuẩn GDPT 2018."
+    }
+    </script>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header class="site-nav">
+        <nav class="nav-container" aria-label="Điều hướng chính">
+            <a href="/" class="brand-link">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="brand-logo" width="34" height="34">
+                <span class="brand-text">HocNhanhTN</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item nav-item-hide-sm"><a href="/"><i class="ri-home-5-line"></i> Trang chủ</a></li>
+                <li class="nav-item"><a href="/de-thi"><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
+                <li class="nav-item"><a href="/cam-nang" class="active"><i class="ri-article-line"></i> Cẩm nang</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/about"><i class="ri-information-line"></i> Giới thiệu</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/contact"><i class="ri-customer-service-line"></i> Liên hệ</a></li>
+                <li>
+                    <a href="/" class="btn-nav-primary">
+                        <i class="ri-file-upload-line"></i> Tạo đề thi ngay
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- MAIN ARTICLE CONTENT -->
+    <main class="article-wrap">
+        <article class="article-card">
+            
+            <!-- Breadcrumbs -->
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Trang chủ</a>
+                <span class="breadcrumb-sep">/</span>
+                <a href="/cam-nang">Cẩm nang</a>
+                <span class="breadcrumb-sep">/</span>
+                <span>Kỹ năng làm trắc nghiệm trả lời ngắn</span>
+            </nav>
+
+            <header>
+                <div class="article-badge"><i class="ri-edit-circle-fill"></i> Phần III GDPT 2018</div>
+                <h1 class="article-title">Kỹ Năng Xử Lý Câu Hỏi Trắc Nghiệm Trả Lời Ngắn Môn Toán & KHTN: Triệt Tiêu Sai Số & Quy Tắc Làm Tròn</h1>
+                
+                <div class="article-info-bar">
+                    <span><i class="ri-user-line"></i> Cô Nguyễn Thảo My (Tổ Toán - Lý HocNhanhTN)</span>
+                    <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                    <span><i class="ri-time-line"></i> 5 phút đọc</span>
+                    <span><i class="ri-star-line"></i> Bài viết chuyên sâu</span>
+                </div>
+            </header>
+
+            <div class="article-content">
+                
+                <p>
+                    <strong>Phần III - Câu hỏi trắc nghiệm trả lời ngắn</strong> là một trong những đổi mới quan trọng và nhân văn nhất trong chương trình Giáo dục phổ thông 2018. Khác với trắc nghiệm truyền thống cho sẵn 4 đáp án A, B, C, D để thử lại hay dùng máy tính Casio rà nghiệm, dạng bài trả lời ngắn yêu cầu thí sinh phải thực sự bắt tay vào giải bài toán tự luận và tự điền đáp số cuối cùng vào phiếu trả lời.
+                </p>
+
+                <div class="callout-box">
+                    <strong>Đặc điểm của Phần III trong đề thi môn Toán:</strong> Gồm 6 câu hỏi, mỗi câu đúng được <strong>0.5 điểm</strong> (tổng 3.0 điểm). Nếu làm đúng, bạn sẽ bứt phá ngoạn mục; nhưng nếu tính sai một chữ số thập phân hoặc làm tròn sai quy cách, toàn bộ công sức giải bài sẽ trở về con số 0.
+                </div>
+
+                <h2><i class="ri-input-cursor-move" style="color: var(--primary);"></i> 1. Cấu trúc phiếu tô đáp án Phần III</h2>
+                <p>
+                    Theo thiết kế phiếu trả lời trắc nghiệm chuẩn của Bộ Giáo dục và Đào tạo, mỗi câu trả lời ngắn sẽ có một khung gồm 4 hoặc 5 cột:
+                </p>
+                <ul>
+                    <li><strong>Cột đầu tiên:</strong> Dùng để tô dấu trừ <code>(-)</code> nếu đáp số là số âm. Nếu đáp số là số dương thì để trống cột này.</li>
+                    <li><strong>Các cột tiếp theo:</strong> Dùng để tô các chữ số từ <code>0</code> đến <code>9</code>.</li>
+                    <li><strong>Ký tự ngăn cách thập phân:</strong> Có một hàng riêng chứa dấu phẩy <code>(,)</code> để phân cách phần nguyên và phần thập phân (ví dụ: <code>-3,5</code> hoặc <code>12,25</code>).</li>
+                </ul>
+
+                <h2><i class="ri-calculator-line" style="color: var(--primary);"></i> 2. Quy tắc làm tròn số chuẩn của Bộ GD&ĐT</h2>
+                <p>
+                    Đây là nơi học sinh hay mất điểm oan uổng nhất dù giải đúng phương pháp. Hãy luôn ghi nhớ nguyên tắc làm tròn số học cơ bản:
+                </p>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Yêu cầu của đề bài</th>
+                                <th>Ví dụ kết quả máy tính</th>
+                                <th>Cách xử lý làm tròn</th>
+                                <th>Đáp số chính xác cần điền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Làm tròn đến hàng đơn vị</td>
+                                <td>14.732...</td>
+                                <td>Chữ số sau hàng đơn vị là 7 (>= 5) -> Tăng 1 đơn vị</td>
+                                <td><strong>15</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Làm tròn đến hàng phần mười (1 chữ số thập phân)</td>
+                                <td>-3.448...</td>
+                                <td>Chữ số kế tiếp là 4 (&lt; 5) -> Giữ nguyên</td>
+                                <td><strong>-3,4</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Làm tròn đến hàng phần trăm (2 chữ số thập phân)</td>
+                                <td>8.2756...</td>
+                                <td>Chữ số kế tiếp là 5 (>= 5) -> Tăng 1 đơn vị</td>
+                                <td><strong>8,28</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="highlight-quote">
+                    <strong>CẢNH BÁO NGUY HIỂM:</strong> Tuyệt đối <strong>KHÔNG ĐƯỢC LÀM TRÒN SỚM Ở CÁC BƯỚC TRUNG GIAN</strong>! Hãy lưu các giá trị trung gian vào các biến nhớ của máy tính cầm tay (phím STO A, STO B, STO C). Chỉ thực hiện làm tròn một lần duy nhất ở kết quả cuối cùng theo yêu cầu của đề bài.
+                </div>
+
+                <h2><i class="ri-focus-3-line" style="color: var(--primary);"></i> 3. Các dạng toán điển hình trong Phần III</h2>
+                <ol>
+                    <li>
+                        <strong>Bài toán thực tế tối ưu hóa (Cực trị hàm số):</strong>
+                        Tìm kích thước hình hộp chữ nhật có thể tích lớn nhất từ tấm tôn cho trước, tìm chi phí xây dựng thấp nhất... Cần chú ý điều kiện biên hình học (độ dài cạnh > 0).
+                    </li>
+                    <li>
+                        <strong>Bài toán ứng dụng tích phân:</strong>
+                        Tính diện tích bồn hoa, thể tích vật thể tròn xoay trong kiến trúc... Cần xác định chính xác phương trình parabol hoặc elip trước khi bấm máy tính.
+                    </li>
+                    <li>
+                        <strong>Bài toán xác suất có điều kiện & Công thức Bayes:</strong>
+                        Tính xác suất chẩn đoán chính xác bệnh của xét nghiệm y tế, xác suất sản phẩm đạt chuẩn chất lượng từ nhiều dây chuyền sản xuất...
+                    </li>
+                </ol>
+
+                <h2><i class="ri-checkbox-circle-line" style="color: var(--primary);"></i> 4. Checklist 3 bước kiểm tra trước khi chuyển câu</h2>
+                <ul>
+                    <li><strong>Kiểm tra đơn vị:</strong> Đề bài hỏi thời gian tính bằng <em>phút</em> hay <em>giờ</em>? Thể tích tính bằng <em>lít</em> hay <em>mét khối</em>? Tiền tính bằng <em>triệu đồng</em> hay <em>nghìn đồng</em>?</li>
+                    <li><strong>Kiểm tra dấu:</strong> Kết quả có âm hay không? Đã tô dấu trừ ở cột đầu tiên chưa?</li>
+                    <li><strong>Kiểm tra tính hợp lý thực tế:</strong> Xác suất thì không thể lớn hơn 1 hoặc nhỏ hơn 0; độ dài và diện tích không thể mang giá trị âm.</li>
+                </ul>
+
+                <div class="author-box">
+                    <div class="author-avatar"><i class="ri-user-star-line"></i></div>
+                    <div class="author-info">
+                        <h4>Cô Nguyễn Thảo My</h4>
+                        <p>Thạc sĩ Phương pháp Giảng dạy Toán học, Chuyên gia huấn luyện kỹ năng bấm máy tính Casio fx-880BTG và kỹ thuật giải toán trắc nghiệm GDPT 2018 tại HocNhanhTN.</p>
+                    </div>
+                </div>
+
+            </div>
+        </article>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-links">
+                <a href="/">Trang chủ</a>
+                <span>•</span>
+                <a href="/de-thi">Kho đề thi</a>
+                <span>•</span>
+                <a href="/cam-nang">Cẩm nang</a>
+                <span>•</span>
+                <a href="/about">Về chúng tôi</a>
+                <span>•</span>
+                <a href="/privacy">Chính sách bảo mật</a>
+                <span>•</span>
+                <a href="/terms">Điều khoản sử dụng</a>
+                <span>•</span>
+                <a href="/contact">Liên hệ hỗ trợ</a>
+            </div>
+            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

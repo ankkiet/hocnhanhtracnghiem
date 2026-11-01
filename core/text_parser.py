@@ -44,6 +44,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     # Chuẩn hóa khoảng trắng và ký tự đặc biệt (NBSP, BOM, soft-hyphen, en-dash, em-dash)
     raw_text = raw_text.replace('\xa0', ' ').replace('\u202f', ' ').replace('\ufeff', '')
     raw_text = raw_text.replace('\xad', '-').replace('\u2013', '-').replace('\u2014', '-')
+    raw_text = re.sub(r'<sup>\s*[oO0°]\s*</sup>\s*([CFK])', r'°\1', raw_text)
 
     # 1. Tách Bảng đáp án ở cuối văn bản trước khi xử lý
     raw_text_questions, ak_raw, detected_ak = separate_answer_key_from_text(raw_text)
@@ -59,12 +60,22 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
     # 2. Phân đoạn theo các PHẦN (nếu đề có PHẦN I, PHẦN II, PHẦN III)
     section_split_pat = re.compile(
-        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(\bPHẦN\s+(?:III|II|I|3|2|1)\b[^\n]*)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*((?:PHẦN\s+(?:III|II|I|3|2|1)|(?:III|II|I)\.|\bPHẦN\s+THỨ\b)[^\n]*)',
         re.IGNORECASE
     )
     section_matches = list(section_split_pat.finditer(raw_text))
 
     sections = []
+    if section_matches and section_matches[0].start() > 0:
+        prefix_text = raw_text[:section_matches[0].start()].strip()
+        if re.search(r'(?:Câu|Bài|\bQ\b)\s*\d+', prefix_text, re.IGNORECASE):
+            sections.append({
+                "header": "PHẦN I",
+                "type": "mcq",
+                "part": 1,
+                "content": prefix_text
+            })
+
     if section_matches:
         for idx, sm in enumerate(section_matches):
             header = sm.group(1).strip()
@@ -97,14 +108,14 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         })
 
     q_split_pattern = re.compile(
-        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)\/])(?:\s+|<[^>]+>|$)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d*)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)\/])(?:\s+|<[^>]+>|$)',
         re.IGNORECASE
     )
 
     mcq_opt_pattern = re.compile(
         r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))'
         r'((?:(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>|</b>|</B>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))\s*'
+        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d])(\*?[A-D])(?:[\.\:\/\)\]\-]|\b))\s*'
     )
 
     sub_opt_pattern = re.compile(
@@ -126,7 +137,8 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             continue
 
         for i, m in enumerate(matches):
-            raw_q_num = int(m.group(1) or m.group(2))
+            g1 = m.group(1)
+            raw_q_num = int(g1) if g1 and g1.isdigit() else (int(m.group(2)) if m.group(2) else i + 1)
             q_start = m.end()
             q_end = matches[i+1].start() if i+1 < len(matches) else len(sec_content)
             raw_block = sec_content[q_start:q_end].strip()
@@ -136,9 +148,9 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             # 1. Nếu là phần Trả lời ngắn (PHẦN III)
             if sec_type == "short_answer":
                 ans_val = ""
-                ans_m = re.search(r'(?:<[^>]+>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*(?:</[^>]+>\s*)*([^\n\r\;\,\|<]+)', block, re.IGNORECASE)
+                ans_m = re.search(r'(?:<[^>]+>\s*)*(?:\(?\s*(?:Đáp án|Đáp số|ĐS|Đs|đs|DDS|Kết quả|Ans|Answer)\s*[\:\.\-\=]?\s*|\bĐS\b\s*)(?:</[^>]+>\s*)*([^\n\r\;\|<]+)', block, re.IGNORECASE)
                 if ans_m:
-                    ans_val = ans_m.group(1).strip()
+                    ans_val = ans_m.group(1).rstrip(' )').strip()
                     stem = block[:ans_m.start()].strip() + " " + block[ans_m.end():].strip()
                     stem = stem.strip()
                 elif explain:
@@ -159,8 +171,15 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 })
                 continue
 
-            sub_matches = list(sub_opt_pattern.finditer(block))
-            mcq_matches = list(mcq_opt_pattern.finditer(block))
+            table_ranges = [
+                (tbl_m.start(), tbl_m.end())
+                for tbl_m in re.finditer(r'<table\b[^>]*>.*?</table>', block, flags=re.DOTALL | re.IGNORECASE)
+            ]
+            def is_inside_table(pos: int) -> bool:
+                return any(t_start <= pos < t_end for t_start, t_end in table_ranges)
+
+            sub_matches = [m for m in sub_opt_pattern.finditer(block) if not is_inside_table(m.start())]
+            mcq_matches = [m for m in mcq_opt_pattern.finditer(block) if not is_inside_table(m.start())]
 
             # 2. DẠNG TRẮC NGHIỆM ĐÚNG / SAI (PHẦN II)
             # Chỉ coi là Đúng / Sai khi KHÔNG CÓ phương án A-D in hoa và có các ý a), b), c), d) chữ thường
@@ -172,28 +191,42 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 opt_tf_marks = {}
                 explicit_ans = None
 
+                ans_m = re.search(r'(?:\n|\r)\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*([\s\S]*)$', block, re.IGNORECASE)
+                if ans_m:
+                    ans_content = ans_m.group(1).strip()
+                    parsed_ans = parse_tf_answer(ans_content)
+                    if parsed_ans and any(parsed_ans.values()):
+                        explicit_ans = parsed_ans
+                    sub_matches = [m for m in sub_matches if m.start() < ans_m.start()]
+
                 for j, opt_m in enumerate(sub_matches[:4]):
                     char = opt_m.group(2).replace('*', '').lower()
                     opt_start = opt_m.start()
-                    opt_end = sub_matches[j+1].start() if j+1 < len(sub_matches) else len(block)
+                    if j + 1 < len(sub_matches[:4]):
+                        opt_end = sub_matches[j+1].start()
+                    elif ans_m:
+                        opt_end = ans_m.start()
+                    else:
+                        opt_end = len(block)
+
                     opt_content_raw = block[opt_start:opt_end].strip()
                     if j < len(sub_matches[:4]) - 1:
                         last_nl = opt_content_raw.rfind('\n')
                         if last_nl != -1:
                             opt_content_raw = opt_content_raw[:last_nl].strip()
 
-                    if j == len(sub_matches[:4]) - 1:
-                        ans_m = re.search(r'(?:\n|\r)\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*(.*)$', opt_content_raw, re.IGNORECASE)
-                        if ans_m:
-                            ans_content = ans_m.group(1).strip()
-                            opt_content_raw = opt_content_raw[:ans_m.start()].strip()
-                            parsed_ans = parse_tf_answer(ans_content)
-                            if parsed_ans and any(parsed_ans.values()):
-                                explicit_ans = parsed_ans
+                    m_end_tf = re.search(r'[\s\t\xa0]+(Đ|S|Đúng|Sai)\s*$', opt_content_raw, re.IGNORECASE)
+                    trailing_tf = None
+                    if m_end_tf:
+                        tf_str = m_end_tf.group(1).upper()
+                        trailing_tf = True if 'Đ' in tf_str else False
+                        opt_content_raw = opt_content_raw[:m_end_tf.start()].strip()
 
                     clean_text, is_corr, is_fls, ext_char = clean_option_text(opt_content_raw)
                     options.append(f"{char}) {clean_text}")
-                    if is_corr:
+                    if trailing_tf is not None:
+                        opt_tf_marks[char] = trailing_tf
+                    elif is_corr:
                         opt_tf_marks[char] = True
                     elif is_fls:
                         opt_tf_marks[char] = False
@@ -224,6 +257,41 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
             elif len(mcq_matches) >= 2 or sec_type == "mcq":
                 # 3. DẠNG TRẮC NGHIỆM NHIỀU LỰA CHỌN (PHẦN I)
+                # Lọc options hỗ trợ A->B->C->D và A->C->B->D (2 cột Word)
+                first_a_idx = next((idx_m for idx_m, m_m in enumerate(mcq_matches) if 'A' in m_m.group(2).upper()), None)
+                cand_matches = mcq_matches[first_a_idx:] if first_a_idx is not None else mcq_matches
+                seen_chars = set()
+                filtered_matches = []
+                for m_opt in cand_matches:
+                    c_char = m_opt.group(2).upper().replace('*', '').strip()
+                    if c_char in ['A', 'B', 'C', 'D'] and c_char not in seen_chars:
+                        seen_chars.add(c_char)
+                        filtered_matches.append(m_opt)
+                        if len(seen_chars) == 4:
+                            break
+
+                # Nếu chỉ tìm thấy B, C, D (khuyết A): tự động phục hồi A
+                if len(filtered_matches) == 3 and filtered_matches[0].group(2).upper() == 'B':
+                    b_start = filtered_matches[0].start()
+                    first_nl = block.find('\n')
+                    if first_nl != -1 and first_nl < b_start:
+                        stem_part = block[:first_nl].strip()
+                        opt_a_text = block[first_nl:b_start].strip()
+                        block = stem_part + f"\nA. {opt_a_text}\n" + block[b_start:]
+                        mcq_matches_new = list(mcq_opt_pattern.finditer(block))
+                        first_a_idx = next((idx_m for idx_m, m_m in enumerate(mcq_matches_new) if 'A' in m_m.group(2).upper()), None)
+                        cand_matches = mcq_matches_new[first_a_idx:] if first_a_idx is not None else mcq_matches_new
+                        seen_chars = set()
+                        filtered_matches = []
+                        for m_opt in cand_matches:
+                            c_char = m_opt.group(2).upper().replace('*', '').strip()
+                            if c_char in ['A', 'B', 'C', 'D'] and c_char not in seen_chars:
+                                seen_chars.add(c_char)
+                                filtered_matches.append(m_opt)
+                                if len(seen_chars) == 4:
+                                    break
+
+                mcq_matches = filtered_matches if filtered_matches else mcq_matches
                 q_text = block[:mcq_matches[0].start()].strip() if mcq_matches else block
                 options = []
                 correct_ans = ""

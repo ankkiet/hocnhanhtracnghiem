@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
+    <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
+    
+    <title>Hướng Dẫn Giáo Viên Số Hóa Đề Thi Word & PDF Bằng AI - HocNhanhTN</title>
+    <meta name="description" content="Hướng dẫn giáo viên chuyển đổi số đề thi Word (.docx) và PDF thành phòng thi trắc nghiệm trực tuyến chuẩn GDPT 2018 trong 5 giây bằng công nghệ AI Parser thông minh.">
+    <link rel="canonical" href="https://hocnhanhtn.online/cam-nang/huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien">
+    
+    <!-- Open Graph & Social -->
+    <meta property="og:site_name" content="HocNhanhTN">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://hocnhanhtn.online/cam-nang/huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien">
+    <meta property="og:title" content="Hướng Dẫn Giáo Viên Số Hóa Đề Thi Word & PDF Bằng AI - HocNhanhTN">
+    <meta property="og:description" content="Cách tạo phòng thi trực tuyến tự động từ file Word có sẵn công thức Toán Lý Hóa chỉ trong 3 bước đơn giản.">
+    <meta property="og:image" content="https://hocnhanhtn.online/unnamed.jpg">
+    <meta property="og:locale" content="vi_VN">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Hướng dẫn số hóa đề thi cho giáo viên - HocNhanhTN">
+    <meta name="twitter:description" content="Chuyển đổi số đề thi Word sang trắc nghiệm online tự động giữ nguyên công thức toán học.">
+    <meta name="twitter:image" content="https://hocnhanhtn.online/unnamed.jpg">
+
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#1d4ed8">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-soft: #eff6ff;
+            --text-dark: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --bg-page: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            line-height: 1.8;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* NAVBAR */
+        .site-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: 68px;
+            display: flex;
+            align-items: center;
+        }
+        .nav-container {
+            max-width: 1140px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+        .brand-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .brand-text {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .nav-item a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-item a:hover,
+        .nav-item a.active {
+            color: var(--primary);
+        }
+        .btn-nav-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #ffffff !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .btn-nav-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        /* ARTICLE LAYOUT */
+        .article-wrap {
+            max-width: 860px;
+            margin: 40px auto 70px;
+            padding: 0 20px;
+        }
+        .article-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+            padding: 48px 52px;
+        }
+        @media (max-width: 768px) {
+            .article-card { padding: 28px 20px; }
+            .article-title { font-size: 1.85rem; }
+            .nav-menu .nav-item-hide-sm { display: none; }
+        }
+
+        /* BREADCRUMB */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .breadcrumb a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+        .breadcrumb a:hover {
+            color: var(--primary);
+        }
+        .breadcrumb-sep {
+            color: #cbd5e1;
+        }
+
+        /* ARTICLE HEADER */
+        .article-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #dcfce7;
+            color: #166534;
+            font-size: 0.825rem;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .article-title {
+            font-size: 2.35rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 18px;
+            line-height: 1.3;
+            letter-spacing: -0.025em;
+        }
+        .article-info-bar {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 16px 0 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .article-info-bar span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ARTICLE BODY TYPOGRAPHY */
+        .article-content h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 40px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--primary-soft);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .article-content h3 {
+            font-size: 1.22rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 26px 0 12px;
+        }
+        .article-content p {
+            font-size: 1.04rem;
+            color: var(--text-body);
+            margin: 0 0 20px;
+            line-height: 1.8;
+        }
+        .article-content ul, .article-content ol {
+            font-size: 1.02rem;
+            color: var(--text-body);
+            padding-left: 26px;
+            margin: 0 0 22px;
+        }
+        .article-content li {
+            margin-bottom: 10px;
+        }
+
+        /* STEP CARDS */
+        .step-block {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 24px 26px;
+            margin-bottom: 22px;
+            border-left: 5px solid var(--primary);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+        .step-block h4 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .step-block p {
+            margin: 0 0 12px;
+            font-size: 0.98rem;
+            color: var(--text-body);
+        }
+
+        /* CODE & HIGHLIGHT BLOCKS */
+        .sample-box {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 14px 18px;
+            font-family: monospace;
+            font-size: 0.92rem;
+            color: #334155;
+            margin: 12px 0;
+            line-height: 1.6;
+        }
+
+        .callout-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 20px 24px;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            margin: 28px 0;
+            font-size: 1rem;
+            color: #1e3a8a;
+            line-height: 1.7;
+        }
+
+        /* AUTHOR BIO */
+        .author-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin: 44px 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .author-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary-soft);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+        .author-info h4 {
+            margin: 0 0 4px;
+            font-size: 1.05rem;
+            color: var(--text-dark);
+        }
+        .author-info p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* FOOTER */
+        .site-footer {
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 36px 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .footer-inner {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+    </style>
+
+    <!-- Schema.org HowTo Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "Hướng Dẫn Giáo Viên Số Hóa Đề Thi Word & PDF Bằng AI",
+      "description": "Các bước số hóa đề thi Word/PDF thành phòng thi trắc nghiệm trực tuyến tự động chuẩn GDPT 2018.",
+      "image": "https://hocnhanhtn.online/unnamed.jpg",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "name": "Chuẩn bị tệp Word đề thi",
+          "text": "Định dạng đề thi với các nhãn Câu 1, Câu 2... và các phương án A, B, C, D rõ ràng."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Tải đề thi lên HocNhanhTN",
+          "text": "Kéo thả file .docx hoặc .pdf vào giao diện tạo đề để hệ thống tự động bóc tách bằng AI."
+        },
+        {
+          "@type": "HowToStep",
+          "name": "Soát lỗi và Xuất bản phòng thi",
+          "text": "Kiểm tra đáp án trên Studio Editor, cài đặt thời gian và sao chép liên kết chia sẻ cho học sinh."
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <header class="site-nav">
+        <nav class="nav-container" aria-label="Điều hướng chính">
+            <a href="/" class="brand-link">
+                <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="brand-logo" width="34" height="34">
+                <span class="brand-text">HocNhanhTN</span>
+            </a>
+            <ul class="nav-menu">
+                <li class="nav-item nav-item-hide-sm"><a href="/"><i class="ri-home-5-line"></i> Trang chủ</a></li>
+                <li class="nav-item"><a href="/de-thi"><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
+                <li class="nav-item"><a href="/cam-nang" class="active"><i class="ri-article-line"></i> Cẩm nang</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/about"><i class="ri-information-line"></i> Giới thiệu</a></li>
+                <li class="nav-item nav-item-hide-sm"><a href="/contact"><i class="ri-customer-service-line"></i> Liên hệ</a></li>
+                <li>
+                    <a href="/" class="btn-nav-primary">
+                        <i class="ri-file-upload-line"></i> Tạo đề thi ngay
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- MAIN ARTICLE CONTENT -->
+    <main class="article-wrap">
+        <article class="article-card">
+            
+            <!-- Breadcrumbs -->
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Trang chủ</a>
+                <span class="breadcrumb-sep">/</span>
+                <a href="/cam-nang">Cẩm nang</a>
+                <span class="breadcrumb-sep">/</span>
+                <span>Hướng dẫn số hóa đề thi cho giáo viên</span>
+            </nav>
+
+            <header>
+                <div class="article-badge"><i class="ri-macbook-line"></i> Trợ Giảng Số 4.0</div>
+                <h1 class="article-title">Hướng Dẫn Giáo Viên Chuyển Đổi Số Đề Thi Word & PDF Sang Phòng Thi Trực Tuyến Bằng AI Trong 5 Giây</h1>
+                
+                <div class="article-info-bar">
+                    <span><i class="ri-user-line"></i> Kỹ sư Đặng Tuấn Kiệt (Đội ngũ Kỹ thuật HocNhanhTN)</span>
+                    <span><i class="ri-calendar-line"></i> 01/11/2026</span>
+                    <span><i class="ri-time-line"></i> 7 phút đọc</span>
+                    <span><i class="ri-thumb-up-line"></i> Dành cho giáo viên</span>
+                </div>
+            </header>
+
+            <div class="article-content">
+                
+                <p>
+                    Trong kỷ nguyên chuyển đổi số ngành giáo dục, việc tổ chức kiểm tra, đánh giá thường xuyên và định kỳ trên nền tảng trực tuyến đã trở thành yêu cầu thiết yếu đối với các trường phổ thông. Tuy nhiên, rào cản lớn nhất của đa số quý thầy cô giáo là: <strong>Sự tốn kém thời gian khi phải nhập liệu thủ công từng câu hỏi lên các biểu mẫu Google Forms hoặc hệ thống LMS</strong>, đặc biệt là khi đề thi chứa hàng chục công thức Toán, hình vẽ hình học hay phương trình Hóa học phức tạp.
+                </p>
+
+                <div class="callout-box">
+                    <strong>Giải pháp từ HocNhanhTN:</strong> Tự động bóc tách tài liệu Word (.docx) và PDF thành phòng thi trắc nghiệm trực tuyến chuẩn GDPT 2018 chỉ trong <strong>5 giây</strong>, tự động bảo toàn 100% công thức MathType/LaTeX và hình ảnh minh họa đính kèm.
+                </div>
+
+                <h2><i class="ri-file-list-3-line" style="color: var(--primary);"></i> 1. Quy chuẩn cấu trúc file Word đề thi chuẩn</h2>
+                <p>
+                    Để thuật toán phân tích cú pháp (Parser) của HocNhanhTN bóc tách chính xác 100%, thầy cô chỉ cần lưu ý các quy ước trình bày văn bản thông thường:
+                </p>
+
+                <div class="step-block">
+                    <h4><i class="ri-check-line" style="color: var(--primary);"></i> Dạng thức 1: Trắc nghiệm 4 lựa chọn (Phần I)</h4>
+                    <p>Mỗi câu bắt đầu bằng từ <code>Câu [Số]:</code> hoặc <code>Bài [Số]:</code>. Bốn phương án trả lời bắt đầu bằng các chữ cái in hoa <code>A.</code>, <code>B.</code>, <code>C.</code>, <code>D.</code>:</p>
+                    <div class="sample-box">
+                        Câu 1: Cho hàm số y = f(x) có bảng biến thiên như hình vẽ. Hàm số đồng biến trên khoảng nào?<br>
+                        A. (-∞; -1)<br>
+                        B. (-1; 2)<br>
+                        C. (2; +∞)<br>
+                        D. (0; 3)
+                    </div>
+                </div>
+
+                <div class="step-block">
+                    <h4><i class="ri-check-line" style="color: var(--primary);"></i> Dạng thức 2: Trắc nghiệm Đúng/Sai (Phần II - Chuẩn GDPT 2018)</h4>
+                    <p>Mỗi câu có phần dẫn chung, sau đó là 4 ý phát biểu bắt đầu bằng <code>a)</code>, <code>b)</code>, <code>c)</code>, <code>d)</code>:</p>
+                    <div class="sample-box">
+                        Câu 2: Cho hàm số bậc ba f(x) = ax^3 + bx^2 + cx + d. Xét tính đúng sai của các mệnh đề sau:<br>
+                        a) Đồ thị hàm số đi qua gốc tọa độ O.<br>
+                        b) Hàm số có 2 điểm cực trị nằm về hai phía trục tung.<br>
+                        c) Giá trị cực đại của hàm số bằng 4.<br>
+                        d) Phương trình f(x) = m có 3 nghiệm phân biệt khi 0 &lt; m &lt; 4.
+                    </div>
+                </div>
+
+                <div class="step-block">
+                    <h4><i class="ri-check-line" style="color: var(--primary);"></i> Dạng thức 3: Trắc nghiệm trả lời ngắn (Phần III)</h4>
+                    <p>Chỉ cần ghi nội dung câu hỏi yêu cầu học sinh tính toán đáp số:</p>
+                    <div class="sample-box">
+                        Câu 3: Một bể chứa nước có thể tích 120 mét khối. Người ta bơm nước vào bể với tốc độ v(t) = 3t + 2 (m3/h). Hỏi sau bao nhiêu giờ thì bể đầy nước?
+                    </div>
+                </div>
+
+                <h2><i class="ri-speed-up-line" style="color: var(--primary);"></i> 2. Quy trình số hóa trong 3 bước đơn giản</h2>
+
+                <div class="step-block">
+                    <h4>Bước 1: Tải tệp đề thi lên hệ thống</h4>
+                    <p>
+                        Truy cập trang chủ <a href="/" target="_blank" rel="noopener">HocNhanhTN</a>. Thầy cô chỉ cần kéo thả tệp Word (.docx) vào ô tải lên. Hệ thống hỗ trợ xử lý cả các tệp có bảng đáp án gộp ở cuối đề (ví dụ: <code>1.A 2.B 3.C...</code> hoặc bảng ma trận đáp án).
+                    </p>
+                </div>
+
+                <div class="step-block">
+                    <h4>Bước 2: Soát lỗi và tinh chỉnh trên Studio Editor</h4>
+                    <p>
+                        Ngay sau khi phân tích xong, hệ thống sẽ mở giao diện <strong>Studio Biên tập</strong>. Tại đây, thầy cô có thể:
+                    </p>
+                    <ul>
+                        <li>Xem trước câu hỏi dưới định dạng hiển thị công thức Toán (KaTeX) thời gian thực.</li>
+                        <li>Chỉnh sửa nội dung câu hỏi, đổi đáp án đúng chỉ bằng một cú nhấp chuột.</li>
+                        <li>Bổ sung lời giải chi tiết (Hướng dẫn giải) để học sinh đối chiếu sau khi nộp bài.</li>
+                    </ul>
+                </div>
+
+                <div class="step-block">
+                    <h4>Bước 3: Xuất bản và chia sẻ link thi cho học sinh</h4>
+                    <p>
+                        Nhấn nút <strong>Xuất bản đề thi</strong>. Hệ thống sẽ cấp một liên kết rút gọn kèm mã đề thi độc quyền (ví dụ: <code>https://hocnhanhtn.online/thi/ROC-362/ten-de-thi</code>). Thầy cô chỉ việc copy link này và dán vào nhóm Zalo, Facebook hoặc Microsoft Teams của lớp học.
+                    </p>
+                </div>
+
+                <h2><i class="ri-shield-user-line" style="color: var(--primary);"></i> 3. Các tính năng quản trị phòng thi thông minh</h2>
+                <ul>
+                    <li><strong>Mật khẩu bảo vệ:</strong> Đặt mật khẩu riêng cho phòng thi để chỉ những học sinh trong lớp mới có thể tham gia.</li>
+                    <li><strong>Đồng hồ đếm ngược tự động:</strong> Cài đặt thời gian làm bài (ví dụ 45 phút hoặc 90 phút). Khi hết giờ, hệ thống sẽ tự động khóa và thu bài.</li>
+                    <li><strong>Chống gian lận chuyển tab:</strong> Cảnh báo khi học sinh cố tình chuyển màn hình sang Google để tìm kiếm lời giải.</li>
+                    <li><strong>Bảng xếp hạng thời gian thực & Xuất Excel:</strong> Tự động xếp loại học sinh theo điểm số và thời gian nộp bài. Thầy cô có thể tải về bảng điểm Excel để nhập điểm vào sổ cái chỉ trong 1 giây.</li>
+                </ul>
+
+                <div class="author-box">
+                    <div class="author-avatar"><i class="ri-code-box-line"></i></div>
+                    <div class="author-info">
+                        <h4>Đặng Tuấn Kiệt</h4>
+                        <p>Kỹ sư Hệ thống & Nhà sáng lập Dự án Nền tảng Giáo dục HocNhanhTN. Cam kết hỗ trợ chuyển đổi số miễn phí cho cộng đồng giáo viên Việt Nam.</p>
+                    </div>
+                </div>
+
+            </div>
+        </article>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-links">
+                <a href="/">Trang chủ</a>
+                <span>•</span>
+                <a href="/de-thi">Kho đề thi</a>
+                <span>•</span>
+                <a href="/cam-nang">Cẩm nang</a>
+                <span>•</span>
+                <a href="/about">Về chúng tôi</a>
+                <span>•</span>
+                <a href="/privacy">Chính sách bảo mật</a>
+                <span>•</span>
+                <a href="/terms">Điều khoản sử dụng</a>
+                <span>•</span>
+                <a href="/contact">Liên hệ hỗ trợ</a>
+            </div>
+            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+        </div>
+    </footer>
+
+</body>
+</html>

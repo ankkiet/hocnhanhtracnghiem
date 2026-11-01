@@ -4,8 +4,7 @@ Chịu trách nhiệm: Phân tích kết quả bài thi, xuất file Word,
 thao tác trạng thái đề thi và kiểm định chất lượng đề bằng AI.
 """
 
-from io import BytesIO
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
@@ -31,7 +30,7 @@ class TeacherService:
         exam_repository: ExamRepository = exam_repo
     ):
         self.quiz_repo = quiz_repository
-        self.exam_repo = exam_repository
+        self.exam_repo = exam_repo
 
     def handle_quiz_action(self, req: QuizActionRequest) -> Dict[str, Any]:
         """Thực hiện các thao tác quản lý trạng thái đề thi."""
@@ -99,21 +98,39 @@ class TeacherService:
             "submissions": submissions
         }
 
-    def export_word(self, quiz_id: str, teacher_token: str) -> StreamingResponse:
+    def export_word(
+        self,
+        quiz_id: str,
+        teacher_token: str,
+        target_audience: str = "teacher",
+        layout_mode: str = "compact",
+        options_layout: str = "auto",
+        show_answers: Optional[bool] = None,
+        show_key_table: Optional[bool] = None,
+        show_explains: Optional[bool] = None,
+        include_student_answer_grid: bool = False,
+    ) -> StreamingResponse:
         """Xuất đề thi ra file Word (.docx) chuẩn."""
         verify_teacher_access(teacher_token, self.quiz_repo.db)
         quiz_data = self.quiz_repo.get_quiz_by_id(quiz_id, use_cache=True)
         if not quiz_data:
             raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
 
-        doc = export_quiz_to_docx(quiz_data)
-        bio = BytesIO()
-        doc.save(bio)
-        bio.seek(0)
+        stream = export_quiz_to_docx(
+            quiz_data,
+            target_audience=target_audience,
+            layout_mode=layout_mode,
+            options_layout=options_layout,
+            show_answers=show_answers,
+            show_key_table=show_key_table,
+            show_explains=show_explains,
+            include_student_answer_grid=include_student_answer_grid,
+        )
 
-        filename = f"de_thi_{quiz_id}.docx"
+        audience_suffix = "_hoc_sinh" if target_audience == "student" else "_giao_vien"
+        filename = f"de_thi_{quiz_id}{audience_suffix}.docx"
         return StreamingResponse(
-            bio,
+            stream,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
