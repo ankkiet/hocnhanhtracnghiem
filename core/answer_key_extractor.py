@@ -196,14 +196,15 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                     continue
 
             # Dạng B: Bảng 2 hàng kế tiếp (Hàng trên: Câu 1, Câu 2... Hàng dưới: Đáp án)
+            matched_dang_b = False
             if num_rows >= 2:
                 for r_idx in range(num_rows - 1):
                     row_top = [c.text.strip() for c in table.rows[r_idx].cells]
                     row_bot = [c.text.strip() for c in table.rows[r_idx + 1].cells]
 
-                    # Bắt buộc hàng trên phải chứa ít nhất một chữ 'Câu' / 'Bài' hoặc từ khóa 'Đáp án'
-                    has_cau_top = any(re.search(r'(?:Câu|Bài|Question)\s*\d+', c, re.IGNORECASE) for c in row_top)
-                    has_ak_header = any(k in ' '.join(row_top).lower() for k in ['đáp án', 'đ/a', 'chọn', 'kết quả', 'lệnh hỏi', 'đ/s'])
+                    # Bắt buộc hàng trên/dưới phải chứa từ khóa 'Câu' hoặc 'Đáp án'
+                    has_cau_top = any(re.search(r'\b(?:Câu|Bài|Question)\b', c, re.IGNORECASE) for c in row_top)
+                    has_ak_header = any(k in (' '.join(row_top) + ' ' + ' '.join(row_bot)).lower() for k in ['đáp án', 'đ/a', 'chọn', 'kết quả', 'lệnh hỏi', 'đ/s'])
                     if not (has_cau_top or has_ak_header):
                         continue
 
@@ -220,6 +221,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             tf_dict = parse_tf_answer(c_bot)
                             if tf_dict and any(tf_dict.values()):
                                 ak.set_answer(2, q_num, tf_dict)
+                                matched_dang_b = True
                                 continue
 
                         # Chuỗi 4 chữ Đ/S liên tục (ví dụ: Đ S Đ S hoặc Đ-S-Đ-S)
@@ -231,12 +233,14 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                                 'c': seq_tf[2].lower() in ['đ', 'đúng'],
                                 'd': seq_tf[3].lower() in ['đ', 'đúng']
                             })
+                            matched_dang_b = True
                             continue
 
                         # 2. MCQ: A, B, C, D
                         ans_m = re.match(r'^\s*([A-F])\b', c_bot, re.IGNORECASE)
                         if ans_m and len(c_bot.strip()) <= 3:
                             ak.set_answer(1, q_num, ans_m.group(1).upper())
+                            matched_dang_b = True
                             continue
 
                         # 3. Trả lời ngắn: 12.5, 12,5, -3, 1/2 v.v.
@@ -247,6 +251,11 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             if re.match(r'^-?\d+,\d+$', clean_sa):
                                 clean_sa = clean_sa.replace(',', '.')
                             ak.set_answer(3, q_num, clean_sa)
+                            matched_dang_b = True
+                            continue
+
+                if matched_dang_b:
+                    continue
 
             # Dạng C: Bảng theo cặp cột [Câu, Đáp án] (2 cột, 4 cột, 6 cột, 8 cột...)
             if num_cols >= 2 and num_cols % 2 == 0 and num_rows >= 2:
@@ -257,6 +266,8 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             continue
                         c0 = cells[col_pair].text.strip()
                         c1 = cells[col_pair + 1].text.strip()
+                        if re.search(r'\b(?:Câu|Bài|Question)\s*\d+\b', c1, re.IGNORECASE):
+                            continue
                         has_col_header_cau = any(k in table.rows[0].cells[col_pair].text.lower() for k in ['câu', 'stt', 'bài'])
                         if has_col_header_cau:
                             num_m = re.search(r'(?:Câu\s*)?(\d+)', c0)
@@ -303,17 +314,24 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
         "HƯỚNG DẪN CHẤM", "HƯỚNG DẪN GIẢI", "THANG ĐIỂM", "BẢNG ĐÁP ÁN VÀ THANG ĐIỂM"
     ]
     ans_section = ""
-    for header in key_headers:
-        pos = full_text.upper().rfind(header)
-        if pos != -1 and (pos > len(full_text) * 0.2 or len(full_text) < 5000):
-            ans_section = full_text[pos:]
-            break
-    if not ans_section:
-        # Chỉ quét toàn bộ văn bản nếu văn bản rất ngắn (người dùng paste riêng bảng đáp án, không phải toàn bộ đề thi)
-        if not doc and len(full_text.strip()) < 500:
+    if not doc and any(h in full_text.upper()[:150] for h in ["BẢNG ĐÁP", "BANG DAP", "ANSWER KEY", "HƯỚNG DẪN CHẤM"]):
+        ans_section = full_text
+    else:
+        section_patterns_local = [
+            r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:BẢNG\s+ĐÁP\s+ÁN|BANG\s+DAP\s+AN|BẢNG\s+ĐÁP\s+SỐ|ANSWER\s+KEY|HƯỚNG\s+DẪN\s+CHẤM|ĐÁP\s+ÁN\s+CHI\s+TIẾT|ĐÁP\s+ÁN\s+VÀ\s+LỜI\s+GIẢI)[^\n]*(?:\n|$)',
+            r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:ĐÁP\s+ÁN|DAP\s+AN)\s*[:\-]?\s*(?:[-=~_*#]{2,})?\s*(?:</[^>]+>\s*)*(?:\n|$)'
+        ]
+        earliest_pos = -1
+        for p in section_patterns_local:
+            for m in re.finditer(p, full_text, re.IGNORECASE):
+                pos = m.start()
+                if pos > len(full_text) * 0.2:
+                    if earliest_pos == -1 or pos < earliest_pos:
+                        earliest_pos = pos
+        if earliest_pos != -1:
+            ans_section = full_text[earliest_pos:]
+        elif not doc and len(full_text.strip()) < 300 and not re.search(r'\b(?:câu|bài|question)\s*\d+\b', full_text, re.I):
             ans_section = full_text
-        else:
-            ans_section = ""
 
     if ans_section:
         part_splits = re.split(r'(\bPHẦN\s+(?:III|II|I|3|2|1)\b[^\n]*)', ans_section, flags=re.IGNORECASE)
@@ -362,7 +380,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                     q_num = int(m_num.group(1))
                     body = m_num.group(2).strip()
                     from services.ai_service import parse_tf_answer
-                    tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', body, re.IGNORECASE)
+                    tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)\b|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai)\b)', body, re.IGNORECASE)
                     has_4_tf = len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', body, re.IGNORECASE)) >= 3
                     if (tf_m or has_4_tf) and any(c in body.lower() for c in ['a', 'b', 'c', 'd', 'đ', 's']):
                         tf_dict = parse_tf_answer(body)
@@ -377,6 +395,16 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             if re.match(r'^-?\d+,\d+$', clean_sa):
                                 clean_sa = clean_sa.replace(',', '.')
                             ak.set_answer(3, q_num, clean_sa)
+                            continue
+                elif current_part == 2:
+                    # Dòng không có "Câu X:" nhưng nằm trong khối PHẦN II của bảng đáp án và có ít nhất 2 ý a-Đ, b-S...
+                    tf_items = re.findall(r'(?:^|[\s\,\;])\*?([a-d])[\.\:\)\/\-\s]+(Đ|S|Đúng|Sai)\b', line_str, re.IGNORECASE)
+                    if len(tf_items) >= 2:
+                        from services.ai_service import parse_tf_answer
+                        tf_dict = parse_tf_answer(line_str)
+                        if tf_dict and any(tf_dict.values()):
+                            q_n = len(ak.part2) + 1
+                            ak.set_answer(2, q_n, tf_dict)
                             continue
 
                 # 3. Dò MCQ dạng: 1.A 2.B hoặc Câu 1: A hoặc 1:A 2:B trong dòng
@@ -393,13 +421,6 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
     Trả về: (văn_bản_câu_hỏi_đã_lược_bỏ_bảng_đáp_án, văn_bản_bảng_đáp_án_gốc, AnswerKeyMap)
     Giúp AI chỉ bóc tách câu hỏi thực sự, không bị nhầm bảng đáp án thành câu hỏi.
     """
-    # 0. Kiểm tra marker [ANSWER_KEY_START] ... [ANSWER_KEY_END]
-    ak_m = re.search(r'\[ANSWER_KEY_START\](.*?)\[ANSWER_KEY_END\]', full_text, re.DOTALL)
-    if ak_m:
-        ans_raw = ak_m.group(1).strip()
-        ak = extract_answer_key_from_doc(None, ans_raw)
-        text_questions = full_text[:ak_m.start()].strip() + "\n\n" + full_text[ak_m.end():].strip()
-        return text_questions, ans_raw, ak
     section_patterns = [
         r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:BẢNG\s+ĐÁP\s+ÁN|BANG\s+DAP\s+AN|BẢNG\s+ĐÁP\s+SỐ|ANSWER\s+KEY|HƯỚNG\s+DẪN\s+CHẤM|ĐÁP\s+ÁN\s+CHI\s+TIẾT|ĐÁP\s+ÁN\s+VÀ\s+LỜI\s+GIẢI)[^\n]*(?:\n|$)',
         r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:[-=~_*#]{2,}\s*)?(?:ĐÁP\s+ÁN|DAP\s+AN)\s*[:\-]?\s*(?:[-=~_*#]{2,})?\s*(?:</[^>]+>\s*)*(?:\n|$)'
@@ -416,17 +437,21 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
 
     if found_pos != -1:
         tail_text = full_text[found_pos:]
-        # Kiểm tra xem sau found_pos có tiêu đề PHẦN mới (như PHẦN III) không
+        # Kiểm tra xem sau found_pos có tiêu đề PHẦN câu hỏi mới không (bỏ qua nếu là tiêu đề phân mục của chính bảng đáp án)
         next_sec_m = re.search(r'(?:^|\n)\s*(?:<[^>]+>\s*)*((?:PHẦN\s+(?:III|II|I|3|2|1)|(?:III|II|I)\.|\bPHẦN\s+THỨ\b)[^\n]*)', tail_text[100:], re.IGNORECASE)
         if next_sec_m:
-            cut_end = found_pos + 100 + next_sec_m.start()
-            ans_raw = full_text[found_pos:cut_end].strip()
-            text_questions = full_text[:found_pos].strip() + "\n\n" + full_text[cut_end:].strip()
-            ak = extract_answer_key_from_doc(None, ans_raw)
-            return text_questions, ans_raw, ak
+            matched_h = next_sec_m.group(1).upper()
+            if not any(k in matched_h for k in ['ĐÁP ÁN', 'DAP AN', 'LỜI GIẢI', 'HƯỚNG DẪN', 'THANG ĐIỂM']):
+                cut_end = found_pos + 100 + next_sec_m.start()
+                ans_raw = full_text[found_pos:cut_end].strip()
+                text_questions = full_text[:found_pos].strip() + "\n\n" + full_text[cut_end:].strip()
+                text_questions = re.sub(r'\[ANSWER_KEY_START\].*?\[ANSWER_KEY_END\]', '', text_questions, flags=re.DOTALL).strip()
+                ak = extract_answer_key_from_doc(None, ans_raw)
+                return text_questions, ans_raw, ak
 
         text_questions = full_text[:found_pos].strip()
         ans_raw = full_text[found_pos:].strip()
+        text_questions = re.sub(r'\[ANSWER_KEY_START\].*?\[ANSWER_KEY_END\]', '', text_questions, flags=re.DOTALL).strip()
         ak = extract_answer_key_from_doc(None, ans_raw)
         
         # Chỉ tách khi thực sự tìm thấy cấu trúc bảng đáp án hợp lệ hoặc có từ khóa rõ ràng
@@ -434,6 +459,14 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
         has_clear_ak = bool(ak.part1 or ak.part2 or ak.part3 or len(ak) >= 2 or is_explicit_header)
         if has_clear_ak:
             return text_questions, ans_raw, ak
+
+    # Nếu không có header từ section_patterns, kiểm tra các marker [ANSWER_KEY_START]...[ANSWER_KEY_END]
+    ak_blocks = list(re.finditer(r'\[ANSWER_KEY_START\](.*?)\[ANSWER_KEY_END\]', full_text, re.DOTALL))
+    if ak_blocks:
+        ans_raw = "\n\n".join(b.group(1).strip() for b in ak_blocks)
+        text_questions = re.sub(r'\[ANSWER_KEY_START\].*?\[ANSWER_KEY_END\]', '', full_text, flags=re.DOTALL).strip()
+        ak = extract_answer_key_from_doc(None, ans_raw)
+        return text_questions, ans_raw, ak
 
     # Nếu không tìm thấy header rõ ràng hoặc không có đáp án thực sự trong phần đuôi
     ak = extract_answer_key_from_doc(None, full_text)

@@ -183,6 +183,14 @@ async function initStudio() {
     }
     const titleParam = urlParams.get('title') || sessionStorage.getItem('editor_quiz_title');
     const modeParam = urlParams.get('mode') || sessionStorage.getItem('editor_pending_mode');
+    const useAIParam = urlParams.get('use_ai');
+
+    const isAIExplicitlyDisabled = useAIParam === 'false' || modeParam === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
+    if (isAIExplicitlyDisabled) {
+        sessionStorage.setItem('editor_use_ai', 'false');
+    } else if (useAIParam === 'true' || modeParam === 'ai' || modeParam === 'ai_generate') {
+        sessionStorage.setItem('editor_use_ai', 'true');
+    }
 
     if (titleParam) {
         editingQuizSettings.title = titleParam;
@@ -230,13 +238,23 @@ async function pollStudioTask(taskId, initialTitle, mode) {
         document.getElementById('studioQuizTitle').value = initialTitle;
     }
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const useAIParam = urlParams.get('use_ai');
+    const isAIExplicitlyDisabled = useAIParam === 'false' || mode === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
+
     if (statusTitle) {
-        statusTitle.innerText = mode === 'ai_generate' ? '🤖 AI đang suy nghĩ và sáng tạo câu hỏi...' : '🤖 AI đang đọc và phân tích tài liệu...';
+        statusTitle.innerText = mode === 'ai_generate' 
+            ? '🤖 AI đang suy nghĩ và sáng tạo câu hỏi...' 
+            : (isAIExplicitlyDisabled 
+                ? '⚡ Đang phân tích tài liệu bằng thuật toán nội bộ...' 
+                : '🤖 AI đang đọc và phân tích tài liệu...');
     }
     if (statusSub) {
         statusSub.innerText = mode === 'ai_generate' 
             ? 'Hệ thống đang sinh câu hỏi, 4 phương án lựa chọn và lời giải thích chi tiết.'
-            : 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh và công thức toán học.';
+            : (isAIExplicitlyDisabled 
+                ? 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh bằng thuật toán Python.'
+                : 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh và công thức toán học.');
     }
 
     let progress = 15;
@@ -296,6 +314,13 @@ async function pollStudioTask(taskId, initialTitle, mode) {
 
                 // Nạp dữ liệu vào Studio
                 currentData = normalizeImageUrls(statusData.data || []);
+                if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
+                    currentData.forEach(q => {
+                        q.is_ai_suggested = false;
+                        delete q.ai_suggestion_note;
+                    });
+                    window.activeAIFeedbacks = {};
+                }
                 editingQuizId = null;
                 window.isCurrentQuizPublished = false;
                 window.draftImageKeys = statusData.images || extractImageKeysFromClient(currentData);
@@ -318,13 +343,14 @@ async function pollStudioTask(taskId, initialTitle, mode) {
             } else {
                 // Vẫn đang xử lý
                 if (statusData.message && statusTitle) {
-                    statusTitle.innerText = "🤖 " + statusData.message;
+                    const icon = isAIExplicitlyDisabled ? "⚡ " : "🤖 ";
+                    statusTitle.innerText = icon + statusData.message;
                 }
                 setTimeout(poll, 2500);
             }
         } catch(err) {
             // Lỗi mạng hoặc server đang thức giấc (Cold Start), tự động thử lại sau 3.5s
-            if (statusTitle) statusTitle.innerText = "⏳ Đang kết nối với máy chủ AI...";
+            if (statusTitle) statusTitle.innerText = isAIExplicitlyDisabled ? "⏳ Đang kết nối với máy chủ..." : "⏳ Đang kết nối với máy chủ AI...";
             setTimeout(poll, 3500);
         }
     };
@@ -418,6 +444,14 @@ function loadQuizFromSession() {
     if (rawData) {
         try {
             currentData = normalizeImageUrls(JSON.parse(rawData));
+            const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false' || sessionStorage.getItem('editor_pending_mode') === 'python';
+            if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
+                currentData.forEach(q => {
+                    q.is_ai_suggested = false;
+                    delete q.ai_suggestion_note;
+                });
+                window.activeAIFeedbacks = {};
+            }
         } catch(e) {
             currentData = [];
         }
@@ -499,6 +533,8 @@ function getRichEditorText(node) {
             result += child.nodeValue;
         } else if (child.nodeType === Node.ELEMENT_NODE) {
             if (child.tagName === 'IMG' || child.tagName === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
+                result += child.outerHTML;
+            } else if (child.tagName === 'SUB' || child.tagName === 'SUP') {
                 result += child.outerHTML;
             } else if (child.tagName === 'BR') {
                 result += '\n';
@@ -969,6 +1005,23 @@ function renderMarkdownTables(text) {
     return result.join('\n');
 }
 
+const UNICODE_SUB_MAP = {
+    '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+    '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+    '₊': '+', '₋': '-', 'ₐ': 'a', 'ₑ': 'e', 'ₒ': 'o',
+    'ₓ': 'x', 'ₕ': 'h', 'ₖ': 'k', 'ₗ': 'l', 'ₘ': 'm',
+    'ₙ': 'n', 'ₚ': 'p', 'ₛ': 's', 'ₜ': 't'
+};
+const UNICODE_SUP_MAP = {
+    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+    '⁺': '+', '⁻': '-'
+};
+
+const HNTN_CHEM_ELEMENTS = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
+const HNTN_CHEM_FORMULA_REGEX = new RegExp('(?<![A-Za-z0-9_])(?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*', 'g');
+const HNTN_CHEM_REPLACE_REGEX = new RegExp('(?:(' + HNTN_CHEM_ELEMENTS + ')|(\\)))\\s*(\\d+)', 'g');
+
 function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     if (!text || typeof text !== 'string') return text;
     const placeholders = [];
@@ -982,17 +1035,50 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     });
     // Chuyển đổi bảng Markdown sang bảng HTML có cấu trúc
     safe = renderMarkdownTables(safe);
-    safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<[^>]+>)/gi, (m) => {
+    safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<(?![\/]?(?:sub|sup)\b)[^>]+>)/gi, (m) => {
         placeholders.push(m);
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
 
-    // CH_2 -> CH<sub>2</sub>, H_2O -> H<sub>2</sub>O, C_nH_{2n+2} -> C<sub>n</sub>H<sub>2n+2</sub>
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])_\{([^}]+)\}/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])_([0-9]+)/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/([A-Z][a-z]?|\b[uvxyzmkn])_([a-z0-9]+)/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\^\{([^}]+)\}/g, '$1<sup>$2</sup>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\^([0-9\+\-]+)/g, '$1<sup>$2</sup>');
+    // 1. Chuyển đổi chỉ số dưới / chỉ số trên Unicode sang <sub> / <sup>
+    safe = safe.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP[c] || c).join('') + '</sub>');
+    safe = safe.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP[c] || c).join('') + '</sup>');
+
+    // 2. Thu gọn khoảng trắng rời rạc trong công thức hóa học: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
+    safe = safe.replace(new RegExp('\\(((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)', 'g'), (m, inner) => {
+        return '(' + inner.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
+    });
+    safe = safe.replace(/\)\s+(\d+)/g, ')$1');
+    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(\\d+)', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(\\)\\d*)\\s+(' + HNTN_CHEM_ELEMENTS + ')', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + '\\d+)\\s+(' + HNTN_CHEM_ELEMENTS + '\\d*)', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(' + HNTN_CHEM_ELEMENTS + '\\d+)', 'g'), '$1$2');
+
+    // 3. Chỉ số dưới dạng _{...} và _số thành <sub>
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u024F])[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
+
+    // 4. Nhận diện công thức hóa học dạng số thường (H2SO4, Fe2O3, CO2, H2O, (C17H35COO)3C3H5)
+    safe = safe.replace(HNTN_CHEM_FORMULA_REGEX, tok => {
+        if (tok.includes('<sub>') || tok.includes('<sup>')) return tok;
+        return tok.replace(HNTN_CHEM_REPLACE_REGEX, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
+    });
+
+    // 5. Biến số toán/lý và đơn vị (tránh nhầm chữ tiếng Việt như 'Câu 4')
+    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])([xyz])\s*([1-9])(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])([uS])\s*([1-9]|n)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])(v)\s*(0)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
+
+    // 6. Xóa khoảng trắng thừa trong và xung quanh sub/sup
+    safe = safe.replace(/<sub>\s*([^<]+?)\s*<\/sub>/gi, '<sub>$1</sub>');
+    safe = safe.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
+    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
+    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
+    safe = safe.replace(/<\/sub>\s+([A-Z\(])/g, '</sub>$1');
 
     if (convertNewlines) {
         safe = safe.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
@@ -1080,7 +1166,8 @@ function renderPreviewAll() {
         }
 
         let aiSuggestedBadge = '';
-        if (q.is_ai_suggested) {
+        const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false';
+        if (q.is_ai_suggested && !isAIExplicitlyDisabled) {
             aiSuggestedBadge = `
                 <span class="badge-ai-suggested" style="background: #fffbeb; color: #b45309; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;" title="${escapeHtml(q.ai_suggestion_note || 'AI đề xuất, cần giáo viên xác nhận')}">
                     <i class="ri-sparkling-fill" style="color: #d97706;"></i> AI đề xuất, cần giáo viên xác nhận
@@ -1089,7 +1176,7 @@ function renderPreviewAll() {
             `;
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
         
         if (qType === 'true_false') {
             // Giao diện xem trước cho câu hỏi Đúng / Sai

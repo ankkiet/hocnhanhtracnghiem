@@ -18,7 +18,7 @@ from firebase_admin import db as realtime_db
 from firebase_admin import firestore
 from pydantic import BaseModel
 
-from core.docx_exporter import export_quiz_to_docx
+from core.docx_exporter import export_quiz_to_docx, export_multi_quizzes_to_docx
 from core.security import get_user_from_token
 from core.state import QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE
 from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
@@ -680,6 +680,9 @@ class ExportDocxCustomRequest(BaseModel):
     show_key_table: Optional[bool] = None
     show_explains: Optional[bool] = None
     include_student_answer_grid: Optional[bool] = False
+    exam_code: Optional[str] = None
+    school_name: Optional[str] = None
+    show_candidate_info: Optional[bool] = True
 
 @router.post("/export_docx_custom", summary="Xuất đề thi ra file Word (.docx) từ dữ liệu tùy biến")
 async def export_quiz_docx_custom(request: ExportDocxCustomRequest):
@@ -699,8 +702,12 @@ async def export_quiz_docx_custom(request: ExportDocxCustomRequest):
         show_key_table=request.show_key_table,
         show_explains=request.show_explains,
         include_student_answer_grid=bool(request.include_student_answer_grid),
+        exam_code=request.exam_code,
+        school_name=request.school_name,
+        show_candidate_info=bool(request.show_candidate_info) if request.show_candidate_info is not None else True,
     )
-    safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', title)[:30] or "de_thi"
+    code_part = f"_ma_{request.exam_code}" if request.exam_code else ""
+    safe_filename = (re.sub(r'[^a-zA-Z0-9_\-]', '_', title)[:30] or "de_thi") + code_part
     audience_suffix = "_hoc_sinh" if request.target_audience == "student" else "_giao_vien"
 
     return StreamingResponse(
@@ -708,6 +715,54 @@ async def export_quiz_docx_custom(request: ExportDocxCustomRequest):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
             "Content-Disposition": f"attachment; filename={safe_filename}{audience_suffix}.docx"
+        }
+    )
+
+class ExportDocxBundleRequest(BaseModel):
+    master_title: Optional[str] = "Đề thi trắc nghiệm"
+    school_name: Optional[str] = "SỞ GIÁO DỤC VÀ ĐÀO TẠO"
+    time_limit: Optional[int] = 0
+    target_audience: Optional[str] = "teacher"
+    layout_mode: Optional[str] = "compact"
+    options_layout: Optional[str] = "auto"
+    show_answers: Optional[bool] = None
+    show_key_table: Optional[bool] = None
+    show_explains: Optional[bool] = None
+    include_student_answer_grid: Optional[bool] = False
+    include_answer_matrix: Optional[bool] = True
+    show_candidate_info: Optional[bool] = True
+    sub_quizzes: list = []
+
+@router.post("/export_docx_bundle", summary="Xuất trọn bộ các mã đề thi con ra một file Word (.docx) gộp kèm ma trận đáp án")
+async def export_quiz_docx_bundle(request: ExportDocxBundleRequest):
+    """Xuất nhiều mã đề thi con gộp chung vào 1 file Word duy nhất kèm bảng ma trận đáp án."""
+    sub_quizzes = request.sub_quizzes or []
+    if not sub_quizzes:
+        raise HTTPException(status_code=400, detail="Danh sách đề con không được để trống")
+
+    docx_stream = export_multi_quizzes_to_docx(
+        sub_quizzes=sub_quizzes,
+        master_title=request.master_title or "Đề thi trắc nghiệm",
+        school_name=request.school_name or "SỞ GIÁO DỤC VÀ ĐÀO TẠO",
+        time_limit=request.time_limit or 0,
+        target_audience=request.target_audience or "teacher",
+        layout_mode=request.layout_mode or "compact",
+        options_layout=request.options_layout or "auto",
+        show_answers=request.show_answers,
+        show_key_table=request.show_key_table,
+        show_explains=request.show_explains,
+        include_student_answer_grid=bool(request.include_student_answer_grid),
+        include_answer_matrix=bool(request.include_answer_matrix),
+        show_candidate_info=bool(request.show_candidate_info) if request.show_candidate_info is not None else True,
+    )
+    safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', request.master_title or "de_thi")[:30]
+    audience_suffix = "_hoc_sinh" if request.target_audience == "student" else "_giao_vien"
+
+    return StreamingResponse(
+        docx_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f"attachment; filename={safe_filename}_tron_ma_de{audience_suffix}.docx"
         }
     )
 

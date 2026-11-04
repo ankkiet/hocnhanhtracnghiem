@@ -185,7 +185,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             except Exception:
                 pass
 
-            if is_scanned_pdf and api_keys:
+            if is_scanned_pdf and use_ai and api_keys:
                 active_tasks[task_id]["message"] = "Phát hiện PDF scan / chụp ảnh. AI đang OCR bóc tách..."
                 try:
                     extracted_data = asyncio.run(process_pdf_with_ocr(temp_file_path, api_keys, task_id))
@@ -208,18 +208,6 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             else:
                 active_tasks[task_id]["message"] = "Đang phân tích PDF bằng thuật toán nội bộ..."
                 extracted_data = extract_questions_from_pdf_locally(temp_file_path)
-                # Nếu bộ phân tích PDF nội bộ không tìm thấy câu hỏi mà có API Key, tự động cứu hộ bằng AI
-                if (not extracted_data or len(extracted_data) == 0) and api_keys:
-                    logger.warning("[CẢNH BÁO] PDF nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
-                    active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ PDF..."
-                    try:
-                        extracted_data = asyncio.run(generate_mcq_from_pdf(temp_file_path, api_keys, task_id))
-                    except Exception as rescue_err:
-                        logger.warning(f"[CẢNH BÁO] AI cứu hộ PDF gặp lỗi: {rescue_err}")
-                        try:
-                            extracted_data = asyncio.run(process_pdf_with_ocr(temp_file_path, api_keys, task_id))
-                        except Exception:
-                            pass
         elif ext in [".png", ".jpg", ".jpeg", ".webp"]:
             active_tasks[task_id]["message"] = "AI đang OCR đọc ảnh chụp đề thi..."
             with open(temp_file_path, "rb") as img_f:
@@ -266,28 +254,18 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
                 except Exception as docx_err:
                     logger.warning(f"[CẢNH BÁO] extract_formatting_from_docx gặp lỗi: {docx_err}")
                     extracted_data = None
-                    
-            # Nếu cả 2 bộ bóc tách nội bộ đều không tìm thấy câu hỏi mà hệ thống CÓ API key, tự động kích hoạt AI cứu hộ
-            if (not extracted_data or len(extracted_data) == 0) and api_keys:
-                logger.warning("[CẢNH BÁO] Bộ bóc tách nội bộ không tìm thấy câu hỏi, tự động kích hoạt AI cứu hộ...")
-                active_tasks[task_id]["message"] = "Tự động kích hoạt AI cứu hộ..."
-                try:
-                    if not marked_text:
-                        marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
-                    extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id, answer_key=file_ak))
-                    if image_mapping and extracted_data:
-                        extracted_data = replace_placeholders(extracted_data, image_mapping)
-                    if file_ak and extracted_data:
-                        extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
-                except Exception as rescue_err:
-                    logger.warning(f"[CẢNH BÁO] AI cứu hộ gặp lỗi: {rescue_err}")
 
         extracted_data = recursive_unescape(extracted_data)
 
         if extracted_data and isinstance(extracted_data, list):
             if file_ak:
                 extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
-            extracted_data = [normalize_question_data(q_item) for q_item in extracted_data if isinstance(q_item, dict)]
+            extracted_data = [normalize_question_data(q_item, use_ai=use_ai) for q_item in extracted_data if isinstance(q_item, dict)]
+            if not use_ai:
+                for q_item in extracted_data:
+                    if isinstance(q_item, dict):
+                        q_item["is_ai_suggested"] = False
+                        q_item["ai_suggestion_note"] = "" 
             for q_item in extracted_data:
                 if isinstance(q_item, dict) and q_item.get("type", "mcq") == "mcq" and q_item.get("options"):
                     q_item["options"] = split_merged_options(q_item["options"])

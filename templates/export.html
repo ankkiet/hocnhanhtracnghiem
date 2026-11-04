@@ -916,6 +916,308 @@ input:disabled + .slider-ui {
 }
 
 /* ================= PRINT STYLES (@media print) ================= */
+
+/* ================= 6. SUB-EXAMS (TRỘN ĐỀ CON) STYLES ================= */
+.subquiz-settings-panel {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid var(--exp-border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeInPanel 0.2s ease;
+}
+
+@keyframes fadeInPanel {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.subquiz-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.subquiz-chk-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.35;
+}
+
+.subquiz-chk-item input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: var(--exp-primary);
+    cursor: pointer;
+}
+
+.subquiz-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-subquiz-action {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.btn-subquiz-action.btn-regen {
+    background: #f1f5f9;
+    color: #334155;
+    border-color: #cbd5e1;
+}
+
+.btn-subquiz-action.btn-regen:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.btn-subquiz-action.btn-bundle-docx {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.btn-subquiz-action.btn-bundle-docx:hover {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+/* Sub-exam Tab Bar above A4 Preview */
+.subexam-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #ffffff;
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--exp-border);
+    box-shadow: var(--exp-shadow-sm);
+    margin-bottom: 16px;
+    max-width: 794px;
+    width: 100%;
+    z-index: 20;
+    position: relative;
+    animation: fadeInPanel 0.2s ease;
+}
+
+.subexam-tabs-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.subexam-tabs-scroll {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: none;
+}
+
+.subexam-tabs-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.subexam-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.subexam-tab:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.subexam-tab.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.subexam-tab.tab-matrix {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+.subexam-tab.tab-matrix:hover {
+    background: #dcfce7;
+}
+
+.subexam-tab.tab-matrix.active {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
+}
+
+/* Exam Code Badge in Paper Header */
+.exam-code-badge {
+    display: inline-block;
+    border: 1.5px solid #000000;
+    padding: 2px 8px;
+    font-weight: 800;
+    font-size: 10.5pt;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+    background: #ffffff;
+}
+
+/* Answer Matrix Table styling on A4 preview */
+.matrix-preview-card {
+    width: 100%;
+    padding: 10px 0;
+}
+
+.matrix-main-title {
+    text-align: center;
+    font-size: 13pt;
+    font-weight: 800;
+    color: #166534;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.matrix-sub-title {
+    text-align: center;
+    font-size: 9.5pt;
+    font-style: italic;
+    color: #475569;
+    margin-bottom: 14px;
+}
+
+.matrix-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+    font-size: 9pt;
+}
+
+.matrix-grid-table th,
+.matrix-grid-table td {
+    border: 1px solid #334155;
+    padding: 3px 2px;
+}
+
+.matrix-grid-table th {
+    background-color: #e2e8f0;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.matrix-grid-table th.col-q {
+    background-color: #cbd5e1;
+    width: 75px;
+}
+
+.matrix-grid-table td.cell-q {
+    background-color: #f8fafc;
+    font-weight: 700;
+}
+
+.matrix-grid-table td.cell-ans {
+    font-weight: 700;
+    color: #dc2626;
+}
+
+/* Word Download Dropdown Menu */
+.btn-docx-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.docx-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 320px;
+    background: #ffffff;
+    border: 1px solid var(--exp-border);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    padding: 6px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: fadeInPanel 0.15s ease;
+}
+
+.docx-menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+}
+
+.docx-menu-item:hover {
+    background: #eff6ff;
+}
+
+.docx-menu-item i {
+    font-size: 1.25rem;
+    color: #2563eb;
+    margin-top: 1px;
+}
+
+.docx-menu-item strong {
+    display: block;
+    font-size: 0.85rem;
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.docx-menu-item small {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
 @media print {
     body {
         background: #ffffff !important;
@@ -1032,9 +1334,27 @@ input:disabled + .slider-ui {
             <button type="button" class="btn-action-pdf" id="btnPrintPdf" title="In trực tiếp hoặc Lưu dưới dạng PDF chuẩn">
                 <i class="ri-printer-line"></i> Xuất PDF / In ngay
             </button>
-            <button type="button" class="btn-action-docx" id="btnDownloadDocx" title="Tải file Microsoft Word .docx">
-                <i class="ri-file-word-2-line"></i> Tải file Word (.docx)
-            </button>
+            <div class="btn-docx-wrapper" id="btnDocxWrapper">
+                <button type="button" class="btn-action-docx" id="btnDownloadDocx" title="Tải file Microsoft Word .docx">
+                    <i class="ri-file-word-2-line"></i> Tải file Word (.docx)
+                </button>
+                <div class="docx-dropdown-menu" id="docxDropdownMenu" style="display: none;">
+                    <button type="button" class="docx-menu-item" id="menuDownloadBundle">
+                        <i class="ri-file-zip-line"></i>
+                        <div>
+                            <strong>Tải trọn bộ tất cả mã đề (.docx gộp)</strong>
+                            <small>Bao gồm tất cả mã đề con và bảng ma trận đáp án ở cuối</small>
+                        </div>
+                    </button>
+                    <button type="button" class="docx-menu-item" id="menuDownloadCurrent">
+                        <i class="ri-file-text-line"></i>
+                        <div>
+                            <strong>Tải mã đề đang xem (<span id="menuActiveCodeLabel">Mã 101</span>)</strong>
+                            <small>Chỉ xuất file Word riêng cho mã đề hiện tại</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -1185,6 +1505,64 @@ input:disabled + .slider-ui {
                     </div>
                 </div>
 
+                <!-- 6. XUẤT ĐỀ CON (TRỘN NHIỀU MÃ ĐỀ) -->
+                <div class="config-group" id="groupSubQuizzes">
+                    <div class="config-label">
+                        <span>6. Trộn đề thi (Xuất đề con)</span>
+                        <i class="ri-shuffle-line"></i>
+                    </div>
+                    <div class="subquiz-toggle-box">
+                        <label class="toggle-row" id="rowEnableSubQuizzes">
+                            <div class="toggle-text">
+                                <span class="toggle-name">Bật tạo nhiều mã đề</span>
+                                <span class="toggle-desc">Tạo các mã đề con khác nhau từ đề gốc để in phát cho học sinh</span>
+                            </div>
+                            <span class="switch-ui">
+                                <input type="checkbox" id="chkEnableSubQuizzes">
+                                <span class="slider-ui"></span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <!-- Panel cài đặt chi tiết đề con (hiện ra khi bật switch) -->
+                    <div class="subquiz-settings-panel" id="subquizSettingsPanel" style="display: none;">
+                        <div class="meta-input-group">
+                            <label class="meta-input-label">Số lượng mã đề:</label>
+                            <div class="pills-selector" id="subquizCountPills">
+                                <div class="pill-opt" data-count="2">2 mã</div>
+                                <div class="pill-opt active" data-count="4">4 mã</div>
+                                <div class="pill-opt" data-count="6">6 mã</div>
+                                <div class="pill-opt" data-count="8">8 mã</div>
+                            </div>
+                        </div>
+
+                        <div class="meta-input-group">
+                            <label class="meta-input-label">Danh sách mã đề (ngăn cách bằng dấu phẩy):</label>
+                            <input type="text" class="meta-input" id="inputExamCodes" value="101, 102, 103, 104" placeholder="Ví dụ: 101, 102, 103, 104">
+                        </div>
+
+                        <div class="subquiz-checkboxes">
+                            <label class="subquiz-chk-item">
+                                <input type="checkbox" id="chkShuffleQuestions" checked>
+                                <span><strong>Đảo thứ tự câu hỏi</strong> (giữ nguyên từng phần)</span>
+                            </label>
+                            <label class="subquiz-chk-item">
+                                <input type="checkbox" id="chkShuffleOptions" checked>
+                                <span><strong>Đảo thứ tự phương án A, B, C, D</strong> (tự động cập nhật đáp án đúng)</span>
+                            </label>
+                        </div>
+
+                        <div class="subquiz-actions">
+                            <button type="button" class="btn-subquiz-action btn-regen" id="btnRegenSubQuizzes" title="Tạo lại các tổ hợp xáo trộn mới">
+                                <i class="ri-refresh-line"></i> Trộn lại mã đề
+                            </button>
+                            <button type="button" class="btn-subquiz-action btn-bundle-docx" id="btnDownloadAllDocx" title="Tải 1 file Word duy nhất gồm tất cả mã đề và ma trận đáp án">
+                                <i class="ri-file-word-2-line"></i> Tải trọn bộ Word (.docx)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             
@@ -1200,6 +1578,14 @@ input:disabled + .slider-ui {
                 <span class="stat-qcount">... câu</span>
                 <span>&bull;</span>
                 <span>Cập nhật tức thì</span>
+            </div>
+
+            <!-- SUB-EXAM TAB BAR (Hiển thị khi bật Chế độ Trộn đề con) -->
+            <div class="subexam-tab-bar" id="subexamTabBar" style="display: none;">
+                <div class="subexam-tabs-label"><i class="ri-git-branch-line"></i> Xem mã:</div>
+                <div class="subexam-tabs-scroll" id="subexamTabsContainer">
+                    <!-- Tabs được render tự động bằng JS -->
+                </div>
             </div>
 
             <!-- Viewport Scale Wrapper -->

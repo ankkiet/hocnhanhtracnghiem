@@ -769,6 +769,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
                 extent = node.xpath('.//*[local-name()="extent"]')
 
                 img_style = "max-width: 100%; height: auto;"
+                px_width = 0
 
                 if extent:
 
@@ -852,11 +853,12 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
                                 image_mapping[placeholder] = img_tag
 
-                                full_text_list.append(f"\n{placeholder}\n")
+                                img_ph = f" {placeholder} " if (px_width > 0 and px_width <= 60) else f"\n{placeholder}\n"
+                                full_text_list.append(img_ph)
 
-                                format_weights.extend([0] * len(f"\n{placeholder}\n"))
+                                format_weights.extend([0] * len(img_ph))
 
-                                char_html.extend(list(f"\n{placeholder}\n"))
+                                char_html.extend(list(img_ph))
 
                     except Exception as img_err:
 
@@ -1335,6 +1337,7 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
             extent = node.xpath('.//*[local-name()="extent"]')
 
             img_style = "max-width: 100%; height: auto;"
+            px_width = 0
 
             if extent:
 
@@ -1418,7 +1421,10 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
 
                             image_mapping[placeholder] = img_tag
 
-                            para_text += f"\n{placeholder}\n"
+                            if px_width > 0 and px_width <= 60:
+                                para_text += f" {placeholder} "
+                            else:
+                                para_text += f"\n{placeholder}\n"
 
                 except Exception as img_err:
 
@@ -1542,6 +1548,14 @@ def is_answer_key_table(table: Table) -> bool:
 
         r1 = [c.text.strip() for c in table.rows[1].cells]
 
+        if r0 and r1:
+            has_header_pair = (
+                any(k in r0[0].lower() for k in ['câu', 'bài', 'tt', 'stt']) and
+                any(k in r1[0].lower() for k in ['đáp án', 'chọn', 'đ/a', 'kết quả', 'phương án'])
+            )
+            if has_header_pair:
+                return True
+
         nums = [c for c in r0 if re.search(r'(?:Câu\s*)?\d+', c)]
 
         ans_chars = [c for c in r1 if re.match(r'^[A-FĐS]$', c, re.IGNORECASE) or re.search(r'^[a-d][\.\:\)\ blank\/\-\s]*(?:Đ|S)', c, re.IGNORECASE)]
@@ -1581,7 +1595,17 @@ def is_answer_key_table(table: Table) -> bool:
 
             return True
 
-
+    # Bảng Đúng / Sai: cột Câu và các cột a, b, c, d (hoặc Lệnh hỏi a, b, c, d)
+    has_tf_cols = any('a' in h for h in h_texts) and any('b' in h for h in h_texts) and any('c' in h for h in h_texts) and any('d' in h for h in h_texts)
+    if has_q_col and has_tf_cols:
+        tf_count = 0
+        for r in table.rows[1:min(6, len(table.rows))]:
+            for c in r.cells:
+                txt = c.text.strip().lower()
+                if txt in ['đ', 's', 'đúng', 'sai', 't', 'f', '✓', '✔']:
+                    tf_count += 1
+        if tf_count >= 2:
+            return True
 
     return False
 
@@ -1996,6 +2020,13 @@ def extract_options_only_table(table: Table, doc=None, counters=None, image_mapp
             if not txt:
 
                 continue
+
+            # Chuẩn hóa nếu nhãn phương án (A., B., C., D.) nằm sau hình ảnh hoặc không đứng đầu ô
+            m_label = re.search(r'(?:^|\s|<[^>]+>)([\(\[]?\*?[A-Da-d][\)\.\:\-\]\/])(?:\s*</[^>]+>)?', txt)
+            if m_label and not re.match(r'^\s*(?:<[^>]+>\s*)*[\(\[]?(\*?[A-Da-d])[\)\.\:\-\]\/]', txt):
+                lbl = m_label.group(1).strip()
+                rem = (txt[:m_label.start()] + ' ' + txt[m_label.end():]).strip()
+                txt = f"{lbl}\n{rem}"
 
             is_opt = bool(re.match(r'^\s*(?:<[^>]+>\s*)*[\(\[]?(\*?[A-Da-d])[\)\.\:\-\]\/]', txt))
 

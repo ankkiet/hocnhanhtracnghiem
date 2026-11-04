@@ -147,6 +147,25 @@ class TestAISuggestedAnswerTagging(unittest.TestCase):
         self.assertTrue(normalized.get("is_ai_suggested"))
         self.assertIsInstance(normalized.get("correct_answer"), dict)
 
+    def test_without_ai_never_tags_ai_suggested(self):
+        mcq_question = {
+            "question": "Thủ đô của Việt Nam là gì?",
+            "options": ["A. Hà Nội", "B. TP. Hồ Chí Minh", "C. Đà Nẵng", "D. Hải Phòng"],
+            "type": "mcq"
+        }
+        norm_mcq = normalize_question_data(mcq_question, use_ai=False)
+        self.assertFalse(norm_mcq.get("is_ai_suggested", False))
+        self.assertFalse(norm_mcq.get("ai_suggestion_note", ""))
+
+        tf_question = {
+            "question": "Cho các mệnh đề sau:",
+            "options": ["a) Ý 1", "b) Ý 2", "c) Ý 3", "d) Ý 4"],
+            "type": "true_false"
+        }
+        norm_tf = normalize_question_data(tf_question, use_ai=False)
+        self.assertFalse(norm_tf.get("is_ai_suggested", False))
+        self.assertFalse(norm_tf.get("ai_suggestion_note", ""))
+
 
 class TestCrossCheckAnswers(unittest.TestCase):
     @patch("services.ai_service.call_gemini_with_fallback")

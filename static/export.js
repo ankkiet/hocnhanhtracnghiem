@@ -1,6 +1,7 @@
 /**
  * HocNhanhTN - Export Studio Core Logic
  * Tự động đồng bộ và xem trước thời gian thực tài liệu A4 trước khi tải Word/PDF.
+ * Hỗ trợ tạo đề con (trộn nhiều mã đề thi) với bảng ma trận đáp án chuẩn sư phạm.
  */
 
 (function () {
@@ -48,11 +49,24 @@
         time_limit: 45
     };
 
+    // 3. Trạng thái tính năng Trộn đề con (Sub-Exams)
+    let subQuizState = {
+        enabled: false,
+        count: 4,
+        codes: ["101", "102", "103", "104"],
+        shuffleQuestions: true,
+        shuffleOptions: true,
+        activeView: 'code',           // 'code' | 'master' | 'matrix'
+        activeCode: '101',
+        seedSalt: 1,
+        generatedList: []             // Array of { exam_code: "101", questions: [...] }
+    };
+
     let zoomLevel = 1.0;
     let mathJaxPending = false;
     let debounceTimer = null;
 
-    // 3. Khởi tạo khi DOM tải xong
+    // 4. Khởi tạo khi DOM tải xong
     document.addEventListener('DOMContentLoaded', () => {
         initUrlParams();
         bindEvents();
@@ -100,9 +114,9 @@
         });
 
         // Options Layout Pills
-        document.querySelectorAll('.pill-opt').forEach(pill => {
+        document.querySelectorAll('.pills-selector:not(#subquizCountPills) .pill-opt').forEach(pill => {
             pill.addEventListener('click', () => {
-                document.querySelectorAll('.pill-opt').forEach(p => p.classList.remove('active'));
+                pill.parentElement.querySelectorAll('.pill-opt').forEach(p => p.classList.remove('active'));
                 pill.classList.add('active');
                 exportConfig.options_layout = pill.dataset.val;
                 renderPreview();
@@ -175,6 +189,140 @@
                 debouncedRender();
             });
         }
+
+        // ================= SUB-EXAM EVENTS =================
+        const chkSubQuizzes = document.getElementById('chkEnableSubQuizzes');
+        const subquizPanel = document.getElementById('subquizSettingsPanel');
+        const subexamTabBar = document.getElementById('subexamTabBar');
+
+        if (chkSubQuizzes) {
+            chkSubQuizzes.addEventListener('change', (e) => {
+                subQuizState.enabled = e.target.checked;
+                if (subquizPanel) subquizPanel.style.display = subQuizState.enabled ? 'flex' : 'none';
+                if (subexamTabBar) subexamTabBar.style.display = subQuizState.enabled ? 'flex' : 'none';
+
+                if (subQuizState.enabled) {
+                    regenerateSubQuizzes();
+                    showToast("Đã kích hoạt chế độ trộn đề con!", "success");
+                } else {
+                    subQuizState.activeView = 'code';
+                    renderPreview();
+                }
+            });
+        }
+
+        // Subquiz Count Pills (2, 4, 6, 8)
+        document.querySelectorAll('#subquizCountPills .pill-opt').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('#subquizCountPills .pill-opt').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                const count = parseInt(pill.dataset.count, 10) || 4;
+                subQuizState.count = count;
+
+                // Tự động sinh danh sách mã đề gợi ý chuẩn (101, 102, 103, ...)
+                const generatedCodes = [];
+                for (let i = 1; i <= count; i++) {
+                    generatedCodes.push(String(100 + i));
+                }
+                subQuizState.codes = generatedCodes;
+                const inputCodes = document.getElementById('inputExamCodes');
+                if (inputCodes) inputCodes.value = generatedCodes.join(', ');
+
+                if (subQuizState.enabled) {
+                    regenerateSubQuizzes();
+                    renderPreview();
+                }
+            });
+        });
+
+        // Exam Codes Input
+        const inputCodes = document.getElementById('inputExamCodes');
+        if (inputCodes) {
+            inputCodes.addEventListener('input', () => {
+                if (debounceTimer) clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    const raw = inputCodes.value || "";
+                    const parts = raw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+                    if (parts.length > 0) {
+                        subQuizState.codes = parts;
+                        subQuizState.count = parts.length;
+                        if (subQuizState.enabled) {
+                            regenerateSubQuizzes();
+                            renderPreview();
+                        }
+                    }
+                }, 350);
+            });
+        }
+
+        // Shuffle Questions Checkbox
+        const chkShuffleQ = document.getElementById('chkShuffleQuestions');
+        if (chkShuffleQ) {
+            chkShuffleQ.addEventListener('change', (e) => {
+                subQuizState.shuffleQuestions = e.target.checked;
+                if (subQuizState.enabled) {
+                    regenerateSubQuizzes();
+                    renderPreview();
+                }
+            });
+        }
+
+        // Shuffle Options Checkbox
+        const chkShuffleOpt = document.getElementById('chkShuffleOptions');
+        if (chkShuffleOpt) {
+            chkShuffleOpt.addEventListener('change', (e) => {
+                subQuizState.shuffleOptions = e.target.checked;
+                if (subQuizState.enabled) {
+                    regenerateSubQuizzes();
+                    renderPreview();
+                }
+            });
+        }
+
+        // Regenerate Button
+        const btnRegen = document.getElementById('btnRegenSubQuizzes');
+        if (btnRegen) {
+            btnRegen.addEventListener('click', () => {
+                subQuizState.seedSalt++;
+                regenerateSubQuizzes();
+                renderPreview();
+                showToast("Đã xáo trộn và tạo tổ hợp mã đề mới!", "success");
+            });
+        }
+
+        // Download All Docx Button (Sidebar)
+        const btnAllDocx = document.getElementById('btnDownloadAllDocx');
+        if (btnAllDocx) {
+            btnAllDocx.addEventListener('click', () => {
+                executeDownloadBundleDocx();
+            });
+        }
+
+        // Dropdown Menu Items in Navbar
+        const menuBundle = document.getElementById('menuDownloadBundle');
+        if (menuBundle) {
+            menuBundle.addEventListener('click', () => {
+                hideDocxDropdown();
+                executeDownloadBundleDocx();
+            });
+        }
+
+        const menuCurrent = document.getElementById('menuDownloadCurrent');
+        if (menuCurrent) {
+            menuCurrent.addEventListener('click', () => {
+                hideDocxDropdown();
+                executeDownloadCurrentDocx();
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const wrapper = document.getElementById('btnDocxWrapper');
+            const menu = document.getElementById('docxDropdownMenu');
+            if (menu && wrapper && !wrapper.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
 
         // Zoom Controls
         const btnZoomIn = document.getElementById('btnZoomIn');
@@ -265,10 +413,183 @@
         }, 120);
     }
 
+    // ================= SHUFFLING ALGORITHM & SUB-EXAM LOGIC =================
+
+    // Seeded PRNG (Mulberry32) cho tính tất định (mã 101 luôn ra 101 như nhau)
+    function createSeededRandom(seed) {
+        let s = seed >>> 0;
+        return function() {
+            s = (s + 0x6D2B79F5) >>> 0;
+            let t = Math.imul(s ^ (s >>> 15), 1 | s);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    }
+
+    function regenerateSubQuizzes() {
+        if (!subQuizState.enabled || !quizData.questions || !quizData.questions.length) {
+            subQuizState.generatedList = [];
+            return;
+        }
+
+        const masterQuestions = quizData.questions;
+        subQuizState.generatedList = [];
+
+        subQuizState.codes.forEach((code) => {
+            const seed = hashString(code + "_" + subQuizState.seedSalt + "_" + (quizData.id || "hocnhanh"));
+            const rng = createSeededRandom(seed);
+
+            // 1. Deep clone danh sách câu hỏi
+            let qList = masterQuestions.map((q, idx) => {
+                let cloned = JSON.parse(JSON.stringify(q));
+                if (cloned.question) {
+                    cloned.question = cloned.question.replace(/^(?:(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|\d+\s*[\.\:\)])\s*/i, '');
+                }
+                cloned._origIndex = idx;
+                return cloned;
+            });
+
+            // 2. Đảo thứ tự câu hỏi (nếu bật) - Giữ nguyên thứ tự các phần (group_title)
+            if (subQuizState.shuffleQuestions) {
+                let groups = [];
+                let currentGroup = null;
+
+                qList.forEach((q) => {
+                    const gTitle = (q.group_title || '').trim();
+                    if (!currentGroup || currentGroup.title !== gTitle) {
+                        currentGroup = { title: gTitle, questions: [] };
+                        groups.push(currentGroup);
+                    }
+                    currentGroup.questions.push(q);
+                });
+
+                groups.forEach((g) => {
+                    for (let i = g.questions.length - 1; i > 0; i--) {
+                        const j = Math.floor(rng() * (i + 1));
+                        [g.questions[i], g.questions[j]] = [g.questions[j], g.questions[i]];
+                    }
+                });
+
+                qList = [];
+                groups.forEach(g => {
+                    qList.push(...g.questions);
+                });
+            }
+
+            // 3. Đảo thứ tự phương án A, B, C, D (nếu bật) - Chỉ áp dụng cho câu hỏi MCQ
+            if (subQuizState.shuffleOptions) {
+                qList.forEach((q) => {
+                    const isMcq = (!q.type || q.type === 'mcq') && Array.isArray(q.options) && q.options.length >= 2;
+                    if (!isMcq) return;
+
+                    // Xác định nội dung đáp án đúng trước khi trộn
+                    let correctContent = null;
+                    q.options.forEach((opt, oIdx) => {
+                        if (isOptionCorrect(oIdx, String(opt), q.correct_answer)) {
+                            correctContent = String(opt).replace(/^(\*?\s*[A-Fa-f][\.\:\)])\s*/, '').trim();
+                        }
+                    });
+
+                    // Tách nội dung trơn (gỡ A., B., C., D.)
+                    let rawOptions = q.options.map(opt => String(opt).replace(/^(\*?\s*[A-Fa-f][\.\:\)])\s*/, '').trim());
+
+                    // Trộn các đáp án
+                    for (let i = rawOptions.length - 1; i > 0; i--) {
+                        const j = Math.floor(rng() * (i + 1));
+                        [rawOptions[i], rawOptions[j]] = [rawOptions[j], rawOptions[i]];
+                    }
+
+                    // Đánh lại tiền tố A., B., C., D. và cập nhật đáp án đúng theo nhãn mới
+                    let newCorrectLetter = null;
+                    q.options = rawOptions.map((optText, oIdx) => {
+                        const letter = String.fromCharCode(65 + oIdx);
+                        if (correctContent !== null && optText === correctContent) {
+                            newCorrectLetter = letter;
+                        }
+                        return `${letter}. ${optText}`;
+                    });
+
+                    if (newCorrectLetter) {
+                        q.correct_answer = newCorrectLetter;
+                    }
+                });
+            }
+
+            subQuizState.generatedList.push({
+                exam_code: code,
+                questions: qList
+            });
+        });
+
+        // Nếu mã đang chọn không còn trong danh sách, chọn mã đầu tiên
+        if (!subQuizState.codes.includes(subQuizState.activeCode) && subQuizState.codes.length > 0) {
+            subQuizState.activeCode = subQuizState.codes[0];
+        }
+
+        renderSubexamTabBar();
+    }
+
+    function renderSubexamTabBar() {
+        const container = document.getElementById('subexamTabsContainer');
+        if (!container) return;
+
+        let html = '';
+
+        // Tab Đề gốc
+        const isMasterActive = (subQuizState.activeView === 'master');
+        html += `<div class="subexam-tab ${isMasterActive ? 'active' : ''}" data-view="master"><i class="ri-book-read-line"></i> Đề gốc</div>`;
+
+        // Tabs từng mã đề
+        subQuizState.codes.forEach(code => {
+            const isActive = (subQuizState.activeView === 'code' && subQuizState.activeCode === code);
+            html += `<div class="subexam-tab ${isActive ? 'active' : ''}" data-view="code" data-code="${escapeHtml(code)}"><i class="ri-hashtag"></i> Mã ${escapeHtml(code)}</div>`;
+        });
+
+        // Tab Bảng ma trận đáp án
+        const isMatrixActive = (subQuizState.activeView === 'matrix');
+        html += `<div class="subexam-tab tab-matrix ${isMatrixActive ? 'active' : ''}" data-view="matrix"><i class="ri-table-line"></i> Bảng ma trận đáp án</div>`;
+
+        container.innerHTML = html;
+
+        // Cập nhật nhãn mã đề đang xem trong Dropdown xuất Word
+        const activeCodeLabel = document.getElementById('menuActiveCodeLabel');
+        if (activeCodeLabel) {
+            activeCodeLabel.textContent = (subQuizState.activeView === 'master') ? "Đề gốc" : `Mã ${subQuizState.activeCode}`;
+        }
+
+        // Gắn sự kiện chuyển tab
+        container.querySelectorAll('.subexam-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const view = tab.dataset.view;
+                const code = tab.dataset.code;
+                subQuizState.activeView = view;
+                if (code) subQuizState.activeCode = code;
+
+                container.querySelectorAll('.subexam-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                if (activeCodeLabel) {
+                    activeCodeLabel.textContent = (view === 'master') ? "Đề gốc" : (view === 'matrix' ? "Ma trận đáp án" : `Mã ${subQuizState.activeCode}`);
+                }
+
+                renderPreview();
+            });
+        });
+    }
+
     async function loadQuizData() {
         showLoadingState(true);
 
-        // 1. Kiểm tra dữ liệu được truyền qua sessionStorage (từ Editor hoặc Danh sách)
+        // 1. Kiểm tra dữ liệu được truyền qua sessionStorage
         if (quizData.id) {
             const cached = sessionStorage.getItem(`export_quiz_${quizData.id}`) || localStorage.getItem(`export_quiz_${quizData.id}`);
             if (cached) {
@@ -359,6 +680,10 @@
         const qCountBadges = document.querySelectorAll('.stat-qcount');
         qCountBadges.forEach(b => b.textContent = `${questions.length} câu`);
 
+        if (subQuizState.enabled) {
+            regenerateSubQuizzes();
+        }
+
         renderPreview();
     }
 
@@ -413,34 +738,55 @@
         applyLoadedQuiz(quizData);
     }
 
-    // 4. Hàm Render Bản xem trước A4 (Real-time Preview Engine)
+    // ================= REAL-TIME PREVIEW ENGINE =================
+
     function renderPreview() {
+        // Nếu đang ở tab Ma trận đáp án
+        if (subQuizState.enabled && subQuizState.activeView === 'matrix') {
+            renderMatrixPreview();
+            return;
+        }
+
         const container = document.getElementById('paperContentContainer');
         if (!container) return;
 
         const isCompact = (exportConfig.layout_mode === 'compact');
         const isTeacher = (exportConfig.target_audience === 'teacher');
         const showAnswers = exportConfig.show_answers;
-        const questions = quizData.questions || [];
+
+        // Chọn bộ câu hỏi và mã đề tương ứng
+        let activeQuestions = quizData.questions || [];
+        let activeExamCode = null;
+
+        if (subQuizState.enabled && subQuizState.activeView === 'code') {
+            const matched = subQuizState.generatedList.find(sq => sq.exam_code === subQuizState.activeCode);
+            if (matched) {
+                activeQuestions = matched.questions;
+                activeExamCode = matched.exam_code;
+            }
+        }
 
         let html = '';
 
-        // Header đề thi
+        // 1. Header đề thi
         html += `
         <div class="paper-header">
             <div class="paper-header-left">
                 <div class="school-name-text">${escapeHtml(exportConfig.school_name || "SỞ GIÁO DỤC VÀ ĐÀO TẠO")}</div>
                 <div class="exam-title-text">${escapeHtml(exportConfig.exam_title || quizData.title)}</div>
-                ${isTeacher ? `<div class="exam-badge-teacher">[ BẢN GIÁO VIÊN - ĐÁP ÁN & LỜI GIẢI ]</div>` : ''}
+                ${isTeacher ? `<div class="exam-badge-teacher">[ BẢN GIÁO VIÊN - ĐÁP ÁN & LỜI GIẢI${activeExamCode ? ` - MÃ ${escapeHtml(activeExamCode)}` : ''} ]</div>` : ''}
             </div>
             <div class="paper-header-right">
-                <div class="exam-code-text">ĐỀ KIỂM TRA CHÍNH THỨC</div>
-                <div class="exam-time-text">Thời gian làm bài: ${exportConfig.time_limit > 0 ? exportConfig.time_limit + ' phút' : 'Tự do'} | ${questions.length} câu</div>
+                ${activeExamCode ? 
+                    `<div class="exam-code-badge">MÃ ĐỀ: ${escapeHtml(activeExamCode)}</div>` : 
+                    `<div class="exam-code-text">ĐỀ KIỂM TRA CHÍNH THỨC</div>`
+                }
+                <div class="exam-time-text">Thời gian làm bài: ${exportConfig.time_limit > 0 ? exportConfig.time_limit + ' phút' : 'Tự do'} | ${activeQuestions.length} câu</div>
             </div>
         </div>
         `;
 
-        // Thông tin thí sinh
+        // 2. Thông tin thí sinh
         if (exportConfig.show_candidate_info) {
             html += `
             <div class="student-info-bar">
@@ -451,9 +797,9 @@
             `;
         }
 
-        // Phiếu trả lời trắc nghiệm (cho học sinh điền)
-        if (!isTeacher && exportConfig.include_student_grid && questions.length > 0) {
-            const totalQ = questions.length;
+        // 3. Phiếu trả lời trắc nghiệm (cho học sinh điền)
+        if (!isTeacher && exportConfig.include_student_grid && activeQuestions.length > 0) {
+            const totalQ = activeQuestions.length;
             const cols = (totalQ > 40) ? 20 : 10;
             const rows = Math.ceil(totalQ / cols);
 
@@ -484,10 +830,10 @@
             html += `</table></div>`;
         }
 
-        // Danh sách câu hỏi
+        // 4. Danh sách câu hỏi
         let currentGroup = null;
 
-        questions.forEach((q, idx) => {
+        activeQuestions.forEach((q, idx) => {
             const groupTitle = (q.group_title || '').trim();
             if (groupTitle && groupTitle !== currentGroup) {
                 currentGroup = groupTitle;
@@ -572,15 +918,15 @@
             html += `</div>`;
         });
 
-        // Bảng đáp án tổng hợp (cho giáo viên)
-        if (exportConfig.show_key_table && questions.length > 0) {
-            const totalQ = questions.length;
+        // 5. Bảng đáp án tổng hợp (cho giáo viên)
+        if (exportConfig.show_key_table && activeQuestions.length > 0) {
+            const totalQ = activeQuestions.length;
             const cols = (isCompact && totalQ >= 10) ? 10 : 5;
             const rows = Math.ceil(totalQ / cols);
 
             html += `
             <div class="paper-key-section">
-                <div class="paper-key-title">--- BẢNG ĐÁP ÁN ---</div>
+                <div class="paper-key-title">--- BẢNG ĐÁP ÁN${activeExamCode ? ` (MÃ ${escapeHtml(activeExamCode)})` : ''} ---</div>
                 <table class="paper-key-table">
             `;
 
@@ -594,7 +940,7 @@
                 for (let c = 0; c < cols; c++) {
                     const qIdx = r * cols + c;
                     if (qIdx < totalQ) {
-                        const q = questions[qIdx];
+                        const q = activeQuestions[qIdx];
                         const ansDisplay = getAnswerDisplay(q);
                         html += `<td>${escapeHtml(ansDisplay)}</td>`;
                     } else {
@@ -607,14 +953,14 @@
             html += `</table></div>`;
         }
 
-        // Hướng dẫn giải chi tiết (cho giáo viên)
-        const hasExplains = questions.some(q => (q.explain || '').trim().length > 0);
+        // 6. Hướng dẫn giải chi tiết (cho giáo viên)
+        const hasExplains = activeQuestions.some(q => (q.explain || '').trim().length > 0);
         if (exportConfig.show_explains && hasExplains) {
             html += `
             <div class="paper-explains-section">
-                <div class="paper-explains-title">HƯỚNG DẪN GIẢI CHI TIẾT</div>
+                <div class="paper-explains-title">HƯỚNG DẪN GIẢI CHI TIẾT${activeExamCode ? ` (MÃ ${escapeHtml(activeExamCode)})` : ''}</div>
             `;
-            questions.forEach((q, idx) => {
+            activeQuestions.forEach((q, idx) => {
                 const exp = (q.explain || '').trim();
                 if (exp) {
                     html += `
@@ -630,10 +976,63 @@
 
         container.innerHTML = html;
 
-        // Ước tính số trang
+        // Ước tính số trang & MathJax
         updatePageEstimation();
+        renderMathJax();
+    }
 
-        // Typeset MathJax
+    // Kết xuất giao diện Bảng ma trận đáp án trên giấy A4
+    function renderMatrixPreview() {
+        const container = document.getElementById('paperContentContainer');
+        if (!container) return;
+
+        const subList = subQuizState.generatedList;
+        if (!subList.length) {
+            container.innerHTML = `<div style="text-align: center; padding: 40px; color: #64748b;">Chưa có dữ liệu mã đề. Vui lòng bật chế độ trộn đề con.</div>`;
+            return;
+        }
+
+        const maxQ = Math.max(...subList.map(sq => sq.questions.length), 0);
+        const codes = subList.map(sq => sq.exam_code);
+        const title = exportConfig.exam_title || quizData.title || "ĐỀ THI TRẮC NGHIỆM";
+
+        let html = `
+        <div class="matrix-preview-card">
+            <div class="matrix-main-title">BẢNG MA TRẬN ĐÁP ÁN CÁC MÃ ĐỀ</div>
+            <div class="matrix-sub-title">Đề thi: <strong>${escapeHtml(title.toUpperCase())}</strong> &bull; Các mã đề: <strong>${codes.join(', ')}</strong></div>
+            
+            <table class="matrix-grid-table">
+                <thead>
+                    <tr>
+                        <th class="col-q">Câu hỏi</th>
+                        ${codes.map(c => `<th>Mã ${escapeHtml(c)}</th>`).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        for (let i = 0; i < maxQ; i++) {
+            html += `<tr>`;
+            html += `<td class="cell-q">Câu ${i + 1}</td>`;
+            for (let j = 0; j < subList.length; j++) {
+                const sq = subList[j];
+                let ans = "-";
+                if (i < sq.questions.length) {
+                    ans = getAnswerDisplay(sq.questions[i]);
+                }
+                html += `<td class="cell-ans">${escapeHtml(ans)}</td>`;
+            }
+            html += `</tr>`;
+        }
+
+        html += `
+                </tbody>
+            </table>
+        </div>
+        `;
+
+        container.innerHTML = html;
+        updatePageEstimation();
         renderMathJax();
     }
 
@@ -707,7 +1106,6 @@
     function formatText(text) {
         if (!text) return "";
         let s = String(text);
-        // Chuyển newline thành <br>
         s = s.replace(/\n/g, '<br>');
         return s;
     }
@@ -744,8 +1142,7 @@
         const sheet = document.getElementById('a4Sheet');
         if (!sheet) return;
         const totalHeightPx = sheet.scrollHeight;
-        // 1 trang A4 chuẩn tương đương khoảng 1122px (297mm ở 96dpi)
-        const a4HeightPx = 1122;
+        const a4HeightPx = 1122; // ~297mm ở 96dpi
         const estimatedPages = Math.max(1, Math.ceil(totalHeightPx / a4HeightPx));
         const badge = document.getElementById('statEstPages');
         if (badge) {
@@ -753,7 +1150,8 @@
         }
     }
 
-    // 5. Điều khiển Thu phóng (Zoom)
+    // ================= ZOOM & PREVIEW FIT CONTROLS =================
+
     function adjustZoom(delta) {
         setZoom(zoomLevel + delta);
     }
@@ -775,13 +1173,115 @@
         const sheet = document.getElementById('a4Sheet');
         if (!previewArea || !sheet) return;
         const availableWidth = previewArea.clientWidth - 60;
-        const sheetWidth = sheet.offsetWidth || 794; // ~210mm in px
+        const sheetWidth = sheet.offsetWidth || 794;
         const idealZoom = availableWidth / sheetWidth;
         setZoom(idealZoom);
     }
 
-    // 6. Xử lý Tải file Word (.docx)
-    async function handleDownloadDocx() {
+    // ================= EXPORT ACTIONS (WORD & PDF) =================
+
+    function handleDownloadDocx() {
+        if (subQuizState.enabled && subQuizState.generatedList.length > 0) {
+            // Khi bật chế độ trộn đề con: Mở menu chọn tải trọn bộ hoặc tải riêng
+            const menu = document.getElementById('docxDropdownMenu');
+            if (menu) {
+                menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'flex' : 'none';
+            }
+        } else {
+            // Chế độ đề đơn bình thường: tải trực tiếp 100% không ảnh hưởng
+            executeDownloadCurrentDocx();
+        }
+    }
+
+    function hideDocxDropdown() {
+        const menu = document.getElementById('docxDropdownMenu');
+        if (menu) menu.style.display = 'none';
+    }
+
+    // 1. Tải trọn bộ tất cả các mã đề thi con (1 file Word duy nhất)
+    async function executeDownloadBundleDocx() {
+        hideDocxDropdown();
+        if (!subQuizState.generatedList.length) {
+            regenerateSubQuizzes();
+        }
+        if (!subQuizState.generatedList.length) {
+            showToast("Chưa có danh sách đề con để xuất Word.", "error");
+            return;
+        }
+
+        const btnDocx = document.getElementById('btnDownloadDocx');
+        const btnSidebar = document.getElementById('btnDownloadAllDocx');
+        const origDocxText = btnDocx ? btnDocx.innerHTML : '';
+        const origSideText = btnSidebar ? btnSidebar.innerHTML : '';
+
+        if (btnDocx) {
+            btnDocx.disabled = true;
+            btnDocx.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Đang xuất trọn bộ...`;
+        }
+        if (btnSidebar) {
+            btnSidebar.disabled = true;
+            btnSidebar.innerHTML = `<i class="ri-loader-4-line ri-spin"></i> Đang tạo...`;
+        }
+        showToast("Đang tạo file Word gộp tất cả mã đề kèm ma trận...", "info");
+
+        try {
+            const payload = {
+                master_title: exportConfig.exam_title || quizData.title,
+                school_name: exportConfig.school_name,
+                time_limit: exportConfig.time_limit,
+                target_audience: exportConfig.target_audience,
+                layout_mode: exportConfig.layout_mode,
+                options_layout: exportConfig.options_layout,
+                show_answers: exportConfig.show_answers,
+                show_key_table: exportConfig.show_key_table,
+                show_explains: exportConfig.show_explains,
+                include_student_answer_grid: exportConfig.include_student_grid,
+                include_answer_matrix: true,
+                show_candidate_info: exportConfig.show_candidate_info,
+                sub_quizzes: subQuizState.generatedList
+            };
+
+            const res = await fetch(`${API_BASE_URL}/api/teacher/export_docx_bundle`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const cleanTitle = (exportConfig.exam_title || 'de_thi').replace(/[^a-zA-Z0-9_À-ɏẠ-ỹ]/g, '_');
+                const audienceSuffix = (exportConfig.target_audience === 'student') ? '_hoc_sinh' : '_giao_vien';
+                a.download = `${cleanTitle}_tron_ma_de${audienceSuffix}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                showToast("Tải trọn bộ Word (.docx) thành công!", "success");
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(err.detail || "Không thể tạo file Word gộp. Vui lòng thử lại.", "error");
+            }
+        } catch (e) {
+            console.error("Bundle docx export error:", e);
+            showToast("Lỗi kết nối khi xuất trọn bộ file Word.", "error");
+        } finally {
+            if (btnDocx) {
+                btnDocx.disabled = false;
+                btnDocx.innerHTML = origDocxText;
+            }
+            if (btnSidebar) {
+                btnSidebar.disabled = false;
+                btnSidebar.innerHTML = origSideText;
+            }
+        }
+    }
+
+    // 2. Tải riêng mã đề đang xem (hoặc đề đơn khi tắt chế độ trộn)
+    async function executeDownloadCurrentDocx() {
+        hideDocxDropdown();
         const btn = document.getElementById('btnDownloadDocx');
         const origText = btn ? btn.innerHTML : '';
         if (btn) {
@@ -790,8 +1290,20 @@
         }
 
         try {
-            // Nếu có quiz_id trên máy chủ, sử dụng GET endpoint chuẩn
-            if (quizData.id) {
+            // Xác định câu hỏi và mã đề cần xuất
+            let activeQ = quizData.questions;
+            let currentCode = null;
+
+            if (subQuizState.enabled && subQuizState.activeView === 'code') {
+                const matched = subQuizState.generatedList.find(sq => sq.exam_code === subQuizState.activeCode);
+                if (matched) {
+                    activeQ = matched.questions;
+                    currentCode = matched.exam_code;
+                }
+            }
+
+            // Nếu là đề đơn lưu trên server và không ở chế độ trộn đề con: dùng GET
+            if (quizData.id && !subQuizState.enabled) {
                 const params = new URLSearchParams({
                     teacher_token: authToken || '',
                     target_audience: exportConfig.target_audience,
@@ -806,10 +1318,10 @@
                 window.location.href = downloadUrl;
                 showToast("Đang tải file Word (.docx) về máy...", "success");
             } else {
-                // Sử dụng custom payload qua POST
+                // Xuất qua POST với payload chính xác
                 const payload = {
                     title: exportConfig.exam_title || quizData.title,
-                    questions: quizData.questions,
+                    questions: activeQ,
                     time_limit: exportConfig.time_limit,
                     target_audience: exportConfig.target_audience,
                     layout_mode: exportConfig.layout_mode,
@@ -817,7 +1329,10 @@
                     show_answers: exportConfig.show_answers,
                     show_key_table: exportConfig.show_key_table,
                     show_explains: exportConfig.show_explains,
-                    include_student_answer_grid: exportConfig.include_student_grid
+                    include_student_answer_grid: exportConfig.include_student_grid,
+                    exam_code: currentCode,
+                    school_name: exportConfig.school_name,
+                    show_candidate_info: exportConfig.show_candidate_info
                 };
 
                 const res = await fetch(`${API_BASE_URL}/api/teacher/export_docx_custom`, {
@@ -831,7 +1346,10 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${(exportConfig.exam_title || 'de_thi').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, '_')}.docx`;
+                    const cleanTitle = (exportConfig.exam_title || 'de_thi').replace(/[^a-zA-Z0-9_À-ɏẠ-ỹ]/g, '_');
+                    const codePart = currentCode ? `_ma_${currentCode}` : '';
+                    const audienceSuffix = (exportConfig.target_audience === 'student') ? '_hoc_sinh' : '_giao_vien';
+                    a.download = `${cleanTitle}${codePart}${audienceSuffix}.docx`;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
@@ -853,10 +1371,9 @@
         }
     }
 
-    // 7. Xử lý In & Lưu PDF chuẩn A4
+    // In & Xuất PDF chuẩn A4
     function handlePrintPdf() {
         showToast("Đang chuẩn bị trang in PDF...", "info");
-        // Đặt lại zoom 100% trước khi print để tránh scale sai
         const currentZ = zoomLevel;
         setZoom(1.0);
         setTimeout(() => {
@@ -893,4 +1410,6 @@
     window.fitToWidth = fitToWidth;
     window.handleDownloadDocx = handleDownloadDocx;
     window.handlePrintPdf = handlePrintPdf;
+    window.executeDownloadBundleDocx = executeDownloadBundleDocx;
+    window.executeDownloadCurrentDocx = executeDownloadCurrentDocx;
 })();

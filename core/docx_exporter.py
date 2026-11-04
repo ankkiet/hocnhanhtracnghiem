@@ -641,53 +641,50 @@ def is_option_correct(opt_idx: int, opt_text: str, raw_ca) -> bool:
     return False
 
 
-def export_quiz_to_docx(
+def extract_answer_display(q: dict) -> str:
+    """Trích xuất chuỗi hiển thị đáp án đúng ngắn gọn (A, B, C, D hoặc a-Đ b-S hoặc số đáp án ngắn)."""
+    q_type = q.get('type', 'mcq')
+    raw_ca = q.get('correct_answer')
+    if raw_ca is None or raw_ca == '':
+        return "-"
+
+    if q_type == 'true_false' or isinstance(raw_ca, dict):
+        if isinstance(raw_ca, dict):
+            parts = [f"{k}-{'Đ' if raw_ca.get(k) else 'S'}" for k in ['a', 'b', 'c', 'd'] if k in raw_ca]
+            return ", ".join(parts) if parts else str(raw_ca)
+        return str(raw_ca)
+
+    elif q_type == 'short_answer':
+        return str(raw_ca or '')
+
+    else:
+        correct_str = str(raw_ca or '').strip()
+        for c in ["A", "B", "C", "D"]:
+            if correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c:
+                return c
+        if correct_str:
+            return correct_str[:2]
+        return "-"
+
+
+def render_quiz_document_content(
+    doc: Document,
     title: str,
-    questions: Optional[list] = None,
+    questions: list,
     time_limit: int = 0,
     target_audience: str = "teacher",
     layout_mode: str = "compact",
     options_layout: str = "auto",
-    show_answers: Optional[bool] = None,
-    show_key_table: Optional[bool] = None,
-    show_explains: Optional[bool] = None,
-    include_student_answer_grid: bool = False
-) -> io.BytesIO:
-    if isinstance(title, dict):
-        quiz_data = title
-        title = quiz_data.get('title', 'Đề thi trắc nghiệm')
-        questions = quiz_data.get('data') or quiz_data.get('questions') or []
-        time_limit = quiz_data.get('time_limit', 0)
-    elif questions is None:
-        questions = []
-
-    doc = Document()
+    show_answers: bool = True,
+    show_key_table: bool = True,
+    show_explains: bool = True,
+    include_student_answer_grid: bool = False,
+    exam_code: Optional[str] = None,
+    school_name: Optional[str] = None,
+    show_candidate_info: bool = True
+):
+    """Điền nội dung một đề thi hoàn chỉnh vào đối tượng Document (đáp ứng cả đề đơn và đề con trong tập gộp)."""
     is_compact = (layout_mode == "compact")
-
-    # 1. Cấu hình lề trang (Margins)
-    for section in doc.sections:
-        if is_compact:
-            # Lề tiết kiệm giấy (Narrow Margins ~ 1.27cm - 1.4cm)
-            section.top_margin = Inches(0.5)
-            section.bottom_margin = Inches(0.5)
-            section.left_margin = Inches(0.55)
-            section.right_margin = Inches(0.55)
-        else:
-            # Lề tiêu chuẩn (Standard Margins ~ 1.9cm - 2.0cm)
-            section.top_margin = Inches(0.75)
-            section.bottom_margin = Inches(0.75)
-            section.left_margin = Inches(0.75)
-            section.right_margin = Inches(0.75)
-
-    # 2. Xử lý các cờ hiển thị đáp án
-    if show_answers is None:
-        show_answers = (target_audience != "student")
-    if show_key_table is None:
-        show_key_table = (target_audience != "student")
-    if show_explains is None:
-        show_explains = (target_audience != "student")
-
-    # Kích thước chữ & khoảng cách
     font_size_pt = 10.5 if is_compact else 11.0
     q_space_before = Pt(3 if is_compact else 6)
     q_space_after = Pt(1.5 if is_compact else 3)
@@ -696,23 +693,48 @@ def export_quiz_to_docx(
     opt_line_spacing = 1.05 if is_compact else 1.15
     available_width_inches = 7.17 if is_compact else 6.77
 
-    # 3. Tiêu đề đề thi
+    # 1. Tên trường / Đơn vị tổ chức nếu có
+    if school_name:
+        p_school = doc.add_paragraph()
+        p_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_school.paragraph_format.space_before = Pt(0)
+        p_school.paragraph_format.space_after = Pt(1)
+        run_s = p_school.add_run(school_name.upper())
+        run_s.bold = True
+        run_s.font.name = 'Times New Roman'
+        run_s.font.size = Pt(10 if is_compact else 10.5)
+        run_s.font.color.rgb = RGBColor(71, 85, 105)
+
+    # 2. Tiêu đề đề thi
     p_header = doc.add_paragraph()
     p_header.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p_header.paragraph_format.space_before = Pt(0)
-    p_header.paragraph_format.space_after = Pt(3 if is_compact else 4)
+    p_header.paragraph_format.space_after = Pt(2 if is_compact else 3)
     run_header = p_header.add_run(f"ĐỀ KIỂM TRA TRẮC NGHIỆM: {title.upper()}")
     run_header.bold = True
     run_header.font.name = 'Times New Roman'
     run_header.font.size = Pt(13 if is_compact else 14)
     run_header.font.color.rgb = RGBColor(26, 86, 219)
 
+    # Nhãn Mã đề thi nổi bật (nếu có mã đề)
+    if exam_code:
+        p_code = doc.add_paragraph()
+        p_code.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_code.paragraph_format.space_before = Pt(0)
+        p_code.paragraph_format.space_after = Pt(2)
+        run_code = p_code.add_run(f"MÃ ĐỀ THI: {exam_code}")
+        run_code.bold = True
+        run_code.font.name = 'Times New Roman'
+        run_code.font.size = Pt(11.5 if is_compact else 12.0)
+        run_code.font.color.rgb = RGBColor(15, 23, 42)
+
     if target_audience == "teacher":
         p_badge = doc.add_paragraph()
         p_badge.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_badge.paragraph_format.space_before = Pt(0)
         p_badge.paragraph_format.space_after = Pt(3)
-        run_badge = p_badge.add_run("[ BẢN GIÁO VIÊN - ĐÁP ÁN & HƯỚNG DẪN GIẢI ]")
+        code_suffix = f" - MÃ {exam_code}" if exam_code else ""
+        run_badge = p_badge.add_run(f"[ BẢN GIÁO VIÊN - ĐÁP ÁN & HƯỚNG DẪN GIẢI{code_suffix} ]")
         run_badge.bold = True
         run_badge.font.name = 'Times New Roman'
         run_badge.font.size = Pt(10.5)
@@ -729,10 +751,11 @@ def export_quiz_to_docx(
     run_time.font.size = Pt(font_size_pt)
     run_time.italic = True
 
-    run_stu = p_info.add_run("Họ và tên thí sinh: .............................................................. SBD: ................. Lớp: .........................")
-    run_stu.font.name = 'Times New Roman'
-    run_stu.font.size = Pt(font_size_pt)
-    run_stu.bold = True
+    if show_candidate_info:
+        run_stu = p_info.add_run("Họ và tên thí sinh: .............................................................. SBD: ................. Lớp: .........................")
+        run_stu.font.name = 'Times New Roman'
+        run_stu.font.size = Pt(font_size_pt)
+        run_stu.bold = True
 
     # Phiếu điền đáp án trắc nghiệm cho học sinh (nếu được bật)
     if target_audience == "student" and include_student_answer_grid and questions:
@@ -957,7 +980,8 @@ def export_quiz_to_docx(
         p_key_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_key_title.paragraph_format.space_before = Pt(4)
         p_key_title.paragraph_format.space_after = Pt(6)
-        run_key = p_key_title.add_run("--- BẢNG ĐÁP ÁN ---")
+        key_suffix = f" (MÃ {exam_code})" if exam_code else ""
+        run_key = p_key_title.add_run(f"--- BẢNG ĐÁP ÁN{key_suffix} ---")
         run_key.bold = True
         run_key.font.name = 'Times New Roman'
         run_key.font.size = Pt(12.5)
@@ -984,26 +1008,7 @@ def export_quiz_to_docx(
             shading_q = parse_xml(r'<w:shd {} w:fill="F1F5F9"/>'.format(nsdecls('w')))
             cell_q._tc.get_or_add_tcPr().append(shading_q)
 
-            q_type = q.get('type', 'mcq')
-            raw_ca = q.get('correct_answer')
-            correct_display = ""
-
-            if q_type == 'true_false' or isinstance(raw_ca, dict):
-                if isinstance(raw_ca, dict):
-                    parts = [f"{k}-{'Đ' if raw_ca.get(k) else 'S'}" for k in ['a', 'b', 'c', 'd'] if k in raw_ca]
-                    correct_display = ", ".join(parts) if parts else str(raw_ca)
-                else:
-                    correct_display = str(raw_ca)
-            elif q_type == 'short_answer':
-                correct_display = str(raw_ca or '')
-            else:
-                correct_str = str(raw_ca or '').strip()
-                for c in ["A", "B", "C", "D"]:
-                    if correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c:
-                        correct_display = c
-                        break
-                if not correct_display and correct_str:
-                    correct_display = correct_str[:2]
+            correct_display = extract_answer_display(q)
 
             cell_ans = table.cell(row_idx + 1, col_idx)
             cell_ans.text = correct_display or "-"
@@ -1021,7 +1026,8 @@ def export_quiz_to_docx(
         p_exp_div = doc.add_paragraph()
         p_exp_div.paragraph_format.space_before = Pt(10)
         p_exp_div.paragraph_format.space_after = Pt(4)
-        run_exp_title = p_exp_div.add_run("HƯỚNG DẪN GIẢI CHI TIẾT:")
+        exp_suffix = f" (MÃ {exam_code})" if exam_code else ""
+        run_exp_title = p_exp_div.add_run(f"HƯỚNG DẪN GIẢI CHI TIẾT{exp_suffix}:")
         run_exp_title.bold = True
         run_exp_title.font.name = 'Times New Roman'
         run_exp_title.font.size = Pt(11.5)
@@ -1042,6 +1048,236 @@ def export_quiz_to_docx(
                 run_exp_q.font.color.rgb = RGBColor(79, 70, 229)
 
                 add_block_content(doc, exp, font_name='Times New Roman', font_size_pt=font_size_pt, first_p=p_exp, line_spacing=opt_line_spacing)
+
+
+def export_quiz_to_docx(
+    title: str,
+    questions: Optional[list] = None,
+    time_limit: int = 0,
+    target_audience: str = "teacher",
+    layout_mode: str = "compact",
+    options_layout: str = "auto",
+    show_answers: Optional[bool] = None,
+    show_key_table: Optional[bool] = None,
+    show_explains: Optional[bool] = None,
+    include_student_answer_grid: bool = False,
+    exam_code: Optional[str] = None,
+    school_name: Optional[str] = None,
+    show_candidate_info: bool = True
+) -> io.BytesIO:
+    """Xuất đề thi đơn lẻ ra định dạng Word (.docx). Hoàn toàn tương thích ngược với mọi code cũ."""
+    if isinstance(title, dict):
+        quiz_data = title
+        title = quiz_data.get('title', 'Đề thi trắc nghiệm')
+        questions = quiz_data.get('data') or quiz_data.get('questions') or []
+        time_limit = quiz_data.get('time_limit', 0)
+    elif questions is None:
+        questions = []
+
+    doc = Document()
+    is_compact = (layout_mode == "compact")
+
+    # Cấu hình lề trang (Margins)
+    for section in doc.sections:
+        if is_compact:
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.55)
+            section.right_margin = Inches(0.55)
+        else:
+            section.top_margin = Inches(0.75)
+            section.bottom_margin = Inches(0.75)
+            section.left_margin = Inches(0.75)
+            section.right_margin = Inches(0.75)
+
+    if show_answers is None:
+        show_answers = (target_audience != "student")
+    if show_key_table is None:
+        show_key_table = (target_audience != "student")
+    if show_explains is None:
+        show_explains = (target_audience != "student")
+
+    render_quiz_document_content(
+        doc=doc,
+        title=title,
+        questions=questions,
+        time_limit=time_limit,
+        target_audience=target_audience,
+        layout_mode=layout_mode,
+        options_layout=options_layout,
+        show_answers=show_answers,
+        show_key_table=show_key_table,
+        show_explains=show_explains,
+        include_student_answer_grid=include_student_answer_grid,
+        exam_code=exam_code,
+        school_name=school_name,
+        show_candidate_info=show_candidate_info
+    )
+
+    stream = io.BytesIO()
+    doc.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def export_multi_quizzes_to_docx(
+    sub_quizzes: list,
+    master_title: str = "Đề thi trắc nghiệm",
+    school_name: str = "SỞ GIÁO DỤC VÀ ĐÀO TẠO",
+    time_limit: int = 0,
+    target_audience: str = "teacher",
+    layout_mode: str = "compact",
+    options_layout: str = "auto",
+    show_answers: Optional[bool] = None,
+    show_key_table: Optional[bool] = None,
+    show_explains: Optional[bool] = None,
+    include_student_answer_grid: bool = False,
+    include_answer_matrix: bool = True,
+    show_candidate_info: bool = True
+) -> io.BytesIO:
+    """Xuất trọn bộ nhiều đề con (các mã đề thi khác nhau) gộp chung vào 1 file Word duy nhất, ngăn cách bởi Page Break và kèm Ma trận đáp án ở cuối."""
+    doc = Document()
+    is_compact = (layout_mode == "compact")
+
+    for section in doc.sections:
+        if is_compact:
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.55)
+            section.right_margin = Inches(0.55)
+        else:
+            section.top_margin = Inches(0.75)
+            section.bottom_margin = Inches(0.75)
+            section.left_margin = Inches(0.75)
+            section.right_margin = Inches(0.75)
+
+    if show_answers is None:
+        show_answers = (target_audience != "student")
+    if show_key_table is None:
+        show_key_table = (target_audience != "student")
+    if show_explains is None:
+        show_explains = (target_audience != "student")
+
+    # 1. Kết xuất từng đề con
+    for idx, sq in enumerate(sub_quizzes):
+        if idx > 0:
+            doc.add_page_break()
+        code = str(sq.get('exam_code') or f"10{idx+1}")
+        sub_title = sq.get('title') or master_title
+        sub_q = sq.get('questions') or []
+        render_quiz_document_content(
+            doc=doc,
+            title=sub_title,
+            questions=sub_q,
+            time_limit=time_limit,
+            target_audience=target_audience,
+            layout_mode=layout_mode,
+            options_layout=options_layout,
+            show_answers=show_answers,
+            show_key_table=show_key_table,
+            show_explains=show_explains,
+            include_student_answer_grid=include_student_answer_grid,
+            exam_code=code,
+            school_name=school_name,
+            show_candidate_info=show_candidate_info
+        )
+
+    # 2. Bảng Ma trận đáp án các mã đề (Master Answer Key Matrix)
+    if include_answer_matrix and sub_quizzes:
+        doc.add_page_break()
+
+        p_m_title = doc.add_paragraph()
+        p_m_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_m_title.paragraph_format.space_before = Pt(6)
+        p_m_title.paragraph_format.space_after = Pt(2)
+        run_mt = p_m_title.add_run("BẢNG MA TRẬN ĐÁP ÁN CÁC MÃ ĐỀ")
+        run_mt.bold = True
+        run_mt.font.name = 'Times New Roman'
+        run_mt.font.size = Pt(14)
+        run_mt.font.color.rgb = RGBColor(22, 101, 52)
+
+        codes_str = ", ".join(str(sq.get('exam_code') or f"10{i+1}") for i, sq in enumerate(sub_quizzes))
+        p_m_sub = doc.add_paragraph()
+        p_m_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_m_sub.paragraph_format.space_before = Pt(0)
+        p_m_sub.paragraph_format.space_after = Pt(8)
+        run_ms = p_m_sub.add_run(f"Đề bài: {master_title.upper()} | Mã đề: {codes_str}")
+        run_ms.italic = True
+        run_ms.font.name = 'Times New Roman'
+        run_ms.font.size = Pt(10.5)
+
+        max_q = max((len(sq.get('questions') or []) for sq in sub_quizzes), default=0)
+        num_cols = 1 + len(sub_quizzes)
+        num_rows = 1 + max_q
+
+        tbl = doc.add_table(rows=num_rows, cols=num_cols)
+        tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+        tbl.style = 'Table Grid'
+
+        for row in tbl.rows:
+            trPr = row._tr.get_or_add_trPr()
+            trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+
+        # Dòng tiêu đề cột (Header Row)
+        hdr_c0 = tbl.cell(0, 0)
+        hdr_c0.text = "Câu hỏi"
+        p_h0 = hdr_c0.paragraphs[0]
+        p_h0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if p_h0.runs:
+            p_h0.runs[0].bold = True
+            p_h0.runs[0].font.name = 'Times New Roman'
+            p_h0.runs[0].font.size = Pt(10.5)
+        shd0 = parse_xml(f'<w:shd {nsdecls("w")} w:fill="E2E8F0"/>')
+        hdr_c0._tc.get_or_add_tcPr().append(shd0)
+
+        for j, sq in enumerate(sub_quizzes):
+            code_j = str(sq.get('exam_code') or f"10{j+1}")
+            hdr_cj = tbl.cell(0, j + 1)
+            hdr_cj.text = f"Mã {code_j}"
+            p_hj = hdr_cj.paragraphs[0]
+            p_hj.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            if p_hj.runs:
+                p_hj.runs[0].bold = True
+                p_hj.runs[0].font.name = 'Times New Roman'
+                p_hj.runs[0].font.size = Pt(10.5)
+                p_hj.runs[0].font.color.rgb = RGBColor(30, 58, 138)
+            shdj = parse_xml(f'<w:shd {nsdecls("w")} w:fill="E2E8F0"/>')
+            hdr_cj._tc.get_or_add_tcPr().append(shdj)
+
+        # Dòng dữ liệu cho từng câu hỏi 1..max_q
+        for i in range(max_q):
+            row_idx = i + 1
+            # Cột 0: Tên câu
+            c_qnum = tbl.cell(row_idx, 0)
+            c_qnum.text = f"Câu {i + 1}"
+            p_qn = c_qnum.paragraphs[0]
+            p_qn.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_qn.paragraph_format.space_before = Pt(1)
+            p_qn.paragraph_format.space_after = Pt(1)
+            if p_qn.runs:
+                p_qn.runs[0].bold = True
+                p_qn.runs[0].font.name = 'Times New Roman'
+                p_qn.runs[0].font.size = Pt(9.5)
+            shd_q = parse_xml(f'<w:shd {nsdecls("w")} w:fill="F8FAFC"/>')
+            c_qnum._tc.get_or_add_tcPr().append(shd_q)
+
+            # Cột j + 1: Đáp án tương ứng của mã đề j
+            for j, sq in enumerate(sub_quizzes):
+                q_list = sq.get('questions') or []
+                c_ans = tbl.cell(row_idx, j + 1)
+                ans_str = "-"
+                if i < len(q_list):
+                    ans_str = extract_answer_display(q_list[i])
+                c_ans.text = ans_str
+                p_an = c_ans.paragraphs[0]
+                p_an.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_an.paragraph_format.space_before = Pt(1)
+                p_an.paragraph_format.space_after = Pt(1)
+                if p_an.runs:
+                    p_an.runs[0].bold = True
+                    p_an.runs[0].font.name = 'Times New Roman'
+                    p_an.runs[0].font.size = Pt(10.5)
+                    p_an.runs[0].font.color.rgb = RGBColor(185, 28, 28)
 
     stream = io.BytesIO()
     doc.save(stream)

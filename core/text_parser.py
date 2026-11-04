@@ -115,13 +115,13 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     mcq_opt_pattern = re.compile(
         r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))'
         r'((?:(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>|</b>|</B>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d])(\*?[A-D])(?:[\.\:\/\)\]\-]|\b))\s*'
+        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[A-D])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
     )
 
     sub_opt_pattern = re.compile(
         r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))'
         r'((?:(?:<MARK>|<mark>|<u>|<U>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>\s*)*\(?\[?(\*?[a-d])(?:[\.\:\/\)\]\-]|\b))\s*'
+        r'(?:<MARK>|<mark>|<u>|<U>\s*)*\(?\[?(?<![°oO\d\w])(\*?[a-d])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
     )
 
     results = []
@@ -273,23 +273,30 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 # Nếu chỉ tìm thấy B, C, D (khuyết A): tự động phục hồi A
                 if len(filtered_matches) == 3 and filtered_matches[0].group(2).upper() == 'B':
                     b_start = filtered_matches[0].start()
-                    first_nl = block.find('\n')
-                    if first_nl != -1 and first_nl < b_start:
-                        stem_part = block[:first_nl].strip()
-                        opt_a_text = block[first_nl:b_start].strip()
-                        block = stem_part + f"\nA. {opt_a_text}\n" + block[b_start:]
-                        mcq_matches_new = list(mcq_opt_pattern.finditer(block))
-                        first_a_idx = next((idx_m for idx_m, m_m in enumerate(mcq_matches_new) if 'A' in m_m.group(2).upper()), None)
-                        cand_matches = mcq_matches_new[first_a_idx:] if first_a_idx is not None else mcq_matches_new
-                        seen_chars = set()
-                        filtered_matches = []
-                        for m_opt in cand_matches:
-                            c_char = m_opt.group(2).upper().replace('*', '').strip()
-                            if c_char in ['A', 'B', 'C', 'D'] and c_char not in seen_chars:
-                                seen_chars.add(c_char)
-                                filtered_matches.append(m_opt)
-                                if len(seen_chars) == 4:
-                                    break
+                    pre_b = block[:b_start]
+                    m_a = re.search(r'(?:^|\s|\b)((?:<[^>]+>\s*)*\*?A(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>))\s*)', pre_b)
+                    if m_a:
+                        stem_part = pre_b[:m_a.start()].strip()
+                        opt_a_text = pre_b[m_a.start():].strip()
+                        block = stem_part + f"\n{opt_a_text}\n" + block[b_start:]
+                    else:
+                        first_nl = block.find('\n')
+                        if first_nl != -1 and first_nl < b_start:
+                            stem_part = block[:first_nl].strip()
+                            opt_a_text = block[first_nl:b_start].strip()
+                            block = stem_part + f"\nA. {opt_a_text}\n" + block[b_start:]
+                    mcq_matches_new = list(mcq_opt_pattern.finditer(block))
+                    first_a_idx = next((idx_m for idx_m, m_m in enumerate(mcq_matches_new) if 'A' in m_m.group(2).upper()), None)
+                    cand_matches = mcq_matches_new[first_a_idx:] if first_a_idx is not None else mcq_matches_new
+                    seen_chars = set()
+                    filtered_matches = []
+                    for m_opt in cand_matches:
+                        c_char = m_opt.group(2).upper().replace('*', '').strip()
+                        if c_char in ['A', 'B', 'C', 'D'] and c_char not in seen_chars:
+                            seen_chars.add(c_char)
+                            filtered_matches.append(m_opt)
+                            if len(seen_chars) == 4:
+                                break
 
                 mcq_matches = filtered_matches if filtered_matches else mcq_matches
                 q_text = block[:mcq_matches[0].start()].strip() if mcq_matches else block
@@ -304,10 +311,6 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     opt_start = opt_m.end()
                     opt_end = mcq_matches[j+1].start() if j+1 < len(mcq_matches) else len(block)
                     opt_content_raw = block[opt_start:opt_end].strip()
-                    if j < len(mcq_matches[:4]) - 1:
-                        last_nl = opt_content_raw.rfind('\n')
-                        if last_nl != -1:
-                            opt_content_raw = opt_content_raw[:last_nl].strip()
 
                     prefix_raw = opt_m.group(1)
                     full_opt_text = prefix_raw + " " + opt_content_raw

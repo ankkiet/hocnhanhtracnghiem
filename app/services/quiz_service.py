@@ -178,10 +178,13 @@ class QuizService:
             # Tạo mã ngẫu nhiên dạng AAA-111
             target_id = self._generate_unique_quiz_id(db)
 
+        from services.ai_service import normalize_question_data
+        clean_quiz_data = [normalize_question_data(q) for q in data] if isinstance(data, list) else data
+
         doc_ref = db.collection('quizzes').document(target_id)
         data_to_save = {
             'title': title,
-            'data': data,
+            'data': clean_quiz_data,
             'mode': mode,
             'time_limit': time_limit,
             'is_shuffle': is_shuffle,

@@ -248,5 +248,55 @@ class TestDocxMath(unittest.TestCase):
         self.assertNotIn("|-----|", full_text)
 
 
+
+    def test_export_multi_quizzes_to_docx(self):
+        """Kiểm tra xuất gộp nhiều mã đề thi con kèm bảng ma trận đáp án."""
+        from core.docx_exporter import export_multi_quizzes_to_docx
+
+        sub_quizzes = [
+            {
+                'exam_code': '101',
+                'title': 'ĐỀ THI VẬT LÝ 12',
+                'questions': [
+                    {'question': 'Câu hỏi 1 của mã 101', 'options': ['A. Đúng', 'B. Sai'], 'correct_answer': 'A'},
+                    {'question': 'Câu hỏi 2 của mã 101', 'options': ['A. X', 'B. Y'], 'correct_answer': 'B'},
+                ]
+            },
+            {
+                'exam_code': '102',
+                'title': 'ĐỀ THI VẬT LÝ 12',
+                'questions': [
+                    {'question': 'Câu hỏi 1 của mã 102', 'options': ['A. Sai', 'B. Đúng'], 'correct_answer': 'B'},
+                    {'question': 'Câu hỏi 2 của mã 102', 'options': ['A. Y', 'B. X'], 'correct_answer': 'A'},
+                ]
+            }
+        ]
+
+        stream = export_multi_quizzes_to_docx(
+            sub_quizzes=sub_quizzes,
+            master_title='ĐỀ THI VẬT LÝ 12',
+            school_name='SỞ GIÁO DỤC VÀ ĐÀO TẠO HÀ NỘI',
+            target_audience='teacher',
+            include_answer_matrix=True
+        )
+        self.assertIsNotNone(stream)
+        doc = Document(stream)
+
+        all_text = ' '.join(p.text for p in doc.paragraphs)
+        self.assertIn('MÃ ĐỀ THI: 101', all_text)
+        self.assertIn('MÃ ĐỀ THI: 102', all_text)
+        self.assertIn('BẢNG MA TRẬN ĐÁP ÁN CÁC MÃ ĐỀ', all_text)
+        self.assertIn('SỞ GIÁO DỤC VÀ ĐÀO TẠO HÀ NỘI', all_text)
+
+        # Kiểm tra bảng ma trận đáp án tồn tại
+        matrix_found = False
+        for t in doc.tables:
+            hdr_texts = [c.text for c in t.rows[0].cells]
+            if 'Câu hỏi' in hdr_texts and 'Mã 101' in hdr_texts and 'Mã 102' in hdr_texts:
+                matrix_found = True
+                break
+        self.assertTrue(matrix_found, 'Bảng ma trận đáp án phải có cột Câu hỏi, Mã 101, Mã 102')
+
+
 if __name__ == '__main__':
     unittest.main()

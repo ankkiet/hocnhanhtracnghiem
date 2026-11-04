@@ -499,6 +499,51 @@ function formatRichContent(content) {
         return `\uFFF0IMG${imgBlocks.length - 1}\uFFF1`;
     });
 
+    // 4.5. Chuẩn hóa chỉ số dưới / chỉ số trên Unicode, công thức hóa học và biến số toán học
+    const UNICODE_SUB_MAP_LOCAL = {
+        '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+        '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+        '₊': '+', '₋': '-', 'ₐ': 'a', 'ₑ': 'e', 'ₒ': 'o',
+        'ₓ': 'x', 'ₕ': 'h', 'ₖ': 'k', 'ₗ': 'l', 'ₘ': 'm',
+        'ₙ': 'n', 'ₚ': 'p', 'ₛ': 's', 'ₜ': 't'
+    };
+    const UNICODE_SUP_MAP_LOCAL = {
+        '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+        '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+        '⁺': '+', '⁻': '-'
+    };
+    const CHEM_ELEM_LOCAL = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
+
+    str = str.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP_LOCAL[c] || c).join('') + '</sub>');
+    str = str.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP_LOCAL[c] || c).join('') + '</sup>');
+
+    str = str.replace(new RegExp('\\(((?:' + CHEM_ELEM_LOCAL + '|\\d+|\\s)+)\\)', 'g'), (m, inner) => {
+        return '(' + inner.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
+    });
+    str = str.replace(/\)\s+(\d+)/g, ')$1');
+    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(\\d+)', 'g'), '$1$2');
+    str = str.replace(new RegExp('(\\)\\d*)\\s+(' + CHEM_ELEM_LOCAL + ')', 'g'), '$1$2');
+    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + '\\d+)\\s+(' + CHEM_ELEM_LOCAL + '\\d*)', 'g'), '$1$2');
+    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(' + CHEM_ELEM_LOCAL + '\\d+)', 'g'), '$1$2');
+
+    str = str.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
+    str = str.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
+    str = str.replace(/([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u024F])[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1<sub>$2</sub>');
+    str = str.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
+    str = str.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
+
+    const chemFormulaRegexLocal = new RegExp('(?<![A-Za-z0-9_])(?:\\((?:' + CHEM_ELEM_LOCAL + '|\\d+)+\\)\\d*|(?:' + CHEM_ELEM_LOCAL + ')\\d*)*(?:(?:' + CHEM_ELEM_LOCAL + ')\\d+|\\)\\d+)(?:(?:' + CHEM_ELEM_LOCAL + ')\\d*|\\\\)*', 'g');
+    const chemReplaceRegexLocal = new RegExp('(?:(' + CHEM_ELEM_LOCAL + ')|(\\)))\\s*(\\d+)', 'g');
+    str = str.replace(chemFormulaRegexLocal, tok => {
+        if (tok.includes('<sub>') || tok.includes('<sup>')) return tok;
+        return tok.replace(chemReplaceRegexLocal, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
+    });
+
+    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])([xyz])\s*([1-9])(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])([uS])\s*([1-9]|n)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])(v)\s*(0)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    str = str.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
+
     // 5. Bảo vệ các thẻ HTML định dạng hợp lệ: <b>, <i>, <u>, <s>, <sub>, <sup>, <span>, <mark>, <font>, <p>, <div>, <br>, <table>
     const tagBlocks = [];
     str = str.replace(/<\/?(?:b|strong|i|em|u|s|strike|sub|sup|span|mark|font|p|div|br|table|thead|tbody|tfoot|tr|th|td)\b[^>]*>/gi, (m) => {
@@ -526,6 +571,13 @@ function formatRichContent(content) {
     mathBlocks.forEach((math, idx) => {
         str = str.split(`\uFFF0MATH${idx}\uFFF1`).join(math);
     });
+
+    // 9.5. Dọn dẹp khoảng trắng thừa giữa chữ cái và thẻ sub/sup
+    str = str.replace(/<sub>\s*([^<]+?)\s*<\/sub>/gi, '<sub>$1</sub>');
+    str = str.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
+    str = str.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
+    str = str.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
+    str = str.replace(/<\/sub>\s+([A-Z\(])/g, '</sub>$1');
 
     // 10. Lọc bỏ các thẻ nguy hiểm (XSS security)
     str = str.replace(/<\s*(?:script|style|iframe|object|embed|applet)[\s\S]*?<\/\s*(?:script|style|iframe|object|embed|applet)\s*>/gi, '')
@@ -4985,12 +5037,21 @@ async function uploadFile() {
             sessionStorage.setItem('editor_quiz_title', detectedTitle);
             sessionStorage.setItem('editor_pending_task_id', result.task_id);
             sessionStorage.setItem('editor_pending_mode', useAI ? 'ai' : 'python');
+            sessionStorage.setItem('editor_use_ai', useAI ? 'true' : 'false');
 
             window.location.href = `editor.html?task_id=${encodeURIComponent(result.task_id)}&title=${encodeURIComponent(detectedTitle)}&use_ai=${useAI}`;
         } else if (result.status === "success") {
             const normalizedData = normalizeImageUrls(result.data || []);
+            if (!useAI && Array.isArray(normalizedData)) {
+                normalizedData.forEach(q => {
+                    q.is_ai_suggested = false;
+                    delete q.ai_suggestion_note;
+                });
+            }
             sessionStorage.removeItem('editor_quiz_id');
             sessionStorage.removeItem('editor_pending_task_id');
+            sessionStorage.setItem('editor_use_ai', useAI ? 'true' : 'false');
+            sessionStorage.setItem('editor_pending_mode', useAI ? 'ai' : 'python');
             sessionStorage.setItem('editor_quiz_data', JSON.stringify(normalizedData));
             sessionStorage.setItem('editor_quiz_title', detectedTitle);
             sessionStorage.setItem('editor_quiz_settings', JSON.stringify({
@@ -7048,7 +7109,8 @@ function renderPreviewAll() {
         }
 
         let aiSuggestedBadge = '';
-        if (q.is_ai_suggested) {
+        const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false';
+        if (q.is_ai_suggested && !isAIExplicitlyDisabled) {
             aiSuggestedBadge = `
                 <span class="badge-ai-suggested" style="background: #fffbeb; color: #b45309; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;" title="${escapeHtml(q.ai_suggestion_note || 'AI đề xuất, cần giáo viên xác nhận')}">
                     <i class="ri-sparkling-fill" style="color: #d97706;"></i> AI đề xuất, cần giáo viên xác nhận
@@ -7057,7 +7119,7 @@ function renderPreviewAll() {
             `;
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">Câu ${qIndex + 1}: ${formatRichContent(qClean)} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6;">Câu ${qIndex + 1}: ${formatRichContent(qClean)} ${typeBadge} ${aiSuggestedBadge}</div>`;
 
         if (qType === 'true_false') {
             let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
