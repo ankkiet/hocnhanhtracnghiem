@@ -5,7 +5,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional
 
-from services.gemini_tracker_service import gemini_tracker
+from services.gemini_tracker_service import gemini_tracker, mask_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,161 @@ def get_gemini_client(api_key: str):
         from google import genai
         _client_pool[key_clean] = genai.Client(api_key=key_clean)
     return _client_pool[key_clean]
+
+
+class GeminiAPIException(Exception):
+    """Ngoại lệ chuyên biệt cho lỗi Gemini AI, chứa thông tin chẩn đoán chi tiết."""
+    def __init__(self, diagnostic: Dict[str, Any]):
+        self.diagnostic = diagnostic
+        err_name = diagnostic.get("error_name") or "Lỗi gọi AI"
+        cause = diagnostic.get("cause") or ""
+        code = diagnostic.get("error_code") or "AI_ERROR"
+        super().__init__(f"{err_name}: {cause} ({code})")
+
+
+def sanitize_error_text(text: str) -> str:
+    """Làm sạch chuỗi lỗi, ẩn toàn bộ API Key nhạy cảm."""
+    if not text:
+        return ""
+    return re.sub(
+        r'AIzaSy[A-Za-z0-9_-]{33}',
+        lambda m: mask_api_key(m.group(0)),
+        str(text)
+    )
+
+
+def diagnose_gemini_error(
+    error: Optional[Exception],
+    keys_tried: Optional[List[str]] = None,
+    models_tried: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Phân loại chi tiết lỗi khi gọi Gemini AI:
+    Trả về cấu trúc chuẩn:
+    - error_code: Mã lỗi chuẩn hóa (QUOTA_EXCEEDED_429, INVALID_API_KEY, MODEL_NOT_FOUND_404, SERVICE_UNAVAILABLE_503, NO_API_KEYS, REQUEST_TIMEOUT, RESPONSE_PARSE_ERROR, GENERAL_ERROR)
+    - error_name: Tên lỗi tiếng Việt dễ hiểu ("Lỗi gì")
+    - cause: Nguyên nhân sâu xa gốc rễ của lỗi ("Do đâu")
+    - solution: Hướng dẫn chi tiết các bước xử lý / khắc phục cụ thể
+    - technical_detail: Chi tiết kỹ thuật an toàn (đã ẩn API keys)
+    - models_tried: Danh sách model đã thử gọi
+    - keys_count: Số lượng API Key đã thử
+    """
+    keys_tried = keys_tried or []
+    models_tried = models_tried or []
+
+    # Nếu lỗi đã có chẩn đoán sẵn (GeminiAPIException)
+    if isinstance(error, GeminiAPIException) and hasattr(error, "diagnostic"):
+        diag = dict(error.diagnostic)
+        if not diag.get("models_tried") and models_tried:
+            diag["models_tried"] = models_tried
+        return diag
+
+    raw_err = str(error) if error else ""
+    clean_err = sanitize_error_text(raw_err)
+    err_lower = raw_err.lower()
+
+    # 1. Chưa cấu hình API Key
+    if not keys_tried or "chưa được cấu hình api key" in err_lower or "chưa cấu hình api key" in err_lower or "no api key" in err_lower:
+        return {
+            "status": "error",
+            "error_code": "NO_API_KEYS",
+            "error_name": "Chưa cấu hình Google Gemini API Key",
+            "cause": "Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường (GEMINI_API_KEYS).",
+            "solution": "1. Đăng nhập tài khoản Quản trị (Admin) -> Cài đặt hệ thống.\n2. Lấy API Key miễn phí tại Google AI Studio (https://aistudio.google.com/).\n3. Dán khóa API vào mục Cấu hình Gemini API Keys và lưu lại.",
+            "technical_detail": clean_err or "api_keys list is empty",
+            "models_tried": models_tried,
+            "keys_count": 0
+        }
+
+    # 2. Quota / Rate limit (429 / resource exhausted)
+    if any(k in err_lower for k in ["429", "quota", "resource_exhausted", "rate limit", "exhausted"]):
+        return {
+            "status": "error",
+            "error_code": "QUOTA_EXCEEDED_429",
+            "error_name": "Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)",
+            "cause": "Tài khoản Google AI Studio đã chạm trần tốc độ gọi (thường là 15 yêu cầu/phút - 15 RPM ở gói Free Tier), hoặc đã hết hạn mức token được cấp miễn phí trong ngày.",
+            "solution": "1. Vui lòng đợi khoảng 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm 2-3 API Key từ các tài khoản Google khác nhau vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ tín dụng (Pay-as-you-go) trên Google Cloud Console để mở rộng hạn mức lên 1000 RPM.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 3. Invalid API Key / Auth (400 / 403 / api key not valid)
+    if any(k in err_lower for k in ["api key not valid", "invalid api key", "api_key_invalid", "permission_denied", "unregistered"]) or ("403" in err_lower and "key" in err_lower):
+        return {
+            "status": "error",
+            "error_code": "INVALID_API_KEY",
+            "error_name": "Khóa API Google Gemini không hợp lệ hoặc đã bị vô hiệu hóa",
+            "cause": "Khóa API được lưu trong hệ thống không chính xác, đã bị xóa/thu hồi trên Google Cloud Console, hoặc nhập sai định dạng.",
+            "solution": "1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Vào trang Admin Settings -> Ping kiểm tra khóa -> Cập nhật khóa mới và xóa các khóa đã hỏng.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 4. Model Not Found / Deprecated (404 / not found / unavailable)
+    if any(k in err_lower for k in ["404", "not found", "no longer available", "unsupported model"]):
+        return {
+            "status": "error",
+            "error_code": "MODEL_NOT_FOUND_404",
+            "error_name": "Mô hình AI không tồn tại hoặc đã ngừng cung cấp (Model 404)",
+            "cause": "Phiên bản mô hình AI yêu cầu không còn khả dụng trên tài khoản Google này (ví dụ Google đã ngừng gemini-2.5-flash cho tài khoản mới và yêu cầu nâng cấp lên gemini-3.8-flash).",
+            "solution": "1. Hệ thống đã tự động thử các model dự phòng (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Nếu tất cả đều không tìm thấy, vui lòng bấm thử lại hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 5. Service Unavailable / Overload (503 / 500 / high demand)
+    if any(k in err_lower for k in ["503", "unavailable", "high demand", "overloaded", "capacity"]):
+        return {
+            "status": "error",
+            "error_code": "SERVICE_UNAVAILABLE_503",
+            "error_name": "Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)",
+            "cause": "Cụm máy chủ của Google AI đang tiếp nhận lưu lượng truy cập toàn cầu đột biến hoặc đang bảo trì tạm thời.",
+            "solution": "1. Vui lòng chờ 15 - 30 giây rồi bấm thử lại.\n2. Khi máy chủ Google hạ tải, yêu cầu sẽ được xử lý lại bình thường.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 6. Timeout / Deadline Exceeded
+    if any(k in err_lower for k in ["timeout", "deadline", "timed out", "timedout"]):
+        return {
+            "status": "error",
+            "error_code": "REQUEST_TIMEOUT",
+            "error_name": "Hết thời gian chờ phản hồi từ AI (Request Timeout)",
+            "cause": "Tài liệu đề thi quá dài hoặc đường truyền mạng quốc tế giữa máy chủ và Google Gemini bị chậm trễ kéo dài.",
+            "solution": "1. Bấm thử lại sau vài giây.\n2. Nếu đề thi quá dài (hơn 50 câu), hãy chia thành các phần nhỏ hơn để AI xử lý nhanh hơn.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 7. JSON Parse Error
+    if any(k in err_lower for k in ["json", "parse", "decode", "syntaxerror"]) and "api" not in err_lower:
+        return {
+            "status": "error",
+            "error_code": "RESPONSE_PARSE_ERROR",
+            "error_name": "Không thể giải mã cấu trúc dữ liệu phản hồi từ AI (Parse Error)",
+            "cause": "AI đã phản hồi nhưng nội dung trả về chứa ký tự đặc biệt hoặc cấu trúc JSON bị đứt đoạn bất thường.",
+            "solution": "1. Bấm nút Thử lại để AI sinh lại cấu trúc dữ liệu chuẩn mực.\n2. Bộ lọc tự động sửa JSON (json_repair) đã xử lý, lỗi này xuất hiện khi phản hồi bị ngắt kết nối đột ngột.",
+            "technical_detail": clean_err,
+            "models_tried": models_tried,
+            "keys_count": len(keys_tried)
+        }
+
+    # 8. Mặc định: Lỗi tổng quát
+    return {
+        "status": "error",
+        "error_code": "AI_GENERAL_ERROR",
+        "error_name": "Lỗi giao tiếp với dịch vụ Google Gemini AI",
+        "cause": f"Phát sinh lỗi trong quá trình xử lý: {clean_err[:180]}..." if len(clean_err) > 180 else f"Phát sinh lỗi trong quá trình xử lý: {clean_err}",
+        "solution": "1. Vui lòng kiểm tra lại kết nối mạng và bấm thử lại.\n2. Nếu lỗi vẫn tiếp tục, vui lòng liên hệ Quản trị viên để kiểm tra trạng thái khóa API.",
+        "technical_detail": clean_err,
+        "models_tried": models_tried,
+        "keys_count": len(keys_tried)
+    }
 
 
 
@@ -596,14 +751,16 @@ def clean_option_text(opt: str) -> tuple:
         cleaned = cleaned[m_tag.end():].strip()
 
     # 4. Trích xuất ký tự phương án (A-F hoặc a-d hoặc số)
+    # Khớp mọi thẻ HTML bao quanh ký hiệu phương án (mở hoặc đóng: p, b, span, font...), TRỪ thẻ ảnh/bảng
+    WRAP_TAG = r'(?:<(?!\/?(?:img|table)\b)[^>]+>\s*)'
     char_match = re.match(
-        r'^\s*(?:<[^>]+>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])[\)\.\:\-\]\/](?:\s*</?[^>]+>\s*)*\s*(.*)',
+        rf'^\s*{WRAP_TAG}*(?:\*\s*)?[\(\[]?([A-Fa-f\d])[\)\.\:\-\]\/]{WRAP_TAG}*\s*(.*)',
         cleaned,
         flags=re.DOTALL | re.IGNORECASE
     )
     if not char_match:
         char_match = re.match(
-            r'^\s*(?:<[^>]+>\s*)*(?:\*\s*)?[\(\[]?([A-Fa-f\d])(?:\s*</?[^>]+>\s*)*[\)\.\:\-\]\/]\s*(.*)',
+            rf'^\s*{WRAP_TAG}*(?:\*\s*)?[\(\[]?([A-Fa-f\d]){WRAP_TAG}*[\)\.\:\-\]\/]\s*(.*)',
             cleaned,
             flags=re.DOTALL | re.IGNORECASE
         )
@@ -614,6 +771,17 @@ def clean_option_text(opt: str) -> tuple:
     else:
         extracted_char = ""
         cleaned_content = cleaned.strip()
+
+    # Safety fallback: nếu cleaned_content bị rỗng nhưng cleaned gốc có chứa thẻ hình ảnh <img> hoặc [IMG_
+    if not cleaned_content and ('<img' in cleaned.lower() or '[img_' in cleaned.lower()):
+        fallback_content = re.sub(
+            rf'^\s*{WRAP_TAG}*(?:\*\s*)?[\(\[]?[A-Fa-f\d][\)\.\:\-\]\/]{WRAP_TAG}*\s*',
+            '',
+            cleaned,
+            flags=re.IGNORECASE
+        )
+        if fallback_content:
+            cleaned_content = fallback_content.strip()
 
     # 5. Nếu sau ký hiệu phương án lại có tag HocNhanhTN (ví dụ a) [0, NB] Mệnh đề...)
     if not azota_tag:
@@ -1028,9 +1196,9 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
 
 
         for idx, opt in enumerate(options[:4]):
-
             clean_text, is_corr, is_fls, ext_char = clean_option_text(opt)
-
+            if not clean_text and ('<img' in str(opt).lower() or '[img_' in str(opt).lower()):
+                clean_text = re.sub(r'^\s*[\(\[]?[a-d][\)\.\:\-\]\/]\s*', '', str(opt), flags=re.IGNORECASE).strip()
             clean_text = clean_subscripts_and_formulas(clean_text)
 
             char_key = ['a', 'b', 'c', 'd'][idx]
@@ -1147,9 +1315,9 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
 
 
         for idx, opt in enumerate(options[:6]):
-
             clean_text, is_corr, _, ext_char = clean_option_text(opt)
-
+            if not clean_text and ('<img' in str(opt).lower() or '[img_' in str(opt).lower()):
+                clean_text = re.sub(r'^\s*[\(\[]?[A-Fa-f\d][\)\.\:\-\]\/]\s*', '', str(opt), flags=re.IGNORECASE).strip()
             clean_text = clean_subscripts_and_formulas(clean_text)
 
             pref = prefixes[idx] if idx < len(prefixes) else ""
@@ -1312,7 +1480,8 @@ async def call_gemini_with_fallback(
     - Tự động luân chuyển Key khi gặp 429 Quota Exceeded
     """
     if not api_keys:
-        raise Exception("Hệ thống chưa được cấu hình API Key.")
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        raise GeminiAPIException(diag)
 
     # Đo độ dài prompt để ước tính token
     prompt_chars = 0
@@ -1331,9 +1500,10 @@ async def call_gemini_with_fallback(
 
     # Danh sách model tối ưu cho thế hệ mới nhất
     models_to_try = [
-        'gemini-2.5-flash',
         'gemini-3.8-flash',
+        'gemini-2.5-flash',
         'gemini-2.5-flash-lite',
+        'gemini-1.5-flash',
         'gemini-flash-latest'
     ]
 
@@ -1374,10 +1544,13 @@ async def call_gemini_with_fallback(
                 config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
 
             try:
-                response = await client.aio.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(**config_params)
+                response = await asyncio.wait_for(
+                    client.aio.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(**config_params)
+                    ),
+                    timeout=12.0
                 )
 
                 resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
@@ -1398,10 +1571,13 @@ async def call_gemini_with_fallback(
                 if "thinking" in error_str or "invalid argument" in error_str:
                     try:
                         fallback_params = {k: v for k, v in config_params.items() if k != "thinking_config"}
-                        response = await client.aio.models.generate_content(
-                            model=model_name,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(**fallback_params)
+                        response = await asyncio.wait_for(
+                            client.aio.models.generate_content(
+                                model=model_name,
+                                contents=prompt,
+                                config=types.GenerateContentConfig(**fallback_params)
+                            ),
+                            timeout=12.0
                         )
 
                         resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
@@ -1432,17 +1608,19 @@ async def call_gemini_with_fallback(
 
                 if "api key not valid" in error_str or "invalid api key" in error_str:
                     break  # Key lỗi, chuyển key kế tiếp
-                elif "404" in error_str or "not found" in error_str or "unsupported" in error_str:
-                    continue  # Model không tồn tại, thử model tiếp theo
-                elif "429" in error_str or "quota" in error_str or "503" in error_str or "overloaded" in error_str:
-                    await asyncio.sleep(0.5)
-                    break  # Chạm giới hạn lượt gọi, chuyển sang API Key tiếp theo
+                elif "404" in error_str or "not found" in error_str or "unsupported" in error_str or "no longer available" in error_str:
+                    continue  # Model không hỗ trợ hoặc giới hạn với key này, thử model tiếp theo
+                elif "503" in error_str or "unavailable" in error_str or "high demand" in error_str or "overloaded" in error_str:
+                    continue  # Model này đang quá tải tạm thời, thử ngay model tiếp theo của cùng key
+                elif "429" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
+                    break  # Hết quota lượt gọi của key này, chuyển sang API Key tiếp theo
                 elif "deadline" in error_str or "timeout" in error_str:
                     continue
                 else:
                     continue
 
-    raise Exception(f"Tất cả các Key và Model đều thất bại. Lỗi cuối: {str(last_error)}")
+    diag = diagnose_gemini_error(last_error, keys_tried=api_keys, models_tried=models_to_try)
+    raise GeminiAPIException(diag)
 
 
 
@@ -1666,7 +1844,10 @@ async def generate_mcq_with_gemini(
 
     
 
+    last_chunk_error = None
+
     async def process_chunk(idx, chunk):
+        nonlocal last_chunk_error
 
         if not chunk.strip():
 
@@ -1865,30 +2046,52 @@ async def generate_mcq_with_gemini(
                 return None
 
             except Exception as e:
-
-                print(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
-
+                last_chunk_error = e
+                logger.warning(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
+                err_str = str(e).lower()
+                is_fatal = isinstance(e, GeminiAPIException) or any(k in err_str for k in ["429", "quota", "invalid", "not valid", "no api key", "chưa cấu hình", "tất cả các key"])
+                if is_fatal:
+                    abort_event.set()
                 return None
 
 
 
-    tasks = [process_chunk(idx, chunk) for idx, chunk in enumerate(chunks)]
+    # Cơ chế Fail-Fast & Báo cáo phần trăm tiến độ từng chunk
+    sem = asyncio.Semaphore(2)
+    abort_event = asyncio.Event()
+    completed_chunks = 0
+    total_valid_chunks = sum(1 for c in chunks if c.strip()) or 1
 
+    async def sem_process_chunk(idx, chunk):
+        if abort_event.is_set():
+            return None
+        async with sem:
+            if abort_event.is_set():
+                return None
+            res = await process_chunk(idx, chunk)
+            if res is not None and task_id and not abort_event.is_set():
+                nonlocal completed_chunks
+                completed_chunks += 1
+                try:
+                    from core.state import active_tasks
+                    if task_id in active_tasks:
+                        pct = min(85, round(35 + (completed_chunks / total_valid_chunks * 45)))
+                        active_tasks[task_id]["progress"] = pct
+                        active_tasks[task_id]["message"] = f"AI đã bóc tách xong phần {completed_chunks}/{total_valid_chunks} ({pct}%)..."
+                except Exception:
+                    pass
+            return res
+
+    tasks = [sem_process_chunk(idx, chunk) for idx, chunk in enumerate(chunks)]
     results = await asyncio.gather(*tasks)
 
-    
-
     for res in results:
-
         if res:
-
             all_extracted_data.extend(res)
 
-
-
     if not all_extracted_data and any(c.strip() for c in chunks):
-
-        raise Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu.")
+        diag = diagnose_gemini_error(last_chunk_error or Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu."), keys_tried=api_keys)
+        raise GeminiAPIException(diag)
 
 
 
@@ -2117,7 +2320,8 @@ async def process_pdf_with_ocr(
     công thức LaTeX và hình vẽ.
     """
     if not api_keys:
-        raise Exception("Hệ thống chưa được cấu hình API Key.")
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        raise GeminiAPIException(diag)
 
     if fitz is None:
         raise Exception("Thư viện PyMuPDF chưa được cài đặt để đọc PDF.")

@@ -1,3 +1,204 @@
+
+// =========================================================================
+// AI ERROR DIAGNOSTIC MODAL & LOG VIEWER (BÁO CÁO LỖI AI CHI TIẾT)
+// =========================================================================
+
+window.closeAIDiagnosticModal = function() {
+    const modal = document.getElementById('aiDiagnosticModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.copyAIDiagnosticData = function() {
+    if (!window._lastAIDiagnostic) return;
+    const diag = window._lastAIDiagnostic;
+    const reportText = [
+        "═══════════════════════════════════════════════",
+        "  HỆ THỐNG TRẮC NGHIỆM - BÁO CÁO CHI TIẾT SỰ CỐ AI",
+        "═══════════════════════════════════════════════",
+        `• Mã lỗi: ${diag.code}`,
+        `• Tên lỗi (Lỗi gì): ${diag.name}`,
+        `• Nguyên nhân (Do đâu): ${diag.cause}`,
+        `• Hướng dẫn khắc phục:
+${diag.solution}`,
+        diag.models ? `• Mô hình đã thử: ${diag.models}` : null,
+        diag.technical ? `• Chi tiết kỹ thuật:
+${diag.technical}` : null,
+        "═══════════════════════════════════════════════"
+    ].filter(Boolean).join("\n\n");
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(() => {
+            if (typeof showToast === 'function') showToast("Đã sao chép chi tiết sự cố AI vào clipboard!");
+            else alert("Đã sao chép chi tiết sự cố AI vào clipboard!");
+        }).catch(() => {
+            prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+        });
+    } else {
+        prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+    }
+};
+
+window.showAIDiagnosticModal = function(errData) {
+    if (!errData) errData = {};
+    const safeEsc = typeof escapeHtml === 'function' 
+        ? escapeHtml 
+        : (str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+
+    if (typeof errData === 'string') {
+        errData = { detail: errData };
+    }
+    if (typeof errData.detail === 'object' && errData.detail !== null) {
+        errData = Object.assign({}, errData, errData.detail);
+    }
+
+    let errorCode = errData.error_code || 'AI_ERROR';
+    let errorName = errData.error_name || errData.message || 'Lỗi xử lý AI';
+    let cause = errData.cause || '';
+    let solution = errData.solution || '';
+    let technical = errData.technical_detail || (typeof errData.detail === 'string' ? errData.detail : '');
+    let modelsTried = Array.isArray(errData.models_tried) ? errData.models_tried.join(', ') : (errData.models_tried || '');
+
+    if (!cause) {
+        const rawLower = String(technical || errorName).toLowerCase();
+        if (rawLower.includes('429') || rawLower.includes('quota') || rawLower.includes('exhausted')) {
+            errorCode = 'QUOTA_EXCEEDED_429';
+            errorName = 'Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)';
+            cause = 'Tài khoản Google AI Studio đã chạm trần tốc độ gọi (15 RPM ở gói Free) hoặc đã dùng hết hạn mức token được cấp miễn phí trong ngày.';
+            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm các Gemini API Key dự phòng vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán Pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
+        } else if (rawLower.includes('404') || rawLower.includes('not found') || rawLower.includes('no longer available')) {
+            errorCode = 'MODEL_NOT_FOUND_404';
+            errorName = 'Mô hình AI không tồn tại hoặc đã ngừng cung cấp (404)';
+            cause = 'Phiên bản mô hình AI (như gemini-2.5-flash cũ) đã bị Google ngừng hỗ trợ cho tài khoản mới.';
+            solution = '1. Hệ thống đã tự động thử các model mới nhất (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
+        } else if (rawLower.includes('503') || rawLower.includes('unavailable') || rawLower.includes('high demand') || rawLower.includes('overloaded')) {
+            errorCode = 'SERVICE_UNAVAILABLE_503';
+            errorName = 'Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)';
+            cause = 'Cụm máy chủ của Google AI đang tiếp nhận lưu lượng truy cập toàn cầu đột biến hoặc đang bảo trì tạm thời.';
+            solution = '1. Vui lòng chờ 15 - 30 giây rồi bấm thử lại.\n2. Khi máy chủ Google hạ tải, yêu cầu sẽ được xử lý lại bình thường.';
+        } else if (rawLower.includes('api key not valid') || rawLower.includes('invalid api key')) {
+            errorCode = 'INVALID_API_KEY';
+            errorName = 'Khóa API Google Gemini không hợp lệ';
+            cause = 'Khóa API được cấu hình trong hệ thống không chính xác, đã bị xóa hoặc bị thu hồi trên Google Cloud Console.';
+            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào Admin Settings.';
+        } else if (rawLower.includes('chưa cấu hình') || rawLower.includes('no_api_keys')) {
+            errorCode = 'NO_API_KEYS';
+            errorName = 'Chưa cấu hình Google Gemini API Key';
+            cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
+            solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
+        } else {
+            errorCode = 'AI_COMMUNICATION_ERROR';
+            errorName = 'Lỗi kết nối tới dịch vụ AI';
+            cause = technical ? `Phát sinh lỗi khi kết nối hoặc nhận phản hồi: ${technical.substring(0, 200)}` : 'Không thể kết nối hoặc nhận phản hồi từ dịch vụ AI.';
+            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ Quản trị viên nếu sự cố tiếp diễn.';
+        }
+    }
+
+    window._lastAIDiagnostic = {
+        code: errorCode,
+        name: errorName,
+        cause: cause,
+        solution: solution,
+        models: modelsTried,
+        technical: technical
+    };
+
+    let modal = document.getElementById('aiDiagnosticModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'aiDiagnosticModal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); z-index:1000000; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+        modal.onclick = function(e) {
+            if (e.target === modal) window.closeAIDiagnosticModal();
+        };
+        document.body.appendChild(modal);
+    }
+
+    const solutionList = solution.split('\n').filter(s => s.trim()).map(s => {
+        let cleanText = s.replace(/^\d+[\.\)]\s*/, '').trim();
+        return `<li style="margin-bottom: 6px;">${safeEsc(cleanText)}</li>`;
+    }).join('');
+
+    modal.innerHTML = `
+        <div style="background:#ffffff; border-radius:14px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; font-family:inherit;" onclick="event.stopPropagation();">
+            <div style="background:#fef2f2; border-bottom:1px solid #fee2e2; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                        <i class="ri-error-warning-fill"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#991b1b;">Chi Tiết Sự Cố AI</h3>
+                        <div style="font-size:0.8rem; color:#b91c1c; margin-top:2px;">Chẩn đoán nguyên nhân & Hướng dẫn khắc phục</div>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="border:none; background:transparent; font-size:1.6rem; line-height:1; color:#94a3b8; cursor:pointer; padding:0 4px;" title="Đóng">&times;</button>
+            </div>
+            
+            <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-alert-line" style="color:#ef4444;"></i> Lỗi gì (Sự cố)
+                    </div>
+                    <div style="padding:10px 14px; background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:#fda4af; color:#881337; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
+                        <span style="font-weight:600; font-size:0.92rem; color:#9f1239;">${safeEsc(errorName)}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (Nguyên nhân)
+                    </div>
+                    <div style="padding:10px 14px; background:#fff7ed; border-left:3.5px solid #f97316; border-radius:6px; color:#9a3412; font-size:0.9rem; line-height:1.55;">
+                        ${safeEsc(cause)}
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-tools-line" style="color:#16a34a;"></i> Cách khắc phục
+                    </div>
+                    <div style="padding:10px 14px; background:#f0fdf4; border-left:3.5px solid #22c55e; border-radius:6px; color:#166534; font-size:0.88rem;">
+                        <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                            ${solutionList}
+                        </ul>
+                    </div>
+                </div>
+
+                ${modelsTried ? `
+                <div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:4px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-cpu-line"></i> Mô hình đã thử:
+                    </div>
+                    <div style="font-family:monospace; font-size:0.8rem; color:#475569; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        ${safeEsc(modelsTried)}
+                    </div>
+                </div>` : ''}
+
+                <details style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; background:#f8fafc;">
+                    <summary style="font-size:0.82rem; font-weight:600; color:#64748b; cursor:pointer; user-select:none;">
+                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & Log lỗi (Debug Info)
+                    </summary>
+                    <pre style="margin-top:8px; margin-bottom:0; font-family:monospace; font-size:0.76rem; background:#0f172a; color:#f8fafc; padding:10px; border-radius:6px; max-height:140px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">${safeEsc(technical || 'Không có log bổ sung')}</pre>
+                </details>
+            </div>
+
+            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button type="button" onclick="copyAIDiagnosticData()" style="padding:8px 14px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="ri-file-copy-line"></i> Sao chép lỗi
+                </button>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:#dc2626; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
+                    Đã hiểu & Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+};
+
+
 // Tự động nhận diện môi trường (Localhost vs Production)
 const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
 let API_BASE_URL = PROD_BACKEND_URL;
@@ -17,8 +218,11 @@ if (isLocal) {
 } else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
     // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
     API_BASE_URL = window.location.origin;
+} else if (currentHost.includes('hocnhanhtn.online') || currentHost.includes('pages.dev')) {
+    // Tận dụng Cloudflare Worker Reverse Proxy (/api/...) để cùng domain, không bị chặn DNS và tối ưu tốc độ
+    API_BASE_URL = window.location.origin;
 } else {
-    // Tất cả tên miền production tĩnh (Cloudflare Pages, hocnhanhtn.online, *.pages.dev, vercel, netlify...)
+    // Tất cả tên miền production tĩnh khác
     API_BASE_URL = PROD_BACKEND_URL;
 }
 
@@ -292,9 +496,18 @@ let globalEditorImageCounter = 0;
 // Lưu trữ danh sách gợi ý sửa lỗi của AI gắn với từng câu hỏi
 window.activeAIFeedbacks = {};
 
-let authToken = localStorage.getItem('auth_token');
-let authRole = localStorage.getItem('auth_role');
-let authName = localStorage.getItem('auth_name');
+let authToken = '';
+let authRole = '';
+let authName = '';
+try {
+    if (typeof localStorage !== 'undefined') {
+        authToken = localStorage.getItem('auth_token') || '';
+        authRole = localStorage.getItem('auth_role') || '';
+        authName = localStorage.getItem('auth_name') || '';
+    }
+} catch (e) {
+    console.warn("localStorage không khả dụng hoặc bị chặn:", e);
+}
 
 function getTeacherTokenParam() {
     return (authRole === 'teacher' || authRole === 'admin') && authToken ? authToken : '';
@@ -517,31 +730,34 @@ function formatRichContent(content) {
     str = str.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP_LOCAL[c] || c).join('') + '</sub>');
     str = str.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP_LOCAL[c] || c).join('') + '</sup>');
 
-    str = str.replace(new RegExp('\\(((?:' + CHEM_ELEM_LOCAL + '|\\d+|\\s)+)\\)', 'g'), (m, inner) => {
-        return '(' + inner.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
+    str = str.replace(new RegExp('\\(((?:' + CHEM_ELEM_LOCAL + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
+        return '(' + inner.replace(new RegExp('((?:' + CHEM_ELEM_LOCAL + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
     });
     str = str.replace(/\)\s+(\d+)/g, ')$1');
-    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(\\d+)', 'g'), '$1$2');
-    str = str.replace(new RegExp('(\\)\\d*)\\s+(' + CHEM_ELEM_LOCAL + ')', 'g'), '$1$2');
-    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + '\\d+)\\s+(' + CHEM_ELEM_LOCAL + '\\d*)', 'g'), '$1$2');
-    str = str.replace(new RegExp('(' + CHEM_ELEM_LOCAL + ')\\s+(' + CHEM_ELEM_LOCAL + '\\d+)', 'g'), '$1$2');
+    str = str.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + CHEM_ELEM_LOCAL + ')+)\\s+(\\d+)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    str = str.replace(new RegExp('(\\)\\d+)\\s+((?:' + CHEM_ELEM_LOCAL + '))(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2');
+    str = str.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + CHEM_ELEM_LOCAL + ')\\d+)\\s+((?:' + CHEM_ELEM_LOCAL + ')\\d*)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    str = str.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + CHEM_ELEM_LOCAL + ')\\d+)\\s+(\\((?:' + CHEM_ELEM_LOCAL + '|\\d+)+\\)\\d*)', 'g'), '$1$2$3');
+    str = str.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + CHEM_ELEM_LOCAL + '))\\s+((?:' + CHEM_ELEM_LOCAL + ')\\d+)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
 
     str = str.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
     str = str.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
-    str = str.replace(/([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u024F])[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1<sub>$2</sub>');
+    str = str.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([A-Z][a-z]?|[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1$2<sub>$3</sub>');
     str = str.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
     str = str.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
 
-    const chemFormulaRegexLocal = new RegExp('(?<![A-Za-z0-9_])(?:\\((?:' + CHEM_ELEM_LOCAL + '|\\d+)+\\)\\d*|(?:' + CHEM_ELEM_LOCAL + ')\\d*)*(?:(?:' + CHEM_ELEM_LOCAL + ')\\d+|\\)\\d+)(?:(?:' + CHEM_ELEM_LOCAL + ')\\d*|\\\\)*', 'g');
+    // Nhận diện công thức hóa học tương thích 100% mọi trình duyệt (Cross-browser, KHÔNG dùng lookbehind)
+    const chemFormulaRegexLocal = new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:\\((?:' + CHEM_ELEM_LOCAL + '|\\d+)+\\)\\d*|(?:' + CHEM_ELEM_LOCAL + ')\\d*)*(?:(?:' + CHEM_ELEM_LOCAL + ')\\d+|\\)\\d+)(?:(?:' + CHEM_ELEM_LOCAL + ')\\d*|\\\\)*)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g');
     const chemReplaceRegexLocal = new RegExp('(?:(' + CHEM_ELEM_LOCAL + ')|(\\)))\\s*(\\d+)', 'g');
-    str = str.replace(chemFormulaRegexLocal, tok => {
-        if (tok.includes('<sub>') || tok.includes('<sup>')) return tok;
-        return tok.replace(chemReplaceRegexLocal, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
+    str = str.replace(chemFormulaRegexLocal, (full, pfx, tok) => {
+        if (tok.includes('<sub>') || tok.includes('<sup>')) return full;
+        return (pfx || '') + tok.replace(chemReplaceRegexLocal, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
     });
 
-    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])([xyz])\s*([1-9])(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
-    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])([uS])\s*([1-9]|n)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
-    str = str.replace(/(?<![a-zA-Z\u00C0-\u024F])(v)\s*(0)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    // Biến số toán học tương thích mọi trình duyệt (Safari cũ / WebView Zalo, FB)
+    str = str.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([xyz])\s*([1-9])(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    str = str.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([uS])\s*([1-9]|n)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    str = str.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])(v)\s*(0)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
     str = str.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
 
     // 5. Bảo vệ các thẻ HTML định dạng hợp lệ: <b>, <i>, <u>, <s>, <sub>, <sup>, <span>, <mark>, <font>, <p>, <div>, <br>, <table>
@@ -729,27 +945,39 @@ function showRoleSelection(userId, fullName, email, avatar, className, phone, sc
     currentPendingUserId = userId;
 
     const authBox = document.getElementById('authContainer');
-    const mainApp = document.getElementById('mainAppContainer');
-    const adminBox = document.getElementById('adminContainer');
-    const azotaNav = document.getElementById('azotaNavbar');
-    const pubHeader = document.getElementById('publicHeader');
-    const landingHero = document.getElementById('landingHero');
-    const landingStats = document.getElementById('landingStats');
-    const landingExtra = document.getElementById('publicLandingExtras');
+    const isModal = authBox && authBox.classList.contains('modal-mode');
 
-    if (pubHeader) pubHeader.style.display = 'none';
-    if (landingHero) landingHero.style.display = 'none';
-    if (landingStats) landingStats.style.display = 'none';
-    if (landingExtra) landingExtra.style.display = 'none';
-    if (mainApp) mainApp.style.display = 'none';
-    if (adminBox) adminBox.style.display = 'none';
-    if (azotaNav) azotaNav.style.display = 'none';
+    if (!isModal) {
+        const mainApp = document.getElementById('mainAppContainer');
+        const adminBox = document.getElementById('adminContainer');
+        const azotaNav = document.getElementById('azotaNavbar');
+        const pubHeader = document.getElementById('publicHeader');
+        const landingHero = document.getElementById('landingHero');
+        const landingStats = document.getElementById('landingStats');
+        const landingExtra = document.getElementById('publicLandingExtras');
+
+        if (pubHeader) pubHeader.style.display = 'none';
+        if (landingHero) landingHero.style.display = 'none';
+        if (landingStats) landingStats.style.display = 'none';
+        if (landingExtra) landingExtra.style.display = 'none';
+        if (mainApp) mainApp.style.display = 'none';
+        if (adminBox) adminBox.style.display = 'none';
+        if (azotaNav) azotaNav.style.display = 'none';
+    }
 
     if (authBox) {
         authBox.classList.remove('hidden');
-        authBox.classList.add('page-mode');
-        authBox.style.removeProperty('display');
-        authBox.style.display = 'block';
+        if (!isModal) {
+            authBox.classList.add('page-mode');
+            authBox.classList.remove('modal-mode');
+            authBox.style.removeProperty('display');
+            authBox.style.display = 'block';
+        } else {
+            authBox.classList.add('modal-mode');
+            authBox.classList.remove('page-mode');
+            authBox.style.removeProperty('display');
+            authBox.style.setProperty('display', 'flex', 'important');
+        }
     }
 
     const dualGrid = document.getElementById('authDualGrid');
@@ -809,27 +1037,39 @@ function showPendingApproval(userId, fullName, email, className, school, phone) 
     if (userId) currentPendingUserId = userId;
 
     const authBox = document.getElementById('authContainer');
-    const mainApp = document.getElementById('mainAppContainer');
-    const adminBox = document.getElementById('adminContainer');
-    const azotaNav = document.getElementById('azotaNavbar');
-    const pubHeader = document.getElementById('publicHeader');
-    const landingHero = document.getElementById('landingHero');
-    const landingStats = document.getElementById('landingStats');
-    const landingExtra = document.getElementById('publicLandingExtras');
+    const isModal = authBox && authBox.classList.contains('modal-mode');
 
-    if (pubHeader) pubHeader.style.display = 'none';
-    if (landingHero) landingHero.style.display = 'none';
-    if (landingStats) landingStats.style.display = 'none';
-    if (landingExtra) landingExtra.style.display = 'none';
-    if (mainApp) mainApp.style.display = 'none';
-    if (adminBox) adminBox.style.display = 'none';
-    if (azotaNav) azotaNav.style.display = 'none';
+    if (!isModal) {
+        const mainApp = document.getElementById('mainAppContainer');
+        const adminBox = document.getElementById('adminContainer');
+        const azotaNav = document.getElementById('azotaNavbar');
+        const pubHeader = document.getElementById('publicHeader');
+        const landingHero = document.getElementById('landingHero');
+        const landingStats = document.getElementById('landingStats');
+        const landingExtra = document.getElementById('publicLandingExtras');
+
+        if (pubHeader) pubHeader.style.display = 'none';
+        if (landingHero) landingHero.style.display = 'none';
+        if (landingStats) landingStats.style.display = 'none';
+        if (landingExtra) landingExtra.style.display = 'none';
+        if (mainApp) mainApp.style.display = 'none';
+        if (adminBox) adminBox.style.display = 'none';
+        if (azotaNav) azotaNav.style.display = 'none';
+    }
 
     if (authBox) {
         authBox.classList.remove('hidden');
-        authBox.classList.add('page-mode');
-        authBox.style.removeProperty('display');
-        authBox.style.display = 'block';
+        if (!isModal) {
+            authBox.classList.add('page-mode');
+            authBox.classList.remove('modal-mode');
+            authBox.style.removeProperty('display');
+            authBox.style.display = 'block';
+        } else {
+            authBox.classList.add('modal-mode');
+            authBox.classList.remove('page-mode');
+            authBox.style.removeProperty('display');
+            authBox.style.setProperty('display', 'flex', 'important');
+        }
     }
 
     const dualGrid = document.getElementById('authDualGrid');
@@ -945,8 +1185,13 @@ async function submitUserProfileAndRole() {
                 authToken = data.token;
                 authRole = data.role;
                 authName = data.full_name;
-                closeAuthPage(true);
-                closeExamLoginModal();
+                const authBox = document.getElementById('authContainer');
+                const isModal = authBox && authBox.classList.contains('modal-mode');
+                if (isModal) {
+                    closeExamLoginModal();
+                } else {
+                    closeAuthPage(true);
+                }
                 hideRoleScreens();
                 checkAuthState();
                 alert(`🎉 Chúc mừng ${data.full_name}! Bạn đã đăng ký thành công với vai trò Học sinh.`);
@@ -1089,8 +1334,13 @@ async function triggerGoogleSignIn() {
                 authToken = data.token;
                 authRole = data.role;
                 authName = data.full_name;
-                closeAuthPage(true);
-                closeExamLoginModal();
+                const authBox = document.getElementById('authContainer');
+                const isModal = authBox && authBox.classList.contains('modal-mode');
+                if (isModal) {
+                    closeExamLoginModal();
+                } else {
+                    closeAuthPage(true);
+                }
                 hideRoleScreens();
                 checkAuthState();
 
@@ -1203,14 +1453,16 @@ function openAuthPage(initialTab = 'login', pushHistory = true) {
 
     // Nếu đang trong phòng thi kiểm tra thì ưu tiên modal để tránh mất phiên thi
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
-    if (quizId) {
+    const activeQuizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : (urlParams.get('quiz_id') || urlParams.get('id'));
+    const isExamRoute = activeQuizId || /^\/(quiz|thi)(\/|$)/i.test(window.location.pathname);
+    if (isExamRoute) {
         openExamLoginModal();
         return;
     }
 
     // Ẩn giao diện Landing Page
     const pubHeader = document.getElementById('publicHeader');
+    const mainLanding = document.getElementById('mainLandingContent');
     const landingHero = document.getElementById('landingHero');
     const landingStats = document.getElementById('landingStats');
     const landingExtra = document.getElementById('publicLandingExtras');
@@ -1218,6 +1470,7 @@ function openAuthPage(initialTab = 'login', pushHistory = true) {
     const adminBox = document.getElementById('adminContainer');
 
     if (pubHeader) pubHeader.style.display = 'none';
+    if (mainLanding) mainLanding.style.display = 'none';
     if (landingHero) landingHero.style.display = 'none';
     if (landingStats) landingStats.style.display = 'none';
     if (landingExtra) landingExtra.style.display = 'none';
@@ -1281,23 +1534,30 @@ function closeAuthPage(updateHistory = true) {
 
     hideRoleScreens();
 
-    const pubHeader = document.getElementById('publicHeader');
-    const landingHero = document.getElementById('landingHero');
-    const landingStats = document.getElementById('landingStats');
-    const landingExtra = document.getElementById('publicLandingExtras');
+    // Chỉ khôi phục Landing Page khi không đang ở trong phòng thi
+    const activeQuizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : null;
+    const isExam = activeQuizId || /^\/(quiz|thi)(\/|$)/i.test(window.location.pathname);
+    if (!isExam) {
+        const pubHeader = document.getElementById('publicHeader');
+        const mainLanding = document.getElementById('mainLandingContent');
+        const landingHero = document.getElementById('landingHero');
+        const landingStats = document.getElementById('landingStats');
+        const landingExtra = document.getElementById('publicLandingExtras');
 
-    if (pubHeader) pubHeader.style.display = 'flex';
-    if (landingHero) landingHero.style.display = 'block';
-    if (landingStats) landingStats.style.display = 'block';
-    if (landingExtra) landingExtra.style.display = 'block';
+        if (pubHeader) pubHeader.style.display = 'flex';
+        if (mainLanding) mainLanding.style.display = 'block';
+        if (landingHero) landingHero.style.display = 'block';
+        if (landingStats) landingStats.style.display = 'block';
+        if (landingExtra) landingExtra.style.display = 'block';
 
-    if (updateHistory) {
-        if (['/dang-nhap', '/login', '/register', '/auth'].includes(window.location.pathname)) {
-            history.pushState({ page: 'home' }, '', '/');
+        if (updateHistory) {
+            if (['/dang-nhap', '/login', '/register', '/auth'].includes(window.location.pathname)) {
+                history.pushState({ page: 'home' }, '', '/');
+            }
         }
-    }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 }
 window.closeAuthPage = closeAuthPage;
 
@@ -1305,10 +1565,10 @@ function openExamLoginModal() {
     const authBox = document.getElementById('authContainer');
     if (!authBox) return;
     authBox.classList.remove('page-mode');
-    authBox.classList.add('modal-mode');
     authBox.classList.remove('hidden');
+    authBox.classList.add('modal-mode');
     authBox.style.removeProperty('display');
-    authBox.style.display = 'flex';
+    authBox.style.setProperty('display', 'flex', 'important');
     
     // Đảm bảo mở form đăng nhập nếu không đang ở quy trình khác
     const roleCard = document.getElementById('roleSelectionCard');
@@ -1319,6 +1579,7 @@ function openExamLoginModal() {
     } else if (pendingCard && pendingCard.style.display !== 'none') {
         // Giữ nguyên pendingCard nếu đang chờ duyệt
     } else {
+        hideRoleScreens();
         switchMobileAuthTab('login');
     }
 }
@@ -1338,8 +1599,10 @@ window.closeExamLoginModal = closeExamLoginModal;
 // Đóng modal khi bấm ra ngoài vùng tối hoặc phím ESC
 document.addEventListener('click', function(e) {
     const authBox = document.getElementById('authContainer');
-    if (authBox && authBox.classList.contains('modal-mode') && e.target === authBox) {
-        closeExamLoginModal();
+    if (authBox && authBox.classList.contains('modal-mode')) {
+        if (e.target === authBox || e.target.classList.contains('auth-page-wrapper') || e.target.classList.contains('auth-dual-grid')) {
+            closeExamLoginModal();
+        }
     }
 });
 document.addEventListener('keydown', function(e) {
@@ -1735,7 +1998,9 @@ function showAdminView() {
 
 function toggleAuth(type) {
     hideRoleScreens();
-    if (window.innerWidth < 992) {
+    const authBox = document.getElementById('authContainer');
+    const isModal = authBox && authBox.classList.contains('modal-mode');
+    if (window.innerWidth < 992 || isModal) {
         switchMobileAuthTab(type);
     } else {
         if (type === 'register') {
@@ -1774,8 +2039,13 @@ async function handleLogin() {
             localStorage.setItem('auth_role', data.role);
             localStorage.setItem('auth_name', data.full_name);
             authToken = data.token; authRole = data.role; authName = data.full_name;
-            closeAuthPage(true);
-            closeExamLoginModal();
+            const authBox = document.getElementById('authContainer');
+            const isModal = authBox && authBox.classList.contains('modal-mode');
+            if (isModal) {
+                closeExamLoginModal();
+            } else {
+                closeAuthPage(true);
+            }
             hideRoleScreens();
             checkAuthState();
             showToast(`🎉 Đăng nhập thành công! Xin chào ${data.full_name}.`, 'success');
@@ -1885,6 +2155,8 @@ async function initApp() {
             const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
             const result = await response.json();
             if (result.status === 'success') {
+                const appBox = document.getElementById('mainAppContainer');
+                if (appBox) appBox.style.display = 'block';
                 document.getElementById('quiz-container').innerHTML = '';
                 currentData = normalizeImageUrls(result.data);
                 currentData.forEach((q, i) => { q._originalIndex = i; });
@@ -2014,6 +2286,7 @@ async function initApp() {
                                 quizUpdatedAt: serverUpdatedAt, 
                                 timeLimit: currentTimeLimit 
                             };
+                            flaggedQuestions = {};
                             localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(quizProgress));
                             if (expireReason === 'time_limit') {
                                 showToast("⏳ Đã hết thời gian làm bài (tính cả khi bạn thoát ra). Bài thi đã được làm mới.", "warning");
@@ -2029,17 +2302,22 @@ async function initApp() {
                             }
                             if (quizProgress.shuffledData) currentData = quizProgress.shuffledData;
                             if (!quizProgress.quizUpdatedAt) quizProgress.quizUpdatedAt = serverUpdatedAt;
+                            flaggedQuestions = (quizProgress.flagged && typeof quizProgress.flagged === 'object') ? quizProgress.flagged : {};
                             
                             // Phục hồi trạng thái luyện tập (Đúng / Sai) của từng câu nếu có
-                            if (quizProgress.practiceResults && currentData) {
-                                currentData.forEach((q, idx) => {
-                                    if (quizProgress.practiceResults[idx]) {
-                                        q._practiceStatus = quizProgress.practiceResults[idx];
-                                        if (quizProgress.answers && quizProgress.answers[idx] !== undefined) {
-                                            q.user_answer_practice = quizProgress.answers[idx];
+                            if (quizProgress.practiceResults && Array.isArray(currentData)) {
+                                try {
+                                    currentData.forEach((q, idx) => {
+                                        if (q && quizProgress.practiceResults[idx]) {
+                                            q._practiceStatus = quizProgress.practiceResults[idx];
+                                            if (quizProgress.answers && quizProgress.answers[idx] !== undefined) {
+                                                q.user_answer_practice = quizProgress.answers[idx];
+                                            }
                                         }
-                                    }
-                                });
+                                    });
+                                } catch (pErr) {
+                                    console.warn('Lỗi khi khôi phục đáp án chi tiết từ tiến trình:', pErr);
+                                }
                             }
                             
                             // Cập nhật lại thời gian chính xác cho timer theo thời gian thực
@@ -2098,20 +2376,29 @@ async function initApp() {
                 isStudentMode = true;
                 currentDataMode = result.mode || 'practice';
                 
+                // Đảm bảo mở khung ứng dụng và khung chào mừng phòng thi
+                const appContainerEl = document.getElementById('mainAppContainer');
+                if (appContainerEl) appContainerEl.style.display = 'block';
+
                 // TỰ ĐỘNG KHÔI PHỤC KHI LỠ THOÁT RA (NẾU ĐANG LÀM DỞ, CHƯA HẾT HẠN VÀ KHÔNG BẤM NÚT THOÁT CHỦ ĐỘNG):
                 const canAutoResume = quizProgress && !quizProgress.completed && quizProgress.startedAt && !quizProgress.paused;
                 if (canAutoResume) {
                     hidePageInitialLoader();
-                    updateAdPassUI();
+                    try { updateAdPassUI(); } catch(e){}
                     if (window.ENABLE_WEBLLM && window.WebLLMTutor) {
-                        window.WebLLMTutor.preload();
+                        try { window.WebLLMTutor.preload(); } catch(e){}
                     }
-                    startStudentQuiz(true); // Tự động vào thẳng lại bài thi đang làm dở
-                    showToast("🔄 Đã tự động khôi phục bài thi đang làm dở của bạn!", "info");
-                    return;
+                    try {
+                        startStudentQuiz(true); // Tự động vào thẳng lại bài thi đang làm dở
+                        showToast("🔄 Đã tự động khôi phục bài thi đang làm dở của bạn!", "info");
+                        return;
+                    } catch (resumeErr) {
+                        console.warn("Lỗi khi tự động tiếp tục bài thi, chuyển về màn hình bắt đầu:", resumeErr);
+                    }
                 }
                 
-                document.getElementById('welcomeScreen').style.display = 'block'; // Hiển thị khung nhập tên
+                const welcomeEl = document.getElementById('welcomeScreen');
+                if (welcomeEl) welcomeEl.style.display = 'block'; // Hiển thị khung nhập tên
                 updateAdPassUI(); // Cập nhật trạng thái vé 12h làm bài
 
                 // Kích hoạt nạp ngầm mô hình WebLLM qua Web Worker ngay khi học sinh vào phòng thi (nếu bật tính năng)
@@ -2121,12 +2408,20 @@ async function initApp() {
                 hidePageInitialLoader();
             } else { 
                 hidePageInitialLoader();
-                document.getElementById('quiz-container').innerHTML = "<p style='text-align:center;'>Bài thi không tồn tại hoặc đã bị xóa.</p>"; 
+                const appBox = document.getElementById('mainAppContainer');
+                if (appBox) appBox.style.display = 'block';
+                const qBox = document.getElementById('quiz-container');
+                if (qBox) qBox.innerHTML = "<div class='card' style='text-align:center; padding: 28px; max-width: 600px; margin: 40px auto;'><p style='font-size: 1.1rem; color: #64748b; font-weight: 600;'><i class='ri-error-warning-line' style='font-size: 1.5rem; color: #f59e0b; vertical-align: middle;'></i> Bài thi không tồn tại hoặc đã bị xóa.</p><a href='/' class='btn-primary' style='display:inline-block; margin-top: 14px; text-decoration: none;'>Về trang chủ</a></div>"; 
             }
         } catch (e) {
+            console.error("Lỗi khi tải đề thi initApp:", e);
             hidePageInitialLoader();
-            document.getElementById('quiz-container').innerHTML = `<p style='text-align:center; color: var(--danger);'><b>Không thể truy cập:</b> ${e.message || "Lỗi máy chủ"}</p>`;
-            if (e.message) alert(e.message);
+            const appBox = document.getElementById('mainAppContainer');
+            if (appBox) appBox.style.display = 'block';
+            const qBox = document.getElementById('quiz-container');
+            if (qBox) {
+                qBox.innerHTML = `<div class='card' style='text-align:center; padding: 28px; max-width: 600px; margin: 40px auto;'><p style='font-size: 1.1rem; color: var(--danger); font-weight: 600;'><i class='ri-alert-line' style='font-size: 1.5rem; vertical-align: middle;'></i> Không thể tải bài thi: ${escapeHtml(e.message || "Lỗi kết nối máy chủ")}</p><button class='btn-primary' style='margin-top: 14px;' onclick='location.reload()'><i class='ri-refresh-line'></i> Thử lại</button></div>`;
+            }
         }
     }
 };
@@ -2435,9 +2730,11 @@ async function startStudentQuiz(isResume = false) {
             timeLimit: currentTimeLimit,
             studentName: studentName,
             answers: {},
+            flagged: {},
             completed: false,
             paused: false
         };
+        flaggedQuestions = {};
         currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
         if (isShuffleEnabled) shuffleQuiz(true);
         quizProgress.shuffledData = currentData;
@@ -2457,6 +2754,8 @@ async function startStudentQuiz(isResume = false) {
         quizProgress.completed = false;
         quizProgress.paused = false;
         if (!quizProgress.answers) quizProgress.answers = {};
+        if (!quizProgress.flagged) quizProgress.flagged = {};
+        flaggedQuestions = quizProgress.flagged;
         if (!quizProgress.shuffledData) quizProgress.shuffledData = currentData;
     }
     
@@ -2569,9 +2868,11 @@ async function fetchLatestDataAndRestart(mode) {
         startedAt: Date.now(),
         timeLimit: currentTimeLimit,
         answers: {},
+        flagged: {},
         completed: false,
         paused: false
     };
+    flaggedQuestions = {};
     currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
     
     if (isShuffleEnabled) {
@@ -2654,16 +2955,51 @@ async function saveProgressToLocal(syncCloud = true) {
     }
 }
 
-function joinQuizByCode() {
-    let code = document.getElementById('joinQuizCode').value.trim();
-    if (!code) return alert("Vui lòng nhập mã đề thi!");
-    
-    // Nếu học sinh lỡ dán cả đường link thì hệ thống tự bóc tách mã ra
-    if (code.includes('?id=')) code = code.split('?id=')[1].split('&')[0];
-    else if (code.includes('?quiz_id=')) code = code.split('?quiz_id=')[1].split('&')[0];
-    else if (code.includes('/')) code = code.substring(code.lastIndexOf('/') + 1);
-
-    window.location.href = `/?id=${code}`;
+function joinQuizByCode(preferredInputId) {
+    let input = preferredInputId ? document.getElementById(preferredInputId) : null;
+    if (!input) {
+        const dashEl = document.getElementById('studentDashboard');
+        const dashInput = document.getElementById('joinQuizCode');
+        const heroInput = document.getElementById('heroQuizCodeInput');
+        if (dashInput && dashEl && dashEl.style.display !== 'none' && dashInput.value.trim()) {
+            input = dashInput;
+        } else if (heroInput && heroInput.value.trim()) {
+            input = heroInput;
+        } else if (dashInput && dashEl && dashEl.style.display !== 'none') {
+            input = dashInput;
+        } else {
+            input = heroInput || dashInput;
+        }
+    }
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) {
+        input.focus();
+        if (typeof showToast === 'function') {
+            showToast("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.", "warning");
+        } else {
+            alert("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.");
+        }
+        return;
+    }
+    let quizId = val;
+    try {
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+            const parsed = new URL(val);
+            quizId = parsed.searchParams.get('quiz_id') || parsed.searchParams.get('id') || parsed.pathname.split('/').filter(Boolean).pop() || val;
+        } else if (val.includes('?id=')) {
+            quizId = val.split('?id=')[1].split('&')[0].split('#')[0];
+        } else if (val.includes('?quiz_id=')) {
+            quizId = val.split('?quiz_id=')[1].split('&')[0].split('#')[0];
+        } else if (val.includes('/thi/')) {
+            quizId = val.split('/thi/').pop().split('/')[0].split('?')[0].split('#')[0];
+        } else if (val.includes('/quiz/')) {
+            quizId = val.split('/quiz/').pop().split('/')[0].split('?')[0].split('#')[0];
+        } else if (val.includes('/')) {
+            quizId = val.substring(val.lastIndexOf('/') + 1).split('?')[0].split('#')[0];
+        }
+    } catch (e) {}
+    window.location.href = '/thi/' + encodeURIComponent(quizId.trim());
 }
 
 function toggleTrashView() {
@@ -5293,17 +5629,55 @@ function normalizeImageUrls(data) {
 }
 
 async function checkQuizWithAI() {
+    // Fail-fast client check
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showAIDiagnosticModal({
+            error_code: 'OFFLINE_NO_INTERNET',
+            error_name: 'Thiết bị mất kết nối Internet',
+            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
+            solution: 'Vui lòng kiểm tra lại kết nối WiFi / mạng dây trước khi gọi AI.',
+            technical_detail: 'navigator.onLine is false'
+        });
+        return;
+    }
+    if (!Array.isArray(currentData) || currentData.length === 0) {
+        showAIDiagnosticModal({
+            error_code: 'EMPTY_QUIZ_DATA',
+            error_name: 'Đề thi trống (0 câu hỏi)',
+            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để AI có thể rà soát hoặc phân tích.',
+            solution: 'Vui lòng thêm ít nhất một câu hỏi hoặc tải tệp đề thi lên trước khi chạy AI.',
+            technical_detail: 'currentData is empty or not an array'
+        });
+        return;
+    }
+
     const btn = document.getElementById('btnAICheck');
     const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
     if (btn) {
-        btn.innerText = "⏳ Đang rà soát và thống kê toàn bộ đề thi (10-20s)...";
+        btn.innerText = "⏳ Đang rà soát đề thi...";
         btn.disabled = true;
     }
 
+    let globalProgress = 15;
     showGlobalLoader({
         title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
-        subtitle: "Đang phân tích từng câu hỏi, kiểm tra tính đúng đắn của đáp án và công thức (10-20s)..."
+        subtitle: `Đang chuẩn bị dữ liệu ${currentData.length} câu hỏi...`,
+        showProgress: true,
+        progress: globalProgress
     });
+
+    const globalProgTimer = setInterval(() => {
+        if (globalProgress < 40) {
+            globalProgress += 8;
+            updateGlobalLoader({ progress: globalProgress, subtitle: "Đang kết nối mô hình Google Gemini..." });
+        } else if (globalProgress < 75) {
+            globalProgress += 5;
+            updateGlobalLoader({ progress: globalProgress, subtitle: "Đang kiểm tra chéo đáp án, công thức LaTeX và lời giải..." });
+        } else if (globalProgress < 92) {
+            globalProgress += 2;
+            updateGlobalLoader({ progress: globalProgress, subtitle: "Đang tổng hợp khuyến nghị và tối ưu đề thi..." });
+        }
+    }, 600);
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
@@ -5421,11 +5795,18 @@ async function checkQuizWithAI() {
 
             document.getElementById('aiFeedbackBox').scrollIntoView({behavior: 'smooth', block: 'start'});
         } else {
-            alert("Lỗi AI: " + (data.detail || "Không thể phân tích đề thi"));
+            showAIDiagnosticModal(data);
         }
     } catch(e) {
-        alert("Lỗi kết nối tới máy chủ khi gọi AI.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối mạng tới máy chủ khi gọi AI',
+            cause: 'Trình duyệt không thể kết nối tới máy chủ API (do mất mạng, chập chờn hoặc máy chủ đang khởi động lại).',
+            solution: '1. Kiểm tra lại kết nối mạng Internet (WiFi/4G).\n2. Bấm thử lại sau vài giây.',
+            technical_detail: e.message || String(e)
+        });
     } finally {
+        if (typeof globalProgTimer !== 'undefined') clearInterval(globalProgTimer);
         hideGlobalLoader();
         if (btn) {
             btn.innerText = "🤖 AI Kiểm tra lỗi & Phân tích Đề thi";
@@ -5835,6 +6216,7 @@ function renderData() {
         practiceStats.forEach(el => el.style.setProperty('display', 'grid', 'important'));
         const restartBtns = document.querySelectorAll('.btn-azota-restart-practice');
         restartBtns.forEach(btn => btn.style.setProperty('display', 'flex', 'important'));
+        document.querySelectorAll('.shortcut-flag-part').forEach(el => el.style.display = 'none');
         const submitNavBtns = document.querySelectorAll('.btn-azota-submit-big');
         submitNavBtns.forEach(btn => {
             btn.innerHTML = `<i class="ri-check-double-line"></i> NỘP BÀI & XEM TỔNG KẾT`;
@@ -5848,6 +6230,7 @@ function renderData() {
         if (examLayout) examLayout.style.display = '';
         const sideCol = document.getElementById('azotaSideExamCol');
         if (sideCol) sideCol.style.display = '';
+        document.querySelectorAll('.shortcut-flag-part').forEach(el => el.style.display = 'inline');
 
         let htmlBuilder = "";
         let navGridHtml = "";
@@ -5880,11 +6263,17 @@ function renderData() {
             `;
 
             let ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[qIndex] : undefined;
-            let isAnswered = ansVal !== undefined && ansVal !== '' && (typeof ansVal !== 'object' || Object.keys(ansVal).length > 0);
+            let isAnswered = isExamQuestionAnswered(qIndex);
+            let isPartialTF = false;
+            if (qType === 'true_false' && ansVal && typeof ansVal === 'object') {
+                const pickedCount = Object.keys(ansVal).filter(k => ansVal[k] === true || ansVal[k] === false).length;
+                const expectedCount = (q.options && q.options.length > 0) ? q.options.length : 4;
+                if (pickedCount > 0 && pickedCount < expectedCount) isPartialTF = true;
+            }
             if (isAnswered) answeredCount++;
 
             navGridHtml += `
-                <button type="button" class="azota-nav-num nav-num-btn nav-num-${qIndex} ${isAnswered ? 'answered' : ''} ${isFlagged ? 'flagged' : ''}" id="nav_num_${qIndex}" data-qindex="${qIndex}" onclick="scrollToQuestion(${qIndex})" title="Chuyển đến Câu ${qIndex + 1}">
+                <button type="button" class="azota-nav-num nav-num-btn nav-num-${qIndex} ${isAnswered ? 'answered' : (isPartialTF ? 'partial-answered' : '')} ${isFlagged ? 'flagged' : ''}" id="nav_num_${qIndex}" data-qindex="${qIndex}" onclick="scrollToQuestion(${qIndex})" title="Chuyển đến Câu ${qIndex + 1}">
                     ${qIndex + 1}
                 </button>
             `;
@@ -5901,7 +6290,7 @@ function renderData() {
                         <div class="azota-tf-row" id="exam_tf_${qIndex}_${char}">
                             <div class="azota-tf-statement">
                                 <span class="azota-tf-badge">${char}</span>
-                                <span>${optClean}</span>
+                                <span>${formatRichContent(optClean)}</span>
                             </div>
                             <div class="azota-tf-actions">
                                 <button type="button" class="azota-tf-btn ${val === true ? 'selected-true' : ''}" onclick="selectExamTF(${qIndex}, '${char}', true)">Đúng</button>
@@ -5914,12 +6303,12 @@ function renderData() {
                 let userSA = (quizProgress && quizProgress.answers && typeof quizProgress.answers[qIndex] === 'string') ? quizProgress.answers[qIndex] : '';
                 boxHtml += `
                     <div class="azota-sa-box" role="region" aria-label="Khu vực trả lời câu hỏi ngắn">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div class="azota-sa-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;">
                             <span style="font-weight: 600; font-size: 0.9rem; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn:</span>
                             <span style="font-size: 0.78rem; color: #10b981; font-weight: 600;"><i class="ri-shield-check-line"></i> Bàn phím số an toàn</span>
                         </div>
                         <input type="text" class="azota-sa-input" id="exam_sa_${qIndex}" value="${escapeHtml(userSA)}" 
-                               placeholder="Nhập đáp số (VD: 2.5 hoặc -10 hoặc 3/4)..." 
+                               placeholder="Nhập đáp số (VD: 2.5, -10, 3/4)..." 
                                inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                                onkeydown="handleSaKeydown(event, this, 'exam_sa_${qIndex}_guard_warn')"
                                oninput="handleSaInput(event, this, ${qIndex}, 'sa_preview_${qIndex}')" 
@@ -5943,7 +6332,7 @@ function renderData() {
                         <label class="option-practice azota-opt-item ${isChecked ? 'selected' : ''}" id="exam_opt_${qIndex}_${oIndex}">
                             <input type="radio" name="exam_${qIndex}" value="${escapeHtml(opt)}" onchange="selectExamOption(${qIndex}, ${oIndex})" ${isChecked ? 'checked' : ''} style="display:none;">
                             <span class="opt-badge azota-opt-badge">${char}</span>
-                            <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
+                            <span class="opt-text">${formatRichContent(opt.replace(/^[A-F][\.\:\)]\s*/i, ''))}</span>
                         </label>`;
                 });
                 boxHtml += `</div></div>`;
@@ -6076,7 +6465,7 @@ function renderPracticeQuestion() {
                 <div class="azota-tf-row" id="pract_tf_${char}">
                     <div class="azota-tf-statement">
                         <span class="azota-tf-badge">${char}</span>
-                        <span>${optClean}</span>
+                        <span>${formatRichContent(optClean)}</span>
                     </div>
                     <div class="azota-tf-actions">
                         <button type="button" class="${btnTClass}" id="pract_tf_btn_${char}_t" ${hasAnswered ? 'disabled' : `onclick="selectPracticeTF('${char}', true)"`}>Đúng</button>
@@ -6093,20 +6482,20 @@ function renderPracticeQuestion() {
 
         innerHtml += `
             <div class="azota-sa-box" style="margin-top: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn của bạn:</span>
+                <div class="azota-sa-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+                    <span style="font-weight: 600; font-size: 0.9rem; color: var(--azota-text-muted);">✍️ Nhập câu trả lời ngắn:</span>
                     <span style="font-size: 0.78rem; color: #10b981; font-weight: 600;"><i class="ri-shield-check-line"></i> Bàn phím số an toàn</span>
                 </div>
-                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <div class="azota-sa-input-row" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: stretch;">
                     <input type="text" class="azota-sa-input ${hasAnswered ? (isCorrectSA ? 'correct' : 'incorrect') : ''}" 
                            id="pract_sa_input" 
                            value="${escapeHtml(String(userAns || ''))}" 
-                           placeholder="Điền đáp số hoặc kết quả..." 
+                           placeholder="Nhập đáp số (VD: 2.5, -10, 3/4)..." 
                            ${hasAnswered ? 'disabled' : ''} 
                            inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                            onkeydown="handleSaKeydown(event, this, 'pract_sa_guard_warn'); if(event.key==='Enter') checkPracticeShortAnswer();"
                            oninput="handleSaInput(event, this, currentQuestionIndex, 'pract_sa_preview')">
-                    <button id="pract_sa_check_btn" class="btn-primary" style="${hasAnswered ? 'display:none;' : ''} margin: 0; padding: 10px 22px; flex-shrink: 0;" onclick="checkPracticeShortAnswer()">Kiểm tra</button>
+                    <button id="pract_sa_check_btn" class="btn-primary" style="${hasAnswered ? 'display:none;' : ''} margin: 0; padding: 10px 18px; flex-shrink: 0; white-space: nowrap;" onclick="checkPracticeShortAnswer()">Kiểm tra</button>
                 </div>
                 <div class="azota-sa-guard-warn" id="pract_sa_guard_warn">
                     <i class="ri-error-warning-fill"></i> Đã chặn ký tự lạ. Chế độ an toàn chỉ nhận số và phép tính toán học.
@@ -6138,7 +6527,7 @@ function renderPracticeQuestion() {
                        style="${hasAnswered ? 'cursor: default;' : 'cursor: pointer;'}">
                     <input type="radio" name="pract_radio" value="${escapeHtml(opt)}" ${hasAnswered ? 'disabled' : ''} ${isUserChosen ? 'checked' : ''} style="display:none;">
                     <span class="opt-badge azota-opt-badge">${char}</span>
-                    <span class="opt-text">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</span>
+                    <span class="opt-text">${formatRichContent(opt.replace(/^[A-F][\.\:\)]\s*/i, ''))}</span>
                 </label>`;
         });
         innerHtml += `</div>`;
@@ -6359,6 +6748,21 @@ function nextPracticeQuestion() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function prevPracticeQuestion() {
+    if (currentQuestionIndex <= 0) {
+        if (typeof showToast === 'function') showToast("Bạn đang ở câu hỏi đầu tiên.", "info");
+        return;
+    }
+    currentQuestionIndex--;
+    if (isStudentMode && quizProgress) {
+        quizProgress.practiceIndex = currentQuestionIndex;
+        saveProgressToLocal();
+    }
+    renderPracticeQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.prevPracticeQuestion = prevPracticeQuestion;
+
 function jumpToPracticeQuestion(qIndex) {
     if (qIndex < 0 || qIndex >= currentData.length) return;
     currentQuestionIndex = qIndex;
@@ -6394,7 +6798,7 @@ function renderPracticeFeedbackHtml(q, qIndex, matchCount, earned) {
         let correctAnswerDisplay = q.correct_answer ? q.correct_answer.replace(/^[A-F][\.\:\)]\s*/i, '') : "Chưa xác định";
         msgHtml = `<div class="pract-feedback-msg ${isCorr ? 'correct' : 'wrong'}">
             <i class="${isCorr ? 'ri-checkbox-circle-fill' : 'ri-close-circle-fill'}"></i>
-            <span>${isCorr ? '✅ Trả lời chính xác!' : `❌ Sai rồi! Đáp án đúng là: <b>${escapeHtml(correctAnswerDisplay)}</b>`}</span>
+            <span>${isCorr ? '✅ Trả lời chính xác!' : `❌ Sai rồi! Đáp án đúng là: <b>${formatRichContent(correctAnswerDisplay)}</b>`}</span>
         </div>`;
     }
 
@@ -6480,6 +6884,7 @@ function confirmRestartPractice() {
     practiceScore = 0;
     currentQuestionIndex = 0;
     practiceAnswered = false;
+    flaggedQuestions = {};
     window.currentPracticeTF = {};
     (currentData || []).forEach(q => {
         delete q.user_answer_practice;
@@ -6488,6 +6893,7 @@ function confirmRestartPractice() {
 
     if (quizProgress) {
         quizProgress.answers = {};
+        quizProgress.flagged = {};
         quizProgress.practiceResults = {};
         quizProgress.practiceScore = 0;
         quizProgress.practiceIndex = 0;
@@ -6509,6 +6915,21 @@ function showPracticeReview() {
 // ========================================================
 // HÀM XỬ LÝ LÀM BÀI TRONG CHẾ ĐỘ THI THỬ (EXAM) & ĐIỀU HƯỚNG
 // ========================================================
+function isExamQuestionAnswered(qIndex) {
+    if (!currentData || !currentData[qIndex] || !quizProgress || !quizProgress.answers) return false;
+    const q = currentData[qIndex];
+    const ansVal = quizProgress.answers[qIndex];
+    if (ansVal === undefined || ansVal === null || ansVal === '') return false;
+    const qType = getRealQuestionType(q);
+    if (qType === 'true_false') {
+        if (typeof ansVal !== 'object') return false;
+        const expectedCount = (q.options && q.options.length > 0) ? q.options.length : 4;
+        const pickedCount = Object.keys(ansVal).filter(k => ansVal[k] === true || ansVal[k] === false).length;
+        return pickedCount >= expectedCount;
+    }
+    return String(ansVal).trim().length > 0;
+}
+
 function selectExamTF(qIndex, char, isTrue) {
     if (!quizProgress.answers) quizProgress.answers = {};
     if (typeof quizProgress.answers[qIndex] !== 'object' || quizProgress.answers[qIndex] === null) {
@@ -6525,16 +6946,27 @@ function selectExamTF(qIndex, char, isTrue) {
         }
     }
     if (isStudentMode) saveProgressToLocal();
-    document.querySelectorAll(`.nav-num-${qIndex}`).forEach(btn => btn.classList.add('answered'));
+    const isFull = isExamQuestionAnswered(qIndex);
+    const ansObj = quizProgress.answers[qIndex] || {};
+    const pickedCount = Object.keys(ansObj).filter(k => ansObj[k] === true || ansObj[k] === false).length;
+    document.querySelectorAll(`.nav-num-${qIndex}`).forEach(btn => {
+        btn.classList.toggle('answered', isFull);
+        btn.classList.toggle('partial-answered', !isFull && pickedCount > 0);
+    });
     updateNavProgressBadge();
 }
 window.selectExamTF = selectExamTF;
 
 function selectExamShortAnswer(qIndex, val) {
     if (!quizProgress.answers) quizProgress.answers = {};
-    quizProgress.answers[qIndex] = val;
+    const trimmed = val ? String(val).trim() : '';
+    if (trimmed) {
+        quizProgress.answers[qIndex] = val;
+    } else {
+        delete quizProgress.answers[qIndex];
+    }
     if (isStudentMode) saveProgressToLocal();
-    const isAnswered = val && val.trim();
+    const isAnswered = Boolean(trimmed);
     document.querySelectorAll(`.nav-num-${qIndex}`).forEach(btn => {
         if (isAnswered) btn.classList.add('answered');
         else btn.classList.remove('answered');
@@ -6563,8 +6995,11 @@ function selectExamOption(qIndex, oIndex) {
 window.selectExamOption = selectExamOption;
 
 function updateNavProgressBadge() {
-    const answeredCount = Object.keys(quizProgress.answers || {}).length;
     const totalCount = currentData ? currentData.length : 0;
+    let answeredCount = 0;
+    for (let i = 0; i < totalCount; i++) {
+        if (isExamQuestionAnswered(i)) answeredCount++;
+    }
     const badge = document.getElementById('navProgressBadge');
     if (badge) badge.innerText = `${answeredCount}/${totalCount}`;
     
@@ -7497,7 +7932,7 @@ function startTimer(minutes) {
         
         if (timeRemaining <= 0) {
             showToast("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.", "warning");
-            submitExam();
+            submitExam(false, true);
             return;
         }
         
@@ -7518,7 +7953,7 @@ function startTimer(minutes) {
                 timeRemaining = 0;
                 updateDisplayCountdown();
                 showToast("⏳ Đã hết thời gian làm bài! Hệ thống tự động nộp bài.", "warning");
-                submitExam();
+                submitExam(false, true);
                 return;
             }
             updateDisplayCountdown();
@@ -7548,7 +7983,7 @@ function startTimer(minutes) {
         
         if (timeElapsed >= THREE_HOURS_SEC) {
             showToast("⏳ Đã quá 3 tiếng kể từ khi bắt đầu làm đề! Hệ thống tự động nộp bài.", "warning");
-            submitExam();
+            submitExam(false, true);
             return;
         }
         
@@ -7567,7 +8002,7 @@ function startTimer(minutes) {
                 timeElapsed = THREE_HOURS_SEC;
                 updateDisplayCountUp();
                 showToast("⏳ Đã quá 3 tiếng kể từ khi bắt đầu làm đề! Hệ thống tự động nộp bài.", "warning");
-                submitExam();
+                submitExam(false, true);
                 return;
             }
             updateDisplayCountUp();
@@ -8464,7 +8899,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 cardHtml += `
                     <div class="review-tf-item ${tfState}">
                         <div class="review-tf-text">
-                            <b class="review-tf-char">${char})</b> <span>${optText}</span>
+                            <b class="review-tf-char">${char})</b> <span>${formatRichContent(optText)}</span>
                         </div>
                         <div class="review-tf-badges">
                             <span class="review-tf-user-pick ${userVal === undefined ? 'skipped' : (isMatch ? 'correct' : 'wrong')}">
@@ -8522,7 +8957,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                 cardHtml += `
                     <div class="${optClass}">
                         <div class="review-opt-badge">${char}</div>
-                        <div class="review-opt-content">${opt.replace(/^[A-F][\.\:\)]\s*/i, '')}</div>
+                        <div class="review-opt-content">${formatRichContent(opt.replace(/^[A-F][\.\:\)]\s*/i, ''))}</div>
                         ${tagHtml}
                     </div>
                 `;
@@ -8571,7 +9006,63 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
 }
 
 // --- HÀM NỘP BÀI THI & CHẤM ĐIỂM HOÀN CHỈNH (CHO CẢ LUYỆN TẬP VÀ THI THỬ) ---
-async function submitExam(isReview = false) {
+async function submitExam(isReview = false, forceSubmit = false) {
+    if (!isReview && !forceSubmit && Array.isArray(currentData) && currentData.length > 0) {
+        if (currentMode === 'exam') {
+            const unansweredList = [];
+            const partialTfList = [];
+            const flaggedList = [];
+            currentData.forEach((q, idx) => {
+                const qNum = idx + 1;
+                if (flaggedQuestions && flaggedQuestions[idx]) {
+                    flaggedList.push(qNum);
+                }
+                if (!isExamQuestionAnswered(idx)) {
+                    const qType = getRealQuestionType(q);
+                    const ansVal = quizProgress && quizProgress.answers ? quizProgress.answers[idx] : undefined;
+                    if (qType === 'true_false' && ansVal && typeof ansVal === 'object') {
+                        const pickedCount = Object.keys(ansVal).filter(k => ansVal[k] === true || ansVal[k] === false).length;
+                        if (pickedCount > 0) {
+                            partialTfList.push(qNum);
+                            return;
+                        }
+                    }
+                    unansweredList.push(qNum);
+                }
+            });
+
+            const formatNumList = (arr) => arr.length <= 10 ? arr.join(', ') : `${arr.slice(0, 10).join(', ')}... (+${arr.length - 10} câu)`;
+            let confirmParts = [];
+            if (unansweredList.length > 0) {
+                confirmParts.push(`⚠️ Còn ${unansweredList.length} câu chưa làm (Câu: ${formatNumList(unansweredList)})`);
+            }
+            if (partialTfList.length > 0) {
+                confirmParts.push(`⚠️ Còn ${partialTfList.length} câu Đúng/Sai chưa chọn đủ 4 ý (Câu: ${formatNumList(partialTfList)})`);
+            }
+            if (flaggedList.length > 0) {
+                confirmParts.push(`🚩 Đang đánh dấu phân vân ${flaggedList.length} câu (Câu: ${formatNumList(flaggedList)})`);
+            }
+
+            let confirmMsg = "";
+            if (confirmParts.length > 0) {
+                confirmMsg = `XÁC NHẬN NỘP BÀI THI:\n\n${confirmParts.join('\n')}\n\nBạn có chắc chắn muốn nộp bài và kết thúc lượt thi ngay bây giờ không?`;
+            } else {
+                confirmMsg = `Bạn đã hoàn thành toàn bộ ${currentData.length}/${currentData.length} câu hỏi.\nBạn có chắc chắn muốn nộp bài ngay bây giờ không?`;
+            }
+            if (!confirm(confirmMsg)) return;
+        } else if (currentMode === 'practice') {
+            const remainingCount = currentData.filter((q, idx) => {
+                const st = q._practiceStatus || (quizProgress && quizProgress.practiceResults && quizProgress.practiceResults[idx]);
+                return !st;
+            }).length;
+            if (remainingCount > 0) {
+                if (!confirm(`Bạn còn ${remainingCount}/${currentData.length} câu chưa kiểm tra đáp án.\nBạn có chắc chắn muốn nộp bài và xem bảng tổng kết ngay bây giờ không?`)) {
+                    return;
+                }
+            }
+        }
+    }
+
     clearInterval(timerInterval);
     const timerDisplay = document.getElementById('timerDisplay');
     if (timerDisplay) timerDisplay.style.display = 'none';
@@ -8850,6 +9341,32 @@ function updateSyntaxHighlight() {
 }
 
 // --- XỬ LÝ NÚT CÂU TIẾP TRÊN MOBILE BOTTOM BAR ---
+function updateMobileExamNextBtnState() {
+    if (currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
+    const mobileNextBtn = document.getElementById('mobileNextBtn');
+    if (!mobileNextBtn) return;
+    const questions = document.querySelectorAll('#quiz-container .question-box');
+    if (!questions.length) return;
+
+    let hasNextBelow = false;
+    for (let i = 0; i < questions.length; i++) {
+        const rect = questions[i].getBoundingClientRect();
+        if (rect.top > 120) {
+            hasNextBelow = true;
+            break;
+        }
+    }
+    const nearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 100);
+    if (!hasNextBelow || nearBottom) {
+        mobileNextBtn.innerHTML = 'Nộp bài <i class="ri-check-double-line"></i>';
+        mobileNextBtn.dataset.atEnd = 'true';
+    } else {
+        mobileNextBtn.innerHTML = 'Câu tiếp <i class="ri-arrow-down-line"></i>';
+        mobileNextBtn.dataset.atEnd = 'false';
+    }
+}
+window.addEventListener('scroll', updateMobileExamNextBtnState, { passive: true });
+
 window.mobileNextQuestionAction = function() {
     if (currentMode === 'practice') {
         const isLast = (currentQuestionIndex === currentData.length - 1);
@@ -8863,32 +9380,26 @@ window.mobileNextQuestionAction = function() {
             nextPracticeQuestion();
         }
     } else {
-        // Trong chế độ thi thử (exam) - cuộn tới câu hỏi tiếp theo
-        const questions = document.querySelectorAll('.question-box');
+        // Trong chế độ thi thử (exam) - tìm câu hỏi tiếp theo bên dưới vị trí cuộn hiện tại
+        const questions = document.querySelectorAll('#quiz-container .question-box');
         let targetIndex = -1;
-        let currentIndex = 0;
-        
         for (let i = 0; i < questions.length; i++) {
             const rect = questions[i].getBoundingClientRect();
-            // Nếu câu hỏi đang nằm phần trên của màn hình
-            if (rect.top > 0 && rect.top < window.innerHeight / 2) {
-                currentIndex = i;
-                break;
-            } else if (rect.top >= window.innerHeight / 2) {
-                currentIndex = Math.max(0, i - 1);
+            if (rect.top > 120) {
+                targetIndex = i;
                 break;
             }
         }
 
-        targetIndex = currentIndex + 1;
-        if (targetIndex < questions.length) {
+        const nearBottom = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 100);
+        if (targetIndex !== -1 && !nearBottom) {
             const yOffset = -80; // Trừ hao khoảng cách header dính
             const element = questions[targetIndex];
             const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: 'smooth' });
+            setTimeout(updateMobileExamNextBtnState, 400);
         } else {
-            toggleMobileNavSheet(true);
-            showToast("Bạn đã đến cuối đề thi. Nhấn NỘP BÀI THI NGAY trong bảng điều hướng!", "info");
+            submitExam();
         }
     }
 };
@@ -8914,27 +9425,7 @@ function showNextQuestionButton() {
 
 // Hàm hiển thị màn hình đăng nhập cho thí sinh tự do khi đang ở trang làm bài
 window.forceShowLogin = function() {
-    const mainApp = document.getElementById('mainApp');
-    if (mainApp) mainApp.style.setProperty('display', 'none', 'important');
-    
-    const azotaNavLinks = document.getElementById('azotaNavLinks');
-    if (azotaNavLinks) azotaNavLinks.style.display = 'flex'; // Cho phép chuyển qua lại Đăng nhập / Đăng ký
-    
-    const authBox = document.getElementById('authBox');
-    if (authBox) {
-        authBox.classList.remove('hidden');
-        authBox.style.setProperty('display', 'flex', 'important');
-        authBox.style.justifyContent = 'center';
-        authBox.style.alignItems = 'center';
-        authBox.style.minHeight = '85vh';
-        authBox.style.width = '100%';
-    }
-    
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.style.setProperty('display', 'flex', 'important');
-    
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) registerForm.style.setProperty('display', 'none', 'important');
+    openExamLoginModal();
 };
 
 // =========================================================================
@@ -9046,6 +9537,7 @@ function startDemoQuiz() {
         is_shuffle: false,
         data: [
             {
+                group_title: "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn",
                 question: "Cho hàm số $y = f(x)$ liên tục trên $\\mathbb{R}$ và có đạo hàm $f'(x) = x(x-1)(x+2)^2$. Số điểm cực trị của hàm số đã cho là:",
                 options: [
                     "A. 1 điểm",
@@ -9082,28 +9574,25 @@ function startDemoQuiz() {
                 type: "mcq"
             },
             {
-                question: "Theo định hướng Chương trình GDPT 2018 áp dụng cho kỳ thi tốt nghiệp THPT, cấu trúc đề thi trắc nghiệm bao gồm các dạng thức nào?",
+                group_title: "PHẦN II. Câu trắc nghiệm đúng sai (Thí sinh chọn Đúng hoặc Sai ở mỗi ý a, b, c, d)",
+                question: "Cho hàm số $f(x) = x^3 - 3x + 2$. Xét tính đúng sai của các mệnh đề sau:",
                 options: [
-                    "A. Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai và Trắc nghiệm trả lời ngắn.",
-                    "B. Chỉ gồm 40 câu hỏi trắc nghiệm 4 lựa chọn A, B, C, D truyền thống.",
-                    "C. Chỉ gồm câu hỏi tự luận dài và câu hỏi ghép nối.",
-                    "D. Toàn bộ là câu hỏi điền từ vào chỗ trống đơn giản."
+                    "a. Đạo hàm của hàm số đã cho là $f'(x) = 3x^2 - 3$.",
+                    "b. Hàm số đồng biến trên khoảng $(-1; 1)$.",
+                    "c. Giá trị cực đại của hàm số bằng $4$.",
+                    "d. Đồ thị hàm số cắt trục tung tại điểm có tung độ bằng $2$."
                 ],
-                correct_answer: "A. Trắc nghiệm nhiều lựa chọn, Trắc nghiệm Đúng/Sai và Trắc nghiệm trả lời ngắn.",
-                explain: "Cấu trúc đề thi mới gồm 3 dạng thức trắc nghiệm: Phần I (Trắc nghiệm nhiều lựa chọn), Phần II (Trắc nghiệm Đúng/Sai gồm 4 ý), Phần III (Trắc nghiệm trả lời ngắn) giúp đánh giá toàn diện năng lực học sinh.",
-                type: "mcq"
+                correct_answer: { "a": true, "b": false, "c": true, "d": true },
+                explain: "- Ý a) **Đúng**: $f'(x) = 3x^2 - 3$.\n- Ý b) **Sai**: Trên khoảng $(-1; 1)$ ta có $f'(x) < 0$ nên hàm số nghịch biến.\n- Ý c) **Đúng**: Hàm số đạt cực đại tại $x = -1$, khi đó $y_{CĐ} = f(-1) = (-1)^3 - 3(-1) + 2 = 4$.\n- Ý d) **Đúng**: Thay $x = 0$ vào hàm số được $f(0) = 2$.",
+                type: "true_false"
             },
             {
-                question: "Hệ thống HocNhanhTN hỗ trợ giáo viên chuyển đổi trực tiếp những định dạng tài liệu nào sang đề thi trực tuyến?",
-                options: [
-                    "A. Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
-                    "B. Chỉ nhận tệp văn bản thô không dấu (.txt).",
-                    "C. Bắt buộc nhập liệu thủ công từng câu hỏi.",
-                    "D. Chỉ nhận các tệp ảnh chụp màn hình chất lượng thấp."
-                ],
-                correct_answer: "A. Tệp tài liệu Word (.docx) và PDF chuẩn GDPT 2018, bảo toàn trọn vẹn công thức LaTeX và hình ảnh.",
-                explain: "HocNhanhTN tích hợp trí tuệ nhân tạo và bộ bóc tách chuyên sâu, cho phép giáo viên tải trực tiếp tệp Word (.docx) hoặc PDF có sẵn để tạo đề thi hoàn chỉnh trong vài giây.",
-                type: "mcq"
+                group_title: "PHẦN III. Câu trắc nghiệm trả lời ngắn",
+                question: "Biết giá trị lớn nhất của hàm số $y = -x^2 + 4x + 1$ trên đoạn $[0; 3]$ bằng $M$. Tìm giá trị của $M$.",
+                options: [],
+                correct_answer: "5",
+                explain: "Hàm số bậc hai $y = -x^2 + 4x + 1 = -(x - 2)^2 + 5 \\le 5$ với mọi $x \\in [0; 3]$. Đẳng thức xảy ra khi $x = 2 \\in [0; 3]$, suy ra $M = 5$.",
+                type: "short_answer"
             }
         ]
     };
@@ -9155,6 +9644,17 @@ function startDemoQuiz() {
     currentTimeLimit = demoQuiz.time_limit || 15;
     currentDataMode = 'practice';
     isStudentMode = true;
+    flaggedQuestions = {};
+    quizProgress = {
+        startedAt: Date.now(),
+        timeLimit: currentTimeLimit,
+        studentName: studentName,
+        answers: {},
+        flagged: {},
+        practiceResults: {},
+        completed: false,
+        paused: false
+    };
 
     // 4. Khởi tạo trạng thái và render giao diện làm bài
     currentQuestionIndex = 0;
@@ -9162,6 +9662,7 @@ function startDemoQuiz() {
     practiceAnswered = false;
     resetSubmissionReviewUI();
     switchMode('practice');
+    startTimer(currentTimeLimit);
 
     // 5. Kích hoạt MathJax hiển thị công thức Toán chuẩn nét
     if (typeof renderMath === 'function') {
@@ -9195,30 +9696,6 @@ window.startDemoQuiz = startDemoQuiz;
 // ==========================================
 // TIỆN ÍCH TRANG CHỦ MỚI: VÀO PHÒNG THI NHANH & CÂU HỎI TƯƠNG TÁC HERO
 // ==========================================
-function joinQuizByCode() {
-    const input = document.getElementById('heroQuizCodeInput');
-    if (!input) return;
-    const val = input.value.trim();
-    if (!val) {
-        input.focus();
-        if (typeof showToast === 'function') {
-            showToast("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.", "warning");
-        } else {
-            alert("Vui lòng nhập mã đề thi hoặc dán đường liên kết phòng thi.");
-        }
-        return;
-    }
-    let quizId = val;
-    try {
-        if (val.startsWith('http://') || val.startsWith('https://')) {
-            const parsed = new URL(val);
-            quizId = parsed.searchParams.get('quiz_id') || parsed.searchParams.get('id') || parsed.pathname.split('/').filter(Boolean).pop() || val;
-        } else if (val.includes('/quiz/')) {
-            quizId = val.split('/quiz/').pop().split('?')[0].split('#')[0];
-        }
-    } catch(e) {}
-    window.location.href = '/thi/' + encodeURIComponent(quizId);
-}
 window.joinQuizByCode = joinQuizByCode;
 
 function handleHeroDemoChoice(btn, isCorrect, explanation) {
@@ -9724,6 +10201,7 @@ function handleKeyboardSelectOption(optIndex) {
 }
 
 function handleKeyboardToggleFlag() {
+    if (typeof currentMode !== 'undefined' && currentMode !== 'exam') return;
     const qIndex = getFocusedQuestionIndex();
     if (typeof toggleFlagQuestion === 'function') {
         toggleFlagQuestion(qIndex);
@@ -9736,8 +10214,17 @@ function handleKeyboardToggleFlag() {
 
 function handleKeyboardNavQuestion(direction) {
     if (typeof currentMode !== 'undefined' && currentMode === 'practice') {
-        if (direction > 0 && typeof nextPracticeQuestion === 'function') nextPracticeQuestion();
-        else if (direction < 0 && typeof prevPracticeQuestion === 'function') prevPracticeQuestion();
+        if (direction > 0) {
+            if (currentQuestionIndex >= currentData.length - 1) {
+                if (typeof showToast === 'function') {
+                    showToast("Bạn đang ở câu hỏi cuối cùng. Nhấn Nộp bài để xem kết quả.", "info");
+                }
+                return;
+            }
+            if (typeof nextPracticeQuestion === 'function') nextPracticeQuestion();
+        } else if (direction < 0 && typeof prevPracticeQuestion === 'function') {
+            prevPracticeQuestion();
+        }
     } else {
         const curr = getFocusedQuestionIndex();
         const next = Math.max(0, Math.min(currentData.length - 1, curr + direction));
@@ -9883,11 +10370,17 @@ window.runCrossCheckAI = async function() {
                 showToast("Tuyệt vời! 100% đáp án khớp với kết quả AI giải độc lập.");
             }
         } else {
-            alert("Lỗi kiểm tra chéo: " + (data.detail || "Không thể thực hiện kiểm tra chéo"));
+            showAIDiagnosticModal(data);
         }
     } catch(err) {
         console.error("Cross-check error:", err);
-        alert("Lỗi mạng khi kiểm tra chéo đáp án.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi mạng khi kiểm tra chéo đáp án',
+            cause: 'Không thể gửi yêu cầu kiểm tra chéo tới máy chủ do lỗi kết nối mạng.',
+            solution: '1. Kiểm tra đường truyền Internet.\n2. Bấm thử lại thao tác.',
+            technical_detail: err.message || String(err)
+        });
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -10051,17 +10544,17 @@ window.submitGenerateSimilar = async function() {
             if (addBtn) addBtn.style.display = 'inline-flex';
             showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
         } else {
-            let errMsg = data.detail || data.message || "Không nhận được phản hồi";
-            if (typeof errMsg === 'object') {
-                try {
-                    errMsg = Array.isArray(errMsg) ? errMsg.map(e => e.msg || JSON.stringify(e)).join(', ') : JSON.stringify(errMsg);
-                } catch(e) {}
-            }
-            alert("Lỗi khi sinh câu hỏi tương tự: " + errMsg);
+            showAIDiagnosticModal(data);
         }
     } catch(err) {
         console.error("Generate similar error:", err);
-        alert("Lỗi kết nối khi sinh câu hỏi tương tự.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối khi sinh câu hỏi tương tự',
+            cause: 'Không thể kết nối tới máy chủ để sinh câu hỏi tương tự.',
+            solution: '1. Kiểm tra lại kết nối mạng.\n2. Bấm thử lại.',
+            technical_detail: err.message || String(err)
+        });
     } finally {
         if (runBtn) {
             runBtn.disabled = false;
@@ -10307,7 +10800,7 @@ function handleExamViolation(reason, msg) {
     if (count >= maxViolations) {
         closeExamViolationModal();
         alert(`🚨 VI PHẠM QUY CHẾ THI!\n\nBạn đã rời khỏi màn hình thi ${count} lần (vượt quá giới hạn ${maxViolations} lần cho phép).\n\nHệ thống tự động thu bài và nộp kết quả ngay bây giờ.`);
-        submitExam(false);
+        submitExam(false, true);
         return;
     }
 

@@ -13,7 +13,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from core.config import settings
 from core.logging_config import get_logger
@@ -236,6 +236,14 @@ async def quiz_list_page(request: Request):
 # -------------------------------------------------------------
 # 4. PHÒNG THI / LÀM BÀI (/thi/{ma_de}, /quiz/{ma_de})
 # -------------------------------------------------------------
+@router.get("/thi", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/thi/", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/quiz", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/quiz/", response_class=HTMLResponse, include_in_schema=False)
+async def exam_index_fallback():
+    return RedirectResponse(url="/de-thi", status_code=307)
+
+
 @router.get("/thi/{quiz_id}", response_class=HTMLResponse, summary="Phòng thi trực tuyến làm bài")
 @router.get("/thi/{quiz_id}/{slug:path}", response_class=HTMLResponse, summary="Phòng thi trực tuyến làm bài với slug tiêu đề")
 @router.get("/quiz/{quiz_id}", response_class=HTMLResponse, summary="Link trực tiếp tới đề thi (alias)")

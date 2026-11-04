@@ -27,7 +27,9 @@ except ImportError:
 from core.state import SETTINGS_CACHE, active_tasks
 from services.ai_service import (
     call_gemini_with_fallback,
+    diagnose_gemini_error,
     fix_json_latex_escapes,
+    GeminiAPIException,
     generate_mcq_from_pdf,
     generate_mcq_with_gemini,
     normalize_question_data,
@@ -39,19 +41,37 @@ from services.r2_service import extract_image_keys_from_data, get_stored_image
 
 
 def get_cached_gemini_keys(db) -> list:
-    """Lấy danh sách Gemini API Keys từ cache bộ nhớ đệm (10 phút) để tránh đọc Firestore liên tục."""
-    if not db:
-        return []
+    """Lấy danh sách Gemini API Keys từ cache bộ nhớ đệm (10 phút), Firestore hoặc biến môi trường."""
     now = time.time()
     if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
-        return SETTINGS_CACHE['gemini']['data']
-    try:
-        settings_doc = db.collection('settings').document('gemini').get()
-        api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
+        cached = SETTINGS_CACHE['gemini']['data']
+        if cached:
+            return cached
+
+    api_keys = []
+    if db:
+        try:
+            settings_doc = db.collection('settings').document('gemini').get()
+            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                api_keys = settings_doc.to_dict().get('api_keys')
+        except Exception as e:
+            logger.warning(f"Lỗi đọc API keys từ Firestore: {e}")
+
+    # Fallback tự động đọc biến môi trường (Koyeb / .env)
+    if not api_keys:
+        import os
+        from app.config.settings import settings
+        env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "") or getattr(settings, "GEMINI_API_KEYS", "")
+        if env_keys:
+            if isinstance(env_keys, str):
+                api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
+            elif isinstance(env_keys, list):
+                api_keys = env_keys
+
+    api_keys = [k.strip() for k in api_keys if isinstance(k, str) and k.strip()]
+    if api_keys:
         SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
-        return api_keys
-    except Exception:
-        return []
+    return api_keys
 from core.answer_key_extractor import (
     align_mcq_correct_answer,
     extract_answer_key_from_doc,
@@ -79,7 +99,7 @@ class GenerateQuizRequest(BaseModel):
 async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, api_keys: List[str]):
     """Tác vụ chạy ngầm để tạo đề thi từ một chủ đề (prompt)"""
     try:
-        active_tasks[task_id] = {"status": "processing", "message": "AI đang suy nghĩ và tạo đề..."}
+        active_tasks[task_id] = {"status": "processing", "message": "AI đang suy nghĩ và lập đề cương...", "progress": 20}
         
         system_instruction = (
             "Bạn là một chuyên gia giáo dục và biên soạn đề thi trắc nghiệm xuất sắc. "
@@ -153,16 +173,24 @@ async def generate_quiz_ai_background(task_id: str, req: GenerateQuizRequest, ap
         if isinstance(data, list):
             data = [normalize_question_data(q) for q in data if isinstance(q, dict)]
             
-        active_tasks[task_id] = {"status": "success", "data": data}
+        active_tasks[task_id] = {"status": "success", "progress": 100, "data": data}
 
     except Exception as e:
-        active_tasks[task_id] = {"status": "error", "detail": f"Lỗi khi gọi AI hoặc parse JSON: {str(e)}"}
+        diag = getattr(e, "diagnostic", None)
+        if not diag:
+            diag = diagnose_gemini_error(e, keys_tried=api_keys)
+        logger.error(f"[LỖI SINH ĐỀ AI] Code: {diag.get('error_code')} | Do đâu: {diag.get('cause')}")
+        active_tasks[task_id] = {
+            "status": "error",
+            **diag,
+            "detail": f"{diag.get('error_name')}. Do đâu: {diag.get('cause')}. Hướng xử lý: {diag.get('solution')}"
+        }
 
 
 def process_document_background(task_id: str, temp_file_path: str, ext: str, use_ai: bool, api_keys: list, filename: str):
     """Tiến trình ngầm bóc tách tệp tin DOCX hoặc PDF"""
     try:
-        active_tasks[task_id] = {"status": "processing", "message": "Đang phân tích..."}
+        active_tasks[task_id] = {"status": "processing", "message": "Đang chuẩn bị tệp tài liệu...", "progress": 15}
         
         file_ak = None
         if ext != ".pdf":
@@ -216,16 +244,25 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
             extracted_data = asyncio.run(process_image_with_ocr(img_bytes, api_keys, mime_type=m_type, task_id=task_id))
         elif use_ai and api_keys:
             try:
-                active_tasks[task_id]["message"] = "AI đang phân tích tài liệu Word..."
+                active_tasks[task_id]["message"] = "Đang nạp và trích xuất cấu trúc văn bản..."
+                active_tasks[task_id]["progress"] = 25
                 marked_text, image_mapping = parse_docx_to_marked_text(temp_file_path)
+                active_tasks[task_id]["message"] = "AI đang đọc và chuẩn hóa câu hỏi..."
+                active_tasks[task_id]["progress"] = 35
                 extracted_data = asyncio.run(generate_mcq_with_gemini(marked_text, api_keys, task_id, answer_key=file_ak))
+                active_tasks[task_id]["message"] = "Đang đối soát bảng đáp án và tối ưu hình ảnh..."
+                active_tasks[task_id]["progress"] = 85
                 if image_mapping and extracted_data:
                     extracted_data = replace_placeholders(extracted_data, image_mapping)
                 if file_ak and extracted_data:
                     extracted_data = reconcile_quiz_with_answer_key(extracted_data, file_ak)
             except Exception as ai_err:
-                logger.warning(f"[CẢNH BÁO] AI bóc tách gặp lỗi ({ai_err}). Tự động chuyển sang bóc tách Regex nội bộ...")
-                active_tasks[task_id]["message"] = "Tự động chuyển sang bộ bóc tách nội bộ..."
+                diag = getattr(ai_err, "diagnostic", None)
+                if not diag:
+                    diag = diagnose_gemini_error(ai_err, keys_tried=api_keys)
+                logger.warning(f"[CẢNH BÁO AI BÓC TÁCH] {diag.get('error_code')} ({diag.get('cause')}). Tự động chuyển sang bóc tách Regex nội bộ...")
+                active_tasks[task_id]["ai_fallback_warning"] = diag
+                active_tasks[task_id]["message"] = f"AI gặp sự cố ({diag.get('error_name')}). Đang dùng bộ bóc tách nội bộ..."
                 try:
                     extracted_data = extract_questions_from_text_bulletproof(marked_text, image_mapping)
                 except Exception:
@@ -282,20 +319,40 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
         task_images = extract_image_keys_from_data(extracted_data)
         active_tasks[task_id] = {
             "status": "success",
+            "progress": 100,
             "data": extracted_data,
             "filename": filename,
             "images": task_images
         }
         
     except Exception as e:
-        error_msg = str(e)
-        if "Package not found" in error_msg or "File is not a zip file" in error_msg or "bad zip" in error_msg.lower():
+        diag = getattr(e, "diagnostic", None)
+        if diag:
             active_tasks[task_id] = {
                 "status": "error",
-                "detail": "File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."
+                **diag,
+                "detail": f"{diag.get('error_name')}. Do đâu: {diag.get('cause')}. Hướng xử lý: {diag.get('solution')}"
             }
         else:
-            active_tasks[task_id] = {"status": "error", "detail": f"Lỗi xử lý hệ thống: {error_msg}"}
+            error_msg = str(e)
+            if "Package not found" in error_msg or "File is not a zip file" in error_msg or "bad zip" in error_msg.lower():
+                active_tasks[task_id] = {
+                    "status": "error",
+                    "error_code": "INVALID_DOCX_FILE",
+                    "error_name": "Định dạng file Word không hợp lệ",
+                    "cause": "File tải lên không phải là file Word (.docx) chuẩn (có thể là file .doc cũ hoặc file hỏng).",
+                    "solution": "Mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại.",
+                    "detail": "File tải lên không phải là định dạng Word (.docx) chuẩn. Có thể đây là file .doc cũ bị đổi tên đuôi hoặc file đã bị hỏng. Vui lòng mở file bằng Microsoft Word và chọn 'Save As' -> 'Word Document (*.docx)' rồi tải lên lại."
+                }
+            else:
+                active_tasks[task_id] = {
+                    "status": "error",
+                    "error_code": "SYSTEM_PROCESSING_ERROR",
+                    "error_name": "Lỗi xử lý hệ thống",
+                    "cause": error_msg,
+                    "solution": "Vui lòng kiểm tra lại tài liệu và thử lại.",
+                    "detail": f"Lỗi xử lý hệ thống: {error_msg}"
+                }
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
             try:
@@ -434,7 +491,12 @@ async def serve_image(file_path: str):
     return Response(
         content=content,
         media_type=mime,
-        headers={"Cache-Control": "public, max-age=31536000, immutable"}
+        headers={
+            "Cache-Control": "public, max-age=31536000, immutable",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
     )
 
 

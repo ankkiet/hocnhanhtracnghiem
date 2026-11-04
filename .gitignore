@@ -64,6 +64,8 @@ Desktop.ini
 .codegraph/*
 !.codegraph/.gitignore
 .taste-skill/
+.gemini/
+node_modules/
 
 # --- Browser Automation & Test Profiles ---
 .edge*

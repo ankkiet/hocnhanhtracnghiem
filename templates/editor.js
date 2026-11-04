@@ -1,3 +1,204 @@
+
+// =========================================================================
+// AI ERROR DIAGNOSTIC MODAL & LOG VIEWER (BÁO CÁO LỖI AI CHI TIẾT)
+// =========================================================================
+
+window.closeAIDiagnosticModal = function() {
+    const modal = document.getElementById('aiDiagnosticModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.copyAIDiagnosticData = function() {
+    if (!window._lastAIDiagnostic) return;
+    const diag = window._lastAIDiagnostic;
+    const reportText = [
+        "═══════════════════════════════════════════════",
+        "  HỆ THỐNG TRẮC NGHIỆM - BÁO CÁO CHI TIẾT SỰ CỐ AI",
+        "═══════════════════════════════════════════════",
+        `• Mã lỗi: ${diag.code}`,
+        `• Tên lỗi (Lỗi gì): ${diag.name}`,
+        `• Nguyên nhân (Do đâu): ${diag.cause}`,
+        `• Hướng dẫn khắc phục:
+${diag.solution}`,
+        diag.models ? `• Mô hình đã thử: ${diag.models}` : null,
+        diag.technical ? `• Chi tiết kỹ thuật:
+${diag.technical}` : null,
+        "═══════════════════════════════════════════════"
+    ].filter(Boolean).join("\n\n");
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(() => {
+            if (typeof showToast === 'function') showToast("Đã sao chép chi tiết sự cố AI vào clipboard!");
+            else alert("Đã sao chép chi tiết sự cố AI vào clipboard!");
+        }).catch(() => {
+            prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+        });
+    } else {
+        prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+    }
+};
+
+window.showAIDiagnosticModal = function(errData) {
+    if (!errData) errData = {};
+    const safeEsc = typeof escapeHtml === 'function' 
+        ? escapeHtml 
+        : (str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+
+    if (typeof errData === 'string') {
+        errData = { detail: errData };
+    }
+    if (typeof errData.detail === 'object' && errData.detail !== null) {
+        errData = Object.assign({}, errData, errData.detail);
+    }
+
+    let errorCode = errData.error_code || 'AI_ERROR';
+    let errorName = errData.error_name || errData.message || 'Lỗi xử lý AI';
+    let cause = errData.cause || '';
+    let solution = errData.solution || '';
+    let technical = errData.technical_detail || (typeof errData.detail === 'string' ? errData.detail : '');
+    let modelsTried = Array.isArray(errData.models_tried) ? errData.models_tried.join(', ') : (errData.models_tried || '');
+
+    if (!cause) {
+        const rawLower = String(technical || errorName).toLowerCase();
+        if (rawLower.includes('429') || rawLower.includes('quota') || rawLower.includes('exhausted')) {
+            errorCode = 'QUOTA_EXCEEDED_429';
+            errorName = 'Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)';
+            cause = 'Tài khoản Google AI Studio đã chạm trần tốc độ gọi (15 RPM ở gói Free) hoặc đã dùng hết hạn mức token được cấp miễn phí trong ngày.';
+            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm các Gemini API Key dự phòng vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán Pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
+        } else if (rawLower.includes('404') || rawLower.includes('not found') || rawLower.includes('no longer available')) {
+            errorCode = 'MODEL_NOT_FOUND_404';
+            errorName = 'Mô hình AI không tồn tại hoặc đã ngừng cung cấp (404)';
+            cause = 'Phiên bản mô hình AI (như gemini-2.5-flash cũ) đã bị Google ngừng hỗ trợ cho tài khoản mới.';
+            solution = '1. Hệ thống đã tự động thử các model mới nhất (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
+        } else if (rawLower.includes('503') || rawLower.includes('unavailable') || rawLower.includes('high demand') || rawLower.includes('overloaded')) {
+            errorCode = 'SERVICE_UNAVAILABLE_503';
+            errorName = 'Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)';
+            cause = 'Cụm máy chủ của Google AI đang tiếp nhận lưu lượng truy cập toàn cầu đột biến hoặc đang bảo trì tạm thời.';
+            solution = '1. Vui lòng chờ 15 - 30 giây rồi bấm thử lại.\n2. Khi máy chủ Google hạ tải, yêu cầu sẽ được xử lý lại bình thường.';
+        } else if (rawLower.includes('api key not valid') || rawLower.includes('invalid api key')) {
+            errorCode = 'INVALID_API_KEY';
+            errorName = 'Khóa API Google Gemini không hợp lệ';
+            cause = 'Khóa API được cấu hình trong hệ thống không chính xác, đã bị xóa hoặc bị thu hồi trên Google Cloud Console.';
+            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào Admin Settings.';
+        } else if (rawLower.includes('chưa cấu hình') || rawLower.includes('no_api_keys')) {
+            errorCode = 'NO_API_KEYS';
+            errorName = 'Chưa cấu hình Google Gemini API Key';
+            cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
+            solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
+        } else {
+            errorCode = 'AI_COMMUNICATION_ERROR';
+            errorName = 'Lỗi kết nối tới dịch vụ AI';
+            cause = technical ? `Phát sinh lỗi khi kết nối hoặc nhận phản hồi: ${technical.substring(0, 200)}` : 'Không thể kết nối hoặc nhận phản hồi từ dịch vụ AI.';
+            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ Quản trị viên nếu sự cố tiếp diễn.';
+        }
+    }
+
+    window._lastAIDiagnostic = {
+        code: errorCode,
+        name: errorName,
+        cause: cause,
+        solution: solution,
+        models: modelsTried,
+        technical: technical
+    };
+
+    let modal = document.getElementById('aiDiagnosticModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'aiDiagnosticModal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); z-index:1000000; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+        modal.onclick = function(e) {
+            if (e.target === modal) window.closeAIDiagnosticModal();
+        };
+        document.body.appendChild(modal);
+    }
+
+    const solutionList = solution.split('\n').filter(s => s.trim()).map(s => {
+        let cleanText = s.replace(/^\d+[\.\)]\s*/, '').trim();
+        return `<li style="margin-bottom: 6px;">${safeEsc(cleanText)}</li>`;
+    }).join('');
+
+    modal.innerHTML = `
+        <div style="background:#ffffff; border-radius:14px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; font-family:inherit;" onclick="event.stopPropagation();">
+            <div style="background:#fef2f2; border-bottom:1px solid #fee2e2; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                        <i class="ri-error-warning-fill"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#991b1b;">Chi Tiết Sự Cố AI</h3>
+                        <div style="font-size:0.8rem; color:#b91c1c; margin-top:2px;">Chẩn đoán nguyên nhân & Hướng dẫn khắc phục</div>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="border:none; background:transparent; font-size:1.6rem; line-height:1; color:#94a3b8; cursor:pointer; padding:0 4px;" title="Đóng">&times;</button>
+            </div>
+            
+            <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-alert-line" style="color:#ef4444;"></i> Lỗi gì (Sự cố)
+                    </div>
+                    <div style="padding:10px 14px; background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:#fda4af; color:#881337; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
+                        <span style="font-weight:600; font-size:0.92rem; color:#9f1239;">${safeEsc(errorName)}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (Nguyên nhân)
+                    </div>
+                    <div style="padding:10px 14px; background:#fff7ed; border-left:3.5px solid #f97316; border-radius:6px; color:#9a3412; font-size:0.9rem; line-height:1.55;">
+                        ${safeEsc(cause)}
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-tools-line" style="color:#16a34a;"></i> Cách khắc phục
+                    </div>
+                    <div style="padding:10px 14px; background:#f0fdf4; border-left:3.5px solid #22c55e; border-radius:6px; color:#166534; font-size:0.88rem;">
+                        <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                            ${solutionList}
+                        </ul>
+                    </div>
+                </div>
+
+                ${modelsTried ? `
+                <div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:4px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-cpu-line"></i> Mô hình đã thử:
+                    </div>
+                    <div style="font-family:monospace; font-size:0.8rem; color:#475569; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        ${safeEsc(modelsTried)}
+                    </div>
+                </div>` : ''}
+
+                <details style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; background:#f8fafc;">
+                    <summary style="font-size:0.82rem; font-weight:600; color:#64748b; cursor:pointer; user-select:none;">
+                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & Log lỗi (Debug Info)
+                    </summary>
+                    <pre style="margin-top:8px; margin-bottom:0; font-family:monospace; font-size:0.76rem; background:#0f172a; color:#f8fafc; padding:10px; border-radius:6px; max-height:140px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">${safeEsc(technical || 'Không có log bổ sung')}</pre>
+                </details>
+            </div>
+
+            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button type="button" onclick="copyAIDiagnosticData()" style="padding:8px 14px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="ri-file-copy-line"></i> Sao chép lỗi
+                </button>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:#dc2626; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
+                    Đã hiểu & Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+};
+
+
 // ========================================================
 // HOCNHANHTN EDITOR STUDIO - JAVASCRIPT CONTROLLER
 // ========================================================
@@ -21,8 +222,11 @@ if (isLocal) {
 } else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
     // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
     API_BASE_URL = window.location.origin;
+} else if (currentHost.includes('hocnhanhtn.online') || currentHost.includes('pages.dev')) {
+    // Tận dụng Cloudflare Worker Reverse Proxy (/api/...) để cùng domain, không bị chặn DNS và tối ưu tốc độ
+    API_BASE_URL = window.location.origin;
 } else {
-    // Tất cả tên miền production tĩnh (Cloudflare Pages, hocnhanhtn.online, *.pages.dev, vercel, netlify...)
+    // Tất cả tên miền production tĩnh khác
     API_BASE_URL = PROD_BACKEND_URL;
 }
 
@@ -338,15 +542,21 @@ async function pollStudioTask(taskId, initialTitle, mode) {
                 sessionStorage.removeItem('editor_pending_task_id');
                 sessionStorage.removeItem('editor_pending_mode');
                 if (overlay) overlay.style.display = 'none';
-                alert("Lỗi khi phân tích: " + (statusData.detail || "Không rõ nguyên nhân"));
+                showAIDiagnosticModal(statusData);
                 loadQuizFromSession();
             } else {
-                // Vẫn đang xử lý
+                // Vẫn đang xử lý - Cập nhật tiến độ chính xác từ server
+                if (typeof statusData.progress === 'number' && statusData.progress > progress) {
+                    progress = statusData.progress;
+                    if (progressBar) progressBar.style.width = Math.min(progress, 98) + '%';
+                    if (progressPercent) progressPercent.innerText = Math.round(Math.min(progress, 98)) + '%';
+                }
                 if (statusData.message && statusTitle) {
                     const icon = isAIExplicitlyDisabled ? "⚡ " : "🤖 ";
                     statusTitle.innerText = icon + statusData.message;
                 }
-                setTimeout(poll, 2500);
+                // Rút ngắn chu kỳ thăm dò xuống 1.2s để phát hiện lỗi/hoàn thành siêu tốc
+                setTimeout(poll, 1200);
             }
         } catch(err) {
             // Lỗi mạng hoặc server đang thức giấc (Cold Start), tự động thử lại sau 3.5s
@@ -1019,7 +1229,7 @@ const UNICODE_SUP_MAP = {
 };
 
 const HNTN_CHEM_ELEMENTS = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
-const HNTN_CHEM_FORMULA_REGEX = new RegExp('(?<![A-Za-z0-9_])(?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*', 'g');
+const HNTN_CHEM_FORMULA_REGEX = new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g');
 const HNTN_CHEM_REPLACE_REGEX = new RegExp('(?:(' + HNTN_CHEM_ELEMENTS + ')|(\\)))\\s*(\\d+)', 'g');
 
 function formatSubscriptsAndFormulas(text, convertNewlines = false) {
@@ -1045,32 +1255,33 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     safe = safe.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP[c] || c).join('') + '</sup>');
 
     // 2. Thu gọn khoảng trắng rời rạc trong công thức hóa học: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
-    safe = safe.replace(new RegExp('\\(((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)', 'g'), (m, inner) => {
-        return '(' + inner.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
+    safe = safe.replace(new RegExp('\\(((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
+        return '(' + inner.replace(new RegExp('((?:' + HNTN_CHEM_ELEMENTS + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
     });
     safe = safe.replace(/\)\s+(\d+)/g, ')$1');
-    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(\\d+)', 'g'), '$1$2');
-    safe = safe.replace(new RegExp('(\\)\\d*)\\s+(' + HNTN_CHEM_ELEMENTS + ')', 'g'), '$1$2');
-    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + '\\d+)\\s+(' + HNTN_CHEM_ELEMENTS + '\\d*)', 'g'), '$1$2');
-    safe = safe.replace(new RegExp('(' + HNTN_CHEM_ELEMENTS + ')\\s+(' + HNTN_CHEM_ELEMENTS + '\\d+)', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')+)\\s+(\\d+)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(\\)\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + '))(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d*)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+(\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*)', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + '))\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
 
     // 3. Chỉ số dưới dạng _{...} và _số thành <sub>
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u024F])[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([A-Z][a-z]?|[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1$2<sub>$3</sub>');
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
     safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
 
     // 4. Nhận diện công thức hóa học dạng số thường (H2SO4, Fe2O3, CO2, H2O, (C17H35COO)3C3H5)
-    safe = safe.replace(HNTN_CHEM_FORMULA_REGEX, tok => {
-        if (tok.includes('<sub>') || tok.includes('<sup>')) return tok;
-        return tok.replace(HNTN_CHEM_REPLACE_REGEX, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
+    safe = safe.replace(HNTN_CHEM_FORMULA_REGEX, (full, pfx, tok) => {
+        if (tok.includes('<sub>') || tok.includes('<sup>')) return full;
+        return (pfx || '') + tok.replace(HNTN_CHEM_REPLACE_REGEX, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
     });
 
     // 5. Biến số toán/lý và đơn vị (tránh nhầm chữ tiếng Việt như 'Câu 4')
-    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])([xyz])\s*([1-9])(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])([uS])\s*([1-9]|n)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/(?<![a-zA-Z\u00C0-\u024F])(v)\s*(0)(?![a-zA-Z0-9])/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([xyz])\s*([1-9])(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([uS])\s*([1-9]|n)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])(v)\s*(0)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
     safe = safe.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
 
     // 6. Xóa khoảng trắng thừa trong và xung quanh sub/sup
@@ -1541,18 +1752,57 @@ function toggleAIPanel(forceState) {
 }
 
 async function runAICheck() {
+    // 1. Kiểm tra nhanh (Fail-Fast) ngay tại client: Nếu offline hoặc đề rỗng, trả kết quả tức thì trong 0.1ms
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showAIDiagnosticModal({
+            error_code: 'OFFLINE_NO_INTERNET',
+            error_name: 'Thiết bị mất kết nối Internet',
+            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
+            solution: 'Vui lòng kiểm tra lại kết nối WiFi / mạng dây trước khi gọi AI.',
+            technical_detail: 'navigator.onLine is false'
+        });
+        return;
+    }
+
+    if (!Array.isArray(currentData) || currentData.length === 0) {
+        showAIDiagnosticModal({
+            error_code: 'EMPTY_QUIZ_DATA',
+            error_name: 'Đề thi trống (0 câu hỏi)',
+            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để AI có thể rà soát hoặc phân tích.',
+            solution: 'Vui lòng thêm ít nhất một câu hỏi hoặc tải tệp đề thi lên trước khi chạy AI.',
+            technical_detail: 'currentData is empty or length is 0'
+        });
+        return;
+    }
+
     const btn = document.getElementById('btnAICheck');
     const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
     
     if (btn) {
-        btn.innerText = "⏳ Đang quét đề thi (10-20s)...";
+        btn.innerText = "⏳ Đang quét đề thi...";
         btn.disabled = true;
     }
 
+    let checkProgress = 15;
     showStudioLoader({
         title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
-        subtitle: "Đang phân tích từng câu hỏi, kiểm tra tính đúng đắn của đáp án và công thức (10-20s)..."
+        subtitle: `Đang chuẩn bị dữ liệu ${currentData.length} câu hỏi...`,
+        showProgress: true,
+        progress: checkProgress
     });
+
+    const progressTimer = setInterval(() => {
+        if (checkProgress < 40) {
+            checkProgress += 8;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kết nối mô hình Google Gemini..." });
+        } else if (checkProgress < 75) {
+            checkProgress += 5;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kiểm tra chéo đáp án, công thức LaTeX và lời giải..." });
+        } else if (checkProgress < 92) {
+            checkProgress += 2;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang tổng hợp khuyến nghị và tối ưu đề thi..." });
+        }
+    }, 600);
 
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
@@ -1666,11 +1916,18 @@ async function runAICheck() {
                 if (btnApplyAll) btnApplyAll.style.display = 'none';
             }
         } else {
-            alert("Lỗi AI: " + (data.detail || "Không thể phân tích đề thi"));
+            showAIDiagnosticModal(data);
         }
     } catch(e) {
-        alert("Lỗi kết nối tới máy chủ khi gọi AI.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối mạng tới máy chủ khi gọi AI',
+            cause: 'Trình duyệt không thể kết nối tới máy chủ API (do mất mạng, chập chờn hoặc máy chủ đang khởi động lại).',
+            solution: '1. Kiểm tra lại kết nối mạng Internet (WiFi/4G).\n2. Bấm thử lại sau vài giây.',
+            technical_detail: e.message || String(e)
+        });
     } finally {
+        if (typeof progressTimer !== 'undefined') clearInterval(progressTimer);
         hideStudioLoader();
         if (btn) {
             btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
@@ -2739,22 +2996,51 @@ window.confirmAISuggestedAnswer = function(qIndex, event) {
 };
 
 window.runCrossCheckAI = async function() {
-    const btn = document.getElementById('btnCrossCheckAI');
-    if (!currentData || currentData.length === 0) {
-        alert("Chưa có câu hỏi nào trong đề để kiểm tra chéo!");
+    // Fail-fast client check
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showAIDiagnosticModal({
+            error_code: 'OFFLINE_NO_INTERNET',
+            error_name: 'Thiết bị mất kết nối Internet',
+            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
+            solution: 'Vui lòng kiểm tra lại kết nối mạng trước khi kiểm tra chéo.',
+            technical_detail: 'navigator.onLine is false'
+        });
         return;
     }
+    if (!currentData || currentData.length === 0) {
+        showAIDiagnosticModal({
+            error_code: 'EMPTY_QUIZ_DATA',
+            error_name: 'Đề thi trống (0 câu hỏi)',
+            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để kiểm tra chéo.',
+            solution: 'Vui lòng thêm ít nhất một câu hỏi trước khi chạy kiểm tra chéo.',
+            technical_detail: 'currentData is empty'
+        });
+        return;
+    }
+    const btn = document.getElementById('btnCrossCheckAI');
     const origHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang đối chiếu...';
     }
+    let crossProgress = 15;
     if (typeof showStudioLoader === 'function') {
         showStudioLoader({
             title: "⚖️ AI đang giải độc lập & kiểm tra chéo đáp án...",
-            subtitle: "AI độc lập giải lại từng câu hỏi không nhìn trước đáp án gốc để tìm kiếm sai sót (10-30s)..."
+            subtitle: "Đang nạp câu hỏi và chuẩn bị giải độc lập...",
+            showProgress: true,
+            progress: crossProgress
         });
     }
+    const crossTimer = setInterval(() => {
+        if (crossProgress < 45) {
+            crossProgress += 9;
+            updateStudioLoader({ progress: crossProgress, subtitle: "AI đang tự tính toán và giải từng câu hỏi..." });
+        } else if (crossProgress < 85) {
+            crossProgress += 5;
+            updateStudioLoader({ progress: crossProgress, subtitle: "Đang so khớp kết quả AI với đáp án ban đầu..." });
+        }
+    }, 600);
     try {
         const res = await fetch(`${API_BASE_URL}/api/teacher/cross_check_answers`, {
             method: 'POST',
@@ -2777,12 +3063,19 @@ window.runCrossCheckAI = async function() {
                 showToast("Tuyệt vời! 100% đáp án khớp với kết quả AI giải độc lập.");
             }
         } else {
-            alert("Lỗi kiểm tra chéo: " + (data.detail || "Không thể thực hiện kiểm tra chéo"));
+            showAIDiagnosticModal(data);
         }
     } catch(err) {
         console.error("Cross-check error:", err);
-        alert("Lỗi mạng khi kiểm tra chéo đáp án.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi mạng khi kiểm tra chéo đáp án',
+            cause: 'Không thể gửi yêu cầu kiểm tra chéo tới máy chủ do lỗi kết nối mạng.',
+            solution: '1. Kiểm tra đường truyền Internet.\n2. Bấm thử lại thao tác.',
+            technical_detail: err.message || String(err)
+        });
     } finally {
+        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
         if (btn) {
             btn.disabled = false;
             btn.innerHTML = origHtml || '<i class="ri-scales-3-line"></i> Kiểm tra chéo đáp án';
@@ -2940,17 +3233,17 @@ window.submitGenerateSimilar = async function() {
             if (addBtn) addBtn.style.display = 'inline-flex';
             showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
         } else {
-            let errMsg = data.detail || data.message || "Không nhận được phản hồi";
-            if (typeof errMsg === 'object') {
-                try {
-                    errMsg = Array.isArray(errMsg) ? errMsg.map(e => e.msg || JSON.stringify(e)).join(', ') : JSON.stringify(errMsg);
-                } catch(e) {}
-            }
-            alert("Lỗi khi sinh câu hỏi tương tự: " + errMsg);
+            showAIDiagnosticModal(data);
         }
     } catch(err) {
         console.error("Generate similar error:", err);
-        alert("Lỗi kết nối khi sinh câu hỏi tương tự.");
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối khi sinh câu hỏi tương tự',
+            cause: 'Không thể kết nối tới máy chủ để sinh câu hỏi tương tự.',
+            solution: '1. Kiểm tra lại kết nối mạng.\n2. Bấm thử lại.',
+            technical_detail: err.message || String(err)
+        });
     } finally {
         if (runBtn) {
             runBtn.disabled = false;

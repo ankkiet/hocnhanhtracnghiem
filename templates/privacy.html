@@ -91,12 +91,15 @@
             font-weight: 800;
             font-size: 1.25rem;
             letter-spacing: -0.02em;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .brand-logo {
             width: 34px;
             height: 34px;
             border-radius: 8px;
             object-fit: contain;
+            flex-shrink: 0;
         }
         .brand-accent { color: var(--primary); }
         .nav-links {
@@ -129,6 +132,8 @@
             font-size: 0.88rem;
             transition: all 0.2s ease;
             box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .nav-cta:hover {
             background: var(--primary-hover);
@@ -162,8 +167,13 @@
             box-shadow: var(--shadow-card);
         }
         @media (max-width: 768px) {
-            .content-card { padding: 28px 20px; }
+            .content-card { padding: 24px 16px; }
             .nav-links { display: none; }
+            .site-nav { height: 60px; }
+            .nav-container { padding: 0 16px; }
+            .brand-link { font-size: 1.15rem; gap: 8px; }
+            .brand-logo { width: 30px; height: 30px; }
+            .nav-cta { padding: 6px 14px; font-size: 0.84rem; }
         }
 
         .page-badge {

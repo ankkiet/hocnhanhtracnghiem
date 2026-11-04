@@ -69,6 +69,11 @@
             pointer-events: auto !important;
         }
 
+        /* 2b. Fallback chống trắng màn hình 100%: Khi mở phòng thi, nếu Preloader đã ẩn thì tự động hiển thị khung app */
+        html.hntn-is-quiz-route #mainAppContainer {
+            display: block !important;
+        }
+
         /* 3. Trang chủ công khai (khách xem trang chủ) không hiển thị preloader để LCP đạt điểm tối đa */
         html:not(.hntn-not-home-route) #pageInitialLoader {
             display: none !important;
@@ -281,9 +286,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="/style.css?v=20261031_anti_fouc_v3">
-    <link rel="stylesheet" href="/style.css?v=20261031_anti_fouc_v3" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="/style.css?v=20261031_anti_fouc_v3"></noscript>
+    <link rel="preload" as="style" href="/style.css?v=20261104_v12">
+    <link rel="stylesheet" href="/style.css?v=20261104_v12" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="/style.css?v=20261104_v12"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
@@ -874,6 +879,16 @@
 
       #authContainer.page-mode .btn-close-auth-modal {
         display: none !important;
+      }
+
+      #authContainer.modal-mode .auth-page-wrapper {
+        max-width: 480px !important;
+        width: 100% !important;
+        margin: auto !important;
+      }
+
+      #authContainer.modal-mode .mobile-only {
+        display: block !important;
       }
 
       #authContainer.modal-mode .form {
@@ -1612,6 +1627,21 @@
                     if (pre && pre.parentNode) pre.parentNode.removeChild(pre);
                 }, 400);
             }
+            // Failsafe: Nếu sau 3.5 giây ở link bài thi mà mainAppContainer vẫn chưa mở thì tự mở
+            try {
+                var isQuizUrl = /[?&](id|quiz_id)=/i.test(window.location.search) || /^\/(quiz|thi)(\/|$)/i.test(window.location.pathname);
+                if (isQuizUrl) {
+                    var mainApp = document.getElementById('mainAppContainer');
+                    if (mainApp && (mainApp.style.display === 'none' || !mainApp.style.display)) {
+                        mainApp.style.display = 'block';
+                    }
+                    var welcome = document.getElementById('welcomeScreen');
+                    var quizBox = document.getElementById('quiz-container');
+                    if (welcome && (!quizBox || !quizBox.children.length)) {
+                        welcome.style.display = 'block';
+                    }
+                }
+            } catch(fe) {}
         }, 3500);
     })();
 </script>
@@ -2549,6 +2579,222 @@ body.minimal-mode #publicLandingExtras {
 }
 </style>
 
+<!-- KHỐI NỘI DUNG MỞ RỘNG: THỐNG KÊ, QUY TRÌNH, TÍNH NĂNG & FAQ CHUẨN GDPT 2018 -->
+<!-- KHỐI NỘI DUNG CHUYÊN SÂU TRANG CHỦ (EDITORIAL SWISS SECTIONS) -->
+<!-- KHỐI NỘI DUNG CHUYÊN SÂU TRANG CHỦ (EDITORIAL SWISS SECTIONS) -->
+<div id="publicLandingExtras" class="landing-extras-wrapper">
+
+    <!-- 1. QUY TRÌNH SỐ HÓA ĐỀ THI TỰ ĐỘNG -->
+    <section class="editorial-section" id="quy-trinh" aria-label="Quy trình số hóa đề thi">
+        <h2 class="editorial-headline">Quy trình số hóa đề thi tự động.</h2>
+        <p class="editorial-subline">HocNhanhTN chuyển đổi tệp Word (.docx) và PDF chứa công thức toán học sang phòng thi trực tuyến trong 3 bước khép kín.</p>
+
+        <div class="pipeline-grid">
+            <div class="pipeline-card" data-ui>
+                <div class="pipeline-phase">Giai đoạn tiếp nhận</div>
+                <h3 class="pipeline-title">Tải lên tệp Word hoặc PDF</h3>
+                <p class="pipeline-body">Giáo viên chỉ cần kéo thả tệp Word (.docx) hoặc PDF soạn sẵn theo mẫu thông thường. Hệ thống tự nhận diện các câu hỏi trắc nghiệm mà không bắt buộc định dạng thủ công phức tạp.</p>
+                <div class="pipeline-tags">
+                    <span class="ptag">.docx</span>
+                    <span class="ptag">.pdf</span>
+                    <span class="ptag">MathType</span>
+                </div>
+            </div>
+
+            <div class="pipeline-card" data-ui>
+                <div class="pipeline-phase">Giai đoạn xử lý AI</div>
+                <h3 class="pipeline-title">Bóc tách công thức LaTeX & ảnh</h3>
+                <p class="pipeline-body">Thuật toán bóc tách công thức Toán, Lý, Hóa sang định dạng LaTeX vector sắc nét, giữ nguyên vẹn đồ thị và hình vẽ minh họa, sẵn sàng cho bài thi chất lượng cao.</p>
+                <div class="pipeline-tags">
+                    <span class="ptag">LaTeX chuẩn</span>
+                    <span class="ptag">Giữ hình vẽ</span>
+                    <span class="ptag">Tự động sửa lỗi</span>
+                </div>
+            </div>
+
+            <div class="pipeline-card" data-ui>
+                <div class="pipeline-phase">Giai đoạn xuất bản</div>
+                <h3 class="pipeline-title">Phòng thi & chấm điểm tức thì</h3>
+                <p class="pipeline-body">Hệ thống tạo mã phòng thi và đường link liên kết. Học sinh tham gia thi trên điện thoại hoặc máy tính, hệ thống tự động chấm điểm và lập biểu đồ phổ điểm ngay khi nộp bài.</p>
+                <div class="pipeline-tags">
+                    <span class="ptag">Mã phòng thi</span>
+                    <span class="ptag">Tự động bấm giờ</span>
+                    <span class="ptag">Phổ điểm ngay</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. MA TRẬN 3 DẠNG THỨC GDPT 2018 -->
+    <section class="editorial-section" id="dang-thuc-gdpt" aria-label="3 dạng thức đề thi chuẩn GDPT 2018">
+        <h2 class="editorial-headline">3 Dạng thức trắc nghiệm chuẩn GDPT 2018.</h2>
+        <p class="editorial-subline">Hỗ trợ đầy đủ và chính xác cấu trúc đề thi mới nhất của Bộ Giáo dục và Đào tạo áp dụng cho kỳ thi Tốt nghiệp THPT.</p>
+
+        <div class="standards-grid">
+            <div class="standard-card" data-ui>
+                <div class="standard-header">
+                    <div class="standard-part">Phần I</div>
+                    <div class="standard-name">Trắc nghiệm nhiều lựa chọn</div>
+                </div>
+                <p class="standard-desc">Cấu trúc 4 phương án A, B, C, D truyền thống với duy nhất một đáp án đúng. Phù hợp các câu hỏi nhận biết và thông hiểu kiến thức nền tảng.</p>
+                <div class="standard-spec">
+                    <div class="spec-row">
+                        <span class="spec-k">Số phương án:</span>
+                        <span class="spec-v">4 lựa chọn (A, B, C, D)</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-k">Cách tính điểm:</span>
+                        <span class="spec-v">0.25 điểm / câu</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="standard-card active-standard" data-ui>
+                <div class="standard-header">
+                    <div class="standard-part">Phần II</div>
+                    <div class="standard-name">Trắc nghiệm Đúng / Sai</div>
+                </div>
+                <p class="standard-desc">Mỗi câu hỏi gồm 4 ý độc lập a, b, c, d. Học sinh lựa chọn Đúng hoặc Sai cho từng ý. Tính điểm theo quy tắc lũy tiến khắt khe của Bộ GD&ĐT.</p>
+                <div class="standard-spec">
+                    <div class="spec-row">
+                        <span class="spec-k">Quy tắc điểm:</span>
+                        <span class="spec-v">1 ý: 0.1đ • 2 ý: 0.25đ • 3 ý: 0.5đ • 4 ý: 1.0đ</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-k">Mục tiêu:</span>
+                        <span class="spec-v">Đánh giá tư duy toàn diện, chống đánh lụi</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="standard-card" data-ui>
+                <div class="standard-header">
+                    <div class="standard-part">Phần III</div>
+                    <div class="standard-name">Trắc nghiệm Trả lời ngắn</div>
+                </div>
+                <p class="standard-desc">Không cung cấp phương án mồi. Học sinh tự tính toán và điền kết quả dạng số hoặc phân số vào ô nhập liệu. Đòi hỏi năng lực vận dụng cao.</p>
+                <div class="standard-spec">
+                    <div class="spec-row">
+                        <span class="spec-k">Hình thức:</span>
+                        <span class="spec-v">Tự điền số thực / phân số</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-k">Đặc điểm:</span>
+                        <span class="spec-v">Triệt tiêu hoàn toàn xác suất đoán mò</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. NĂNG LỰC NỀN TẢNG (CAPABILITIES) -->
+    <section class="editorial-section" id="tinh-nang" aria-label="Năng lực cốt lõi">
+        <h2 class="editorial-headline">Nền tảng thi trực tuyến toàn diện.</h2>
+        <p class="editorial-subline">Xây dựng nhằm phục vụ tối đa nhu cầu kiểm tra, khảo sát chất lượng và luyện thi cho trường học và trung tâm.</p>
+
+        <div class="capabilities-matrix">
+            <div class="capability-item">
+                <div class="cap-title">Bảo toàn công thức LaTeX & Hình vẽ</div>
+                <p class="cap-text">Hệ thống chuyển đổi công thức Toán, Lý, Hóa thành MathJax chuẩn, hiển thị sắc nét trên cả màn hình máy tính và điện thoại. Hình vẽ, sơ đồ mạch điện và đồ thị được giữ nguyên kích thước gốc.</p>
+            </div>
+
+            <div class="capability-item">
+                <div class="cap-title">Thuật toán đảo đề tự động</div>
+                <p class="cap-text">Tự động xáo trộn ngẫu nhiên thứ tự câu hỏi và vị trí các phương án A, B, C, D để tạo nhiều mã đề thi khác nhau mà vẫn giữ nguyên ma trận độ khó bài thi.</p>
+            </div>
+
+            <div class="capability-item">
+                <div class="cap-title">Giám sát trung thực & Chống gian lận</div>
+                <p class="cap-text">Tự động ghi nhận số lần chuyển tab hoặc rời khỏi màn hình làm bài của học sinh, hỗ trợ giáo viên đánh giá đúng thực chất năng lực ôn luyện.</p>
+            </div>
+
+            <div class="capability-item">
+                <div class="cap-title">Báo cáo phổ điểm & Phân tích lỗi sai</div>
+                <p class="cap-text">Biểu đồ phổ điểm tự động thống kê ngay sau khi kết thúc buổi thi, chỉ ra các câu hỏi có tỷ lệ học sinh làm sai cao nhất để giáo viên kịp thời chữa đề và củng cố kiến thức.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. CÂU HỎI THƯỜNG GẶP (FAQ) -->
+    <section class="editorial-section" id="hoi-dap" aria-label="Câu hỏi thường gặp">
+        <h2 class="editorial-headline">Câu hỏi thường gặp.</h2>
+        <p class="editorial-subline">Giải đáp chi tiết các thắc mắc phổ biến của giáo viên và học sinh khi sử dụng HocNhanhTN.</p>
+
+        <div class="editorial-faq-stack">
+            <details class="faq-row" open>
+                <summary class="faq-trigger">
+                    <span>1. HocNhanhTN là gì và có thu phí người dùng không?</span>
+                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
+                </summary>
+                <div class="faq-content">
+                    <p>HocNhanhTN là nền tảng công nghệ giáo dục hỗ trợ số hóa đề thi trắc nghiệm từ tệp Word (.docx) và PDF thành phòng thi trực tuyến. Nền tảng được phát triển phi lợi nhuận và hoàn toàn <strong>miễn phí 100%</strong> cho mọi học sinh và giáo viên trên cả nước.</p>
+                </div>
+            </details>
+
+            <details class="faq-row">
+                <summary class="faq-trigger">
+                    <span>2. Học sinh có bắt buộc phải đăng ký tài khoản để làm bài thi không?</span>
+                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
+                </summary>
+                <div class="faq-content">
+                    <p>Không. Học sinh chỉ cần nhập mã đề thi hoặc nhấp vào đường liên kết do thầy cô cung cấp là có thể vào làm bài ngay lập tức, không cần thao tác đăng ký tài khoản rườm rà.</p>
+                </div>
+            </details>
+
+            <details class="faq-row">
+                <summary class="faq-trigger">
+                    <span>3. Hệ thống có giữ nguyên công thức toán học MathType/LaTeX và hình ảnh không?</span>
+                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
+                </summary>
+                <div class="faq-content">
+                    <p>Có. Hệ thống tự động bóc tách và chuẩn hóa toàn bộ công thức sang LaTeX (render bởi MathJax) và trích xuất hình vẽ minh họa nguyên vẹn với chất lượng sắc nét trên mọi thiết bị.</p>
+                </div>
+            </details>
+
+            <details class="faq-row">
+                <summary class="faq-trigger">
+                    <span>4. Nền tảng có hoạt động tốt trên điện thoại di động không?</span>
+                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
+                </summary>
+                <div class="faq-content">
+                    <p>Toàn bộ giao diện làm bài thi và bảng chọn đáp án được tối ưu hóa đặc biệt cho màn hình cảm ứng di động, hỗ trợ vuốt mượt mà, bấm chọn chuẩn xác mà không cần cài đặt thêm ứng dụng.</p>
+                </div>
+            </details>
+
+            <details class="faq-row">
+                <summary class="faq-trigger">
+                    <span>5. Làm thế nào để liên hệ hỗ trợ hoặc báo lỗi câu hỏi?</span>
+                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
+                </summary>
+                <div class="faq-content">
+                    <p>Thầy cô và các bạn học sinh có thể gửi thư phản hồi trực tiếp qua email hỗ trợ của ban quản trị hoặc bấm vào mục <a href="/contact" class="faq-link">Liên hệ hỗ trợ</a> ở chân trang để được phản hồi trong vòng 24 giờ.</p>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- 5. CALL TO ACTION BANNER (DEEP OBSIDIAN STAGE) -->
+    <section class="editorial-cta-stage" aria-label="Bắt đầu tạo đề thi ngay">
+        <div class="cta-stage-inner">
+            <h2 class="cta-stage-headline">Số hóa ngân hàng đề thi ngay hôm nay.</h2>
+            <p class="cta-stage-subline">Trải nghiệm phòng thi trực tuyến chuẩn GDPT 2018 hoàn toàn miễn phí, không giới hạn số lượng học sinh.</p>
+            <div class="cta-stage-buttons">
+                <button type="button" onclick="startDemoQuiz()" class="btn-cta-white">
+                    <i class="ri-play-circle-fill"></i>
+                    <span>Làm thử bài thi mẫu</span>
+                </button>
+                <button type="button" onclick="openAuthPage('login')" class="btn-cta-dark">
+                    <i class="ri-user-add-line"></i>
+                    <span>Đăng ký tài khoản giáo viên</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+</div>
+</main>
+
+<!-- Màn hình Đăng nhập / Đăng ký & Modal Xác thực Toàn Hệ Thống -->
 <div id="authContainer" class="styled-auth-wrapper modal-mode hidden" style="display: none !important;">
     <div class="auth-page-wrapper">
         <!-- Top Header điều hướng quay lại trang chủ -->
@@ -2963,220 +3209,6 @@ body.minimal-mode #publicLandingExtras {
     </div>
 </div>
 
-<!-- KHỐI NỘI DUNG MỞ RỘNG: THỐNG KÊ, QUY TRÌNH, TÍNH NĂNG & FAQ CHUẨN GDPT 2018 -->
-<!-- KHỐI NỘI DUNG CHUYÊN SÂU TRANG CHỦ (EDITORIAL SWISS SECTIONS) -->
-<!-- KHỐI NỘI DUNG CHUYÊN SÂU TRANG CHỦ (EDITORIAL SWISS SECTIONS) -->
-<div id="publicLandingExtras" class="landing-extras-wrapper">
-
-    <!-- 1. QUY TRÌNH SỐ HÓA ĐỀ THI TỰ ĐỘNG -->
-    <section class="editorial-section" id="quy-trinh" aria-label="Quy trình số hóa đề thi">
-        <h2 class="editorial-headline">Quy trình số hóa đề thi tự động.</h2>
-        <p class="editorial-subline">HocNhanhTN chuyển đổi tệp Word (.docx) và PDF chứa công thức toán học sang phòng thi trực tuyến trong 3 bước khép kín.</p>
-
-        <div class="pipeline-grid">
-            <div class="pipeline-card" data-ui>
-                <div class="pipeline-phase">Giai đoạn tiếp nhận</div>
-                <h3 class="pipeline-title">Tải lên tệp Word hoặc PDF</h3>
-                <p class="pipeline-body">Giáo viên chỉ cần kéo thả tệp Word (.docx) hoặc PDF soạn sẵn theo mẫu thông thường. Hệ thống tự nhận diện các câu hỏi trắc nghiệm mà không bắt buộc định dạng thủ công phức tạp.</p>
-                <div class="pipeline-tags">
-                    <span class="ptag">.docx</span>
-                    <span class="ptag">.pdf</span>
-                    <span class="ptag">MathType</span>
-                </div>
-            </div>
-
-            <div class="pipeline-card" data-ui>
-                <div class="pipeline-phase">Giai đoạn xử lý AI</div>
-                <h3 class="pipeline-title">Bóc tách công thức LaTeX & ảnh</h3>
-                <p class="pipeline-body">Thuật toán bóc tách công thức Toán, Lý, Hóa sang định dạng LaTeX vector sắc nét, giữ nguyên vẹn đồ thị và hình vẽ minh họa, sẵn sàng cho bài thi chất lượng cao.</p>
-                <div class="pipeline-tags">
-                    <span class="ptag">LaTeX chuẩn</span>
-                    <span class="ptag">Giữ hình vẽ</span>
-                    <span class="ptag">Tự động sửa lỗi</span>
-                </div>
-            </div>
-
-            <div class="pipeline-card" data-ui>
-                <div class="pipeline-phase">Giai đoạn xuất bản</div>
-                <h3 class="pipeline-title">Phòng thi & chấm điểm tức thì</h3>
-                <p class="pipeline-body">Hệ thống tạo mã phòng thi và đường link liên kết. Học sinh tham gia thi trên điện thoại hoặc máy tính, hệ thống tự động chấm điểm và lập biểu đồ phổ điểm ngay khi nộp bài.</p>
-                <div class="pipeline-tags">
-                    <span class="ptag">Mã phòng thi</span>
-                    <span class="ptag">Tự động bấm giờ</span>
-                    <span class="ptag">Phổ điểm ngay</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 2. MA TRẬN 3 DẠNG THỨC GDPT 2018 -->
-    <section class="editorial-section" id="dang-thuc-gdpt" aria-label="3 dạng thức đề thi chuẩn GDPT 2018">
-        <h2 class="editorial-headline">3 Dạng thức trắc nghiệm chuẩn GDPT 2018.</h2>
-        <p class="editorial-subline">Hỗ trợ đầy đủ và chính xác cấu trúc đề thi mới nhất của Bộ Giáo dục và Đào tạo áp dụng cho kỳ thi Tốt nghiệp THPT.</p>
-
-        <div class="standards-grid">
-            <div class="standard-card" data-ui>
-                <div class="standard-header">
-                    <div class="standard-part">Phần I</div>
-                    <div class="standard-name">Trắc nghiệm nhiều lựa chọn</div>
-                </div>
-                <p class="standard-desc">Cấu trúc 4 phương án A, B, C, D truyền thống với duy nhất một đáp án đúng. Phù hợp các câu hỏi nhận biết và thông hiểu kiến thức nền tảng.</p>
-                <div class="standard-spec">
-                    <div class="spec-row">
-                        <span class="spec-k">Số phương án:</span>
-                        <span class="spec-v">4 lựa chọn (A, B, C, D)</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-k">Cách tính điểm:</span>
-                        <span class="spec-v">0.25 điểm / câu</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="standard-card active-standard" data-ui>
-                <div class="standard-header">
-                    <div class="standard-part">Phần II</div>
-                    <div class="standard-name">Trắc nghiệm Đúng / Sai</div>
-                </div>
-                <p class="standard-desc">Mỗi câu hỏi gồm 4 ý độc lập a, b, c, d. Học sinh lựa chọn Đúng hoặc Sai cho từng ý. Tính điểm theo quy tắc lũy tiến khắt khe của Bộ GD&ĐT.</p>
-                <div class="standard-spec">
-                    <div class="spec-row">
-                        <span class="spec-k">Quy tắc điểm:</span>
-                        <span class="spec-v">1 ý: 0.1đ • 2 ý: 0.25đ • 3 ý: 0.5đ • 4 ý: 1.0đ</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-k">Mục tiêu:</span>
-                        <span class="spec-v">Đánh giá tư duy toàn diện, chống đánh lụi</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="standard-card" data-ui>
-                <div class="standard-header">
-                    <div class="standard-part">Phần III</div>
-                    <div class="standard-name">Trắc nghiệm Trả lời ngắn</div>
-                </div>
-                <p class="standard-desc">Không cung cấp phương án mồi. Học sinh tự tính toán và điền kết quả dạng số hoặc phân số vào ô nhập liệu. Đòi hỏi năng lực vận dụng cao.</p>
-                <div class="standard-spec">
-                    <div class="spec-row">
-                        <span class="spec-k">Hình thức:</span>
-                        <span class="spec-v">Tự điền số thực / phân số</span>
-                    </div>
-                    <div class="spec-row">
-                        <span class="spec-k">Đặc điểm:</span>
-                        <span class="spec-v">Triệt tiêu hoàn toàn xác suất đoán mò</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 3. NĂNG LỰC NỀN TẢNG (CAPABILITIES) -->
-    <section class="editorial-section" id="tinh-nang" aria-label="Năng lực cốt lõi">
-        <h2 class="editorial-headline">Nền tảng thi trực tuyến toàn diện.</h2>
-        <p class="editorial-subline">Xây dựng nhằm phục vụ tối đa nhu cầu kiểm tra, khảo sát chất lượng và luyện thi cho trường học và trung tâm.</p>
-
-        <div class="capabilities-matrix">
-            <div class="capability-item">
-                <div class="cap-title">Bảo toàn công thức LaTeX & Hình vẽ</div>
-                <p class="cap-text">Hệ thống chuyển đổi công thức Toán, Lý, Hóa thành MathJax chuẩn, hiển thị sắc nét trên cả màn hình máy tính và điện thoại. Hình vẽ, sơ đồ mạch điện và đồ thị được giữ nguyên kích thước gốc.</p>
-            </div>
-
-            <div class="capability-item">
-                <div class="cap-title">Thuật toán đảo đề tự động</div>
-                <p class="cap-text">Tự động xáo trộn ngẫu nhiên thứ tự câu hỏi và vị trí các phương án A, B, C, D để tạo nhiều mã đề thi khác nhau mà vẫn giữ nguyên ma trận độ khó bài thi.</p>
-            </div>
-
-            <div class="capability-item">
-                <div class="cap-title">Giám sát trung thực & Chống gian lận</div>
-                <p class="cap-text">Tự động ghi nhận số lần chuyển tab hoặc rời khỏi màn hình làm bài của học sinh, hỗ trợ giáo viên đánh giá đúng thực chất năng lực ôn luyện.</p>
-            </div>
-
-            <div class="capability-item">
-                <div class="cap-title">Báo cáo phổ điểm & Phân tích lỗi sai</div>
-                <p class="cap-text">Biểu đồ phổ điểm tự động thống kê ngay sau khi kết thúc buổi thi, chỉ ra các câu hỏi có tỷ lệ học sinh làm sai cao nhất để giáo viên kịp thời chữa đề và củng cố kiến thức.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- 4. CÂU HỎI THƯỜNG GẶP (FAQ) -->
-    <section class="editorial-section" id="hoi-dap" aria-label="Câu hỏi thường gặp">
-        <h2 class="editorial-headline">Câu hỏi thường gặp.</h2>
-        <p class="editorial-subline">Giải đáp chi tiết các thắc mắc phổ biến của giáo viên và học sinh khi sử dụng HocNhanhTN.</p>
-
-        <div class="editorial-faq-stack">
-            <details class="faq-row" open>
-                <summary class="faq-trigger">
-                    <span>1. HocNhanhTN là gì và có thu phí người dùng không?</span>
-                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
-                </summary>
-                <div class="faq-content">
-                    <p>HocNhanhTN là nền tảng công nghệ giáo dục hỗ trợ số hóa đề thi trắc nghiệm từ tệp Word (.docx) và PDF thành phòng thi trực tuyến. Nền tảng được phát triển phi lợi nhuận và hoàn toàn <strong>miễn phí 100%</strong> cho mọi học sinh và giáo viên trên cả nước.</p>
-                </div>
-            </details>
-
-            <details class="faq-row">
-                <summary class="faq-trigger">
-                    <span>2. Học sinh có bắt buộc phải đăng ký tài khoản để làm bài thi không?</span>
-                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
-                </summary>
-                <div class="faq-content">
-                    <p>Không. Học sinh chỉ cần nhập mã đề thi hoặc nhấp vào đường liên kết do thầy cô cung cấp là có thể vào làm bài ngay lập tức, không cần thao tác đăng ký tài khoản rườm rà.</p>
-                </div>
-            </details>
-
-            <details class="faq-row">
-                <summary class="faq-trigger">
-                    <span>3. Hệ thống có giữ nguyên công thức toán học MathType/LaTeX và hình ảnh không?</span>
-                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
-                </summary>
-                <div class="faq-content">
-                    <p>Có. Hệ thống tự động bóc tách và chuẩn hóa toàn bộ công thức sang LaTeX (render bởi MathJax) và trích xuất hình vẽ minh họa nguyên vẹn với chất lượng sắc nét trên mọi thiết bị.</p>
-                </div>
-            </details>
-
-            <details class="faq-row">
-                <summary class="faq-trigger">
-                    <span>4. Nền tảng có hoạt động tốt trên điện thoại di động không?</span>
-                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
-                </summary>
-                <div class="faq-content">
-                    <p>Toàn bộ giao diện làm bài thi và bảng chọn đáp án được tối ưu hóa đặc biệt cho màn hình cảm ứng di động, hỗ trợ vuốt mượt mà, bấm chọn chuẩn xác mà không cần cài đặt thêm ứng dụng.</p>
-                </div>
-            </details>
-
-            <details class="faq-row">
-                <summary class="faq-trigger">
-                    <span>5. Làm thế nào để liên hệ hỗ trợ hoặc báo lỗi câu hỏi?</span>
-                    <i class="ri-arrow-down-s-line faq-icon" aria-hidden="true"></i>
-                </summary>
-                <div class="faq-content">
-                    <p>Thầy cô và các bạn học sinh có thể gửi thư phản hồi trực tiếp qua email hỗ trợ của ban quản trị hoặc bấm vào mục <a href="/contact" class="faq-link">Liên hệ hỗ trợ</a> ở chân trang để được phản hồi trong vòng 24 giờ.</p>
-                </div>
-            </details>
-        </div>
-    </section>
-
-    <!-- 5. CALL TO ACTION BANNER (DEEP OBSIDIAN STAGE) -->
-    <section class="editorial-cta-stage" aria-label="Bắt đầu tạo đề thi ngay">
-        <div class="cta-stage-inner">
-            <h2 class="cta-stage-headline">Số hóa ngân hàng đề thi ngay hôm nay.</h2>
-            <p class="cta-stage-subline">Trải nghiệm phòng thi trực tuyến chuẩn GDPT 2018 hoàn toàn miễn phí, không giới hạn số lượng học sinh.</p>
-            <div class="cta-stage-buttons">
-                <button type="button" onclick="startDemoQuiz()" class="btn-cta-white">
-                    <i class="ri-play-circle-fill"></i>
-                    <span>Làm thử bài thi mẫu</span>
-                </button>
-                <button type="button" onclick="openAuthPage('login')" class="btn-cta-dark">
-                    <i class="ri-user-add-line"></i>
-                    <span>Đăng ký tài khoản giáo viên</span>
-                </button>
-            </div>
-        </div>
-    </section>
-
-</div>
-</main>
 
 <style id="hntn-extras-css">
 /* ========================================================
@@ -3693,7 +3725,7 @@ body.minimal-mode #publicLandingExtras {
         <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
         
         <div style="max-width: 420px; margin: 0 auto 16px auto;">
-            <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên của bạn (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
         </div>
 
         <!-- Banner thông báo cho Thí sinh tự do -->
@@ -3808,9 +3840,9 @@ body.minimal-mode #publicLandingExtras {
             <div style="display: flex; gap: 8px; flex-grow: 1; max-width: 440px; min-width: 280px; align-items: center;">
                 <div style="position: relative; flex: 1;">
                     <i class="ri-key-2-line" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 1.1rem;"></i>
-                    <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: AAA-111) hoặc link..." style="width: 100%; margin: 0; padding: 10px 14px 10px 36px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.95rem; box-sizing: border-box;">
+                    <input type="text" id="joinQuizCode" placeholder="Nhập mã đề (VD: AAA-111) hoặc link..." onkeydown="if(event.key==='Enter'){event.preventDefault();joinQuizByCode('joinQuizCode');}" style="width: 100%; margin: 0; padding: 10px 14px 10px 36px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.95rem; box-sizing: border-box;">
                 </div>
-                <button class="btn-primary" onclick="joinQuizByCode()" style="white-space: nowrap; border-radius: 8px; padding: 10px 18px; font-weight: 700; background: #1976d2; margin: 0; height: 42px;">
+                <button class="btn-primary" onclick="joinQuizByCode('joinQuizCode')" style="white-space: nowrap; border-radius: 8px; padding: 10px 18px; font-weight: 700; background: #1976d2; margin: 0; height: 42px;">
                     <i class="ri-arrow-right-line"></i> Vào thi
                 </button>
             </div>
@@ -4297,20 +4329,20 @@ body.minimal-mode #publicLandingExtras {
                 </div>
                 
                 <!-- Gợi ý phím tắt tiện lợi cho học sinh -->
-                <div class="exam-shortcut-hint" title="Phím tắt thao tác nhanh trên máy tính">
-                    <i class="ri-keyboard-line"></i> <span><b>1-4 / A-D</b> Chọn &bull; <b>F</b> Phân vân &bull; <b>&darr;/&uarr;</b> Chuyển câu</span>
+                <div class="exam-shortcut-hint" id="examShortcutHint" title="Phím tắt thao tác nhanh trên máy tính">
+                    <i class="ri-keyboard-line"></i> <span><b>1-4 / A-D</b> Chọn &bull; <span class="shortcut-flag-part"><b>F</b> Phân vân &bull; </span><b>&darr;/&uarr;</b> Chuyển câu</span>
                 </div>
                 
                 <!-- Legend dành cho Chế độ Thi thử (Exam Mode) -->
                 <div class="azota-nav-legend azota-nav-legend-exam" id="azotaNavLegend">
                     <div class="azota-legend-item">
-                        <span class="legend-dot green"></span> Đã chọn
+                        <span class="legend-dot indigo"></span> Đã chọn
                     </div>
                     <div class="azota-legend-item">
                         <span class="legend-dot gray"></span> Chưa làm
                     </div>
                     <div class="azota-legend-item">
-                        <span class="legend-dot red"></span> Phân vân
+                        <span class="legend-dot amber"></span> Phân vân
                     </div>
                 </div>
 
@@ -4353,7 +4385,7 @@ body.minimal-mode #publicLandingExtras {
             <i class="ri-grid-fill"></i>
             <div class="mobile-nav-text-group">
                 <span class="mobile-nav-label">Bảng câu hỏi</span>
-                <span id="mobileNavBadge" class="mobile-nav-sub">0 Đúng • 0 Sai</span>
+                <span id="mobileNavBadge" class="mobile-nav-sub">0/0 đã làm</span>
             </div>
         </button>
         <button type="button" id="mobileNextBtn" class="btn-mobile-submit" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);" onclick="mobileNextQuestionAction()">
@@ -4379,9 +4411,9 @@ body.minimal-mode #publicLandingExtras {
         </div>
         <!-- Legend dành cho Chế độ Thi thử trên Mobile -->
         <div class="azota-nav-legend mobile-sheet-legend azota-nav-legend-exam" id="mobileAzotaNavLegend">
-            <div class="azota-legend-item"><span class="legend-dot green"></span> Đã chọn</div>
+            <div class="azota-legend-item"><span class="legend-dot indigo"></span> Đã chọn</div>
             <div class="azota-legend-item"><span class="legend-dot gray"></span> Chưa làm</div>
-            <div class="azota-legend-item"><span class="legend-dot red"></span> Phân vân</div>
+            <div class="azota-legend-item"><span class="legend-dot amber"></span> Phân vân</div>
         </div>
         <!-- Khối thống kê Luyện tập cho Mobile Drawer -->
         <div class="azota-practice-stats mobile-sheet-practice-stats" id="mobileAzotaPracticeStats" style="display:none;">
@@ -5084,7 +5116,21 @@ body.minimal-mode #publicLandingExtras {
 
 <script>
     window.ENABLE_REWARD_ADS = false;
+    window.addEventListener('error', function(e) {
+        var pre = document.getElementById('pageInitialLoader');
+        if (pre) {
+            pre.classList.add('hntn-loaded');
+            setTimeout(function() { if (pre && pre.parentNode) pre.parentNode.removeChild(pre); }, 200);
+        }
+        var isExam = /[?&](id|quiz_id)=/i.test(window.location.search) || /^\/(quiz|thi)(\/|$)/i.test(window.location.pathname);
+        if (isExam) {
+            var app = document.getElementById('mainAppContainer');
+            if (app) app.style.display = 'block';
+            var welcome = document.getElementById('welcomeScreen');
+            if (welcome) welcome.style.display = 'block';
+        }
+    });
 </script>
-<script src="/script.js?v=20261101_v5"></script>
+<script src="/script.js?v=20261104_v12"></script>
 </body>
 </html>

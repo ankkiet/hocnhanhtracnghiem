@@ -288,7 +288,7 @@ async def ping_gemini_key(req: PingKeyRequest):
     
     from google.genai import types
 
-    from services.ai_service import get_gemini_client
+    from services.ai_service import get_gemini_client, diagnose_gemini_error
     from services.gemini_tracker_service import gemini_tracker, mask_api_key
 
     clean_k = req.api_key.strip()
@@ -298,19 +298,30 @@ async def ping_gemini_key(req: PingKeyRequest):
     t0 = time.time()
     try:
         client = get_gemini_client(clean_k)
-        await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents='ping',
-            config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=5)
-        )
-        duration_ms = round((time.time() - t0) * 1000, 1)
-        gemini_tracker.record_call(clean_k, 'gemini-2.5-flash', success=True, prompt_chars=4, response_chars=10, duration_ms=duration_ms)
-        return {
-            "status": "success",
-            "key": mask_api_key(clean_k),
-            "state": "healthy",
-            "message": f"Khóa API hoạt động tốt (Phản hồi sau {duration_ms}ms)"
-        }
+        models_to_test = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+        last_e = None
+        for m in models_to_test:
+            try:
+                await client.aio.models.generate_content(
+                    model=m,
+                    contents='ping',
+                    config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=5)
+                )
+                duration_ms = round((time.time() - t0) * 1000, 1)
+                gemini_tracker.record_call(clean_k, m, success=True, prompt_chars=4, response_chars=10, duration_ms=duration_ms)
+                return {
+                    "status": "success",
+                    "key": mask_api_key(clean_k),
+                    "state": "healthy",
+                    "message": f"Khóa API hoạt động tốt với {m} (Phản hồi sau {duration_ms}ms)"
+                }
+            except Exception as e_model:
+                last_e = e_model
+                err_str = str(e_model).lower()
+                if "invalid" in err_str or "not valid" in err_str:
+                    break
+                continue
+        raise last_e
     except Exception as e:
         err_msg = str(e)
         duration_ms = round((time.time() - t0) * 1000, 1)
@@ -319,9 +330,11 @@ async def ping_gemini_key(req: PingKeyRequest):
         is_429 = "429" in err_msg or "quota" in err_msg.lower() or "exhausted" in err_msg.lower()
         is_invalid = "invalid" in err_msg.lower() or "not valid" in err_msg.lower()
         state = "warning_429" if is_429 else ("invalid_key" if is_invalid else "error")
+        diag = diagnose_gemini_error(e, keys_tried=[clean_k], models_tried=models_to_test)
         return {
             "status": "error",
             "key": mask_api_key(clean_k),
             "state": state,
-            "message": f"Lỗi: {err_msg[:150]}"
+            "message": f"[{diag.get('error_code')}] {diag.get('error_name')}: {diag.get('cause')}",
+            "diagnostic": diag
         }

@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 import time
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from firebase_admin import db as realtime_db
 from firebase_admin import firestore
 from pydantic import BaseModel
@@ -21,7 +22,12 @@ from pydantic import BaseModel
 from core.docx_exporter import export_quiz_to_docx, export_multi_quizzes_to_docx
 from core.security import get_user_from_token
 from core.state import QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE
-from services.ai_service import call_gemini_with_fallback, fix_json_latex_escapes
+from services.ai_service import (
+    call_gemini_with_fallback,
+    fix_json_latex_escapes,
+    diagnose_gemini_error,
+    GeminiAPIException
+)
 from services.audit_service import audit_service
 from services.r2_service import delete_images_from_r2, extract_image_keys_from_data
 
@@ -338,12 +344,47 @@ async def check_quiz_ai(req: CheckQuizRequest):
     if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
         api_keys = SETTINGS_CACHE['gemini']['data']
     else:
-        settings_doc = db.collection('settings').document('gemini').get()
-        if not settings_doc.exists or not settings_doc.to_dict().get('api_keys'):
-            raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
-        api_keys = settings_doc.to_dict().get('api_keys')
+        api_keys = []
+        try:
+            settings_doc = db.collection('settings').document('gemini').get()
+            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                api_keys = settings_doc.to_dict().get('api_keys')
+        except Exception:
+            pass
+        if not api_keys:
+            import os
+            from core.config import settings
+            env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
+            if env_keys:
+                if isinstance(env_keys, str):
+                    api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
+                elif isinstance(env_keys, list):
+                    api_keys = env_keys
+        if not api_keys:
+            diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "error",
+                    **diag,
+                    "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
+                }
+            )
         SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
     
+    if not req.quiz_data or len(req.quiz_data) == 0:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "error_code": "EMPTY_QUIZ_DATA",
+                "error_name": "Đề thi trống (0 câu hỏi)",
+                "cause": "Đề thi hiện tại không có câu hỏi nào để AI có thể kiểm tra hoặc rà soát.",
+                "solution": "Vui lòng nhập hoặc thêm ít nhất một câu hỏi vào đề thi trước khi chạy AI.",
+                "detail": "Đề thi trống (0 câu hỏi)."
+            }
+        )
+
     try:
         custom_prompt_raw = req.custom_prompt.strip()
         custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{custom_prompt_raw}\n" if custom_prompt_raw else ""
@@ -613,7 +654,18 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "new_quiz_data": final_new_quiz_data
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi khi gọi AI: {str(e)}")
+        diag = getattr(e, "diagnostic", None)
+        if not diag:
+            diag = diagnose_gemini_error(e, keys_tried=api_keys)
+        logger.error(f"[LỖI AI KIỂM TRA ĐỀ] Code: {diag.get('error_code')} | Do đâu: {diag.get('cause')}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag.get('error_name')}. Do đâu: {diag.get('cause')}. Hướng xử lý: {diag.get('solution')}"
+            }
+        )
 
 @router.get("/export_docx/{quiz_id}", summary="Xuất đề thi ra file Word (.docx) chuẩn in ấn")
 async def export_quiz_docx(
@@ -1055,15 +1107,46 @@ async def cross_check_quiz_answers(req: CrossCheckAnswersRequest):
                 api_keys = env_keys
 
     if not api_keys:
-        raise HTTPException(status_code=400, detail="Quản trị viên chưa cấu hình Gemini API Key chung. Vui lòng liên hệ Admin.")
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
+            }
+        )
+
+    if not req.quiz_data or len(req.quiz_data) == 0:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "error_code": "EMPTY_QUIZ_DATA",
+                "error_name": "Đề thi trống (0 câu hỏi)",
+                "cause": "Hiện tại chưa có câu hỏi nào để kiểm tra chéo đáp án.",
+                "solution": "Vui lòng thêm ít nhất một câu hỏi vào đề thi trước khi chạy kiểm tra chéo.",
+                "detail": "Đề thi trống (0 câu hỏi)."
+            }
+        )
 
     from services.ai_service import cross_check_answers
     try:
         result = await cross_check_answers(req.quiz_data, api_keys)
         return result
     except Exception as e:
-        logger.error(f"[LỖI] Kiểm tra chéo đáp án thất bại: {e}")
-        raise HTTPException(status_code=500, detail=f"Lỗi kiểm tra chéo: {str(e)}")
+        diag = getattr(e, "diagnostic", None)
+        if not diag:
+            diag = diagnose_gemini_error(e, keys_tried=api_keys)
+        logger.error(f"[LỖI AI KIỂM TRA CHÉO] Code: {diag.get('error_code')} | Do đâu: {diag.get('cause')}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag.get('error_name')}. Do đâu: {diag.get('cause')}. Hướng xử lý: {diag.get('solution')}"
+            }
+        )
 
 
 @router.post("/generate_similar_questions", summary="Sinh câu hỏi tương tự bằng AI")
@@ -1113,7 +1196,15 @@ async def generate_similar_quiz_questions(req: GenerateSimilarQuestionsRequest):
                 api_keys = env_keys
 
     if not api_keys:
-        raise HTTPException(status_code=400, detail="Hệ thống chưa cấu hình Gemini API Key. Vui lòng liên hệ Admin cấu hình API Key.")
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
+            }
+        )
 
     from services.ai_service import generate_similar_questions
     try:
@@ -1132,5 +1223,137 @@ async def generate_similar_quiz_questions(req: GenerateSimilarQuestionsRequest):
             "similar_questions": generated
         }
     except Exception as e:
-        logger.error(f"[LỖI] Sinh câu hỏi tương tự thất bại: {e}")
-        raise HTTPException(status_code=500, detail=f"Lỗi sinh câu hỏi: {str(e)}")
+        diag = getattr(e, "diagnostic", None)
+        if not diag:
+            diag = diagnose_gemini_error(e, keys_tried=api_keys)
+        logger.error(f"[LỖI AI SINH CÂU HỎI] Code: {diag.get('error_code')} | Do đâu: {diag.get('cause')}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag.get('error_name')}. Do đâu: {diag.get('cause')}. Hướng xử lý: {diag.get('solution')}"
+            }
+        )
+
+
+class DiagnoseAIRequest(BaseModel):
+    teacher_token: Optional[str] = None
+
+
+@router.post("/diagnose_ai", summary="Kiểm tra & Chẩn đoán kết nối AI chi tiết")
+async def diagnose_ai_endpoint(req: Optional[DiagnoseAIRequest] = None):
+    """
+    Lệnh chẩn đoán hệ thống AI:
+    - Kiểm tra số lượng API Key đã nạp (Firestore & Environment).
+    - Thử nghiệm gọi thực tế tới từng mô hình AI mới nhất.
+    - Trả về báo cáo chi tiết: Trạng thái, Lỗi gì, Do đâu, Hướng khắc phục cụ thể.
+    """
+    db = _get_db()
+    api_keys = []
+    now = time.time()
+    
+    if db is not None:
+        try:
+            settings_doc = db.collection('settings').document('gemini').get()
+            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                api_keys = settings_doc.to_dict().get('api_keys')
+        except Exception as e:
+            logger.warning(f"Không thể đọc gemini api keys: {e}")
+
+    if not api_keys:
+        import os
+        from core.config import settings
+        env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
+        if env_keys:
+            if isinstance(env_keys, str):
+                api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
+            elif isinstance(env_keys, list):
+                api_keys = env_keys
+
+    if not api_keys:
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        return {
+            "status": "error",
+            "overall_state": "no_keys",
+            **diag
+        }
+
+    from services.ai_service import get_gemini_client
+    from services.gemini_tracker_service import mask_api_key
+    from google.genai import types
+
+    models_to_test = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+    key_diagnostics = []
+    healthy_keys_count = 0
+    last_err = None
+
+    for raw_k in api_keys:
+        k = raw_k.strip()
+        if not k:
+            continue
+        masked = mask_api_key(k)
+        t0 = time.time()
+        key_res = {
+            "key": masked,
+            "state": "unknown",
+            "working_model": None,
+            "latency_ms": None,
+            "error": None
+        }
+        try:
+            client = get_gemini_client(k)
+            for m in models_to_test:
+                try:
+                    await asyncio.wait_for(
+                        client.aio.models.generate_content(
+                            model=m,
+                            contents="ping",
+                            config=types.GenerateContentConfig(temperature=0.1, max_output_tokens=5)
+                        ),
+                        timeout=5.0
+                    )
+                    latency = round((time.time() - t0) * 1000, 1)
+                    key_res["state"] = "healthy"
+                    key_res["working_model"] = m
+                    key_res["latency_ms"] = latency
+                    healthy_keys_count += 1
+                    break
+                except Exception as m_err:
+                    last_err = m_err
+                    m_err_str = str(m_err).lower()
+                    if "invalid" in m_err_str or "not valid" in m_err_str:
+                        key_res["state"] = "invalid_key"
+                        key_res["error"] = "Khóa API không hợp lệ hoặc đã bị xóa"
+                        break
+                    elif "429" in m_err_str or "quota" in m_err_str:
+                        key_res["state"] = "quota_exceeded"
+                        key_res["error"] = "Chạm giới hạn 429 Rate Limit"
+                        break
+                    continue
+        except Exception as k_err:
+            last_err = k_err
+            key_res["state"] = "client_error"
+            key_res["error"] = str(k_err)
+
+        key_diagnostics.append(key_res)
+
+    if healthy_keys_count > 0:
+        return {
+            "status": "success",
+            "overall_state": "healthy",
+            "healthy_keys": healthy_keys_count,
+            "total_keys": len(key_diagnostics),
+            "keys_detail": key_diagnostics,
+            "message": f"Hệ thống AI hoạt động tốt ({healthy_keys_count}/{len(key_diagnostics)} API Key sẵn sàng)."
+        }
+    else:
+        diag = diagnose_gemini_error(last_err or Exception("Tất cả API Key đều không thể kết nối."), keys_tried=api_keys, models_tried=models_to_test)
+        return {
+            "status": "error",
+            "overall_state": "outage",
+            "healthy_keys": 0,
+            "total_keys": len(key_diagnostics),
+            "keys_detail": key_diagnostics,
+            **diag
+        }
