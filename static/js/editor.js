@@ -3467,6 +3467,7 @@ function restoreEditorSelection() {
 }
 
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
 // 1. WORD FORMATTING TOOLS (In đậm, In nghiêng, Gạch chân, Căn lề, Hoàn tác)
 // --------------------------------------------------------------------------
 function formatDoc(cmd, value = null) {
@@ -3532,39 +3533,39 @@ function applyColorToEditorSelection(styleProp, color) {
     const sel = window.getSelection();
     let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
 
-    try {
-        document.execCommand('styleWithCSS', false, true);
-        if (styleProp === 'color') {
-            document.execCommand('foreColor', false, color);
-        } else if (styleProp === 'backgroundColor') {
-            document.execCommand('hiliteColor', false, color === 'transparent' ? 'inherit' : color);
-        }
-    } catch (e) {
-        console.warn('execCommand color failed, fallback to range wrap:', e);
-    }
-
     if (range && !range.collapsed) {
         try {
-            const span = document.createElement('span');
-            if (styleProp === 'color') span.style.color = color;
-            if (styleProp === 'backgroundColor') span.style.backgroundColor = color;
-            
-            const contents = range.extractContents();
-            span.appendChild(contents);
-            range.insertNode(span);
-            
-            range.selectNodeContents(span);
-            if (sel) {
-                sel.removeAllRanges();
-                sel.addRange(range);
+            document.execCommand('styleWithCSS', false, true);
+            if (styleProp === 'color') {
+                document.execCommand('foreColor', false, color);
+            } else if (styleProp === 'backgroundColor') {
+                document.execCommand('hiliteColor', false, color === 'transparent' ? 'inherit' : color);
             }
-            savedEditorSelection = range.cloneRange();
-        } catch(e) {}
+        } catch (e) {
+            console.warn('execCommand color failed, fallback to wrap:', e);
+            try {
+                const span = document.createElement('span');
+                if (styleProp === 'color') span.style.color = color;
+                if (styleProp === 'backgroundColor') span.style.backgroundColor = color;
+                const contents = range.extractContents();
+                span.appendChild(contents);
+                range.insertNode(span);
+                range.selectNodeContents(span);
+            } catch(err) {}
+        }
         if (typeof showToast === 'function') {
             const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
             showToast('✓ Đã áp dụng ' + actionName + '!');
         }
     } else {
+        try {
+            document.execCommand('styleWithCSS', false, true);
+            if (styleProp === 'color') {
+                document.execCommand('foreColor', false, color);
+            } else if (styleProp === 'backgroundColor') {
+                document.execCommand('hiliteColor', false, color);
+            }
+        } catch(e) {}
         if (typeof showToast === 'function') {
             const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
             showToast('✓ Đã chọn ' + actionName + '. Bôi đen chữ để đổi màu hoặc gõ tiếp.');
@@ -3622,17 +3623,17 @@ function clearEditorFormatting() {
 }
 
 // --------------------------------------------------------------------------
-// 2. MODAL CHÈN CÔNG THỨC TOÁN HỌC LATEX TRỰC QUAN (MATHTYPE VIRTUAL KEYBOARD)
+// 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE TRỰC QUAN
 // --------------------------------------------------------------------------
 function openLatexMathModal() {
     saveCurrentEditorSelection();
     const modal = document.getElementById('latexMathModal');
     if (!modal) return;
 
-    const input = document.getElementById('latexFormulaInput');
+    const mf = document.getElementById('mathLiveEditor');
     let prefill = '';
 
-    // Nếu người dùng đang bôi đen một đoạn text/công thức trong editor, tự động điền vào ô
+    // Nếu người dùng đang bôi đen một đoạn text/công thức trong editor, tự động điền vào
     if (savedEditorSelection && !savedEditorSelection.collapsed) {
         const selectedText = savedEditorSelection.toString().trim();
         if (selectedText) {
@@ -3640,13 +3641,15 @@ function openLatexMathModal() {
         }
     }
 
-    if (input) {
-        // Khởi tạo ô nhập: nếu có bôi đen thì điền, không thì để trống để người dùng bấm phím bắt đầu gõ
-        input.value = prefill || '';
+    if (mf) {
+        if (prefill) {
+            mf.setValue(prefill, { format: 'latex' });
+        } else {
+            mf.setValue('', { format: 'latex' });
+        }
     }
 
     modal.style.display = 'flex';
-    updateLatexLivePreview();
 
     // Render MathJax cho toàn bộ phím ảo trong modal khi mở
     if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
@@ -3654,15 +3657,10 @@ function openLatexMathModal() {
     }
 
     setTimeout(() => {
-        if (input) {
-            input.focus();
-            if (prefill) {
-                input.select();
-            } else {
-                input.setSelectionRange(0, 0);
-            }
+        if (mf) {
+            mf.focus();
         }
-    }, 80);
+    }, 100);
 }
 
 function closeLatexMathModal() {
@@ -3691,249 +3689,83 @@ function switchMathTypeTab(tabId, btn) {
         }
     }
 
-    const input = document.getElementById('latexFormulaInput');
-    if (input) input.focus();
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) mf.focus();
 }
 
-function insertMathSnippet(snippet, wrapType) {
-    const input = document.getElementById('latexFormulaInput');
-    if (!input) return;
-    input.focus();
+function insertMathSnippet(snippet) {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+    mf.executeCommand(['insert', snippet]);
+    mf.focus();
+}
 
-    const start = input.selectionStart || 0;
-    const end = input.selectionEnd || 0;
-    const val = input.value;
-    const selected = val.substring(start, end).trim();
-
-    let textToInsert = snippet;
-    let selectStart = -1;
-    let selectLength = 0;
-
-    if (selected && wrapType) {
-        // Thông minh: Nếu đang bôi đen và bấm phím hàm (phân số, căn, ngoặc, số mũ...)
-        if (wrapType === 'frac') {
-            textToInsert = '\\frac{' + selected + '}{b}';
-            selectStart = start + ('\\frac{' + selected + '}{').length;
-            selectLength = 1; // chọn 'b' ở mẫu để gõ ngay mẫu số
-        } else if (wrapType === 'sqrt') {
-            textToInsert = '\\sqrt{' + selected + '}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'sqrt3') {
-            textToInsert = '\\sqrt[3]{' + selected + '}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'sqrtn') {
-            textToInsert = '\\sqrt[n]{' + selected + '}';
-            selectStart = start + '\\sqrt['.length;
-            selectLength = 1; // chọn 'n'
-        } else if (wrapType === 'sup') {
-            textToInsert = '{' + selected + '}^{2}';
-            selectStart = start + ('{' + selected + '}^{').length;
-            selectLength = 1;
-        } else if (wrapType === 'sub') {
-            textToInsert = '{' + selected + '}_{1}';
-            selectStart = start + ('{' + selected + '}_{').length;
-            selectLength = 1;
-        } else if (wrapType === 'paren') {
-            textToInsert = '\\left( ' + selected + ' \\right)';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'bracket') {
-            textToInsert = '\\left[ ' + selected + ' \\right]';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'brace') {
-            textToInsert = '\\left\\{ ' + selected + ' \\right\\}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'abs') {
-            textToInsert = '\\left| ' + selected + ' \\right|';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'vec') {
-            textToInsert = '\\vec{' + selected + '}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'hat') {
-            textToInsert = '\\widehat{' + selected + '}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else if (wrapType === 'overline') {
-            textToInsert = '\\overline{' + selected + '}';
-            selectStart = start + textToInsert.length;
-            selectLength = 0;
-        } else {
-            textToInsert = snippet;
-        }
-    } else {
-        textToInsert = snippet;
-        // Tự động chọn tham số đầu tiên để người dùng gõ ngay
-        if (snippet === '\\frac{a}{b}') {
-            selectStart = start + '\\frac{'.length;
-            selectLength = 1;
-        } else if (snippet === '\\sqrt{x}') {
-            selectStart = start + '\\sqrt{'.length;
-            selectLength = 1;
-        } else if (snippet === '\\sqrt[3]{x}') {
-            selectStart = start + '\\sqrt[3]{'.length;
-            selectLength = 1;
-        } else if (snippet === '\\sqrt[n]{x}') {
-            selectStart = start + '\\sqrt['.length;
-            selectLength = 1;
-        } else if (snippet === 'x^{2}') {
-            selectStart = start + 'x^{'.length;
-            selectLength = 1;
-        } else if (snippet === 'x^{n}') {
-            selectStart = start + 'x^{'.length;
-            selectLength = 1;
-        } else if (snippet === 'x_{1}') {
-            selectStart = start + 'x_{'.length;
-            selectLength = 1;
-        } else if (snippet === 'x_{n}') {
-            selectStart = start + 'x_{'.length;
-            selectLength = 1;
-        } else if (snippet === '\\vec{AB}') {
-            selectStart = start + '\\vec{'.length;
-            selectLength = 2;
-        } else if (snippet === '\\widehat{ABC}') {
-            selectStart = start + '\\widehat{'.length;
-            selectLength = 3;
-        } else if (snippet === '\\int_{a}^{b} f(x) dx') {
-            selectStart = start + '\\int_{'.length;
-            selectLength = 1;
-        } else if (snippet === '\\lim_{x \\to x_0} f(x)') {
-            selectStart = start + '\\lim_{x \\to '.length;
-            selectLength = 3;
-        } else if (snippet === '\\left( x \\right)') {
-            selectStart = start + '\\left( '.length;
-            selectLength = 1;
-        } else if (snippet === '\\left[ x \\right]') {
-            selectStart = start + '\\left[ '.length;
-            selectLength = 1;
-        } else if (snippet === '\\left\\{ x \\right\\}') {
-            selectStart = start + '\\left\\{ '.length;
-            selectLength = 1;
-        } else if (snippet === '\\left| x \\right|') {
-            selectStart = start + '\\left| '.length;
-            selectLength = 1;
-        }
+function clearMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        mf.setValue('', { format: 'latex' });
+        mf.focus();
     }
-
-    input.value = val.substring(0, start) + textToInsert + val.substring(end);
-
-    if (selectStart >= 0 && selectLength > 0) {
-        input.setSelectionRange(selectStart, selectStart + selectLength);
-    } else if (selectStart >= 0) {
-        input.setSelectionRange(selectStart, selectStart);
-    } else {
-        const nextPos = start + textToInsert.length;
-        input.setSelectionRange(nextPos, nextPos);
-    }
-
-    updateLatexLivePreview();
-}
-
-// Alias tương thích
-function insertLatexSnippet(snippet) {
-    insertMathSnippet(snippet);
-}
-
-function clearLatexFormula() {
-    const input = document.getElementById('latexFormulaInput');
-    if (!input) return;
-    input.value = '';
-    updateLatexLivePreview();
-    input.focus();
     if (typeof showToast === 'function') {
         showToast('Đã xóa trắng công thức');
     }
 }
 
-function backspaceLatexFormula() {
-    const input = document.getElementById('latexFormulaInput');
-    if (!input) return;
-    const start = input.selectionStart || 0;
-    const end = input.selectionEnd || 0;
-    const val = input.value;
-    if (start === end) {
-        if (start > 0) {
-            input.value = val.substring(0, start - 1) + val.substring(end);
-            input.setSelectionRange(start - 1, start - 1);
-        }
-    } else {
-        input.value = val.substring(0, start) + val.substring(end);
-        input.setSelectionRange(start, start);
+function backspaceMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        mf.executeCommand(['deleteBackward']);
+        mf.focus();
     }
-    input.focus();
-    updateLatexLivePreview();
 }
 
-function copyLatexFormula() {
-    const input = document.getElementById('latexFormulaInput');
-    if (!input || !input.value.trim()) {
-        if (typeof showToast === 'function') showToast('ℹ Không có công thức để sao chép!');
+function copyMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf || !mf.value.trim()) {
+        if (typeof showToast === 'function') showToast('ℹ Chưa có công thức để sao chép!');
         return;
     }
-    const txt = input.value.trim();
+    const val = mf.value.trim();
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(txt).then(() => {
-            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX vào clipboard!');
+        navigator.clipboard.writeText(val).then(() => {
+            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
         }).catch(() => {
-            fallbackCopy(txt);
+            fallbackCopy(val);
         });
     } else {
-        fallbackCopy(txt);
+        fallbackCopy(val);
     }
 
     function fallbackCopy(text) {
-        input.select();
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
         document.execCommand('copy');
+        document.body.removeChild(ta);
         if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
     }
 }
 
-let latexPreviewDebounce = null;
-function updateLatexLivePreview() {
-    clearTimeout(latexPreviewDebounce);
-    latexPreviewDebounce = setTimeout(() => {
-        const input = document.getElementById('latexFormulaInput');
-        const preview = document.getElementById('latexLivePreview');
-        if (!input || !preview) return;
-
-        let raw = input.value.trim();
-        if (!raw) {
-            preview.innerHTML = '<span class="mathtype-placeholder">Công thức toán học sẽ hiển thị trực quan tại đây...</span>';
-            return;
-        }
-
-        let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
-        if (!clean) {
-            preview.innerHTML = '<span class="mathtype-placeholder">Công thức toán học sẽ hiển thị trực quan tại đây...</span>';
-            return;
-        }
-
-        preview.innerHTML = '\\(' + clean + '\\)';
-        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-            window.MathJax.typesetPromise([preview]).catch((err) => {
-                preview.innerHTML = '<span style="color: #dc2626; font-size: 0.85rem;"><i class="ri-error-warning-line"></i> Lỗi cú pháp LaTeX: ' + clean + '</span>';
-            });
-        }
-    }, 80);
-}
+// Aliases cho tương thích ngược
+function clearLatexFormula() { clearMathField(); }
+function backspaceLatexFormula() { backspaceMathField(); }
+function copyLatexFormula() { copyMathField(); }
+function insertLatexSnippet(s) { insertMathSnippet(s); }
+function updateLatexLivePreview() {}
 
 function confirmInsertLatexFormula() {
-    const input = document.getElementById('latexFormulaInput');
-    if (!input) return;
-    let raw = input.value.trim();
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+    let raw = mf.value.trim();
     if (!raw) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức LaTeX!');
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
         return;
     }
 
     let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
     if (!clean) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức LaTeX!');
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
         return;
     }
 
@@ -3956,7 +3788,7 @@ function confirmInsertLatexFormula() {
             range.setEndAfter(textNode);
             sel.removeAllRanges();
             sel.addRange(range);
-            saveCurrentEditorSelection();
+            savedEditorSelection = range.cloneRange();
         } else {
             document.execCommand('insertText', false, formula);
             saveCurrentEditorSelection();
