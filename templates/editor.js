@@ -3623,8 +3623,11 @@ function clearEditorFormatting() {
 }
 
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
 // 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE TRỰC QUAN
 // --------------------------------------------------------------------------
+let __mathtype_typeset_done = false;
+
 function openLatexMathModal() {
     saveCurrentEditorSelection();
     const modal = document.getElementById('latexMathModal');
@@ -3651,9 +3654,11 @@ function openLatexMathModal() {
 
     modal.style.display = 'flex';
 
-    // Render MathJax cho toàn bộ phím ảo trong modal khi mở
-    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-        window.MathJax.typesetPromise([modal]).catch(() => {});
+    // Chỉ typeset MathJax duy nhất 1 lần khi mở để chống lỗi lặp lồng mjx-container
+    if (!__mathtype_typeset_done && window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        window.MathJax.typesetPromise([modal]).then(() => {
+            __mathtype_typeset_done = true;
+        }).catch(() => {});
     }
 
     setTimeout(() => {
@@ -3683,10 +3688,6 @@ function switchMathTypeTab(tabId, btn) {
     const targetPane = document.getElementById('mathPane-' + tabId);
     if (targetPane) {
         targetPane.style.display = 'flex';
-        // Render MathJax cho tab vừa chọn
-        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-            window.MathJax.typesetPromise([targetPane]).catch(() => {});
-        }
     }
 
     const mf = document.getElementById('mathLiveEditor');
@@ -3699,6 +3700,26 @@ function insertMathSnippet(snippet) {
     mf.executeCommand(['insert', snippet]);
     mf.focus();
 }
+
+// Bắt sự kiện click vào các phím ảo chứa data-snippet chuẩn xác 100%
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('button.mathtype-key');
+    if (btn && btn.hasAttribute('data-snippet')) {
+        e.preventDefault();
+        const snip = btn.getAttribute('data-snippet');
+        if (snip) {
+            insertMathSnippet(snip);
+        }
+    }
+});
+
+// Ngăn cướp tiêu điểm (focus) khi click các nút phím ảo
+document.addEventListener('mousedown', function(e) {
+    const btn = e.target.closest('button.mathtype-key, .mathtype-tab-btn, .mathtype-action-btn');
+    if (btn) {
+        e.preventDefault();
+    }
+});
 
 function clearMathField() {
     const mf = document.getElementById('mathLiveEditor');
