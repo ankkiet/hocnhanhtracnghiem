@@ -646,6 +646,14 @@ def inspect_run_formatting(rPr, run_text: str = ""):
 
 
 
+def sanitize_group_title(text: str) -> str:
+    """Loại bỏ sạch sẽ các thẻ HTML thừa hoặc bị vỡ (như </B>, <B>, <b>, vv.) khỏi tiêu đề nhóm."""
+    if not text:
+        return ""
+    clean = re.sub(r'</?[a-zA-Z0-9]+[^>]*>', ' ', str(text))
+    return re.sub(r'\s+', ' ', clean).strip()
+
+
 def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
     """Thuật toán phân tách Câu hỏi trắc nghiệm siêu tốc và thông minh từ tệp DOCX."""
@@ -1012,7 +1020,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
                 extracted_data.append({
 
-                    "group_title": shared_context,
+                    "group_title": sanitize_group_title(shared_context),
 
                     "question": q_text_clean,
 
@@ -1044,7 +1052,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
                     extracted_data.append({
 
-                        "group_title": shared_context,
+                        "group_title": sanitize_group_title(shared_context),
 
                         "question": q_text_clean,
 
@@ -1166,7 +1174,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
         extracted_data.append({
 
-            "group_title": shared_context,
+            "group_title": sanitize_group_title(shared_context),
 
             "question": q_text_clean,
 
@@ -1188,7 +1196,7 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
             extracted_data.append({
 
-                "group_title": shared_context,
+                "group_title": sanitize_group_title(shared_context),
 
                 "question": q_text_clean,
 

@@ -712,6 +712,19 @@ function formatRichContent(content) {
         return `\uFFF0IMG${imgBlocks.length - 1}\uFFF1`;
     });
 
+    // 4.3. Bảo vệ các đại lượng: nồng độ %, nồng độ mol, đơn vị đo (tránh nhầm số phần trăm thành chỉ số dưới hóa học, ví dụ: NaOH 30% -> không thành NaOH30)
+    const unitBlocks = [];
+    const HNTN_UNITS_REGEX_LOCAL = /(?:^|[^a-zA-Z\u00C0-\u1EF90-9_])\d+(?:[.,]\d+)?\s*(?:[%‰]|M\b|mol(?:\/[Ll])?\b|gam\b|kg\b|mg\b|g(?:\/(?:mL|ml|cm3))?\b|mL\b|ml\b|l\b|lít\b|lit\b|atm\b|bar\b|mmHg\b|torr\b|ppm\b|ppb\b|V\b|W\b|J\b|kJ\b|cal\b|kcal\b|[°℃]|oC\b|độ\b)/g;
+    str = str.replace(HNTN_UNITS_REGEX_LOCAL, (full) => {
+        const m = full.match(/^([^a-zA-Z\u00C0-\u1EF90-9_])(.*)$/);
+        if (m) {
+            unitBlocks.push(m[2]);
+            return m[1] + `\uFFF0UNIT${unitBlocks.length - 1}\uFFF1`;
+        }
+        unitBlocks.push(full);
+        return `\uFFF0UNIT${unitBlocks.length - 1}\uFFF1`;
+    });
+
     // 4.5. Chuẩn hóa chỉ số dưới / chỉ số trên Unicode, công thức hóa học và biến số toán học
     const UNICODE_SUB_MAP_LOCAL = {
         '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
@@ -730,7 +743,7 @@ function formatRichContent(content) {
     str = str.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP_LOCAL[c] || c).join('') + '</sub>');
     str = str.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP_LOCAL[c] || c).join('') + '</sup>');
 
-    str = str.replace(new RegExp('\\(((?:' + CHEM_ELEM_LOCAL + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
+    str = str.replace(new RegExp('\\((?=[^)]*[A-Za-z])((?:' + CHEM_ELEM_LOCAL + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
         return '(' + inner.replace(new RegExp('((?:' + CHEM_ELEM_LOCAL + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
     });
     str = str.replace(/\)\s+(\d+)/g, ')$1');
@@ -787,13 +800,16 @@ function formatRichContent(content) {
     mathBlocks.forEach((math, idx) => {
         str = str.split(`\uFFF0MATH${idx}\uFFF1`).join(math);
     });
+    unitBlocks.forEach((unit, idx) => {
+        str = str.split(`\uFFF0UNIT${idx}\uFFF1`).join(unit);
+    });
 
     // 9.5. Dọn dẹp khoảng trắng thừa giữa chữ cái và thẻ sub/sup
     str = str.replace(/<sub>\s*([^<]+?)\s*<\/sub>/gi, '<sub>$1</sub>');
     str = str.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
     str = str.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
     str = str.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
-    str = str.replace(/<\/sub>\s+([A-Z\(])/g, '</sub>$1');
+    str = str.replace(/<\/sub>\s+([A-Z])/g, '</sub>$1');
 
     // 10. Lọc bỏ các thẻ nguy hiểm (XSS security)
     str = str.replace(/<\s*(?:script|style|iframe|object|embed|applet)[\s\S]*?<\/\s*(?:script|style|iframe|object|embed|applet)\s*>/gi, '')
@@ -920,7 +936,7 @@ function selectRoleTab(role) {
         }
         if (notice) notice.style.display = 'block';
         if (btn) btn.style.backgroundColor = '#4f46e5';
-        if (btnText) btnText.innerHTML = '🛡️ Gửi đăng ký Giáo viên (Chờ duyệt)';
+        if (btnText) btnText.innerHTML = '🚀 Hoàn tất & Bắt đầu soạn đề';
         if (classLabel) classLabel.innerHTML = 'Bộ môn / Trường công tác <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span>';
     } else {
         if (teacherCard) {
@@ -1150,6 +1166,13 @@ async function submitUserProfileAndRole() {
         return;
     }
 
+    const roleConsent = document.getElementById('roleConsentPdpd');
+    if (roleConsent && !roleConsent.checked) {
+        alert("Vui lòng đánh dấu đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP) trước khi tiếp tục.");
+        roleConsent.focus();
+        return;
+    }
+
     const btn = document.getElementById('btnSubmitRoleChoice');
     const oldBtnHtml = btn ? btn.innerHTML : '';
     if (btn) {
@@ -1194,7 +1217,8 @@ async function submitUserProfileAndRole() {
                 }
                 hideRoleScreens();
                 checkAuthState();
-                alert(`🎉 Chúc mừng ${data.full_name}! Bạn đã đăng ký thành công với vai trò Học sinh.`);
+                const roleDesc = data.role === 'teacher' ? 'Giáo viên' : 'Học sinh';
+                alert(`🎉 Chúc mừng ${data.full_name}! Bạn đã đăng ký thành công với vai trò ${roleDesc}.`);
             } else if (data.status === 'pending_approval') {
                 showPendingApproval(currentPendingUserId, data.full_name, data.email, data.class_name, data.school, data.phone);
                 alert("⏳ Đã gửi thông tin đăng ký Giáo viên! Tài khoản của bạn đang chờ Quản trị viên (Admin) xét duyệt.");
@@ -2069,6 +2093,12 @@ async function handleRegister() {
     const fn = document.getElementById('regFullName').value.trim();
     const r = document.getElementById('regRole').value;
     if(!u || !p || !fn) return alert("Vui lòng nhập đủ thông tin");
+    const regConsent = document.getElementById('regConsentPdpd');
+    if (regConsent && !regConsent.checked) {
+        alert("Vui lòng đánh dấu đồng ý với Điều khoản sử dụng và Chính sách bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP) trước khi tạo tài khoản.");
+        regConsent.focus();
+        return;
+    }
     
     showGlobalLoader({
         title: "Đang tạo tài khoản...",
@@ -2084,17 +2114,13 @@ async function handleRegister() {
         const data = await res.json();
         hideGlobalLoader();
         if(res.ok && data.status === 'success') {
-            alert(data.message || "Đăng ký thành công!");
-            if (r === 'teacher') {
-                showPendingApproval(null, fn, u);
-            } else {
-                toggleAuth('login');
-                const emailInput = document.getElementById('email');
-                if (emailInput) {
-                    emailInput.value = u;
-                    const pwdInput = document.getElementById('password');
-                    if (pwdInput) pwdInput.focus();
-                }
+            alert(data.message || "Đăng ký thành công! Bạn có thể đăng nhập ngay.");
+            toggleAuth('login');
+            const emailInput = document.getElementById('email');
+            if (emailInput) {
+                emailInput.value = u;
+                const pwdInput = document.getElementById('password');
+                if (pwdInput) pwdInput.focus();
             }
         } else { alert("Lỗi: " + (data.detail || "Đăng ký thất bại.")); }
     } catch(e) { 
@@ -5550,6 +5576,13 @@ async function confirmPublish() {
     const title = document.getElementById('modalQuizTitle').value.trim();
     if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
     
+    const legalCommitEl = document.getElementById('modalQuizLegalCommit');
+    if (legalCommitEl && !legalCommitEl.checked) {
+        alert("Vui lòng đánh dấu xác nhận cam kết bản quyền học liệu (Luật Sở hữu trí tuệ 2022) và không vi phạm danh mục đề thi Bí mật nhà nước trước khi xuất bản.");
+        legalCommitEl.focus();
+        return;
+    }
+
     const mode = document.getElementById('modalQuizMode').value;
     const timeLimit = parseInt(document.getElementById('modalQuizTime').value) || 0;
     const isShuffle = document.getElementById('modalQuizShuffle').checked;
@@ -9487,6 +9520,150 @@ function switchLegalTab(tabName, updateHistory = true) {
         history.replaceState({ modal: 'legal', tab: tabName }, '', '/' + tabName);
     }
 }
+
+// =========================================================================
+// TUÂN THỦ PHÁP LUẬT VIỆT NAM: BÁO CÁO BẢN QUYỀN (LUẬT SHTT 2022) &
+// QUYỀN XÓA DỮ LIỆU CÁ NHÂN / COOKIE CONSENT (NGHỊ ĐỊNH 13/2023/NĐ-CP)
+// =========================================================================
+function openReportQuizModal() {
+    const modal = document.getElementById('reportViolationModal');
+    if (!modal) return;
+    const qidInput = document.getElementById('reportQuizIdInput');
+    if (qidInput) {
+        const curQuizId = (typeof getCurrentQuizId === 'function' ? getCurrentQuizId() : null) || editingQuizId || '';
+        qidInput.value = curQuizId ? `${curQuizId} (${window.location.href})` : window.location.href;
+    }
+    modal.style.display = 'flex';
+}
+
+function closeReportQuizModal() {
+    const modal = document.getElementById('reportViolationModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function submitReportQuizAction() {
+    const rType = document.getElementById('reportQuizType')?.value || 'copyright';
+    const qId = (document.getElementById('reportQuizIdInput')?.value || '').trim();
+    const email = (document.getElementById('reportQuizEmailInput')?.value || '').trim();
+    const desc = (document.getElementById('reportQuizDescInput')?.value || '').trim();
+
+    if (!email) {
+        alert("Vui lòng nhập Email hoặc Số điện thoại để Ban quản trị thông báo kết quả xử lý.");
+        document.getElementById('reportQuizEmailInput')?.focus();
+        return;
+    }
+    if (desc.length < 5) {
+        alert("Vui lòng mô tả cụ thể nội dung vi phạm hoặc căn cứ bản quyền cần gỡ bỏ.");
+        document.getElementById('reportQuizDescInput')?.focus();
+        return;
+    }
+
+    const btn = document.getElementById('btnSubmitReportQuiz');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang gửi...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/legal_report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                report_type: rType,
+                quiz_id: qId,
+                reporter_name: localStorage.getItem('user_name') || localStorage.getItem('last_student_name') || 'Người báo cáo',
+                reporter_email: email,
+                reporter_role: localStorage.getItem('auth_role') || 'other',
+                description: desc,
+                consent_pdpd: true
+            })
+        });
+        const data = await res.json();
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-send-plane-fill"></i> Gửi báo cáo';
+        }
+        closeReportQuizModal();
+        const descEl = document.getElementById('reportQuizDescInput');
+        if (descEl) descEl.value = '';
+        showToast(data.message || "Đã tiếp nhận báo cáo vi phạm! Ban quản trị sẽ xử lý trong 24h.", "success");
+    } catch (e) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ri-send-plane-fill"></i> Gửi báo cáo';
+        }
+        alert("Lỗi kết nối máy chủ khi gửi báo cáo. Vui lòng thử lại hoặc gửi email tới kiet0905478167@gmail.com.");
+    }
+}
+
+function clearLocalPersonalDataPdpd() {
+    if (!confirm("Xác nhận xóa toàn bộ dữ liệu làm bài tạm thời, tên thí sinh đã lưu và lịch sử cục bộ trên thiết bị này (Theo Điều 9 & Điều 16 Nghị định 13/2023/NĐ-CP)?")) {
+        return;
+    }
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('quiz_progress_') || k.startsWith('exam_history') || k === 'last_student_name' || k === 'student_exam_token' || k === 'hntn_pdpd_consent')) {
+            keysToRemove.push(k);
+        }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    const nameInp = document.getElementById('studentNameInput');
+    if (nameInp) nameInp.value = '';
+    showToast("🗑️ Đã xóa sạch dữ liệu cá nhân & lịch sử làm bài lưu trên thiết bị này.", "success");
+}
+
+async function requestDeleteMyAccountPdpd() {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        alert("Bạn hiện chưa đăng nhập tài khoản trên máy chủ.\n• Nếu bạn làm bài tự do: hãy bấm nút 'Xóa dữ liệu làm bài trên thiết bị này'.\n• Nếu muốn yêu cầu xóa một tài khoản cũ qua email: vui lòng gửi yêu cầu tại trang Liên hệ (/contact).");
+        return;
+    }
+    const confirmText = prompt("CẢNH BÁO (Điều 16 Nghị định 13/2023/NĐ-CP):\nThao tác này sẽ XÓA VĨNH VIỄN tài khoản và toàn bộ lịch sử làm bài cá nhân của bạn trên máy chủ, không thể khôi phục.\n\nVui lòng nhập chữ XOA để xác nhận:");
+    if (!confirmText || confirmText.trim().toUpperCase() !== 'XOA') {
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/delete_my_account`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: token, reason: "User self-service deletion under Decree 13/2023/ND-CP" })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            alert(data.message || "Đã xóa vĩnh viễn tài khoản và dữ liệu cá nhân của bạn.");
+            localStorage.clear();
+            window.location.href = '/';
+        } else {
+            alert("Không thể xóa tài khoản: " + (data.detail || data.message || "Vui lòng thử lại."));
+        }
+    } catch (e) {
+        alert("Lỗi kết nối máy chủ khi thực hiện yêu cầu xóa tài khoản.");
+    }
+}
+
+function acceptPdpdConsent(level = 'all') {
+    try {
+        localStorage.setItem('hntn_pdpd_consent', JSON.stringify({
+            level: level,
+            accepted_at: new Date().toISOString(),
+            regulation: 'ND-13-2023-ND-CP'
+        }));
+    } catch (e) {}
+    const banner = document.getElementById('pdpdConsentBanner');
+    if (banner) banner.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        const hasConsent = localStorage.getItem('hntn_pdpd_consent');
+        const isQuizRoute = document.documentElement.classList.contains('hntn-is-quiz-route') || /[?&](id|quiz_id)=/i.test(window.location.search);
+        if (!hasConsent && !isQuizRoute) {
+            const banner = document.getElementById('pdpdConsentBanner');
+            if (banner) banner.style.display = 'block';
+        }
+    } catch (e) {}
+});
 
 // =========================================================================
 // BẢO LƯU TIẾN TRÌNH TỨC THÌ KHI HỌC SINH TẮT TRÌNH DUYỆT HOẶC ĐỔI TRANG

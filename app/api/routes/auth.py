@@ -9,7 +9,9 @@ from fastapi import APIRouter, Depends
 
 from app.core.dependencies import RateLimiter
 from app.schemas.auth import (
+    DeleteAccountRequest,
     GoogleAuthRequest,
+    LegalReportRequest,
     LoginRequest,
     RefreshTokenRequest,
     RegisterRequest,
@@ -36,7 +38,7 @@ async def google_login(req: GoogleAuthRequest):
     """
     Xác thực qua tài khoản Google.
     - Tài khoản Admin chỉ định luôn được cấp quyền Admin cao nhất.
-    - Người dùng mới đăng nhập lần đầu sẽ phải chọn vai trò: Học sinh (dùng ngay) hoặc Giáo viên (chờ Admin duyệt).
+    - Người dùng mới đăng nhập lần đầu sẽ phải chọn vai trò: Học sinh hoặc Giáo viên (được kích hoạt sử dụng ngay).
     """
     return await auth_service.authenticate_google(
         credential=getattr(req, "credential", None),
@@ -48,8 +50,7 @@ async def google_login(req: GoogleAuthRequest):
 async def select_role(req: SelectRoleRequest):
     """
     Xử lý cập nhật thông tin cá nhân (Tên, Lớp, SĐT, Trường) và vai trò sau đăng nhập Google:
-    - Học sinh: Cấp quyền ngay (status=approved), trả về JWT Token.
-    - Giáo viên: Đặt status=pending (Chờ Admin duyệt), không cấp quyền truy cập ngay.
+    - Cấp quyền ngay (status=approved), trả về JWT Token cho cả Học sinh và Giáo viên để sử dụng ngay mà không cần chờ duyệt.
     """
     return auth_service.select_role(
         user_id=getattr(req, "user_id", ""),
@@ -116,6 +117,27 @@ async def login(req: LoginRequest):
 async def refresh_token(req: RefreshTokenRequest):
     """Cấp phát Access Token mới khi Access Token cũ hết hạn bằng Refresh Token hợp lệ."""
     return auth_service.refresh_access_token(refresh_token=req.refresh_token)
+
+
+@router.post(
+    "/delete_my_account",
+    summary="Xóa tài khoản & dữ liệu cá nhân (Theo Điều 9 & Điều 16 Nghị định 13/2023/NĐ-CP)",
+    dependencies=[Depends(RateLimiter(times=5, seconds=60, key_prefix="auth_del_acc"))],
+)
+async def delete_my_account(req: DeleteAccountRequest):
+    """Cho phép chủ thể dữ liệu tự rút lại sự đồng ý và xóa vĩnh viễn tài khoản, dữ liệu cá nhân."""
+    return auth_service.delete_my_account(token=req.token, reason=req.reason or "")
+
+
+@router.post(
+    "/legal_report",
+    summary="Gửi báo cáo bản quyền (Điều 198b Luật SHTT), nội dung vi phạm hoặc yêu cầu dữ liệu cá nhân",
+    dependencies=[Depends(RateLimiter(times=10, seconds=60, key_prefix="legal_rep"))],
+)
+async def submit_legal_report(req: LegalReportRequest):
+    """Tiếp nhận yêu cầu gỡ bỏ nội dung vi phạm bản quyền (Notice & Takedown), phản ánh nội dung hoặc liên hệ pháp lý."""
+    return auth_service.submit_legal_report(req.model_dump() if hasattr(req, "model_dump") else req.dict())
+
 
 
 # Re-exports cho tương thích ngược nếu có module khác gọi trực tiếp

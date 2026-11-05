@@ -269,6 +269,22 @@ CHEM_FORMULA_PATTERN = (
 )
 
 
+PERCENT_AND_UNITS_PATTERN = (
+    r'(?<![A-Za-z0-9_])'
+    r'\d+(?:[.,]\d+)?'
+    r'\s*'
+    r'(?:'
+    r'[%‰]'
+    r'|M\b|mol(?:/[Ll])?\b|gam\b|kg\b|mg\b|g(?:/(?:mL|ml|cm3))?\b'
+    r'|mL\b|ml\b|l\b|lít\b|lit\b'
+    r'|atm\b|bar\b|mmHg\b|torr\b'
+    r'|ppm\b|ppb\b'
+    r'|V\b|W\b|J\b|kJ\b|cal\b|kcal\b'
+    r'|[°℃]|oC\b|độ\b'
+    r')'
+)
+
+
 def _format_chem_formula_token(tok: str) -> str:
     """Chuyen doi so chi so duoi sau nguyen to hoac dau ngoac thanh <sub>."""
     return re.sub(rf'({CHEM_ELEM_PATTERN}|\))\s*(\d+)', r'\1<sub>\2</sub>', tok)
@@ -277,23 +293,41 @@ def _format_chem_formula_token(tok: str) -> str:
 def clean_subscripts_and_formulas(text: str) -> str:
     r"""
     Tu dong chuan hoa toan dien cong thuc hoa hoc va chi so duoi/tren cho de thi:
-    1. Chuyen doi ky tu chi so duoi Unicode (₁₇, ₃₅, ₂, ₄) sang <sub>...</sub> va chi so tren Unicode (², ³, ⁺, ⁻) sang <sup>...</sup>.
-    2. Sua loi khoang trang roi rac trong cong thuc hoa hoc: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5.
-    3. Tu dong nhan dien cong thuc hoa hoc dang so thuong (H2SO4, Fe2O3, CO2, H2O, C2H5OH, CH3COOH, (C17H35COO)3C3H5) va chuyen thanh <sub>...</sub>.
-    4. Sua chi so duoi dang gach duoi (CH_2, CO_2, x_1, u_n) thanh <sub>...</sub>.
-    5. Xoa triet de khoang trang thua giua chu cai va chi so (C <sub>17</sub> -> C<sub>17</sub>, ) <sub>3</sub> -> )<sub>3</sub>).
-    6. Bao ve an toan tuyet doi cac placeholder anh [IMG_X], bang bieu HTML va khoi cong thuc LaTeX \( ... \), \[ ... \].
+    1. Bao ve an toan tuyet doi: dai luong do luong (%, M, mol, gam, mL...), anh [IMG_X], bang bieu HTML va LaTeX.
+    2. Chuyen doi ky tu chi so duoi Unicode (₁₇, ₃₅, ₂, ₄) sang <sub>...</sub> va chi so tren Unicode (², ³, ⁺, ⁻) sang <sup>...</sup>.
+    3. Sua loi khoang trang roi rac trong cong thuc hoa hoc: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5.
+    4. Tu dong nhan dien cong thuc hoa hoc dang so thuong (H2SO4, Fe2O3, CO2, H2O, C2H5OH, CH3COOH, (C17H35COO)3C3H5) va chuyen thanh <sub>...</sub>.
+    5. Sua chi so duoi dang gach duoi (CH_2, CO_2, x_1, u_n) thanh <sub>...</sub>.
+    6. Xoa triet de khoang trang thua giua chu cai va chi so (C <sub>17</sub> -> C<sub>17</sub>, ) <sub>3</sub> -> )<sub>3</sub>).
     """
     if not text or not isinstance(text, str):
         return text
 
-    # 1. Chuyen doi chi so duoi / chi so tren Unicode sang <sub> / <sup>
+    placeholders = []
+
+    def save_ph(m):
+        placeholders.append(m.group(0))
+        return f'XYZPH{len(placeholders)-1}XYZ'
+
+    # 1. Bao ve placeholder anh [IMG_X], [HINH_ANH_X]
+    text = re.sub(r'(\[(?:IMG|HÌNH_ẢNH)_\d+\])', save_ph, text)
+
+    # 2. Bao ve cac khoi LaTeX math (inline va display) voi bat ky so luong backslash nao
+    text = re.sub(r'(\\+\[[\s\S]*?\\+\]|\\+\([\s\S]*?\\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
+
+    # 3. Bao ve bang bieu HTML va cac the HTML khac (ngoai tru sub, sup de duoc don dep khoang trang)
+    text = re.sub(r'(<table\b[\s\S]*?<\/table>|<(?!/?(?:sub|sup)\b)[^>]+>)', save_ph, text)
+
+    # 4. Bao ve cac dai luong do luong (%, mol, M, gam, mL, do C...) de khong bi bien thanh chi so hoa hoc (vd: NaOH 30% -> khong thanh NaOH30)
+    text = re.sub(PERCENT_AND_UNITS_PATTERN, save_ph, text)
+
+    # 5. Chuyen doi chi so duoi / chi so tren Unicode sang <sub> / <sup>
     sub_chars = ''.join(UNICODE_SUB_MAP.keys())
     text = re.sub(f'[{sub_chars}]+', lambda m: '<sub>' + ''.join(UNICODE_SUB_MAP.get(c, c) for c in m.group(0)) + '</sub>', text)
     sup_chars = ''.join(UNICODE_SUP_MAP.keys())
     text = re.sub(f'[{sup_chars}]+', lambda m: '<sup>' + ''.join(UNICODE_SUP_MAP.get(c, c) for c in m.group(0)) + '</sup>', text)
 
-    # 2. Thu gon khoang trang roi rac trong cong thuc hoa hoc: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
+    # 6. Thu gon khoang trang roi rac trong cong thuc hoa hoc: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
     def _fix_chem_parens(m):
         inner = m.group(1)
         cleaned = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'\1\2', inner)
@@ -301,43 +335,31 @@ def clean_subscripts_and_formulas(text: str) -> str:
         cleaned = re.sub(r'\s+', '', cleaned)
         return f'({cleaned})'
 
-    text = re.sub(rf'\(((?:{CHEM_ELEM_PATTERN}|\d+|\s)+)\)', _fix_chem_parens, text)
-    text = re.sub(r'\)\s+(\d+)', r')\1', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'\1\2', text)
-    text = re.sub(rf'(\)\d*)\s+({CHEM_ELEM_PATTERN})', r'\1\2', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN}\d+)\s+({CHEM_ELEM_PATTERN}\d*)', r'\1\2', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN})\s+({CHEM_ELEM_PATTERN}\d+)', r'\1\2', text)
+    text = re.sub(rf'\((?=[^)]*[A-Za-z])((?:{CHEM_ELEM_PATTERN}|\d+|\s)+)\)', _fix_chem_parens, text)
+    # Chi thu gon ngoac hoa hoc ro rang theo sau boi chi so so hoc: vd (OH) 2 -> (OH)2, (SO4) 3 -> (SO4)3
+    text = re.sub(r'(\([A-Za-z]+[0-9]*[A-Za-z0-9]*\))\s+(\d+)', r'\1\2', text)
+    # Thu gon phan con lai cua phuc chat/chat beo: vd (C17H35COO)3 C 3 H 5 -> (C17H35COO)3C3H5
+    def _fix_after_paren_tail(m):
+        return m.group(1) + re.sub(r'\s+', '', m.group(2))
+    text = re.sub(r'(\([A-Za-z0-9]+\)\d+)\s+([A-Z]\s*\d+(?:\s*[A-Z]\s*\d+)*)', _fix_after_paren_tail, text)
+    # Thu gon cac cum nguyen to kem so ro rang: vd C17 H35 -> C17H35
+    text = re.sub(r'([A-Z][a-z]?\d+)\s+([A-Z][a-z]?\d+)', r'\1\2', text)
 
-    placeholders = []
-
-    def save_ph(m):
-        placeholders.append(m.group(0))
-        return f'XYZPH{len(placeholders)-1}XYZ'
-
-    # 3. Bao ve placeholder anh [IMG_X], [HINH_ANH_X]
-    text = re.sub(r'(\[(?:IMG|HÌNH_ẢNH)_\d+\])', save_ph, text)
-
-    # 4. Bao ve cac khoi LaTeX math (inline va display) voi bat ky so luong backslash nao
-    text = re.sub(r'(\\+\[[\s\S]*?\\+\]|\\+\([\s\S]*?\\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
-
-    # 5. Bao ve bang bieu HTML va cac the HTML khac (ngoai tru sub, sup de duoc don dep khoang trang)
-    text = re.sub(r'(<table\b[\s\S]*?<\/table>|<(?!/?(?:sub|sup)\b)[^>]+>)', save_ph, text)
-
-    # 6. Don dep khoang trang ben trong the <sub>, <sup>
+    # 7. Don dep khoang trang ben trong the <sub>, <sup>
     text = re.sub(r'<sub>\s*([^<]+?)\s*</sub>', r'<sub>\1</sub>', text)
     text = re.sub(r'<sup>\s*([^<]+?)\s*</sup>', r'<sup>\1</sup>', text)
     text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
     text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
+    text = re.sub(r'</sub>\s+([A-Z])(?!YZPH)', r'</sub>\1', text)
 
-    # 7. Sua chi so duoi dang _{...} va _so thanh <sub>...</sub>
+    # 8. Sua chi so duoi dang _{...} va _so thanh <sub>...</sub>
     text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}', r'\1<sub>\2</sub>', text)
     text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u024F])[uvxyzmkn])\s*_\s*([a-z0-9]+)', r'\1<sub>\2</sub>', text)
+    text = re.sub(r'([A-Z][a-z]?|(?<![a-zA-Z\u00C0-\u1EF9])[uvxyzmkn])\s*_\s*([a-z0-9]+)', r'\1<sub>\2</sub>', text)
     text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}', r'\1<sup>\2</sup>', text)
     text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)', r'\1<sup>\2</sup>', text)
 
-    # 8. Tu dong nhan dien cong thuc hoa hoc co so thuong (vd: H2SO4, Fe2O3, (C17H35COO)3C3H5, Ca(OH)2, CO2)
+    # 9. Tu dong nhan dien cong thuc hoa hoc co so thuong (vd: H2SO4, Fe2O3, (C17H35COO)3C3H5, Ca(OH)2, CO2)
     def _replace_chem_token(m):
         tok = m.group(0)
         if '<sub>' in tok or '<sup>' in tok:
@@ -346,332 +368,54 @@ def clean_subscripts_and_formulas(text: str) -> str:
 
     text = re.sub(CHEM_FORMULA_PATTERN, _replace_chem_token, text)
 
-    # 9. Chuan hoa bien so toan/ly ngoai LaTeX: x1, x2, u1, un, v0 (tranh bat nham tu tieng Viet nhu 'Cau 4')
-    text = re.sub(r'(?<![a-zA-Z\u00C0-\u024F])([xyz])\s*([1-9])(?![a-zA-Z0-9])', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'(?<![a-zA-Z\u00C0-\u024F])([uS])\s*([1-9]|n)(?![a-zA-Z0-9])', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'(?<![a-zA-Z\u00C0-\u024F])(v)\s*(0)(?![a-zA-Z0-9])', r'\1<sub>\2</sub>', text)
+    # 10. Chuan hoa bien so toan/ly ngoai LaTeX: x1, x2, u1, un, v0 (tranh bat nham tu tieng Viet nhu 'Cau 4')
+    text = re.sub(r'(?<![a-zA-Z\u00C0-\u1EF9])([xyz])\s*([1-9])(?![a-zA-Z0-9\u00C0-\u1EF9])', r'\1<sub>\2</sub>', text)
+    text = re.sub(r'(?<![a-zA-Z\u00C0-\u1EF9])([uS])(?:\s*([1-9])|_([1-9n]))(?![a-zA-Z0-9\u00C0-\u1EF9])', lambda m: f"{m.group(1)}<sub>{m.group(2) or m.group(3)}</sub>", text)
+    text = re.sub(r'(?<![a-zA-Z\u00C0-\u1EF9])(v)\s*(0)(?![a-zA-Z0-9\u00C0-\u1EF9])', r'\1<sub>\2</sub>', text)
 
-    # 10. Chuan hoa don vi do luong pho bien: cm3, m2, m3, dm3, mm2
+    # 11. Chuan hoa don vi do luong pho bien: cm3, m2, m3, dm3, mm2
     text = re.sub(r'\b(cm|dm|mm|m|km)\s*([23])\b', r'\1<sup>\2</sup>', text)
 
-    # 11. Khoi phuc lai cac noi dung duoc bao ve theo thu tu nguoc lai
+    # 12. Khoi phuc lai cac noi dung duoc bao ve theo thu tu nguoc lai
     for i in range(len(placeholders) - 1, -1, -1):
         text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
 
-    # 12. Quet lai triet de khoang trang giua chu cai va sub/sup sau khi hoan tat
+    # 13. Quet lai triet de khoang trang giua chu cai va sub/sup sau khi hoan tat
     text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
     text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
+    text = re.sub(r'</sub>\s+([A-Z])(?!YZPH)', r'</sub>\1', text)
 
     return text
-
-    # 1. Chuyen doi chi so duoi / chi so tren Unicode sang <sub> / <sup>
-    sub_chars = ''.join(UNICODE_SUB_MAP.keys())
-    text = re.sub(f'[{sub_chars}]+', lambda m: '<sub>' + ''.join(UNICODE_SUB_MAP.get(c, c) for c in m.group(0)) + '</sub>', text)
-    sup_chars = ''.join(UNICODE_SUP_MAP.keys())
-    text = re.sub(f'[{sup_chars}]+', lambda m: '<sup>' + ''.join(UNICODE_SUP_MAP.get(c, c) for c in m.group(0)) + '</sup>', text)
-
-    # 2. Thu gon khoang trang roi rac trong cong thuc hoa hoc: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
-    def _fix_chem_parens(m):
-        inner = m.group(1)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'\1\2', inner)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN}|\d+)\s+({CHEM_ELEM_PATTERN})', r'\1\2', cleaned)
-        cleaned = re.sub(r'\s+', '', cleaned)
-        return f'({cleaned})'
-
-    text = re.sub(rf'\(((?:{CHEM_ELEM_PATTERN}|\d+|\s)+)\)', _fix_chem_parens, text)
-    text = re.sub(r'\)\s+(\d+)', r')\1', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'\1\2', text)
-    text = re.sub(rf'(\)\d*)\s+({CHEM_ELEM_PATTERN})', r'\1\2', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN}\d+)\s+({CHEM_ELEM_PATTERN}\d*)', r'\1\2', text)
-    text = re.sub(rf'({CHEM_ELEM_PATTERN})\s+({CHEM_ELEM_PATTERN}\d+)', r'\1\2', text)
-
-    placeholders = []
-
-    def save_ph(m):
-        placeholders.append(m.group(0))
-        return f'XYZPH{len(placeholders)-1}XYZ'
-
-    # 3. Bao ve placeholder anh [IMG_X], [HINH_ANH_X]
-    text = re.sub(r'(\[(?:IMG|HÌNH_ẢNH)_\d+\])', save_ph, text)
-
-    # 4. Bao ve cac khoi LaTeX math (inline va display) voi bat ky so luong backslash nao
-    text = re.sub(r'(\\+\[[\s\S]*?\\+\]|\\+\([\s\S]*?\\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
-
-    # 5. Bao ve bang bieu HTML va cac the HTML khac (ngoai tru sub, sup de duoc don dep khoang trang)
-    text = re.sub(r'(<table\b[\s\S]*?<\/table>|<(?!/?(?:sub|sup)\b)[^>]+>)', save_ph, text)
-
-    # 6. Don dep khoang trang ben trong the <sub>, <sup>
-    text = re.sub(r'<sub>\s*([^<]+?)\s*</sub>', r'<sub>\1</sub>', text)
-    text = re.sub(r'<sup>\s*([^<]+?)\s*</sup>', r'<sup>\1</sup>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
-
-    # 7. Sua chi so duoi dang _{...} va _so thanh <sub>...</sub>
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Z][a-z]?|\b[uvxyzmkn])\s*_\s*([a-z0-9]+)', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}', r'\1<sup>\2</sup>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)', r'\1<sup>\2</sup>', text)
-
-    # 8. Tu dong nhan dien cong thuc hoa hoc co so thuong (vd: H2SO4, Fe2O3, (C17H35COO)3C3H5, Ca(OH)2, CO2)
-    def _replace_chem_token(m):
-        tok = m.group(0)
-        if '<sub>' in tok or '<sup>' in tok:
-            return tok
-        return _format_chem_formula_token(tok)
-
-    text = re.sub(CHEM_FORMULA_PATTERN, _replace_chem_token, text)
-
-    # 9. Chuan hoa bien so toan/ly ngoai LaTeX: x1, x2, u1, un, v0
-    text = re.sub(r'\b([xyz])\s*([1-9])\b', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'\b([uS])\s*([1-9]|n)\b', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'\b(v)\s*(0)\b', r'\1<sub>\2</sub>', text)
-
-    # 10. Chuan hoa don vi do luong pho bien: cm3, m2, m3, dm3, mm2
-    text = re.sub(r'\b(cm|dm|mm|m|km)\s*([23])\b', r'\1<sup>\2</sup>', text)
-
-    # 11. Khoi phuc lai cac noi dung duoc bao ve theo thu tu nguoc lai
-    for i in range(len(placeholders) - 1, -1, -1):
-        text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
-
-    # 12. Quet lai triet de khoang trang giua chu cai va sub/sup sau khi hoan tat
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
-
-    return text
-
-    # 1. Chuyen doi chi so duoi / chi so tren Unicode sang <sub> / <sup>
-    sub_chars = ''.join(UNICODE_SUB_MAP.keys())
-    text = re.sub(f'[{sub_chars}]+', lambda m: '<sub>' + ''.join(UNICODE_SUB_MAP.get(c, c) for c in m.group(0)) + '</sub>', text)
-    sup_chars = ''.join(UNICODE_SUP_MAP.keys())
-    text = re.sub(f'[{sup_chars}]+', lambda m: '<sup>' + ''.join(UNICODE_SUP_MAP.get(c, c) for c in m.group(0)) + '</sup>', text)
-
-    # 2. Thu gon khoang trang roi rac trong ngoac cong thuc hoa hoc: (C 17 H 35 COO) 3 -> (C17H35COO)3
-    def _fix_chem_parens(m):
-        inner = m.group(1)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'\1\2', inner)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN}|\d+)\s+({CHEM_ELEM_PATTERN})', r'\1\2', cleaned)
-        cleaned = re.sub(r'\s+', '', cleaned)
-        return f'({cleaned})'
-
-    text = re.sub(rf'\(((?:{CHEM_ELEM_PATTERN}|\d+|\s)+)\)', _fix_chem_parens, text)
-    text = re.sub(r'\)\s+(\d+)', r')\1', text)
-    text = re.sub(rf'(\)\d*)\s+({CHEM_ELEM_PATTERN})', r'\1\2', text)
-
-    placeholders = []
-
-    def save_ph(m):
-        placeholders.append(m.group(0))
-        return f'XYZPH{len(placeholders)-1}XYZ'
-
-    # 3. Bao ve placeholder anh [IMG_X], [HINH_ANH_X]
-    text = re.sub(r'(\[(?:IMG|HÌNH_ẢNH)_\d+\])', save_ph, text)
-
-    # 4. Bao ve cac khoi LaTeX math (inline va display) voi bat ky so luong backslash nao
-    text = re.sub(r'(\\+\[[\s\S]*?\\+\]|\\+\([\s\S]*?\\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
-
-    # 5. Bao ve bang bieu HTML va cac the HTML khac (ngoai tru sub, sup de duoc don dep khoang trang)
-    text = re.sub(r'(<table\b[\s\S]*?<\/table>|<(?!/?(?:sub|sup)\b)[^>]+>)', save_ph, text)
-
-    # 6. Don dep khoang trang ben trong the <sub>, <sup>
-    text = re.sub(r'<sub>\s*([^<]+?)\s*</sub>', r'<sub>\1</sub>', text)
-    text = re.sub(r'<sup>\s*([^<]+?)\s*</sup>', r'<sup>\1</sup>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
-
-    # 7. Sua chi so duoi dang _{...} va _so thanh <sub>...</sub>
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Z][a-z]?|\b[uvxyzmkn])\s*_\s*([a-z0-9]+)', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}', r'\1<sup>\2</sup>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)', r'\1<sup>\2</sup>', text)
-
-    # 8. Tu dong nhan dien cong thuc hoa hoc co so thuong (vd: H2SO4, Fe2O3, (C17H35COO)3C3H5, Ca(OH)2, CO2)
-    def _replace_chem_token(m):
-        tok = m.group(0)
-        if '<sub>' in tok or '<sup>' in tok:
-            return tok
-        return _format_chem_formula_token(tok)
-
-    text = re.sub(CHEM_FORMULA_PATTERN, _replace_chem_token, text)
-
-    # 9. Chuan hoa bien so toan/ly ngoai LaTeX: x1, x2, u1, un, v0
-    text = re.sub(r'\b([xyz])\s*([1-9])\b', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'\b([uS])\s*([1-9]|n)\b', r'\1<sub>\2</sub>', text)
-    text = re.sub(r'\b(v)\s*(0)\b', r'\1<sub>\2</sub>', text)
-
-    # 10. Chuan hoa don vi do luong pho bien: cm3, m2, m3, dm3, mm2
-    text = re.sub(r'\b(cm|dm|mm|m|km)\s*([23])\b', r'\1<sup>\2</sup>', text)
-
-    # 11. Khoi phuc lai cac noi dung duoc bao ve theo thu tu nguoc lai
-    for i in range(len(placeholders) - 1, -1, -1):
-        text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
-
-    # 12. Quet lai triet de khoang trang giua chu cai va sub/sup sau khi hoan tat
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'\1<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'\1<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>\1', text)
-
-    return text
-
-    # 1. Chuyen doi chi so duoi / chi so tren Unicode sang <sub> / <sup>
-    sub_chars = ''.join(UNICODE_SUB_MAP.keys())
-    text = re.sub(f'[{sub_chars}]+', lambda m: '<sub>' + ''.join(UNICODE_SUB_MAP.get(c, c) for c in m.group(0)) + '</sub>', text)
-    sup_chars = ''.join(UNICODE_SUP_MAP.keys())
-    text = re.sub(f'[{sup_chars}]+', lambda m: '<sup>' + ''.join(UNICODE_SUP_MAP.get(c, c) for c in m.group(0)) + '</sup>', text)
-
-    # 2. Thu gon khoang trang roi rac trong ngoac cong thuc hoa hoc: (C 17 H 35 COO) 3 -> (C17H35COO)3
-    def _fix_chem_parens(m):
-        inner = m.group(1)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN})\s+(\d+)', r'', inner)
-        cleaned = re.sub(rf'({CHEM_ELEM_PATTERN}|\d+)\s+({CHEM_ELEM_PATTERN})', r'', cleaned)
-        cleaned = re.sub(r'\s+', '', cleaned)
-        return f'({cleaned})'
-
-    text = re.sub(rf'\(((?:{CHEM_ELEM_PATTERN}|\d+|\s)+)\)', _fix_chem_parens, text)
-    text = re.sub(r'\)\s+(\d+)', r')', text)
-    text = re.sub(rf'(\)\d*)\s+({CHEM_ELEM_PATTERN})', r'', text)
-
-    placeholders = []
-
-    def save_ph(m):
-        placeholders.append(m.group(0))
-        return f'XYZPH{len(placeholders)-1}XYZ'
-
-    # 3. Bao ve placeholder anh [IMG_X], [HINH_ANH_X]
-    text = re.sub(r'(\[(?:IMG|HÌNH_ẢNH)_\d+\])', save_ph, text)
-
-    # 4. Bao ve cac khoi LaTeX math (inline va display) voi bat ky so luong backslash nao
-    text = re.sub(r'(\+\[[\s\S]*?\+\]|\+\([\s\S]*?\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
-
-    # 5. Bao ve bang bieu HTML va cac the HTML khac (ngoai tru sub, sup de duoc don dep khoang trang)
-    text = re.sub(r'(<table[\s\S]*?<\/table>|<(?!/?(?:sub|sup))[^>]+>)', save_ph, text)
-
-    # 6. Don dep khoang trang ben trong the <sub>, <sup>
-    text = re.sub(r'<sub>\s*([^<]+?)\s*</sub>', r'<sub></sub>', text)
-    text = re.sub(r'<sup>\s*([^<]+?)\s*</sup>', r'<sup></sup>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>', text)
-
-    # 7. Sua chi so duoi dang _{...} va _so thanh <sub>...</sub>
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}', r'<sub></sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)', r'<sub></sub>', text)
-    text = re.sub(r'([A-Z][a-z]?|[uvxyzmkn])\s*_\s*([a-z0-9]+)', r'<sub></sub>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}', r'<sup></sup>', text)
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)', r'<sup></sup>', text)
-
-    # 8. Tu dong nhan dien cong thuc hoa hoc co so thuong (vd: H2SO4, Fe2O3, (C17H35COO)3C3H5, Ca(OH)2, CO2)
-    def _replace_chem_token(m):
-        tok = m.group(0)
-        if '<sub>' in tok or '<sup>' in tok:
-            return tok
-        return _format_chem_formula_token(tok)
-
-    text = re.sub(CHEM_FORMULA_PATTERN, _replace_chem_token, text)
-
-    # 9. Chuan hoa bien so toan/ly ngoai LaTeX: x1, x2, u1, un, v0
-    text = re.sub(r'([xyz])\s*([1-9])', r'<sub></sub>', text)
-    text = re.sub(r'([uS])\s*([1-9]|n)', r'<sub></sub>', text)
-    text = re.sub(r'(v)\s*(0)', r'<sub></sub>', text)
-
-    # 10. Chuan hoa don vi do luong pho bien: cm3, m2, m3, dm3, mm2
-    text = re.sub(r'(cm|dm|mm|m|km)\s*([23])', r'<sup></sup>', text)
-
-    # 11. Khoi phuc lai cac noi dung duoc bao ve theo thu tu nguoc lai
-    for i in range(len(placeholders) - 1, -1, -1):
-        text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
-
-    # 12. Quet lai triet de khoang trang giua chu cai va sub/sup sau khi hoan tat
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sub>', r'<sub>', text)
-    text = re.sub(r'([A-Za-z\)\>\]])\s+<sup>', r'<sup>', text)
-    text = re.sub(r'</sub>\s+([A-Z\(])', r'</sub>', text)
-
-    return text
-
-
-
-    placeholders = []
-
-    def save_ph(m):
-
-        placeholders.append(m.group(0))
-
-        return f'XYZPH{len(placeholders)-1}XYZ'
-
-
-
-    # 1. Bảo vệ placeholder ảnh [IMG_X]
-
-    text = re.sub(r'(\[IMG_\d+\])', save_ph, text)
-
-    # 2. Bảo vệ các khối LaTeX math (inline và display) với bất kỳ số lượng backslash nào
-
-    text = re.sub(r'(\\+\[[\s\S]*?\\+\]|\\+\([\s\S]*?\\+\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', save_ph, text)
-
-    # 3. Bảo vệ thẻ HTML (như <img ...>, <sub>, <sup>, <b>, <i>, ...)
-
-    text = re.sub(r'(<[^>]+>)', save_ph, text)
-
-
-
-    # 4. Sửa chỉ số dưới dạng _{...} thành <sub>...</sub> (vd: H_{2n+2} -> H<sub>2n+2</sub>)
-
-    text = re.sub(r'([A-Za-z0-9\)\>\]])_\{([^}]+)\}', r'\1<sub>\2</sub>', text)
-
-    # 5. Sửa chỉ số dưới số (vd: CH_2, H_2O, CO_2, Fe_2O_3, Ca(OH)_2) thành <sub>...</sub>
-
-    text = re.sub(r'([A-Za-z0-9\)\>\]])_([0-9]+)', r'\1<sub>\2</sub>', text)
-
-    # 6. Sửa chỉ số dưới chữ (vd: C_n, u_n, x_1, v_0, m_hh)
-
-    text = re.sub(r'([A-Z][a-z]?|\b[uvxyzmkn])_([a-z0-9]+)', r'\1<sub>\2</sub>', text)
-
-    # 7. Sửa chỉ số trên ^{...} và ^(số/dấu) (vd: cm^2, m^3, Fe^3+) thành <sup>...</sup>
-
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\^\{([^}]+)\}', r'\1<sup>\2</sup>', text)
-
-    text = re.sub(r'([A-Za-z0-9\)\>\]])\^([0-9\+\-]+)', r'\1<sup>\2</sup>', text)
-
-
-
-    # 8. Khôi phục lại các nội dung được bảo vệ theo thứ tự ngược lại
-
-    for i in range(len(placeholders) - 1, -1, -1):
-
-        text = text.replace(f'XYZPH{i}XYZ', placeholders[i])
-
-
-
-    return text
-
-
 
 
 
 def clean_question_prefix(text: str) -> str:
-
-    """Loại bỏ tiền tố 'Câu 1:', 'Câu 1.', 'Bài 1:', '1.', '[Câu 1]' khỏi nội dung câu hỏi."""
-
+    """Loại bỏ tiền tố 'Câu 1:', 'Câu 1.', 'Bài 1:', '1.', '[Câu 1]' khỏi nội dung câu hỏi, đồng thời cân bằng các thẻ đóng mở HTML."""
     if not text or not isinstance(text, str):
-
         return ""
 
+    raw = text.strip()
     cleaned = re.sub(
-
-        r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
-
+        r'^(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*(?:<\/[^>]+>\s*)*',
         '',
-
-        text.strip(),
-
+        raw,
         flags=re.IGNORECASE
-
     )
+    if not cleaned:
+        cleaned = re.sub(
+            r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
+            '',
+            raw,
+            flags=re.IGNORECASE
+        )
+
+    # Cân bằng thẻ đóng mồ côi nếu mở đầu bằng một thẻ đóng (ví dụ: Acid linoleic (LA)</b>)
+    first_close = re.search(r'</([a-zA-Z0-9]+)>', cleaned)
+    first_open = re.search(r'<([a-zA-Z0-9]+)(?:\s+[^>]*)?>', cleaned)
+    if first_close and (not first_open or first_close.start() < first_open.start()):
+        tag = first_close.group(1).lower()
+        if tag in ['b', 'strong', 'i', 'em', 'u']:
+            cleaned = f'<{tag}>{cleaned}'
 
     return cleaned.strip()
 
@@ -736,8 +480,20 @@ def clean_option_text(opt: str) -> tuple:
         is_correct = True
         is_false = False
 
-    # 2. Xóa các thẻ đánh dấu explicit [ĐÚNG], [SAI], checkmarks và đánh dấu Đ/S ở đuôi
-    cleaned = re.sub(r'\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘', '', opt_str, flags=re.IGNORECASE).strip()
+    # Phát hiện đánh dấu Đúng/Sai dạng [ Đúng / Sai ] - ĐÚNG / SAI
+    tf_bracket_tag = re.search(r'\[\s*(?:Đúng|Đ)\s*[/|\\]\s*(?:Sai|S)\s*\](?:\s*[\-–—\:]\s*(ĐÚNG|SAI|Đ|S|True|False))?', opt_str, re.IGNORECASE)
+    if tf_bracket_tag:
+        tag_val = (tf_bracket_tag.group(1) or '').upper()
+        if tag_val in ['ĐÚNG', 'Đ', 'TRUE']:
+            is_correct = True
+            is_false = False
+        elif tag_val in ['SAI', 'S', 'FALSE']:
+            is_correct = False
+            is_false = True
+
+    # 2. Xóa các thẻ đánh dấu explicit [ĐÚNG], [SAI], [ Đúng / Sai ], checkmarks và đánh dấu Đ/S ở đuôi
+    cleaned = re.sub(r'\[\s*(?:Đúng|Đ)\s*[/|\\]\s*(?:Sai|S)\s*\](?:\s*[\-–—\:]\s*(?:ĐÚNG|SAI|Đ|S|True|False))?', '', opt_str, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|✓|✔|✗|✘', '', cleaned, flags=re.IGNORECASE).strip()
     if trailing_corr_m:
         cleaned = re.sub(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(?:Đúng|ĐÚNG|DUNG|dung|Đ)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
     if trailing_fls_m:
@@ -793,6 +549,8 @@ def clean_option_text(opt: str) -> tuple:
     # Loại bỏ các thẻ <MARK>, </MARK>, <u>, </u> đánh dấu đáp án khỏi nội dung phương án
     cleaned_content = re.sub(r'</?MARK>', '', cleaned_content, flags=re.IGNORECASE)
     cleaned_content = re.sub(r'</?u>', '', cleaned_content, flags=re.IGNORECASE).strip()
+    # Loại bỏ thẻ đóng mồ côi ở đầu nội dung phương án (ví dụ </b>, </i>)
+    cleaned_content = re.sub(r'^\s*</(?:b|B|i|I|u|U|MARK|mark|strong|STRONG)>\s*', '', cleaned_content).strip()
 
     # Giữ tiền tố ma trận HocNhanhTN chuẩn hóa
     if azota_tag:
@@ -1680,6 +1438,61 @@ def restore_image_placeholders(text: str) -> str:
 
 
 
+def reinject_missing_image_placeholders(chunk_text: str, questions: list) -> list:
+    """
+    Tự động đối soát và khôi phục các placeholder ảnh [IMG_X] bị AI bỏ sót.
+    Quét từng phân đoạn câu hỏi trong văn bản gốc; nếu câu hỏi gốc có [IMG_X]
+    nhưng AI trích xuất bị thiếu thì tự động chèn lại vào nội dung câu hỏi.
+    """
+    if not chunk_text or not questions or not isinstance(questions, list):
+        return questions
+
+    img_matches = list(re.finditer(r'\[IMG_\d+\]', chunk_text))
+    if not img_matches:
+        return questions
+
+    q_matches = list(re.finditer(
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d+)|\s*(\d+)[\.\:\)])',
+        chunk_text,
+        re.IGNORECASE
+    ))
+    if not q_matches:
+        return questions
+
+    q_spans = []
+    for i, m in enumerate(q_matches):
+        q_num = int(m.group(1) or m.group(2))
+        start_pos = m.start()
+        end_pos = q_matches[i+1].start() if i + 1 < len(q_matches) else len(chunk_text)
+        q_spans.append((q_num, start_pos, end_pos))
+
+    q_expected_imgs = {}
+    for q_num, start, end in q_spans:
+        imgs = [m.group(0) for m in img_matches if start <= m.start() < end]
+        if imgs:
+            q_expected_imgs[q_num] = imgs
+
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        q_num = q.get('question_number')
+        if q_num not in q_expected_imgs:
+            continue
+
+        expected = q_expected_imgs[q_num]
+        q_text = str(q.get('question', ''))
+        opts_text = ' '.join(str(o) for o in q.get('options', []))
+        total_text = q_text + ' ' + opts_text
+
+        for img_tag in expected:
+            num = re.search(r'\d+', img_tag).group(0)
+            if not re.search(rf'\[\s*(?:IMG|HÌNH|ẢNH|Image)?[\s_#-]*{num}\s*\]', total_text, re.IGNORECASE):
+                q['question'] = q_text.rstrip() + f'\n\n{img_tag}\n'
+                logger.info(f'AI Service: Tự động khôi phục placeholder ảnh {img_tag} vào Câu {q_num} do AI bỏ sót.')
+
+    return questions
+
+
 async def generate_mcq_with_gemini(
 
     marked_text: str,
@@ -2042,7 +1855,8 @@ async def generate_mcq_with_gemini(
                             parsed_json = []
 
                 if isinstance(parsed_json, list):
-                    return [normalize_question_data(q) for q in parsed_json if isinstance(q, dict)]
+                    norm_questions = [normalize_question_data(q) for q in parsed_json if isinstance(q, dict)]
+                    return reinject_missing_image_placeholders(chunk, norm_questions)
                 return None
 
             except Exception as e:

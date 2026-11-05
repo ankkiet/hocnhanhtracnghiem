@@ -64,7 +64,7 @@
             position: sticky;
             top: 0;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.94);
+            background: rgba(255, 255, 255, 0.96);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
@@ -91,17 +91,21 @@
             font-weight: 800;
             font-size: 1.25rem;
             letter-spacing: -0.02em;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .brand-logo {
             width: 34px;
             height: 34px;
             border-radius: 8px;
             object-fit: contain;
+            flex-shrink: 0;
         }
         .brand-text {
             background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            white-space: nowrap;
         }
         .nav-menu {
             display: flex;
@@ -120,6 +124,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }
         .nav-item a:hover,
         .nav-item a.active {
@@ -136,11 +141,136 @@
             font-weight: 600;
             font-size: 0.9rem;
             text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
             transition: background 0.2s ease, transform 0.1s ease;
         }
         .btn-nav-primary:hover {
             background: var(--primary-hover);
             transform: translateY(-1px);
+        }
+
+        /* MOBILE NAV CONTROLS & DRAWER */
+        .nav-actions-mobile {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .btn-nav-cta-sm {
+            padding: 6px 12px;
+            font-size: 0.84rem;
+            gap: 5px;
+            border-radius: 8px;
+        }
+        .btn-nav-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--text-dark);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+            padding: 0;
+        }
+        .btn-nav-toggle:hover, .btn-nav-toggle:active {
+            background: var(--primary-soft);
+            color: var(--primary);
+            border-color: #bfdbfe;
+        }
+        .mobile-nav-drawer {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 16px 32px -4px rgba(15, 23, 42, 0.1);
+            padding: 12px 16px 18px;
+            z-index: 999;
+        }
+        .mobile-nav-drawer.is-open {
+            display: block;
+            animation: mobileNavFadeDown 0.2s ease-out;
+        }
+        @keyframes mobileNavFadeDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .mobile-nav-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 1140px;
+            margin: 0 auto;
+        }
+        .mobile-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+        .mobile-nav-item i {
+            font-size: 1.15rem;
+            color: var(--text-muted);
+        }
+        .mobile-nav-item:hover, .mobile-nav-item.active {
+            background: var(--primary-soft);
+            color: var(--primary);
+        }
+        .mobile-nav-item:hover i, .mobile-nav-item.active i {
+            color: var(--primary);
+        }
+        .mobile-nav-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 0;
+        }
+        .mobile-nav-cta-full {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #ffffff !important;
+            padding: 11px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.92rem;
+            text-decoration: none;
+            margin-top: 4px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        @media (max-width: 860px) {
+            .nav-menu { display: none !important; }
+            .nav-actions-mobile { display: inline-flex !important; }
+            .nav-container { padding: 0 16px; }
+            .site-nav { height: 60px; }
+            .brand-link { font-size: 1.15rem; gap: 8px; }
+            .brand-logo { width: 30px; height: 30px; }
+        }
+        @media (max-width: 480px) {
+            .nav-container { padding: 0 12px; }
+            .brand-text { font-size: 1.08rem; }
+            .btn-nav-cta-sm span { font-size: 0.8rem; }
+            .btn-nav-cta-sm { padding: 5px 10px; }
+            .btn-nav-toggle { width: 34px; height: 34px; font-size: 1.15rem; }
         }
 
         /* ARTICLE LAYOUT */
@@ -157,9 +287,13 @@
             padding: 48px 52px;
         }
         @media (max-width: 768px) {
-            .article-card { padding: 28px 20px; }
-            .article-title { font-size: 1.85rem; }
-            .nav-menu .nav-item-hide-sm { display: none; }
+            .article-wrap { margin: 20px auto 40px; padding: 0 14px; }
+            .article-card { padding: 24px 16px; }
+            .article-title { font-size: 1.65rem; }
+        }
+        @media (max-width: 480px) {
+            .article-title { font-size: 1.4rem; }
+            .article-badge { font-size: 0.75rem; padding: 3px 8px; }
         }
 
         /* BREADCRUMB */
@@ -405,24 +539,44 @@
 
     <!-- NAVBAR -->
     <header class="site-nav">
-        <nav class="nav-container" aria-label="Điều hướng chính">
-            <a href="/" class="brand-link">
+        <div class="nav-container">
+            <a href="/" class="brand-link" aria-label="HocNhanhTN Trang chủ">
                 <img src="/logohocnhanhtn.png" alt="HocNhanhTN Logo" class="brand-logo" width="34" height="34">
                 <span class="brand-text">HocNhanhTN</span>
             </a>
-            <ul class="nav-menu">
-                <li class="nav-item nav-item-hide-sm"><a href="/"><i class="ri-home-5-line"></i> Trang chủ</a></li>
-                <li class="nav-item"><a href="/de-thi"><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
+            <ul class="nav-menu" aria-label="Điều hướng chính">
+                <li class="nav-item"><a href="/" class=""><i class="ri-home-5-line"></i> Trang chủ</a></li>
+                <li class="nav-item"><a href="/de-thi" class=""><i class="ri-folder-open-line"></i> Kho đề thi</a></li>
                 <li class="nav-item"><a href="/cam-nang" class="active"><i class="ri-article-line"></i> Cẩm nang</a></li>
-                <li class="nav-item nav-item-hide-sm"><a href="/about"><i class="ri-information-line"></i> Giới thiệu</a></li>
-                <li class="nav-item nav-item-hide-sm"><a href="/contact"><i class="ri-customer-service-line"></i> Liên hệ</a></li>
+                <li class="nav-item"><a href="/about" class=""><i class="ri-information-line"></i> Giới thiệu</a></li>
+                <li class="nav-item"><a href="/contact" class=""><i class="ri-customer-service-line"></i> Liên hệ</a></li>
                 <li>
                     <a href="/" class="btn-nav-primary">
-                        <i class="ri-file-upload-line"></i> Tạo đề thi ngay
+                        <i class="ri-file-upload-line"></i> <span>Tạo đề thi ngay</span>
                     </a>
                 </li>
             </ul>
-        </nav>
+            <div class="nav-actions-mobile">
+                <a href="/" class="btn-nav-primary btn-nav-cta-sm">
+                    <i class="ri-file-upload-line"></i> <span>Tạo đề</span>
+                </a>
+                <button type="button" class="btn-nav-toggle" id="mobileNavToggle" aria-label="Mở menu" onclick="toggleMobileNav()">
+                    <i class="ri-menu-line" id="mobileNavToggleIcon"></i>
+                </button>
+            </div>
+        </div>
+        <!-- MOBILE DROPDOWN -->
+        <div class="mobile-nav-drawer" id="mobileNavDrawer" aria-hidden="true">
+            <div class="mobile-nav-inner">
+                <a href="/" class="mobile-nav-item "><i class="ri-home-5-line"></i> Trang chủ</a>
+                <a href="/de-thi" class="mobile-nav-item "><i class="ri-folder-open-line"></i> Kho đề thi</a>
+                <a href="/cam-nang" class="mobile-nav-item active"><i class="ri-article-line"></i> Cẩm nang</a>
+                <a href="/about" class="mobile-nav-item "><i class="ri-information-line"></i> Giới thiệu</a>
+                <a href="/contact" class="mobile-nav-item "><i class="ri-customer-service-line"></i> Liên hệ</a>
+                <div class="mobile-nav-divider"></div>
+                <a href="/" class="mobile-nav-cta-full"><i class="ri-file-upload-line"></i> Tạo đề thi từ Word/PDF</a>
+            </div>
+        </div>
     </header>
 
     <!-- MAIN ARTICLE CONTENT -->
@@ -569,5 +723,23 @@
         </div>
     </footer>
 
+    <script>
+        function toggleMobileNav() {
+            var drawer = document.getElementById('mobileNavDrawer');
+            var icon = document.getElementById('mobileNavToggleIcon');
+            if (!drawer) return;
+            var isOpen = drawer.classList.toggle('is-open');
+            drawer.setAttribute('aria-hidden', !isOpen);
+            if (icon) {
+                if (isOpen) {
+                    icon.classList.remove('ri-menu-line');
+                    icon.classList.add('ri-close-line');
+                } else {
+                    icon.classList.remove('ri-close-line');
+                    icon.classList.add('ri-menu-line');
+                }
+            }
+        }
+    </script>
 </body>
 </html>

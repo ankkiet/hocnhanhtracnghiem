@@ -77,7 +77,7 @@ class TestRealisticScenarios(unittest.TestCase):
         self.assertEqual(data_s["status"], "success")
         self.assertIn("đăng nhập ngay", data_s["message"].lower())
 
-        # 2. Đăng ký tài khoản Giáo viên qua form mật khẩu
+        # 2. Đăng ký tài khoản Giáo viên qua form mật khẩu -> Được đăng nhập ngay mà không cần Admin duyệt
         res_teacher = self.client.post("/api/auth/register", json={
             "username": "teacher_test@gmail.com",
             "password": "Password@123",
@@ -87,7 +87,7 @@ class TestRealisticScenarios(unittest.TestCase):
         self.assertEqual(res_teacher.status_code, 200)
         data_t = res_teacher.json()
         self.assertEqual(data_t["status"], "success")
-        self.assertIn("chờ", data_t["message"].lower())
+        self.assertIn("đăng nhập ngay", data_t["message"].lower())
 
         # 3. Luồng phân quyền qua OAuth (/api/auth/select_role)
         mock_user_doc = MagicMock()
@@ -107,12 +107,12 @@ class TestRealisticScenarios(unittest.TestCase):
         self.assertEqual(res_sel_s.json()["role"], "student")
         self.assertIn("token", res_sel_s.json())
 
-        # Chọn vai trò Giáo viên -> trạng thái pending_approval, KHÔNG có token
+        # Chọn vai trò Giáo viên -> được cấp quyền ngay, có token
         res_sel_t = self.client.post("/api/auth/select_role", json={"user_id": "u_t", "role": "teacher"})
         self.assertEqual(res_sel_t.status_code, 200)
-        self.assertEqual(res_sel_t.json()["status"], "pending_approval")
+        self.assertEqual(res_sel_t.json()["status"], "success")
         self.assertEqual(res_sel_t.json()["role"], "teacher")
-        self.assertNotIn("token", res_sel_t.json())
+        self.assertIn("token", res_sel_t.json())
 
     @patch("services.auth_service._get_db")
     @patch("routers.auth.get_db")
@@ -121,7 +121,7 @@ class TestRealisticScenarios(unittest.TestCase):
         Kiểm tra các kịch bản đăng nhập:
         - Sai mật khẩu -> 401
         - Người dùng không tồn tại -> 401
-        - Giáo viên chưa duyệt (pending) -> trả về pending_approval, không cấp token
+        - Giáo viên (kể cả trước đó ở pending) -> tự động kích hoạt thành công, trả về 200 + token
         - Học sinh hợp lệ -> 200 + token
         """
         mock_db = MagicMock()
@@ -155,7 +155,7 @@ class TestRealisticScenarios(unittest.TestCase):
         })
         self.assertEqual(res_not_found.status_code, 401)
 
-        # 3. Giáo viên ở trạng thái 'pending' cố gắng đăng nhập
+        # 3. Giáo viên ở trạng thái 'pending' cố gắng đăng nhập -> tự động kích hoạt thành công
         user_pending_doc = MagicMock()
         user_pending_doc.id = "u_pending"
         user_pending_doc.to_dict.return_value = {
@@ -172,8 +172,9 @@ class TestRealisticScenarios(unittest.TestCase):
         })
         self.assertEqual(res_pending.status_code, 200)
         data_p = res_pending.json()
-        self.assertEqual(data_p["status"], "pending_approval")
-        self.assertNotIn("token", data_p)
+        self.assertEqual(data_p["status"], "success")
+        self.assertEqual(data_p["role"], "teacher")
+        self.assertIn("token", data_p)
 
         # 4. Học sinh đăng nhập thành công
         user_active_doc = MagicMock()

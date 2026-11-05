@@ -100,8 +100,9 @@ button {
 
 /* CSS cho hình ảnh bóc tách từ Word */
 .quiz-image {
-    max-width: 100%;
-    height: auto;
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
     vertical-align: middle;
     margin: 4px;
     display: inline-block;

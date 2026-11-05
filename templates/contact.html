@@ -609,8 +609,8 @@
                     <li class="channel-item">
                         <div class="channel-icon"><i class="ri-shield-check-line"></i></div>
                         <div class="channel-meta">
-                            <strong>Xử lý bản quyền học liệu</strong>
-                            <span>Tiếp nhận yêu cầu gỡ bỏ tài liệu vi phạm bản quyền theo quy định DMCA</span>
+                            <strong>Bản quyền & Bảo vệ dữ liệu cá nhân</strong>
+                            <span>Tiếp nhận yêu cầu gỡ bỏ bản quyền (Điều 198b Luật SHTT 2022) & thực thi quyền dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP)</span>
                         </div>
                     </li>
                 </ul>
@@ -666,11 +666,13 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="contactSubject">Chủ đề cần hỗ trợ <span>*</span></label>
+                            <label class="form-label" for="contactSubject">Chủ đề cần hỗ trợ / Pháp lý <span>*</span></label>
                             <select id="contactSubject" name="subject" class="form-select" required>
                                 <option value="tech_issue">Báo lỗi kỹ thuật số hóa đề thi</option>
+                                <option value="copyright">Báo cáo khiếu nại bản quyền học liệu (Điều 198b Luật SHTT)</option>
+                                <option value="content_violation">Báo cáo nội dung đề thi vi phạm quy định (Nghị định 147/2024/NĐ-CP)</option>
+                                <option value="pdpd_data_rights">Yêu cầu trích xuất / xóa dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP)</option>
                                 <option value="feature_request">Đóng góp ý kiến nâng cấp tính năng</option>
-                                <option value="copyright">Báo cáo khiếu nại bản quyền học liệu</option>
                                 <option value="partnership">Đề xuất hợp tác giáo dục</option>
                                 <option value="other_inquiry">Yêu cầu khác</option>
                             </select>
@@ -678,12 +680,24 @@
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label" for="contactQuizId">Mã đề thi hoặc Đường dẫn liên quan <span style="color:#64748b; font-weight:500;">(Nếu báo cáo đề thi / bản quyền)</span></label>
+                        <input type="text" id="contactQuizId" name="quiz_id" class="form-input" placeholder="Ví dụ: Mã đề 849201 hoặc link https://hocnhanhtn.online/thi/...">
+                    </div>
+
+                    <div class="form-group">
                         <label class="form-label" for="contactMessage">Nội dung chi tiết <span>*</span></label>
-                        <textarea id="contactMessage" name="message" class="form-textarea" placeholder="Mô tả cụ thể thắc mắc, mã đề thi hoặc sự cố bạn đang gặp phải..." required></textarea>
+                        <textarea id="contactMessage" name="message" class="form-textarea" placeholder="Mô tả cụ thể nội dung cần hỗ trợ, bằng chứng bản quyền hoặc yêu cầu dữ liệu cá nhân..." required></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 18px;">
+                        <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.86rem; color: #475569; cursor: pointer; line-height: 1.5;">
+                            <input type="checkbox" id="contactConsentPdpd" required style="margin-top: 3px; width: 17px; height: 17px; accent-color: #2563eb; flex-shrink: 0;">
+                            <span>Tôi đồng ý cung cấp thông tin liên hệ trên để HocNhanhTN tiếp nhận, xác minh và phản hồi yêu cầu theo <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600;">Chính sách bảo vệ dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP)</a>.</span>
+                        </label>
                     </div>
 
                     <button type="submit" id="submitBtn" class="btn-submit">
-                        <i class="ri-mail-send-fill"></i> Gửi tin nhắn ngay
+                        <i class="ri-mail-send-fill"></i> Gửi yêu cầu ngay
                     </button>
                 </form>
             </div>
@@ -705,29 +719,75 @@
                 <span>•</span>
                 <a href="/terms">Điều khoản sử dụng</a>
                 <span>•</span>
-                <a href="/contact">Liên hệ hỗ trợ</a>
+                <a href="/contact">Liên hệ & Báo cáo bản quyền</a>
             </div>
-            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+            <p>&copy; 2026 HocNhanhTN. Dự án công nghệ giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm theo cấu trúc GDPT 2018.</p>
+            <p style="font-size: 0.78rem; color: #94a3b8; max-width: 780px; margin: 6px auto 0; line-height: 1.55;">
+                Tuyên bố miễn trừ: HocNhanhTN là nền tảng công nghệ độc lập phục vụ cộng đồng, không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào. Tuân thủ Nghị định 13/2023/NĐ-CP, Luật Sở hữu trí tuệ 2022 và Luật An ninh mạng 2018.
+            </p>
         </div>
     </footer>
 
     <script>
-        function handleContactSubmit(event) {
+        (function initContactParams() {
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var qid = params.get('quiz_id') || params.get('id');
+                var type = params.get('type');
+                if (qid && document.getElementById('contactQuizId')) {
+                    document.getElementById('contactQuizId').value = qid;
+                }
+                if (type && document.getElementById('contactSubject')) {
+                    document.getElementById('contactSubject').value = type;
+                }
+            } catch (e) {}
+        })();
+
+        async function handleContactSubmit(event) {
             event.preventDefault();
             const btn = document.getElementById('submitBtn');
             const alertBox = document.getElementById('contactAlert');
             const form = document.getElementById('contactForm');
+            const consent = document.getElementById('contactConsentPdpd');
+
+            if (consent && !consent.checked) {
+                alert('Vui lòng đánh dấu đồng ý xử lý dữ liệu liên hệ theo Nghị định 13/2023/NĐ-CP trước khi gửi.');
+                return;
+            }
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang gửi thông tin...';
+            btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang gửi hồ sơ...';
 
-            setTimeout(function() {
+            try {
+                const payload = {
+                    report_type: document.getElementById('contactSubject').value,
+                    quiz_id: (document.getElementById('contactQuizId').value || '').trim(),
+                    reporter_name: document.getElementById('contactName').value.trim(),
+                    reporter_email: document.getElementById('contactEmail').value.trim(),
+                    reporter_role: document.getElementById('contactRole').value,
+                    description: document.getElementById('contactMessage').value.trim(),
+                    consent_pdpd: true
+                };
+                const res = await fetch('/api/auth/legal_report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
                 btn.disabled = false;
-                btn.innerHTML = '<i class="ri-mail-send-fill"></i> Gửi tin nhắn ngay';
+                btn.innerHTML = '<i class="ri-mail-send-fill"></i> Gửi yêu cầu ngay';
+                alertBox.innerHTML = '<i class="ri-checkbox-circle-fill"></i> <strong>Đã tiếp nhận yêu cầu thành công!</strong><br>' +
+                    (data.message || 'Yêu cầu của bạn đã được ghi nhận. Ban quản trị sẽ phản hồi trong vòng 24 - 48 giờ làm việc.');
                 alertBox.style.display = 'block';
                 form.reset();
                 alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }, 800);
+            } catch (err) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ri-mail-send-fill"></i> Gửi yêu cầu ngay';
+                alertBox.style.display = 'block';
+                form.reset();
+                alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         }
     </script>
     <script>

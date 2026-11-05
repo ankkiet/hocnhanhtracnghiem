@@ -834,7 +834,9 @@
         let currentGroup = null;
 
         activeQuestions.forEach((q, idx) => {
-            const groupTitle = (q.group_title || '').trim();
+            let groupTitle = (q.group_title || '').trim();
+            // Lọc sạch toàn bộ thẻ HTML thừa/vỡ như </B>, <B>, <b>, vv. khỏi tiêu đề nhóm
+            groupTitle = groupTitle.replace(/<\/?[^>]+(>|$)/gi, ' ').replace(/\s+/g, ' ').trim();
             if (groupTitle && groupTitle !== currentGroup) {
                 currentGroup = groupTitle;
                 html += `<div class="paper-part-header">${escapeHtml(groupTitle)}</div>`;
@@ -859,32 +861,57 @@
                 }
                 html += `</div>`;
             } else if (qType === 'true_false' || (typeof rawCa === 'object' && rawCa !== null)) {
-                const caDict = (typeof rawCa === 'object' && rawCa !== null) ? rawCa : {};
+                let caDict = {};
+                if (typeof rawCa === 'object' && rawCa !== null) {
+                    caDict = rawCa;
+                } else if (typeof rawCa === 'string') {
+                    try {
+                        const parsed = JSON.parse(rawCa);
+                        if (typeof parsed === 'object' && parsed !== null) caDict = parsed;
+                    } catch (e) {
+                        const matches = rawCa.matchAll(/([a-d])[\.\:\)\/\-\s]+(Đ|S|Đúng|Sai|true|false|1|0)/gi);
+                        for (const m of matches) {
+                            const k = m[1].toLowerCase();
+                            const v = m[2].toLowerCase();
+                            caDict[k] = (v === 'đ' || v === 'đúng' || v === 'true' || v === '1');
+                        }
+                    }
+                }
                 html += `<div class="q-options-container q-options-1col">`;
                 options.forEach((opt) => {
-                    const optStr = String(opt).trim();
+                    let optStr = String(opt).trim();
+                    // Gỡ bỏ triệt để các thẻ [ Đúng / Sai ], [ Đúng / Sai ] - ĐÚNG / SAI, [Đ/S], [ĐÚNG], [SAI]
+                    optStr = optStr.replace(/\s*\[\s*(?:Đúng|Đ)\s*[\/\\]\s*(?:Sai|S)\s*\](?:\s*[\-–—\:]\s*(?:ĐÚNG|SAI|Đ|S|True|False))?/gi, '');
+                    optStr = optStr.replace(/\s*\[\s*(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE)\s*\]/gi, '');
+                    optStr = optStr.replace(/(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(?:ĐÚNG|SAI|Đ|S)\s*$/gi, '').trim();
+
                     const match = optStr.match(/^(\*?\s*([a-dA-D]))([\.\:\)])\s*(.*)/);
                     let label = "";
                     let content = optStr;
                     let subKey = "";
+                    let isD = false;
                     if (match) {
                         subKey = match[2].toLowerCase();
-                        label = match[1] + match[3] + " ";
+                        label = match[2] + match[3] + " ";
                         content = match[4];
-                    }
-
-                    let tagHtml = "";
-                    if (showAnswers && subKey in caDict) {
-                        const val = caDict[subKey];
-                        const isD = (val === true || String(val).toLowerCase() === 'đ' || String(val).toLowerCase() === 'd' || String(val) === '1');
-                        tagHtml = `<span class="tf-tag ${isD ? 'true' : 'false'}">[ Đúng / Sai ] - ${isD ? 'ĐÚNG' : 'SAI'}</span>`;
-                    } else {
-                        tagHtml = `<span class="tf-tag neutral">[ Đúng / Sai ]</span>`;
+                        const hasStar = match[1].trim().startsWith('*');
+                        if (subKey in caDict) {
+                            const val = caDict[subKey];
+                            isD = (val === true || String(val).toLowerCase() === 'đ' || String(val).toLowerCase() === 'd' || String(val) === '1');
+                        } else if (hasStar) {
+                            isD = true;
+                        }
                     }
 
                     html += `<div class="q-opt-item">`;
-                    if (label) html += `<strong class="q-opt-label">${escapeHtml(label)}</strong>`;
-                    html += `<span>${formatText(content)}</span> ${tagHtml}`;
+                    if (label) {
+                        if (showAnswers && isD) {
+                            html += `<strong class="q-opt-label" style="color: #b91c1c; text-decoration: underline;">${escapeHtml(label)}</strong>`;
+                        } else {
+                            html += `<strong class="q-opt-label">${escapeHtml(label)}</strong>`;
+                        }
+                    }
+                    html += `<span>${formatText(content)}</span>`;
                     html += `</div>`;
                 });
                 html += `</div>`;

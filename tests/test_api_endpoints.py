@@ -102,7 +102,7 @@ class TestAPIEndpoints(unittest.TestCase):
 
     @patch("routers.auth.get_db")
     def test_select_role_teacher_pending_approval(self, mock_get_db):
-        """Kiểm tra chọn vai trò Giáo viên phải chờ Admin duyệt và không cấp token ngay"""
+        """Kiểm tra chọn vai trò Giáo viên được kích hoạt dùng ngay mà không cần Admin duyệt"""
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
         mock_doc = MagicMock()
@@ -118,16 +118,16 @@ class TestAPIEndpoints(unittest.TestCase):
         response = self.client.post("/api/auth/select_role", json={"user_id": "u456", "role": "teacher"})
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["status"], "pending_approval")
+        self.assertEqual(data["status"], "success")
         self.assertEqual(data["role"], "teacher")
-        self.assertNotIn("token", data)
+        self.assertIn("token", data)
         update_args = mock_db.collection.return_value.document.return_value.update.call_args[0][0]
         self.assertEqual(update_args["role"], "teacher")
-        self.assertEqual(update_args["status"], "pending")
+        self.assertEqual(update_args["status"], "approved")
 
     @patch("routers.auth.get_db")
     def test_check_approval_status(self, mock_get_db):
-        """Kiểm tra endpoint kiểm tra trạng thái duyệt tài khoản giáo viên"""
+        """Kiểm tra endpoint kiểm tra trạng thái tài khoản giáo viên tự động kích hoạt"""
         mock_db = MagicMock()
         mock_get_db.return_value = mock_db
         mock_doc = MagicMock()
@@ -141,16 +141,12 @@ class TestAPIEndpoints(unittest.TestCase):
         }
         mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
         
-        # Khi đang chờ duyệt
-        res_pending = self.client.get("/api/auth/check_approval_status?user_id=u456")
-        self.assertEqual(res_pending.status_code, 200)
-        self.assertEqual(res_pending.json()["status"], "pending")
-        
-        # Khi đã được Admin duyệt
-        mock_doc.to_dict.return_value["status"] = "approved"
-        res_approved = self.client.get("/api/auth/check_approval_status?user_id=u456")
-        self.assertEqual(res_approved.status_code, 200)
-        self.assertEqual(res_approved.json()["status"], "approved")
+        # Tự động kích hoạt sang approved
+        res = self.client.get("/api/auth/check_approval_status?user_id=u456")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["status"], "approved")
+        self.assertIn("token", res.json())
+
     @patch("routers.auth.get_db")
     def test_select_role_with_profile_fields(self, mock_get_db):
         """Kiểm tra chọn vai trò kèm thông tin họ tên, lớp, sđt, trường học"""
@@ -177,16 +173,17 @@ class TestAPIEndpoints(unittest.TestCase):
         response = self.client.post("/api/auth/select_role", json=payload)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["status"], "pending_approval")
+        self.assertEqual(data["status"], "success")
         self.assertEqual(data["role"], "teacher")
         self.assertEqual(data["full_name"], "Thầy Nguyễn Văn Nam")
         self.assertEqual(data["class_name"], "Tổ Toán - Khối 12")
         self.assertEqual(data["phone"], "0987654321")
         self.assertEqual(data["school"], "THPT Chuyên Hà Nội - Amsterdam")
+        self.assertIn("token", data)
         
         update_args = mock_db.collection.return_value.document.return_value.update.call_args[0][0]
         self.assertEqual(update_args["role"], "teacher")
-        self.assertEqual(update_args["status"], "pending")
+        self.assertEqual(update_args["status"], "approved")
         self.assertEqual(update_args["full_name"], "Thầy Nguyễn Văn Nam")
         self.assertEqual(update_args["class_name"], "Tổ Toán - Khối 12")
         self.assertEqual(update_args["phone"], "0987654321")

@@ -138,7 +138,7 @@ def _render_index_with_meta(
         html_content = re.sub(r'<meta\s+property=["\']og:image:secure_url["\']\s+content=["\'].*?["\']\s*/?>', f'<meta property="og:image:secure_url" content="{og_image_url}">', html_content, flags=re.IGNORECASE)
         html_content = re.sub(r'<meta\s+name=["\']twitter:image["\']\s+content=["\'].*?["\']\s*/?>', f'<meta name="twitter:image" content="{og_image_url}">', html_content, flags=re.IGNORECASE)
 
-    return HTMLResponse(content=html_content, media_type="text/html")
+    return HTMLResponse(content=html_content, media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
 
 
 def _render_editor_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
@@ -154,7 +154,7 @@ def _render_editor_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
         title = f"Soát lỗi đề: {quiz_title} - HocNhanhTN"
         html_content = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)}</title>', html_content, flags=re.IGNORECASE)
 
-    return HTMLResponse(content=html_content, media_type="text/html")
+    return HTMLResponse(content=html_content, media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
 
 
 def _render_export_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
@@ -170,7 +170,7 @@ def _render_export_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
         title = f"Xuất bản Word & PDF: {quiz_title} - HocNhanhTN"
         html_content = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)}</title>', html_content, flags=re.IGNORECASE)
 
-    return HTMLResponse(content=html_content, media_type="text/html")
+    return HTMLResponse(content=html_content, media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
 
 
 # -------------------------------------------------------------
@@ -442,7 +442,7 @@ def _render_static_page(filename: str) -> HTMLResponse:
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return HTMLResponse(content=content, media_type="text/html; charset=utf-8")
+        return HTMLResponse(content=content, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
     raise HTTPException(status_code=404, detail=f"Không tìm thấy trang {filename}")
 
 
@@ -486,7 +486,7 @@ async def cam_nang_article(slug: str, request: Request):
     if os.path.exists(article_path):
         with open(article_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return HTMLResponse(content=content, media_type="text/html; charset=utf-8")
+        return HTMLResponse(content=content, media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
     raise HTTPException(status_code=404, detail="Không tìm thấy bài viết cẩm nang yêu cầu")
 
 

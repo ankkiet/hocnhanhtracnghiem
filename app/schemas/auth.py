@@ -57,3 +57,19 @@ class UpdateProfileRequest(BaseModel):
     class_name: Optional[str] = None
     phone: Optional[str] = None
     school: Optional[str] = None
+
+
+class DeleteAccountRequest(BaseModel):
+    token: str
+    reason: Optional[str] = ""
+
+
+class LegalReportRequest(BaseModel):
+    report_type: str = "copyright"
+    quiz_id: Optional[str] = ""
+    reporter_name: str = ""
+    reporter_email: str = ""
+    reporter_role: Optional[str] = "other"
+    description: str = ""
+    consent_pdpd: bool = True
+

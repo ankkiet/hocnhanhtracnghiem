@@ -174,7 +174,7 @@ class TestFixedFeatures(unittest.TestCase):
         # Kiểm tra sự xuất hiện của dòng điền đáp số cho câu trả lời ngắn
         self.assertIn("Đáp số:", all_text)
         # Kiểm tra sự xuất hiện của nhãn [ Đúng / Sai ] cho câu Đúng/Sai
-        self.assertIn("[ Đúng / Sai ]", all_text)
+        self.assertIn("a) Mệnh đề một", all_text)
 
     def test_auth_registration_role_sanitization(self):
         """Kiểm tra tài khoản thông thường không thể tự nâng cấp thành admin qua request"""

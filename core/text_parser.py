@@ -78,7 +78,8 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
     if section_matches:
         for idx, sm in enumerate(section_matches):
-            header = sm.group(1).strip()
+            header = re.sub(r'</?[a-zA-Z0-9]+[^>]*>', ' ', sm.group(1))
+            header = re.sub(r'\s+', ' ', header).strip()
             sec_start = sm.end()
             sec_end = section_matches[idx + 1].start() if idx + 1 < len(section_matches) else len(raw_text)
             content = raw_text[sec_start:sec_end].strip()
@@ -119,9 +120,9 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     )
 
     sub_opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))'
-        r'((?:(?:<MARK>|<mark>|<u>|<U>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>\s*)*\(?\[?(?<![°oO\d\w])(\*?[a-d])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))'
+        r'((?:(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>|</b>|</B>\s*)*)?'
+        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[a-d])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
     )
 
     results = []

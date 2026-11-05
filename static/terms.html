@@ -91,12 +91,15 @@
             font-weight: 800;
             font-size: 1.25rem;
             letter-spacing: -0.02em;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .brand-logo {
             width: 34px;
             height: 34px;
             border-radius: 8px;
             object-fit: contain;
+            flex-shrink: 0;
         }
         .brand-accent { color: var(--primary); }
         .nav-links {
@@ -129,6 +132,8 @@
             font-size: 0.88rem;
             transition: all 0.2s ease;
             box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .nav-cta:hover {
             background: var(--primary-hover);
@@ -162,8 +167,13 @@
             box-shadow: var(--shadow-card);
         }
         @media (max-width: 768px) {
-            .content-card { padding: 28px 20px; }
+            .content-card { padding: 24px 16px; }
             .nav-links { display: none; }
+            .site-nav { height: 60px; }
+            .nav-container { padding: 0 16px; }
+            .brand-link { font-size: 1.15rem; gap: 8px; }
+            .brand-logo { width: 30px; height: 30px; }
+            .nav-cta { padding: 6px 14px; font-size: 0.84rem; }
         }
 
         .page-badge {
@@ -320,15 +330,20 @@
 
             <div class="article-body">
                 <p>
-                    Vui lòng đọc kỹ các Điều khoản Dịch vụ ("Điều khoản") này trước khi truy cập hoặc sử dụng trang web <strong>HocNhanhTN</strong> tại địa chỉ <code>https://hocnhanhtn.online/</code>. Khi bạn tạo tài khoản, tải lên đề thi hoặc truy cập bất kỳ phòng thi nào trên nền tảng, bạn đồng ý chịu sự ràng buộc bởi các quy định dưới đây.
+                    Vui lòng đọc kỹ các Điều khoản Dịch vụ & Quy chế sử dụng ("Điều khoản") này trước khi truy cập hoặc sử dụng nền tảng <strong>HocNhanhTN</strong> tại địa chỉ <code>https://hocnhanhtn.online/</code>. Khi bạn đánh dấu xác nhận tạo tài khoản, tải lên đề thi hoặc tham gia phòng thi trên nền tảng, bạn xác nhận đã đọc, hiểu rõ và đồng ý tuân thủ các quy định dưới đây theo pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam.
                 </p>
+
+                <div class="callout-box" style="background: #fffbeb; border-left-color: #d97706;">
+                    <strong>Tuyên bố pháp lý & Miễn trừ mạo danh cơ quan nhà nước:</strong><br>
+                    <strong>HocNhanhTN</strong> là nền tảng công nghệ giáo dục độc lập phục vụ cộng đồng phi lợi nhuận, <strong>không trực thuộc, không liên kết ủy quyền và không đại diện cho Bộ Giáo dục và Đào tạo, các Sở Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào</strong>. Cụm từ "Chuẩn cấu trúc GDPT 2018" chỉ mô tả việc phần mềm hỗ trợ hiển thị 3 dạng thức câu hỏi trắc nghiệm theo chương trình giáo dục phổ thông mới. Mọi đề thi và kết quả trên hệ thống chỉ phục vụ mục đích tự ôn luyện, tham khảo và kiểm tra nội bộ của giáo viên.
+                </div>
 
                 <h2><i class="ri-checkbox-circle-line" style="color: var(--primary);"></i> 1. Chấp thuận và Phạm vi Dịch vụ</h2>
                 <p>
-                    HocNhanhTN là giải pháp công nghệ giáo dục hỗ trợ chuyển đổi số: giúp giáo viên số hóa đề thi từ định dạng Word (.docx) hoặc PDF sang môi trường trực tuyến; đồng thời cung cấp giao diện kiểm tra trắc nghiệm chuẩn Chương trình GDPT 2018 cho học sinh.
+                    HocNhanhTN cung cấp công cụ phần mềm hỗ trợ chuyển đổi số giáo dục: giúp giáo viên tự động số hóa đề thi từ định dạng Word (.docx) hoặc PDF sang phòng ôn luyện trực tuyến; đồng thời cung cấp giao diện làm bài trắc nghiệm 3 phần (Nhiều lựa chọn, Đúng/Sai, Trả lời ngắn) cho học sinh.
                 </p>
                 <p>
-                    Dịch vụ được cung cấp trên cơ sở nguyên tắc phi lợi nhuận, hỗ trợ cộng đồng giáo dục. Chúng tôi bảo lưu quyền cập nhật, nâng cấp hoặc thay đổi các tính năng để phục vụ tốt hơn cho người dùng mà không cần thông báo trước.
+                    Dịch vụ được cung cấp miễn phí 100% vì mục đích hỗ trợ cộng đồng giáo dục. Chúng tôi không kinh doanh thương mại điện tử, không bán khóa học và không thu bất kỳ khoản phí nào từ học sinh hay giáo viên.
                 </p>
 
                 <h2><i class="ri-user-follow-line" style="color: var(--primary);"></i> 2. Tài khoản người dùng & Trách nhiệm bảo mật</h2>
@@ -338,48 +353,50 @@
                     <li><strong>Chấm dứt tài khoản:</strong> HocNhanhTN có quyền khóa hoặc xóa các tài khoản vi phạm chính sách, có hành vi phá hoại hệ thống hoặc phát tán nội dung độc hại.</li>
                 </ul>
 
-                <h2><i class="ri-copyright-line" style="color: var(--primary);"></i> 3. Bản quyền tài liệu & Học liệu do người dùng tải lên</h2>
+                <h2><i class="ri-copyright-line" style="color: var(--primary);"></i> 3. Bản quyền học liệu, Dịch vụ trung gian & Bảo vệ Bí mật nhà nước</h2>
                 <div class="callout-box">
-                    <strong>Nguyên tắc tôn trọng quyền tác giả và học liệu giáo dục:</strong><br>
-                    Giáo viên và người dùng tải lên tệp đề thi chịu hoàn toàn trách nhiệm về tính pháp lý và bản quyền của tài liệu đó.
+                    <strong>Nguyên tắc tuân thủ Luật Sở hữu trí tuệ 2022 & Luật Bảo vệ bí mật nhà nước 2018:</strong><br>
+                    HocNhanhTN vận hành với tư cách là nền tảng cung cấp công cụ kỹ thuật trung gian theo <strong>Điều 198b Luật Sở hữu trí tuệ (sửa đổi, bổ sung năm 2022)</strong>. Người dùng tải lên hoặc xuất bản tệp đề thi chịu hoàn toàn trách nhiệm trước pháp luật về nguồn gốc, tính hợp pháp và quyền tác giả của tài liệu đó.
                 </div>
                 <ul>
-                    <li><strong>Quyền sở hữu học liệu:</strong> Bạn giữ toàn bộ quyền sở hữu trí tuệ đối với các câu hỏi và đề thi do bạn tự biên soạn hoặc có quyền sử dụng hợp pháp. HocNhanhTN không nhận quyền sở hữu đối với nội dung đề thi của bạn.</li>
-                    <li><strong>Quyền hạn cấp cho hệ thống:</strong> Bằng việc tải đề thi lên hệ thống, bạn cấp cho HocNhanhTN quyền kỹ thuật giới hạn để phân tích cấu trúc, nhận diện công thức LaTeX, hiển thị nội dung câu hỏi cho học sinh làm bài và lưu trữ kết quả kiểm tra.</li>
-                    <li><strong>Cấm vi phạm bản quyền:</strong> Nghiêm cấm tải lên các tài liệu thuộc bí mật nhà nước, đề thi quốc gia chưa được phép công bố hoặc các sách giáo khoa, tài liệu thương mại có bản quyền mà không có sự cho phép của chủ sở hữu.</li>
-                    <li><strong>Chính sách gỡ bỏ vi phạm (DMCA / Bản quyền):</strong> Nếu bất kỳ tác giả hoặc nhà xuất bản nào phát hiện tài liệu vi phạm bản quyền trên hệ thống, xin vui lòng gửi thông báo kèm bằng chứng về địa chỉ email <code>kiet0905478167@gmail.com</code>. Chúng tôi sẽ thẩm tra và gỡ bỏ nội dung trong vòng 24 giờ.</li>
+                    <li><strong>Quyền sở hữu học liệu:</strong> Giáo viên giữ toàn bộ quyền tác giả đối với các câu hỏi và đề thi do mình tự biên soạn hợp pháp. HocNhanhTN không đòi hỏi quyền sở hữu bản quyền đối với nội dung đề thi của người dùng.</li>
+                    <li><strong>Quyền hạn kỹ thuật cấp cho hệ thống:</strong> Bằng việc tải đề thi lên và bấm Xuất bản, người dùng cấp cho HocNhanhTN quyền kỹ thuật cần thiết để phân tích cấu trúc câu hỏi, kết xuất công thức LaTeX, hiển thị phòng thi cho học sinh và lưu trữ kết quả chấm điểm.</li>
+                    <li><strong>Cấm tuyệt đối tài liệu thuộc Bí mật nhà nước (Quyết định 531/QĐ-TTg):</strong> Nghiêm cấm tuyệt đối việc tải lên, lưu trữ hoặc phát tán các đề thi chính thức, đề thi dự bị, đáp án chưa được phép công bố của các kỳ thi cấp Quốc gia, kỳ thi Tốt nghiệp THPT, thi chọn học sinh giỏi hoặc các tài liệu thuộc danh mục Bí mật nhà nước trong lĩnh vực giáo dục và đào tạo theo <strong>Luật Bảo vệ bí mật nhà nước năm 2018</strong> và <strong>Quyết định số 531/QĐ-TTg của Thủ tướng Chính phủ</strong>.</li>
+                    <li><strong>Cấm xâm phạm bản quyền thương mại:</strong> Nghiêm cấm sao chép, số hóa trái phép các sách tham khảo thương mại, ngân hàng đề thi có bản quyền của nhà xuất bản/tác giả khác khi chưa được sự đồng ý của chủ sở hữu quyền tác giả (Điều 25, Điều 26, Điều 28 Luật Sở hữu trí tuệ).</li>
+                    <li><strong>Quy trình tiếp nhận & gỡ bỏ nội dung vi phạm trong 24 giờ (Notice & Takedown):</strong> Bất kỳ tác giả, nhà xuất bản hoặc cơ quan quản lý nào phát hiện đề thi trên hệ thống vi phạm bản quyền hoặc quy định pháp luật đều có thể bấm nút <strong>"🚩 Báo cáo đề thi"</strong> ngay trên giao diện phòng thi hoặc gửi yêu cầu qua trang <a href="/contact">Liên hệ & Khiếu nại bản quyền</a> / email <code>kiet0905478167@gmail.com</code>. Ban quản trị cam kết thẩm tra và gỡ bỏ nội dung vi phạm trong vòng <strong>24 giờ</strong>.</li>
                 </ul>
 
-                <h2><i class="ri-shield-user-line" style="color: var(--primary);"></i> 4. Quy tắc ứng xử trong phòng thi trực tuyến</h2>
-                <p>Để đảm bảo một môi trường thi cử công bằng và văn minh, mọi người tham gia phòng thi phải tuân thủ:</p>
+                <h2><i class="ri-shield-user-line" style="color: var(--primary);"></i> 4. Các hành vi bị nghiêm cấm (Điều 8 Luật An ninh mạng 2018 & Nghị định 147/2024/NĐ-CP)</h2>
+                <p>Để đảm bảo an ninh mạng và môi trường sư phạm lành mạnh, nghiêm cấm người dùng thực hiện các hành vi sau:</p>
                 <ul>
-                    <li><strong>Trung thực trong làm bài:</strong> Không can thiệp vào mã nguồn JavaScript, không sử dụng công cụ gian lận hay các tiện ích hack đáp án.</li>
-                    <li><strong>Không gây gián đoạn hệ thống:</strong> Nghiêm cấm mọi hành vi gửi lượng request lớn bất thường (DDoS, spam submission) nhằm làm tê liệt máy chủ thi.</li>
-                    <li><strong>Ngôn từ chuẩn mực:</strong> Tên thí sinh và nội dung bình luận, phản hồi phải phù hợp với môi trường sư phạm, không chứa từ ngữ thô tục, bôi nhọ hay mang tính kích động.</li>
+                    <li><strong>Vi phạm Điều 8 Luật An ninh mạng:</strong> Lợi dụng tính năng tạo câu hỏi, tiêu đề đề thi hoặc tên thí sinh để đăng tải thông tin xuyên tạc lịch sử, chống phá Nhà nước, xúc phạm tôn giáo, bôi nhọ danh dự, nhân phẩm của cá nhân, tổ chức hoặc trái với thuần phong mỹ tục Việt Nam.</li>
+                    <li><strong>Gian lận & Phá hoại kỹ thuật:</strong> Can thiệp trái phép vào mã nguồn, sử dụng công cụ gian lận kết quả thi, phát tán mã độc hoặc thực hiện tấn công từ chối dịch vụ (DDoS) gây cản trở hoạt động bình thường của hệ thống.</li>
+                    <li><strong>Tổng hợp tin tức báo chí trái phép:</strong> Không sử dụng nền tảng để đăng tải hoặc trích dẫn tin tức thời sự - báo chí khi không có thẩm quyền theo Nghị định 147/2024/NĐ-CP.</li>
                 </ul>
 
-                <h2><i class="ri-advertisement-line" style="color: var(--primary);"></i> 5. Quảng cáo trên nền tảng (Google AdSense)</h2>
+                <h2><i class="ri-advertisement-line" style="color: var(--primary);"></i> 5. Quy định về Quảng cáo trên nền tảng (Luật Quảng cáo & Google AdSense)</h2>
                 <p>
-                    Để tài trợ cho hạ tầng máy chủ băng thông cao phục vụ miễn phí cho hàng chục nghìn học sinh, HocNhanhTN hiển thị quảng cáo từ các đối tác được chứng nhận (chủ yếu là <strong>Google AdSense</strong>).
+                    Để duy trì kinh phí máy chủ đám mây phục vụ miễn phí cho cộng đồng học sinh và giáo viên, HocNhanhTN hiển thị quảng cáo từ mạng lưới <strong>Google AdSense</strong> tuân thủ Luật Quảng cáo Việt Nam (sửa đổi bởi Nghị định 38/2021/NĐ-CP và Nghị định 70/2021/NĐ-CP).
                 </p>
                 <ul>
-                    <li>Quảng cáo chỉ xuất hiện tại các vị trí chờ phù hợp (như trang danh sách đề, màn hình chuẩn bị vào thi), <strong>tuyệt đối không che khuất nội dung câu hỏi hay làm gián đoạn thời gian làm bài của học sinh</strong>.</li>
-                    <li>Người dùng cam kết không thực hiện hành vi nhấp chuột ảo (invalid clicks), dùng bot tự động click quảng cáo hoặc kêu gọi người khác nhấp chuột vào quảng cáo trái với Chính sách chương trình của Google AdSense.</li>
+                    <li>Quảng cáo chỉ xuất hiện tại các trang thông tin tĩnh hoặc màn hình chờ ngoài phòng thi, <strong>tuyệt đối không chèn vào giữa các câu hỏi khi học sinh đang làm bài thi bấm giờ</strong>.</li>
+                    <li>Chặn hoàn toàn các danh mục quảng cáo nhạy cảm, không phù hợp với lứa tuổi học sinh phổ thông.</li>
+                    <li>Nghiêm cấm người dùng thực hiện hành vi nhấp chuột ảo (invalid clicks) hoặc dùng công cụ tự động tương tác với quảng cáo.</li>
                 </ul>
 
                 <h2><i class="ri-alert-line" style="color: var(--primary);"></i> 6. Giới hạn trách nhiệm pháp lý</h2>
                 <p>
-                    HocNhanhTN nỗ lực tối đa để hệ thống vận hành liên tục, ổn định và chính xác. Tuy nhiên, dịch vụ được cung cấp theo nguyên tắc "nguyên trạng" (As-Is). Chúng tôi không chịu trách nhiệm đối với bất kỳ sự gián đoạn mạng bất khả kháng nào từ phía nhà cung cấp dịch vụ Internet của người dùng hoặc các thiệt hại gián tiếp phát sinh từ việc sử dụng nền tảng.
+                    HocNhanhTN nỗ lực tối đa để hệ thống vận hành ổn định và chính xác. Tuy nhiên, phần mềm số hóa đề thi tự động bằng thuật toán & AI có thể phát sinh sai số nhận diện trên các tài liệu có định dạng phức tạp; giáo viên có trách nhiệm kiểm tra, rà soát lại nội dung câu hỏi và đáp án trên trình biên tập trước khi xuất bản cho học sinh làm bài.
                 </p>
 
                 <h2><i class="ri-scale-line" style="color: var(--primary);"></i> 7. Luật điều chỉnh & Giải quyết tranh chấp</h2>
                 <p>
-                    Các Điều khoản Dịch vụ này được điều chỉnh và giải thích theo quy định của pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam. Mọi tranh chấp phát sinh sẽ được ưu tiên giải quyết thông qua thương lượng hòa giải trên tinh thần xây dựng và tôn trọng lẫn nhau.
+                    Các Điều khoản Dịch vụ này được điều chỉnh và giải thích theo quy định của pháp luật nước Cộng hòa Xã hội Chủ nghĩa Việt Nam. Mọi tranh chấp phát sinh được ưu tiên giải quyết thông qua thương lượng thiện chí; trường hợp không đạt được thỏa thuận sẽ được đưa ra giải quyết tại Tòa án nhân dân có thẩm quyền tại Việt Nam.
                 </p>
 
-                <h2><i class="ri-customer-service-line" style="color: var(--primary);"></i> 8. Kênh tiếp nhận ý kiến & Liên hệ</h2>
+                <h2><i class="ri-customer-service-line" style="color: var(--primary);"></i> 8. Kênh tiếp nhận khiếu nại & Liên hệ pháp lý</h2>
                 <p>
-                    Nếu bạn có bất kỳ câu hỏi nào về các Điều khoản Dịch vụ này, xin vui lòng liên hệ Ban quản trị qua email: <a href="mailto:kiet0905478167@gmail.com">kiet0905478167@gmail.com</a> hoặc gửi thư trực tiếp qua trang <a href="/contact">Liên hệ hỗ trợ</a>.
+                    Mọi thông báo khiếu nại bản quyền (Notice & Takedown), báo cáo nội dung vi phạm hoặc yêu cầu hỗ trợ pháp lý, xin vui lòng gửi qua trang <a href="/contact">Liên hệ & Báo cáo bản quyền</a> hoặc email: <a href="mailto:kiet0905478167@gmail.com">kiet0905478167@gmail.com</a>.
                 </p>
             </div>
         </article>
@@ -401,9 +418,12 @@
                 <span>•</span>
                 <a href="/terms">Điều khoản sử dụng</a>
                 <span>•</span>
-                <a href="/contact">Liên hệ hỗ trợ</a>
+                <a href="/contact">Liên hệ & Báo cáo bản quyền</a>
             </div>
-            <p>&copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm chuẩn GDPT 2018.</p>
+            <p>&copy; 2026 HocNhanhTN. Dự án công nghệ giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm theo cấu trúc GDPT 2018.</p>
+            <p style="font-size: 0.78rem; color: #94a3b8; max-width: 780px; margin: 6px auto 0; line-height: 1.55;">
+                Tuyên bố miễn trừ: HocNhanhTN là nền tảng công nghệ độc lập phục vụ cộng đồng, không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào. Tuân thủ Nghị định 13/2023/NĐ-CP, Luật Sở hữu trí tuệ 2022 và Luật An ninh mạng 2018.
+            </p>
         </div>
     </footer>
 

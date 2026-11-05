@@ -275,8 +275,10 @@ def add_formatted_text(
     is_bold = base_bold
     is_italic = base_italic
     is_underline = False
+    is_strike = False
     is_sup = False
     is_sub = False
+    active_color = base_color
 
     for part in parts:
         if not part:
@@ -321,7 +323,40 @@ def add_formatted_text(
         elif lower_part == '</sub>':
             is_sub = False
             continue
-        elif lower_part in ('<p>', '</p>', '<span>', '</span>'):
+        elif lower_part in ('<s>', '<strike>', '<del>'):
+            is_strike = True
+            continue
+        elif lower_part in ('</s>', '</strike>', '</del>'):
+            is_strike = False
+            continue
+        elif lower_part.startswith('<span') or lower_part.startswith('<font'):
+            # Trích xuất mã màu từ style="color: #..." hoặc color="..."
+            color_match = re.search(r'color:\s*(#[0-9a-fA-F]{3,6}|rgb\([^)]+\)|[a-zA-Z]+)', part, re.IGNORECASE) or re.search(r'color=["\']([^"\']+)["\']', part, re.IGNORECASE)
+            if color_match:
+                c_str = color_match.group(1).strip().lower()
+                if c_str.startswith('#'):
+                    hex_val = c_str.lstrip('#')
+                    if len(hex_val) == 3:
+                        hex_val = ''.join([c*2 for c in hex_val])
+                    if len(hex_val) == 6:
+                        try:
+                            r = int(hex_val[0:2], 16)
+                            g = int(hex_val[2:4], 16)
+                            b = int(hex_val[4:6], 16)
+                            active_color = RGBColor(r, g, b)
+                        except Exception:
+                            pass
+                elif c_str in ('red', 'do', 'đỏ'):
+                    active_color = RGBColor(220, 38, 38)
+                elif c_str in ('blue', 'xanh'):
+                    active_color = RGBColor(37, 99, 235)
+                elif c_str in ('green', 'xanh lá'):
+                    active_color = RGBColor(22, 163, 74)
+            continue
+        elif lower_part in ('</span>', '</font>'):
+            active_color = base_color
+            continue
+        elif lower_part in ('<p>', '</p>', '<span>'):
             continue
 
         # 3. Thẻ ảnh HTML <img src="...">
@@ -332,8 +367,18 @@ def add_formatted_text(
                 stream = fetch_image_stream(src)
                 if stream:
                     try:
+                        # Trích xuất kích thước width tùy biến nếu người dùng kéo giãn trong editor
+                        w_inches = 3.5
+                        w_match = re.search(r'width:\s*(\d+)px', part, re.IGNORECASE) or re.search(r'width=["\'](\d+)(?:px)?["\']', part, re.IGNORECASE)
+                        if w_match:
+                            try:
+                                px_val = float(w_match.group(1))
+                                if px_val > 0:
+                                    w_inches = min(6.5, max(1.0, px_val / 96.0))
+                            except Exception:
+                                pass
                         run_img = paragraph.add_run()
-                        run_img.add_picture(stream, width=Inches(3.5))
+                        run_img.add_picture(stream, width=Inches(w_inches))
                         continue
                     except Exception as e:
                         print(f"Error adding picture to docx: {e}")
@@ -376,12 +421,14 @@ def add_formatted_text(
         run.bold = is_bold
         run.italic = is_italic
         run.underline = is_underline
+        if is_strike:
+            run.font.strike = True
         if is_sup:
             run.font.superscript = True
         if is_sub:
             run.font.subscript = True
-        if base_color:
-            run.font.color.rgb = base_color
+        if active_color:
+            run.font.color.rgb = active_color
 
 
 def markdown_table_to_html(text: str) -> str:
@@ -641,6 +688,35 @@ def is_option_correct(opt_idx: int, opt_text: str, raw_ca) -> bool:
     return False
 
 
+def normalize_tf_ca(raw_ca) -> dict:
+    """Chuẩn hóa đáp án Đúng/Sai thành dict {'a': bool, 'b': bool, 'c': bool, 'd': bool}."""
+    if isinstance(raw_ca, dict):
+        result = {}
+        for k, v in raw_ca.items():
+            clean_k = str(k).lower().strip().replace(')', '').replace('.', '')
+            is_true = (v is True or str(v).lower() in ('đ', 'd', 'true', '1'))
+            result[clean_k] = is_true
+        return result
+    if isinstance(raw_ca, str):
+        raw_str = raw_ca.strip()
+        if raw_str.startswith('{') and raw_str.endswith('}'):
+            try:
+                import json
+                parsed = json.loads(raw_str)
+                if isinstance(parsed, dict):
+                    return normalize_tf_ca(parsed)
+            except Exception:
+                pass
+        try:
+            from services.ai_service import parse_tf_answer
+            return parse_tf_answer(raw_str)
+        except Exception:
+            pass
+    if isinstance(raw_ca, (list, tuple, set)):
+        return {str(x).lower().strip().replace(')', '').replace('.', ''): True for x in raw_ca}
+    return {}
+
+
 def extract_answer_display(q: dict) -> str:
     """Trích xuất chuỗi hiển thị đáp án đúng ngắn gọn (A, B, C, D hoặc a-Đ b-S hoặc số đáp án ngắn)."""
     q_type = q.get('type', 'mcq')
@@ -649,8 +725,9 @@ def extract_answer_display(q: dict) -> str:
         return "-"
 
     if q_type == 'true_false' or isinstance(raw_ca, dict):
-        if isinstance(raw_ca, dict):
-            parts = [f"{k}-{'Đ' if raw_ca.get(k) else 'S'}" for k in ['a', 'b', 'c', 'd'] if k in raw_ca]
+        ca_dict = normalize_tf_ca(raw_ca)
+        if ca_dict:
+            parts = [f"{k}-{'Đ' if ca_dict.get(k) else 'S'}" for k in ['a', 'b', 'c', 'd'] if k in ca_dict]
             return ", ".join(parts) if parts else str(raw_ca)
         return str(raw_ca)
 
@@ -811,7 +888,9 @@ def render_quiz_document_content(
     # 4. Danh sách câu hỏi
     current_group = None
     for idx, q in enumerate(questions, 1):
-        group_title = q.get('group_title', '').strip()
+        raw_gt = q.get('group_title', '')
+        group_title = re.sub(r'<[^>]+>', ' ', str(raw_gt))
+        group_title = re.sub(r'\s+', ' ', group_title).strip()
         if group_title and group_title != current_group:
             current_group = group_title
             p_group = doc.add_paragraph()
@@ -866,7 +945,7 @@ def render_quiz_document_content(
                 run_dots.font.size = Pt(font_size_pt)
 
         elif q_type == 'true_false' or isinstance(raw_ca, dict):
-            raw_ca_dict = raw_ca if isinstance(raw_ca, dict) else {}
+            raw_ca_dict = normalize_tf_ca(raw_ca)
             for opt in options:
                 p_opt = doc.add_paragraph()
                 p_opt.paragraph_format.left_indent = Inches(0.25 if is_compact else 0.3)
@@ -874,36 +953,34 @@ def render_quiz_document_content(
                 p_opt.paragraph_format.space_after = opt_space_after
                 p_opt.paragraph_format.line_spacing = opt_line_spacing
 
-                match_prefix = re.match(r'^(\*?\s*([a-dA-D]))([\.\:\)])\s*(.*)', str(opt).strip())
+                opt_clean = str(opt).strip()
+                # Gỡ bỏ triệt để các đuôi [ Đúng / Sai ], [ Đúng / Sai ] - ĐÚNG / SAI, [Đ/S], [ĐÚNG], [SAI]
+                opt_clean = re.sub(r'\s*\[\s*(?:Đúng|Đ)\s*[\/\\]\s*(?:Sai|S)\s*\](?:\s*[\-–—\:]\s*(?:ĐÚNG|SAI|Đ|S|True|False))?', '', opt_clean, flags=re.IGNORECASE)
+                opt_clean = re.sub(r'\s*\[\s*(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE)\s*\]', '', opt_clean, flags=re.IGNORECASE)
+                opt_clean = re.sub(r'(?:[\t\|]|[\-–—\:\;]\s*|\s{2,}|\s*-\s*|\s*:\s*)(?:ĐÚNG|SAI|Đ|S)\s*$', '', opt_clean, flags=re.IGNORECASE).strip()
+
+                match_prefix = re.match(r'^(\*?\s*([a-dA-D]))([\.\:\)])\s*(.*)', opt_clean)
                 sub_key = ""
+                is_d = False
                 if match_prefix:
                     sub_key = match_prefix.group(2).lower()
-                    label = match_prefix.group(1) + match_prefix.group(3) + " "
+                    has_star = match_prefix.group(1).strip().startswith('*')
+                    is_d = has_star or raw_ca_dict.get(sub_key, False)
+
+                    label = match_prefix.group(2) + match_prefix.group(3) + " "
                     content = match_prefix.group(4)
                     run_label = p_opt.add_run(label)
                     run_label.bold = True
                     run_label.font.name = 'Times New Roman'
                     run_label.font.size = Pt(font_size_pt)
+                    if show_answers and is_d:
+                        run_label.underline = True
+                        run_label.font.color.rgb = RGBColor(185, 28, 28)
                     add_formatted_text(p_opt, content, font_name='Times New Roman', font_size_pt=font_size_pt)
                 else:
-                    add_formatted_text(p_opt, str(opt), font_name='Times New Roman', font_size_pt=font_size_pt)
+                    add_formatted_text(p_opt, opt_clean, font_name='Times New Roman', font_size_pt=font_size_pt)
 
-                if show_answers and sub_key in raw_ca_dict:
-                    val = raw_ca_dict.get(sub_key)
-                    is_d = (val is True or str(val).lower() in ('đ', 'd', 'true', '1'))
-                    tag_text = f"   [ Đúng / Sai ] - {'ĐÚNG' if is_d else 'SAI'}"
-                    run_tag = p_opt.add_run(tag_text)
-                    run_tag.bold = True
-                    run_tag.font.name = 'Times New Roman'
-                    run_tag.font.size = Pt(font_size_pt - 1)
-                    run_tag.font.color.rgb = RGBColor(22, 101, 52) if is_d else RGBColor(185, 28, 28)
-                else:
-                    run_tag = p_opt.add_run("   [ Đúng / Sai ]")
-                    run_tag.italic = True
-                    run_tag.bold = True
-                    run_tag.font.name = 'Times New Roman'
-                    run_tag.font.size = Pt(font_size_pt - 1)
-                    run_tag.font.color.rgb = RGBColor(100, 116, 139)
+# Thẻ [ Đúng / Sai ] đã được gỡ bỏ theo yêu cầu
 
         else:
             cols = determine_options_columns(options, options_layout)
@@ -1068,6 +1145,24 @@ def export_quiz_to_docx(
     """Xuất đề thi đơn lẻ ra định dạng Word (.docx). Hoàn toàn tương thích ngược với mọi code cũ."""
     if isinstance(title, dict):
         quiz_data = title
+        if isinstance(questions, dict):
+            config = questions
+            if show_answers is None and 'show_answers' in config:
+                show_answers = config['show_answers']
+            if show_key_table is None and 'show_key_table' in config:
+                show_key_table = config['show_key_table']
+            if show_explains is None and 'show_explains' in config:
+                show_explains = config['show_explains']
+            if 'target_audience' in config:
+                target_audience = config['target_audience']
+            if 'layout_mode' in config:
+                layout_mode = config['layout_mode']
+            if 'options_layout' in config:
+                options_layout = config['options_layout']
+            if 'school_name' in config:
+                school_name = config['school_name']
+            if 'exam_code' in config:
+                exam_code = config['exam_code']
         title = quiz_data.get('title', 'Đề thi trắc nghiệm')
         questions = quiz_data.get('data') or quiz_data.get('questions') or []
         time_limit = quiz_data.get('time_limit', 0)

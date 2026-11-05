@@ -742,16 +742,50 @@ function getRichEditorText(node) {
         if (child.nodeType === Node.TEXT_NODE) {
             result += child.nodeValue;
         } else if (child.nodeType === Node.ELEMENT_NODE) {
-            if (child.tagName === 'IMG' || child.tagName === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
+            const tag = child.tagName;
+            // 1. Giữ nguyên khối ảnh (IMG) và bảng (TABLE) kèm toàn bộ style kích thước, căn lề
+            if (tag === 'IMG' || tag === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
                 result += child.outerHTML;
-            } else if (child.tagName === 'SUB' || child.tagName === 'SUP') {
-                result += child.outerHTML;
-            } else if (child.tagName === 'BR') {
+            } 
+            // 2. Bảo toàn các thẻ định dạng chữ chuẩn Word (In đậm, In nghiêng, Gạch chân, Gạch ngang, Chỉ số, Dạ quang)
+            else if (tag === 'B' || tag === 'STRONG' || tag === 'I' || tag === 'EM' || tag === 'U' || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || tag === 'SUB' || tag === 'SUP' || tag === 'MARK') {
+                let inner = getRichEditorText(child);
+                let openTag = tag.toLowerCase();
+                if (openTag === 'strong') openTag = 'b';
+                if (openTag === 'em') openTag = 'i';
+                if (openTag === 'strike' || openTag === 'del') openTag = 's';
+                result += `<${openTag}>${inner}</${openTag}>`;
+            } 
+            // 3. Thẻ SPAN hoặc FONT chứa màu sắc / nền chữ tùy biến
+            else if (tag === 'SPAN' || tag === 'FONT') {
+                const textContent = (child.textContent || '').trim();
+                // Nếu là nhãn câu hỏi (Câu 1:, *A., b), vv.) do editor sinh ra, lấy chữ thuần để parser nhận diện chuẩn
+                const isPrefixSpan = /^(?:(?:Câu|Bài|Question|Q)\s*\d+[\.\:\)]|\*?[A-Da-d][\.\:\)])$/i.test(textContent) ||
+                                     /^(?:(?:Câu|Bài|Question|Q)\s*\d+[\.\:\)]|\*?[A-Da-d][\.\:\)])\s*$/i.test(child.textContent || '');
+                if (isPrefixSpan) {
+                    result += child.textContent;
+                } else {
+                    let styleAttr = child.getAttribute('style');
+                    let colorAttr = child.getAttribute('color');
+                    if (styleAttr || colorAttr) {
+                        let finalStyle = styleAttr || '';
+                        if (colorAttr && !finalStyle.includes('color')) {
+                            finalStyle += `;color:${colorAttr};`;
+                        }
+                        result += `<span style="${finalStyle}">${getRichEditorText(child)}</span>`;
+                    } else {
+                        result += getRichEditorText(child);
+                    }
+                }
+            } 
+            else if (tag === 'BR') {
                 result += '\n';
-            } else if (child.tagName === 'DIV' || child.tagName === 'P') {
+            } 
+            else if (tag === 'DIV' || tag === 'P') {
                 let inner = getRichEditorText(child);
                 result += (result.length > 0 && !result.endsWith('\n') ? '\n' : '') + inner + '\n';
-            } else {
+            } 
+            else {
                 result += getRichEditorText(child);
             }
         }
@@ -777,7 +811,23 @@ function setupEditorEvents() {
         }, 300);
     });
 
+    // Theo dõi và bảo toàn vùng chọn (Selection Range) của codeEditor
+    codeEditor.addEventListener('mouseup', saveCurrentEditorSelection);
+    codeEditor.addEventListener('keyup', saveCurrentEditorSelection);
+    codeEditor.addEventListener('touchend', saveCurrentEditorSelection);
+    document.addEventListener('selectionchange', function() {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const ed = document.getElementById('codeEditor');
+            if (ed && ed.contains(sel.anchorNode)) {
+                savedEditorSelection = sel.getRangeAt(0).cloneRange();
+            }
+        }
+    });
+
     // Auto-complete bằng phím Tab
+    initEditorImageInteractions();
+
     codeEditor.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -1230,6 +1280,7 @@ const UNICODE_SUP_MAP = {
 
 const HNTN_CHEM_ELEMENTS = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
 const HNTN_CHEM_FORMULA_REGEX = new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g');
+const HNTN_UNITS_REGEX = /(?:^|[^a-zA-Z\u00C0-\u1EF90-9_])\d+(?:[.,]\d+)?\s*(?:[%‰]|M\b|mol(?:\/[Ll])?\b|gam\b|kg\b|mg\b|g(?:\/(?:mL|ml|cm3))?\b|mL\b|ml\b|l\b|lít\b|lit\b|atm\b|bar\b|mmHg\b|torr\b|ppm\b|ppb\b|V\b|W\b|J\b|kJ\b|cal\b|kcal\b|[°℃]|oC\b|độ\b)/g;
 const HNTN_CHEM_REPLACE_REGEX = new RegExp('(?:(' + HNTN_CHEM_ELEMENTS + ')|(\\)))\\s*(\\d+)', 'g');
 
 function formatSubscriptsAndFormulas(text, convertNewlines = false) {
@@ -1250,12 +1301,23 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
         return `XYZPH${placeholders.length - 1}XYZ`;
     });
 
+    // Bảo vệ đại lượng đo lường: nồng độ %, nồng độ mol, đơn vị đo (tránh nhầm số phần trăm thành chỉ số dưới hóa học, ví dụ: NaOH 30% -> không thành NaOH30)
+    safe = safe.replace(HNTN_UNITS_REGEX, (full) => {
+        const m = full.match(/^([^a-zA-Z\u00C0-\u1EF90-9_])(.*)$/);
+        if (m) {
+            placeholders.push(m[2]);
+            return m[1] + `XYZPH${placeholders.length - 1}XYZ`;
+        }
+        placeholders.push(full);
+        return `XYZPH${placeholders.length - 1}XYZ`;
+    });
+
     // 1. Chuyển đổi chỉ số dưới / chỉ số trên Unicode sang <sub> / <sup>
     safe = safe.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP[c] || c).join('') + '</sub>');
     safe = safe.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP[c] || c).join('') + '</sup>');
 
     // 2. Thu gọn khoảng trắng rời rạc trong công thức hóa học: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
-    safe = safe.replace(new RegExp('\\(((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
+    safe = safe.replace(new RegExp('\\((?=[^)]*[A-Za-z])((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
         return '(' + inner.replace(new RegExp('((?:' + HNTN_CHEM_ELEMENTS + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
     });
     safe = safe.replace(/\)\s+(\d+)/g, ')$1');
@@ -1289,7 +1351,7 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
     safe = safe.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
     safe = safe.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
     safe = safe.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
-    safe = safe.replace(/<\/sub>\s+([A-Z\(])/g, '</sub>$1');
+    safe = safe.replace(/<\/sub>\s+([A-Z])(?!YZPH)/g, '</sub>$1');
 
     if (convertNewlines) {
         safe = safe.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
@@ -3374,3 +3436,1206 @@ function insertTableToEditor(type) {
         showToast(type === 'bbt' ? 'Đã chèn khung Bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
     }
 }
+
+
+// ==========================================================================
+// STUDIO WORD-STYLE FORMATTING ENGINE, IMAGE RESIZER & CANVAS CROPPER
+// ==========================================================================
+
+// Biến toàn cục lưu giữ vùng chọn (Selection Range) trong #codeEditor tránh mất dấu khi click thanh công cụ
+let savedEditorSelection = null;
+
+function saveCurrentEditorSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        const editor = document.getElementById('codeEditor');
+        if (editor && editor.contains(sel.anchorNode)) {
+            savedEditorSelection = sel.getRangeAt(0).cloneRange();
+        }
+    }
+}
+
+function restoreEditorSelection() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    editor.focus();
+    if (savedEditorSelection) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedEditorSelection);
+    }
+}
+
+// --------------------------------------------------------------------------
+// 1. WORD FORMATTING TOOLS (In đậm, In nghiêng, Gạch chân, Căn lề, Hoàn tác)
+// --------------------------------------------------------------------------
+function formatDoc(cmd, value = null) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+    try {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand(cmd, false, value);
+    } catch (e) {
+        console.warn('execCommand failed for:', cmd, e);
+    }
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function toggleColorPalette(type, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    saveCurrentEditorSelection();
+    const textPal = document.getElementById('textColorPalette');
+    const bgPal = document.getElementById('bgColorPalette');
+    const imgMenu = document.getElementById('imageInsertMenu');
+    if (imgMenu) imgMenu.style.display = 'none';
+
+    if (type === 'text') {
+        if (bgPal) bgPal.style.display = 'none';
+        if (textPal) {
+            textPal.style.display = (textPal.style.display === 'none' || !textPal.style.display) ? 'block' : 'none';
+        }
+    } else if (type === 'bg') {
+        if (textPal) textPal.style.display = 'none';
+        if (bgPal) {
+            bgPal.style.display = (bgPal.style.display === 'none' || !bgPal.style.display) ? 'block' : 'none';
+        }
+    }
+}
+
+function applyTextColor(color) {
+    const ind = document.getElementById('textColorIndicator');
+    if (ind) ind.style.backgroundColor = color;
+    const pal = document.getElementById('textColorPalette');
+    if (pal) pal.style.display = 'none';
+
+    applyColorToEditorSelection('color', color);
+}
+
+function applyBgColor(color) {
+    const ind = document.getElementById('bgColorIndicator');
+    if (ind) ind.style.backgroundColor = color === 'transparent' ? '#f8fafc' : color;
+    const pal = document.getElementById('bgColorPalette');
+    if (pal) pal.style.display = 'none';
+
+    applyColorToEditorSelection('backgroundColor', color);
+}
+
+function applyColorToEditorSelection(styleProp, color) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+
+    const sel = window.getSelection();
+    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
+
+    try {
+        document.execCommand('styleWithCSS', false, true);
+        if (styleProp === 'color') {
+            document.execCommand('foreColor', false, color);
+        } else if (styleProp === 'backgroundColor') {
+            document.execCommand('hiliteColor', false, color === 'transparent' ? 'inherit' : color);
+        }
+    } catch (e) {
+        console.warn('execCommand color failed, fallback to range wrap:', e);
+    }
+
+    if (range && !range.collapsed) {
+        try {
+            const span = document.createElement('span');
+            if (styleProp === 'color') span.style.color = color;
+            if (styleProp === 'backgroundColor') span.style.backgroundColor = color;
+            
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+            
+            range.selectNodeContents(span);
+            if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            savedEditorSelection = range.cloneRange();
+        } catch(e) {}
+        if (typeof showToast === 'function') {
+            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
+            showToast('✓ Đã áp dụng ' + actionName + '!');
+        }
+    } else {
+        if (typeof showToast === 'function') {
+            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
+            showToast('✓ Đã chọn ' + actionName + '. Bôi đen chữ để đổi màu hoặc gõ tiếp.');
+        }
+    }
+
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function clearEditorFormatting() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+
+    const sel = window.getSelection();
+    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
+
+    if (!range || range.collapsed) {
+        try {
+            document.execCommand('removeFormat', false, null);
+            document.execCommand('unlink', false, null);
+        } catch (e) {}
+        if (typeof showToast === 'function') {
+            showToast('ℹ Vui lòng bôi đen đoạn văn bản cần xóa định dạng');
+        }
+        return;
+    }
+
+    try {
+        document.execCommand('removeFormat', false, null);
+        document.execCommand('unlink', false, null);
+        
+        const text = range.toString();
+        if (text) {
+            range.deleteContents();
+            const textNode = document.createTextNode(text);
+            range.insertNode(textNode);
+            range.selectNodeContents(textNode);
+            if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            savedEditorSelection = range.cloneRange();
+        }
+        
+        saveCurrentEditorSelection();
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof showToast === 'function') {
+            showToast('✓ Đã xóa toàn bộ định dạng!');
+        }
+    } catch (e) {
+        console.error('Error clearing format:', e);
+    }
+}
+
+// --------------------------------------------------------------------------
+// 2. MODAL CHÈN CÔNG THỨC TOÁN HỌC LATEX TRỰC QUAN (MATHTYPE VIRTUAL KEYBOARD)
+// --------------------------------------------------------------------------
+function openLatexMathModal() {
+    saveCurrentEditorSelection();
+    const modal = document.getElementById('latexMathModal');
+    if (!modal) return;
+
+    const input = document.getElementById('latexFormulaInput');
+    let prefill = '';
+
+    // Nếu người dùng đang bôi đen một đoạn text/công thức trong editor, tự động điền vào ô
+    if (savedEditorSelection && !savedEditorSelection.collapsed) {
+        const selectedText = savedEditorSelection.toString().trim();
+        if (selectedText) {
+            prefill = selectedText.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+        }
+    }
+
+    if (input) {
+        // Khởi tạo ô nhập: nếu có bôi đen thì điền, không thì để trống để người dùng bấm phím bắt đầu gõ
+        input.value = prefill || '';
+    }
+
+    modal.style.display = 'flex';
+    updateLatexLivePreview();
+
+    // Render MathJax cho toàn bộ phím ảo trong modal khi mở
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        window.MathJax.typesetPromise([modal]).catch(() => {});
+    }
+
+    setTimeout(() => {
+        if (input) {
+            input.focus();
+            if (prefill) {
+                input.select();
+            } else {
+                input.setSelectionRange(0, 0);
+            }
+        }
+    }, 80);
+}
+
+function closeLatexMathModal() {
+    const modal = document.getElementById('latexMathModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchMathTypeTab(tabId, btn) {
+    const nav = document.getElementById('mathTypeTabsNav');
+    if (nav) {
+        nav.querySelectorAll('.mathtype-tab-btn').forEach(b => b.classList.remove('active'));
+    }
+    if (btn) {
+        btn.classList.add('active');
+    }
+
+    const panes = document.querySelectorAll('.mathtype-pane');
+    panes.forEach(p => p.style.display = 'none');
+
+    const targetPane = document.getElementById('mathPane-' + tabId);
+    if (targetPane) {
+        targetPane.style.display = 'flex';
+        // Render MathJax cho tab vừa chọn
+        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+            window.MathJax.typesetPromise([targetPane]).catch(() => {});
+        }
+    }
+
+    const input = document.getElementById('latexFormulaInput');
+    if (input) input.focus();
+}
+
+function insertMathSnippet(snippet, wrapType) {
+    const input = document.getElementById('latexFormulaInput');
+    if (!input) return;
+    input.focus();
+
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const val = input.value;
+    const selected = val.substring(start, end).trim();
+
+    let textToInsert = snippet;
+    let selectStart = -1;
+    let selectLength = 0;
+
+    if (selected && wrapType) {
+        // Thông minh: Nếu đang bôi đen và bấm phím hàm (phân số, căn, ngoặc, số mũ...)
+        if (wrapType === 'frac') {
+            textToInsert = '\\frac{' + selected + '}{b}';
+            selectStart = start + ('\\frac{' + selected + '}{').length;
+            selectLength = 1; // chọn 'b' ở mẫu để gõ ngay mẫu số
+        } else if (wrapType === 'sqrt') {
+            textToInsert = '\\sqrt{' + selected + '}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'sqrt3') {
+            textToInsert = '\\sqrt[3]{' + selected + '}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'sqrtn') {
+            textToInsert = '\\sqrt[n]{' + selected + '}';
+            selectStart = start + '\\sqrt['.length;
+            selectLength = 1; // chọn 'n'
+        } else if (wrapType === 'sup') {
+            textToInsert = '{' + selected + '}^{2}';
+            selectStart = start + ('{' + selected + '}^{').length;
+            selectLength = 1;
+        } else if (wrapType === 'sub') {
+            textToInsert = '{' + selected + '}_{1}';
+            selectStart = start + ('{' + selected + '}_{').length;
+            selectLength = 1;
+        } else if (wrapType === 'paren') {
+            textToInsert = '\\left( ' + selected + ' \\right)';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'bracket') {
+            textToInsert = '\\left[ ' + selected + ' \\right]';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'brace') {
+            textToInsert = '\\left\\{ ' + selected + ' \\right\\}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'abs') {
+            textToInsert = '\\left| ' + selected + ' \\right|';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'vec') {
+            textToInsert = '\\vec{' + selected + '}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'hat') {
+            textToInsert = '\\widehat{' + selected + '}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else if (wrapType === 'overline') {
+            textToInsert = '\\overline{' + selected + '}';
+            selectStart = start + textToInsert.length;
+            selectLength = 0;
+        } else {
+            textToInsert = snippet;
+        }
+    } else {
+        textToInsert = snippet;
+        // Tự động chọn tham số đầu tiên để người dùng gõ ngay
+        if (snippet === '\\frac{a}{b}') {
+            selectStart = start + '\\frac{'.length;
+            selectLength = 1;
+        } else if (snippet === '\\sqrt{x}') {
+            selectStart = start + '\\sqrt{'.length;
+            selectLength = 1;
+        } else if (snippet === '\\sqrt[3]{x}') {
+            selectStart = start + '\\sqrt[3]{'.length;
+            selectLength = 1;
+        } else if (snippet === '\\sqrt[n]{x}') {
+            selectStart = start + '\\sqrt['.length;
+            selectLength = 1;
+        } else if (snippet === 'x^{2}') {
+            selectStart = start + 'x^{'.length;
+            selectLength = 1;
+        } else if (snippet === 'x^{n}') {
+            selectStart = start + 'x^{'.length;
+            selectLength = 1;
+        } else if (snippet === 'x_{1}') {
+            selectStart = start + 'x_{'.length;
+            selectLength = 1;
+        } else if (snippet === 'x_{n}') {
+            selectStart = start + 'x_{'.length;
+            selectLength = 1;
+        } else if (snippet === '\\vec{AB}') {
+            selectStart = start + '\\vec{'.length;
+            selectLength = 2;
+        } else if (snippet === '\\widehat{ABC}') {
+            selectStart = start + '\\widehat{'.length;
+            selectLength = 3;
+        } else if (snippet === '\\int_{a}^{b} f(x) dx') {
+            selectStart = start + '\\int_{'.length;
+            selectLength = 1;
+        } else if (snippet === '\\lim_{x \\to x_0} f(x)') {
+            selectStart = start + '\\lim_{x \\to '.length;
+            selectLength = 3;
+        } else if (snippet === '\\left( x \\right)') {
+            selectStart = start + '\\left( '.length;
+            selectLength = 1;
+        } else if (snippet === '\\left[ x \\right]') {
+            selectStart = start + '\\left[ '.length;
+            selectLength = 1;
+        } else if (snippet === '\\left\\{ x \\right\\}') {
+            selectStart = start + '\\left\\{ '.length;
+            selectLength = 1;
+        } else if (snippet === '\\left| x \\right|') {
+            selectStart = start + '\\left| '.length;
+            selectLength = 1;
+        }
+    }
+
+    input.value = val.substring(0, start) + textToInsert + val.substring(end);
+
+    if (selectStart >= 0 && selectLength > 0) {
+        input.setSelectionRange(selectStart, selectStart + selectLength);
+    } else if (selectStart >= 0) {
+        input.setSelectionRange(selectStart, selectStart);
+    } else {
+        const nextPos = start + textToInsert.length;
+        input.setSelectionRange(nextPos, nextPos);
+    }
+
+    updateLatexLivePreview();
+}
+
+// Alias tương thích
+function insertLatexSnippet(snippet) {
+    insertMathSnippet(snippet);
+}
+
+function clearLatexFormula() {
+    const input = document.getElementById('latexFormulaInput');
+    if (!input) return;
+    input.value = '';
+    updateLatexLivePreview();
+    input.focus();
+    if (typeof showToast === 'function') {
+        showToast('Đã xóa trắng công thức');
+    }
+}
+
+function backspaceLatexFormula() {
+    const input = document.getElementById('latexFormulaInput');
+    if (!input) return;
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const val = input.value;
+    if (start === end) {
+        if (start > 0) {
+            input.value = val.substring(0, start - 1) + val.substring(end);
+            input.setSelectionRange(start - 1, start - 1);
+        }
+    } else {
+        input.value = val.substring(0, start) + val.substring(end);
+        input.setSelectionRange(start, start);
+    }
+    input.focus();
+    updateLatexLivePreview();
+}
+
+function copyLatexFormula() {
+    const input = document.getElementById('latexFormulaInput');
+    if (!input || !input.value.trim()) {
+        if (typeof showToast === 'function') showToast('ℹ Không có công thức để sao chép!');
+        return;
+    }
+    const txt = input.value.trim();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => {
+            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX vào clipboard!');
+        }).catch(() => {
+            fallbackCopy(txt);
+        });
+    } else {
+        fallbackCopy(txt);
+    }
+
+    function fallbackCopy(text) {
+        input.select();
+        document.execCommand('copy');
+        if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
+    }
+}
+
+let latexPreviewDebounce = null;
+function updateLatexLivePreview() {
+    clearTimeout(latexPreviewDebounce);
+    latexPreviewDebounce = setTimeout(() => {
+        const input = document.getElementById('latexFormulaInput');
+        const preview = document.getElementById('latexLivePreview');
+        if (!input || !preview) return;
+
+        let raw = input.value.trim();
+        if (!raw) {
+            preview.innerHTML = '<span class="mathtype-placeholder">Công thức toán học sẽ hiển thị trực quan tại đây...</span>';
+            return;
+        }
+
+        let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+        if (!clean) {
+            preview.innerHTML = '<span class="mathtype-placeholder">Công thức toán học sẽ hiển thị trực quan tại đây...</span>';
+            return;
+        }
+
+        preview.innerHTML = '\\(' + clean + '\\)';
+        if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+            window.MathJax.typesetPromise([preview]).catch((err) => {
+                preview.innerHTML = '<span style="color: #dc2626; font-size: 0.85rem;"><i class="ri-error-warning-line"></i> Lỗi cú pháp LaTeX: ' + clean + '</span>';
+            });
+        }
+    }, 80);
+}
+
+function confirmInsertLatexFormula() {
+    const input = document.getElementById('latexFormulaInput');
+    if (!input) return;
+    let raw = input.value.trim();
+    if (!raw) {
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức LaTeX!');
+        return;
+    }
+
+    let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+    if (!clean) {
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức LaTeX!');
+        return;
+    }
+
+    const isDisplay = document.querySelector('input[name="latexDisplayType"]:checked')?.value === 'display';
+    const formula = isDisplay ? ('$$' + clean + '$$') : ('$' + clean + '$');
+
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        restoreEditorSelection();
+        editor.focus();
+
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode(formula);
+            range.insertNode(textNode);
+
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            saveCurrentEditorSelection();
+        } else {
+            document.execCommand('insertText', false, formula);
+            saveCurrentEditorSelection();
+        }
+
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    closeLatexMathModal();
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã chèn công thức Toán học!');
+    }
+}
+
+// Alias tương thích
+function insertLatexMathFormula() {
+    openLatexMathModal();
+}
+
+function toggleImageMenu() {
+    const textPal = document.getElementById('textColorPalette');
+    const bgPal = document.getElementById('bgColorPalette');
+    if (textPal) textPal.style.display = 'none';
+    if (bgPal) bgPal.style.display = 'none';
+
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+}
+
+function triggerImageUpload() {
+    const input = document.getElementById('editorHiddenImageInput');
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = 'none';
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+function handleImageFileSelected(input) {
+    if (!input || !input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+        showToast('Vui lòng chọn một tệp hình ảnh hợp lệ (PNG, JPG, WEBP, ...)!');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        insertImageToEditor(dataUrl);
+    };
+    reader.readAsDataURL(file);
+}
+
+function promptImageUrl() {
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = 'none';
+    const url = prompt('Nhập đường dẫn liên kết (URL) của hình ảnh:');
+    if (url && url.trim()) {
+        insertImageToEditor(url.trim());
+    }
+}
+
+function insertImageToEditor(srcUrl) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+    editor.focus();
+    const imgHtml = `<img src="${srcUrl}" style="max-width: 100%; height: auto; border-radius: 6px; margin: 8px auto; display: block;" alt="hình minh họa">`;
+    document.execCommand('insertHTML', false, imgHtml);
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo giãn hoặc cắt ảnh.');
+}
+
+// --------------------------------------------------------------------------
+// 2. IN-EDITOR IMAGE INTERACTIVE RESIZE & FLOATING BAR
+// --------------------------------------------------------------------------
+let activeEditorImg = null;
+let isResizingImage = false;
+let resizeHandleDir = '';
+let resizeStartX = 0, resizeStartY = 0;
+let resizeStartWidth = 0, resizeStartHeight = 0, resizeAspect = 1;
+
+function initEditorImageInteractions() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+
+    // Single click: Select image & show resizer overlay
+    editor.addEventListener('click', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            e.stopPropagation();
+            selectEditorImage(e.target);
+        } else {
+            // Click outside image inside editor -> hide overlay if not clicking overlay
+            if (!isResizingImage) {
+                hideEditorImageResizer();
+            }
+        }
+    });
+
+    // Double click: Open cropper directly
+    editor.addEventListener('dblclick', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            e.stopPropagation();
+            selectEditorImage(e.target);
+            openCropperForActiveImage();
+        }
+    });
+
+    // Scroll editor -> update overlay position
+    editor.addEventListener('scroll', function() {
+        if (activeEditorImg && !isResizingImage) {
+            updateResizerOverlayPosition();
+        }
+    });
+
+    // Support Paste image directly from clipboard (Ctrl + V)
+    editor.addEventListener('paste', function(e) {
+        if (e.clipboardData && e.clipboardData.items) {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            insertImageToEditor(evt.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    // Support Drag and Drop image files directly into editor
+    editor.addEventListener('dragover', function(e) {
+        if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            e.preventDefault();
+        }
+    });
+
+    editor.addEventListener('drop', function(e) {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                e.preventDefault();
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    insertImageToEditor(evt.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    });
+
+    // Global click listener to close dropdowns & overlay
+    document.addEventListener('click', function(e) {
+        const overlay = document.getElementById('editorImgResizerOverlay');
+        const isClickInsideOverlay = overlay && overlay.contains(e.target);
+        const isClickEditor = editor && editor.contains(e.target);
+
+        if (!isClickInsideOverlay && !isClickEditor && !isResizingImage) {
+            hideEditorImageResizer();
+        }
+
+        // Close palettes if clicked outside
+        const textPal = document.getElementById('textColorPalette');
+        const bgPal = document.getElementById('bgColorPalette');
+        const imgMenu = document.getElementById('imageInsertMenu');
+        if (textPal && !e.target.closest('#textColorPalette') && !e.target.closest('#btnTextColorPicker') && !e.target.closest('.toolbar-btn-color')) {
+            textPal.style.display = 'none';
+        }
+        if (bgPal && !e.target.closest('#bgColorPalette') && !e.target.closest('#btnBgColorPicker') && !e.target.closest('.toolbar-btn-color')) {
+            bgPal.style.display = 'none';
+        }
+        if (imgMenu && !e.target.closest('#imageInsertMenu') && !e.target.closest('.toolbar-btn-highlighted')) {
+            imgMenu.style.display = 'none';
+        }
+    });
+
+    // Setup drag events for 4 resize handles
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    if (overlay) {
+        const handles = overlay.querySelectorAll('.img-resize-handle');
+        handles.forEach(handle => {
+            handle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!activeEditorImg) return;
+
+                isResizingImage = true;
+                resizeHandleDir = this.dataset.handle;
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                resizeStartWidth = activeEditorImg.offsetWidth;
+                resizeStartHeight = activeEditorImg.offsetHeight;
+                resizeAspect = resizeStartWidth / (resizeStartHeight || 1);
+
+                document.body.style.cursor = window.getComputedStyle(this).cursor;
+
+                function onMouseMove(moveEvent) {
+                    if (!isResizingImage || !activeEditorImg) return;
+                    const dx = moveEvent.clientX - resizeStartX;
+                    let newWidth = resizeStartWidth;
+
+                    if (resizeHandleDir === 'se' || resizeHandleDir === 'ne') {
+                        newWidth = Math.max(50, resizeStartWidth + dx);
+                    } else if (resizeHandleDir === 'sw' || resizeHandleDir === 'nw') {
+                        newWidth = Math.max(50, resizeStartWidth - dx);
+                    }
+
+                    // Giới hạn max-width theo container editor
+                    const maxAllowed = editor.clientWidth - 40;
+                    if (newWidth > maxAllowed) newWidth = maxAllowed;
+
+                    activeEditorImg.style.width = Math.round(newWidth) + 'px';
+                    activeEditorImg.style.height = 'auto';
+
+                    updateResizerOverlayPosition();
+                    const tooltip = document.getElementById('imgDimTooltip');
+                    if (tooltip) {
+                        tooltip.innerText = `${Math.round(activeEditorImg.offsetWidth)} × ${Math.round(activeEditorImg.offsetHeight)} px`;
+                    }
+                }
+
+                function onMouseUp() {
+                    if (isResizingImage) {
+                        isResizingImage = false;
+                        document.body.style.cursor = '';
+                        window.removeEventListener('mousemove', onMouseMove);
+                        window.removeEventListener('mouseup', onMouseUp);
+                        editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+}
+
+function selectEditorImage(img) {
+    if (!img) return;
+    if (activeEditorImg && activeEditorImg !== img) {
+        activeEditorImg.classList.remove('editor-img-active');
+    }
+    activeEditorImg = img;
+    activeEditorImg.classList.add('editor-img-active');
+    updateResizerOverlayPosition();
+}
+
+function updateResizerOverlayPosition() {
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    const editor = document.getElementById('codeEditor');
+    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
+    if (!overlay || !activeEditorImg || !editor || !wrapper) return;
+
+    const imgRect = activeEditorImg.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+
+    const top = imgRect.top - wrapperRect.top + wrapper.scrollTop;
+    const left = imgRect.left - wrapperRect.left + wrapper.scrollLeft;
+    const width = imgRect.width;
+    const height = imgRect.height;
+
+    overlay.style.display = 'block';
+    overlay.style.top = top + 'px';
+    overlay.style.left = left + 'px';
+    overlay.style.width = width + 'px';
+    overlay.style.height = height + 'px';
+
+    const tooltip = document.getElementById('imgDimTooltip');
+    if (tooltip) {
+        tooltip.innerText = `${Math.round(width)} × ${Math.round(height)} px`;
+    }
+}
+
+function hideEditorImageResizer() {
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    if (overlay) overlay.style.display = 'none';
+    if (activeEditorImg) {
+        activeEditorImg.classList.remove('editor-img-active');
+        activeEditorImg = null;
+    }
+}
+
+function setImgWidthPreset(preset) {
+    if (!activeEditorImg) return;
+    activeEditorImg.style.width = preset;
+    activeEditorImg.style.height = 'auto';
+    updateResizerOverlayPosition();
+    const editor = document.getElementById('codeEditor');
+    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function setImgAlign(align) {
+    if (!activeEditorImg) return;
+    if (align === 'left') {
+        activeEditorImg.style.display = 'inline-block';
+        activeEditorImg.style.float = 'left';
+        activeEditorImg.style.margin = '8px 16px 8px 0';
+    } else if (align === 'center') {
+        activeEditorImg.style.display = 'block';
+        activeEditorImg.style.float = 'none';
+        activeEditorImg.style.margin = '10px auto';
+    } else if (align === 'right') {
+        activeEditorImg.style.display = 'inline-block';
+        activeEditorImg.style.float = 'right';
+        activeEditorImg.style.margin = '8px 0 8px 16px';
+    }
+    updateResizerOverlayPosition();
+    const editor = document.getElementById('codeEditor');
+    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function deleteActiveEditorImage() {
+    if (!activeEditorImg) return;
+    const confirmDelete = confirm('Bạn có chắc chắn muốn xóa hình ảnh này khỏi bài không?');
+    if (confirmDelete) {
+        const editor = document.getElementById('codeEditor');
+        activeEditorImg.remove();
+        hideEditorImageResizer();
+        if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Đã xóa hình ảnh.');
+    }
+}
+
+// --------------------------------------------------------------------------
+// 3. CANVAS-BASED IMAGE CROPPER MODAL ENGINE
+// --------------------------------------------------------------------------
+let cropperTargetImg = null;
+let cropperRotation = 0; // 0, 90, 180, 270
+let cropperFlipH = 1;
+let cropperCropRatio = 'free'; // 'free', 1, 4/3, 16/9
+let cropperBox = { x: 0, y: 0, w: 100, h: 100 };
+let isDraggingCrop = false;
+let isResizingCrop = false;
+let cropResizeDir = '';
+let cropDragStartX = 0, cropDragStartY = 0;
+let cropBoxStart = { x: 0, y: 0, w: 0, h: 0 };
+
+function openCropperForActiveImage(img = null) {
+    cropperTargetImg = img || activeEditorImg;
+    if (!cropperTargetImg) {
+        showToast('Vui lòng chọn một hình ảnh cần cắt!');
+        return;
+    }
+
+    const modal = document.getElementById('imageCropperModal');
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!modal || !sourceImg) return;
+
+    cropperRotation = 0;
+    cropperFlipH = 1;
+    cropperCropRatio = 'free';
+
+    modal.style.display = 'flex';
+    sourceImg.style.transform = 'none';
+    sourceImg.src = cropperTargetImg.src;
+
+    sourceImg.onload = function() {
+        initCropBox();
+    };
+
+    if (sourceImg.complete && sourceImg.naturalWidth > 0) {
+        initCropBox();
+    }
+}
+
+function closeImageCropperModal() {
+    const modal = document.getElementById('imageCropperModal');
+    if (modal) modal.style.display = 'none';
+    cropperTargetImg = null;
+}
+
+function initCropBox() {
+    const sourceImg = document.getElementById('cropperSourceImg');
+    const boxEl = document.getElementById('cropperBox');
+    if (!sourceImg || !boxEl) return;
+
+    const imgW = sourceImg.clientWidth || 300;
+    const imgH = sourceImg.clientHeight || 200;
+
+    // Default crop box: centered, 80% of image
+    const w = Math.round(imgW * 0.8);
+    const h = Math.round(imgH * 0.8);
+    const x = Math.round((imgW - w) / 2);
+    const y = Math.round((imgH - h) / 2);
+
+    cropperBox = { x, y, w, h };
+    renderCropBox();
+    setupCropBoxInteractions();
+}
+
+function renderCropBox() {
+    const boxEl = document.getElementById('cropperBox');
+    if (!boxEl) return;
+    boxEl.style.left = cropperBox.x + 'px';
+    boxEl.style.top = cropperBox.y + 'px';
+    boxEl.style.width = cropperBox.w + 'px';
+    boxEl.style.height = cropperBox.h + 'px';
+}
+
+function setupCropBoxInteractions() {
+    const boxEl = document.getElementById('cropperBox');
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!boxEl || !sourceImg) return;
+
+    // 1. Move Crop Box by dragging inside
+    boxEl.onmousedown = function(e) {
+        if (e.target.classList.contains('crop-h')) return; // handled by handle mousedown
+        e.preventDefault();
+        isDraggingCrop = true;
+        cropDragStartX = e.clientX;
+        cropDragStartY = e.clientY;
+        cropBoxStart = { ...cropperBox };
+
+        function onBoxMouseMove(evt) {
+            if (!isDraggingCrop) return;
+            const dx = evt.clientX - cropDragStartX;
+            const dy = evt.clientY - cropDragStartY;
+
+            const maxW = sourceImg.clientWidth;
+            const maxH = sourceImg.clientHeight;
+
+            let nx = Math.max(0, Math.min(maxW - cropBoxStart.w, cropBoxStart.x + dx));
+            let ny = Math.max(0, Math.min(maxH - cropBoxStart.h, cropBoxStart.y + dy));
+
+            cropperBox.x = nx;
+            cropperBox.y = ny;
+            renderCropBox();
+        }
+
+        function onBoxMouseUp() {
+            isDraggingCrop = false;
+            window.removeEventListener('mousemove', onBoxMouseMove);
+            window.removeEventListener('mouseup', onBoxMouseUp);
+        }
+
+        window.addEventListener('mousemove', onBoxMouseMove);
+        window.addEventListener('mouseup', onBoxMouseUp);
+    };
+
+    // 2. Resize Crop Box by dragging handles
+    const handles = boxEl.querySelectorAll('.crop-h');
+    handles.forEach(h => {
+        h.onmousedown = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            isResizingCrop = true;
+            cropResizeDir = this.dataset.dir;
+            cropDragStartX = e.clientX;
+            cropDragStartY = e.clientY;
+            cropBoxStart = { ...cropperBox };
+
+            function onHandleMouseMove(evt) {
+                if (!isResizingCrop) return;
+                const dx = evt.clientX - cropDragStartX;
+                const dy = evt.clientY - cropDragStartY;
+                const maxW = sourceImg.clientWidth;
+                const maxH = sourceImg.clientHeight;
+
+                let { x, y, w, h } = cropBoxStart;
+
+                if (cropResizeDir.includes('e')) {
+                    w = Math.min(maxW - x, Math.max(30, cropBoxStart.w + dx));
+                }
+                if (cropResizeDir.includes('s')) {
+                    h = Math.min(maxH - y, Math.max(30, cropBoxStart.h + dy));
+                }
+                if (cropResizeDir.includes('w')) {
+                    const proposedW = cropBoxStart.w - dx;
+                    if (proposedW >= 30 && (cropBoxStart.x + dx) >= 0) {
+                        x = cropBoxStart.x + dx;
+                        w = proposedW;
+                    }
+                }
+                if (cropResizeDir.includes('n')) {
+                    const proposedH = cropBoxStart.h - dy;
+                    if (proposedH >= 30 && (cropBoxStart.y + dy) >= 0) {
+                        y = cropBoxStart.y + dy;
+                        h = proposedH;
+                    }
+                }
+
+                // Enforce fixed ratio if selected
+                if (cropperCropRatio !== 'free' && typeof cropperCropRatio === 'number') {
+                    h = Math.round(w / cropperCropRatio);
+                    if (y + h > maxH) {
+                        h = maxH - y;
+                        w = Math.round(h * cropperCropRatio);
+                    }
+                }
+
+                cropperBox = { x, y, w, h };
+                renderCropBox();
+            }
+
+            function onHandleMouseUp() {
+                isResizingCrop = false;
+                window.removeEventListener('mousemove', onHandleMouseMove);
+                window.removeEventListener('mouseup', onHandleMouseUp);
+            }
+
+            window.addEventListener('mousemove', onHandleMouseMove);
+            window.addEventListener('mouseup', onHandleMouseUp);
+        };
+    });
+}
+
+function setCropRatio(ratio, btn) {
+    cropperCropRatio = ratio;
+    const btns = document.querySelectorAll('.cropper-ctrl-btn[data-ratio]');
+    btns.forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg) return;
+    const maxW = sourceImg.clientWidth;
+    const maxH = sourceImg.clientHeight;
+
+    if (ratio !== 'free' && typeof ratio === 'number') {
+        let w = cropperBox.w;
+        let h = Math.round(w / ratio);
+        if (h > maxH) {
+            h = maxH * 0.8;
+            w = Math.round(h * ratio);
+        }
+        if (cropperBox.x + w > maxW) cropperBox.x = Math.max(0, maxW - w);
+        if (cropperBox.y + h > maxH) cropperBox.y = Math.max(0, maxH - h);
+        cropperBox.w = w;
+        cropperBox.h = h;
+        renderCropBox();
+    }
+}
+
+function rotateCropper(deg) {
+    cropperRotation = (cropperRotation + deg + 360) % 360;
+    applyImgTransform();
+}
+
+function flipCropper(dir) {
+    if (dir === 'h') {
+        cropperFlipH = cropperFlipH * -1;
+    }
+    applyImgTransform();
+}
+
+function applyImgTransform() {
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg) return;
+    sourceImg.style.transform = `rotate(${cropperRotation}deg) scaleX(${cropperFlipH})`;
+}
+
+function resetCropBox() {
+    cropperRotation = 0;
+    cropperFlipH = 1;
+    applyImgTransform();
+    initCropBox();
+}
+
+function applyImageCrop() {
+    if (!cropperTargetImg) return;
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg || !sourceImg.naturalWidth) return;
+
+    // Tỷ lệ giữa kích thước thật và kích thước hiển thị trên màn hình
+    const scaleX = sourceImg.naturalWidth / sourceImg.clientWidth;
+    const scaleY = sourceImg.naturalHeight / sourceImg.clientHeight;
+
+    const realCropX = Math.round(cropperBox.x * scaleX);
+    const realCropY = Math.round(cropperBox.y * scaleY);
+    const realCropW = Math.round(cropperBox.w * scaleX);
+    const realCropH = Math.round(cropperBox.h * scaleY);
+
+    if (realCropW <= 0 || realCropH <= 0) {
+        showToast('Vùng cắt không hợp lệ!');
+        return;
+    }
+
+    // 1. Tạo canvas offscreen để cắt ảnh và áp dụng biến đổi
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (cropperRotation === 90 || cropperRotation === 270) {
+        canvas.width = realCropH;
+        canvas.height = realCropW;
+    } else {
+        canvas.width = realCropW;
+        canvas.height = realCropH;
+    }
+
+    ctx.save();
+
+    // Di chuyển tâm canvas và xoay/lật
+    if (cropperRotation === 90) {
+        ctx.translate(canvas.width, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else if (cropperRotation === 180) {
+        ctx.translate(canvas.width, canvas.height);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else if (cropperRotation === 270) {
+        ctx.translate(0, canvas.height);
+        ctx.rotate((3 * Math.PI) / 2);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else {
+        if (cropperFlipH === -1) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    }
+
+    ctx.restore();
+
+    // 2. Xuất ảnh đã cắt sang Data URL
+    const croppedDataUrl = canvas.toDataURL('image/png');
+
+    // 3. Cập nhật trực tiếp vào thẻ IMG đang chọn trong editor
+    cropperTargetImg.src = croppedDataUrl;
+    cropperTargetImg.style.maxWidth = '100%';
+    cropperTargetImg.style.height = 'auto';
+
+    closeImageCropperModal();
+    updateResizerOverlayPosition();
+
+    // 4. Báo cho editor biết nội dung đã thay đổi để lưu draft & render preview
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    showToast('✓ Đã cắt và cập nhật ảnh thành công!');
+}
+
+
+window.insertSampleDemoImage = function() {
+    const svgSample = '<svg xmlns="http://www.w3.org/2000/svg" width="380" height="220" viewBox="0 0 380 220">' +
+        '<rect width="100%" height="100%" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" rx="8"/>' +
+        '<line x1="30" y1="180" x2="350" y2="180" stroke="#475569" stroke-width="2"/>' +
+        '<line x1="190" y1="20" x2="190" y2="200" stroke="#475569" stroke-width="2"/>' +
+        '<path d="M 50 170 Q 190 30 330 170" fill="none" stroke="#2563eb" stroke-width="3"/>' +
+        '<text x="340" y="174" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">x</text>' +
+        '<text x="198" y="34" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">y</text>' +
+        '<text x="190" y="120" font-family="sans-serif" font-size="13" fill="#2563eb" text-anchor="middle" font-weight="bold">y = f(x)</text>' +
+    '</svg>';
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSample);
+    insertImageToEditor(dataUri);
+    showToast('✓ Đã chèn ảnh mẫu! Bấm vào ảnh để kéo góc giãn ảnh hoặc bấm "Cắt ảnh".');
+};
+
+// Lắng nghe sự kiện click / double-click ảnh ở khung XEM TRƯỚC (Giao diện học sinh)
+document.addEventListener('DOMContentLoaded', function() {
+    const previewContent = document.getElementById('preview-content');
+    if (previewContent) {
+        previewContent.addEventListener('dblclick', function(e) {
+            if (e.target && e.target.tagName === 'IMG') {
+                const targetSrc = e.target.getAttribute('src');
+                const editorImgs = document.querySelectorAll('#codeEditor img');
+                let matchImg = null;
+                for (let img of editorImgs) {
+                    if (img.getAttribute('src') === targetSrc) {
+                        matchImg = img;
+                        break;
+                    }
+                }
+                if (matchImg) {
+                    selectEditorImage(matchImg);
+                    openCropperForActiveImage(matchImg);
+                } else {
+                    openCropperForActiveImage(e.target);
+                }
+            }
+        });
+    }
+});

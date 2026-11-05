@@ -298,5 +298,76 @@ class TestDocxMath(unittest.TestCase):
         self.assertTrue(matrix_found, 'Bảng ma trận đáp án phải có cột Câu hỏi, Mã 101, Mã 102')
 
 
+    def test_export_quiz_true_false_answer_formatting(self):
+        """Kiểm tra xuất đề Đúng/Sai: Mệnh đề Đúng được bôi đỏ gạch chân, Mệnh đề Sai để nguyên."""
+        from core.docx_exporter import export_quiz_to_docx
+        from docx.shared import RGBColor
+
+        quiz_data = {
+            'title': 'ĐỀ THI ĐÚNG SAI CHUẨN GDPT 2018',
+            'questions': [
+                {
+                    'type': 'true_false',
+                    'question': 'Xét tính đúng sai của các mệnh đề sau:',
+                    'options': [
+                        'a) Hàm số đồng biến trên khoảng (0; 2)',
+                        'b) Đồ thị hàm số có tiệm cận đứng x = 1',
+                        'c) Điểm cực đại của đồ thị là (0; 3)',
+                        'd) Phương trình f(x) = 0 có 3 nghiệm phân biệt'
+                    ],
+                    'correct_answer': {'a': True, 'b': False, 'c': True, 'd': False}
+                }
+            ]
+        }
+
+        # 1. Xuất bản giáo viên (show_answers=True)
+        stream_teacher = export_quiz_to_docx(quiz_data, show_answers=True)
+        doc_teacher = Document(stream_teacher)
+
+        tf_paras = [p for p in doc_teacher.paragraphs if any(p.text.strip().startswith(prefix) for prefix in ['a)', 'b)', 'c)', 'd)'])]
+        self.assertEqual(len(tf_paras), 4)
+
+        # Mệnh đề a (Đúng): nhãn a) phải bôi đỏ gạch chân
+        para_a = tf_paras[0]
+        label_run_a = para_a.runs[0]
+        self.assertEqual(label_run_a.text.strip(), 'a)')
+        self.assertTrue(label_run_a.underline)
+        self.assertEqual(label_run_a.font.color.rgb, RGBColor(185, 28, 28))
+        # Hoàn toàn không còn thẻ [ Đúng / Sai ]
+        self.assertNotIn('[ Đúng / Sai ]', para_a.text)
+        self.assertNotIn('[Đúng / Sai]', para_a.text)
+
+        # Mệnh đề b (Sai): nhãn b) phải ĐỂ NGUYÊN (không gạch chân, không bôi đỏ)
+        para_b = tf_paras[1]
+        label_run_b = para_b.runs[0]
+        self.assertEqual(label_run_b.text.strip(), 'b)')
+        self.assertFalse(label_run_b.underline)
+        self.assertIsNone(label_run_b.font.color.rgb)
+        # Hoàn toàn không còn thẻ [ Đúng / Sai ]
+        self.assertNotIn('[ Đúng / Sai ]', para_b.text)
+        self.assertNotIn('[Đúng / Sai]', para_b.text)
+
+        # Mệnh đề c (Đúng): nhãn c) bôi đỏ gạch chân
+        para_c = tf_paras[2]
+        label_run_c = para_c.runs[0]
+        self.assertTrue(label_run_c.underline)
+        self.assertEqual(label_run_c.font.color.rgb, RGBColor(185, 28, 28))
+
+        # Mệnh đề d (Sai): nhãn d) để nguyên
+        para_d = tf_paras[3]
+        label_run_d = para_d.runs[0]
+        self.assertFalse(label_run_d.underline)
+        self.assertIsNone(label_run_d.font.color.rgb)
+
+        # 2. Xuất bản học sinh (show_answers=False): tất cả để nguyên
+        stream_student = export_quiz_to_docx(quiz_data, show_answers=False)
+        doc_student = Document(stream_student)
+        student_tf_paras = [p for p in doc_student.paragraphs if any(p.text.strip().startswith(prefix) for prefix in ['a)', 'b)', 'c)', 'd)'])]
+        for p in student_tf_paras:
+            label_run = p.runs[0]
+            self.assertFalse(label_run.underline)
+            self.assertIsNone(label_run.font.color.rgb)
+
+
 if __name__ == '__main__':
     unittest.main()

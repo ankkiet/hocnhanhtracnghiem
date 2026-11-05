@@ -24,8 +24,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/style.css?v=20261030_cleanup_bar">
-    <link rel="stylesheet" href="/editor.css?v=20261030_cleanup_bar">
+    <link rel="stylesheet" href="/style.css?v=20261105_word_rich_v6">
+    <link rel="stylesheet" href="/editor.css?v=20261105_word_rich_v6">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
         window.MathJax = {
@@ -449,17 +449,154 @@
                 <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; gap: 8px;">
                     <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Thêm dấu <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>). Gõ <code>câu</code> rồi nhấn <b>Tab</b> để tạo nhanh khung câu mới.</span>
                 </div>
-                <div class="studio-editor-wrapper" style="background: white; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
-                    <div class="editor-toolbar" style="padding: 6px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; gap: 5px;">
-                        <button onclick="document.execCommand('bold', false, null)" title="In đậm" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-bold"></i></button>
-                        <button onclick="document.execCommand('italic', false, null)" title="In nghiêng" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-italic"></i></button>
-                        <button onclick="document.execCommand('underline', false, null)" title="Gạch chân" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-underline"></i></button>
-                        <button onclick="let url = prompt('Nhập URL ảnh:'); if(url) document.execCommand('insertImage', false, url);" title="Chèn ảnh" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; cursor: pointer;"><i class="ri-image-line"></i></button>
-                        <span style="border-right: 1px solid #cbd5e1; margin: 2px 4px;"></span>
-                        <button type="button" onclick="insertTableToEditor('bbt')" title="Chèn Bảng biến thiên Toán học" style="padding: 4px 10px; border: 1px solid #93c5fd; border-radius: 4px; background: #eff6ff; color: #1d4ed8; font-weight: 600; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"><i class="ri-line-chart-line"></i> Bảng biến thiên</button>
-                        <button type="button" onclick="insertTableToEditor('general')" title="Chèn Bảng dữ liệu / Bảng số liệu" style="padding: 4px 10px; border: 1px solid #a7f3d0; border-radius: 4px; background: #ecfdf5; color: #047857; font-weight: 600; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"><i class="ri-table-line"></i> Bảng số liệu</button>
+                <div class="studio-editor-wrapper" style="background: white; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; height: 100%; position: relative;">
+                    <div class="editor-toolbar studio-word-toolbar">
+                        <!-- Nhóm Hoàn tác -->
+                        <div class="toolbar-group">
+                            <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('undo')" title="Hoàn tác (Ctrl+Z)"><i class="ri-arrow-go-back-line"></i></button>
+                            <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('redo')" title="Làm lại (Ctrl+Y)"><i class="ri-arrow-go-forward-line"></i></button>
+                        </div>
+                        <span class="toolbar-divider"></span>
+
+                        <!-- Nhóm Định dạng chữ Word -->
+                        <div class="toolbar-group">
+                            <button type="button" class="toolbar-btn" id="btnFormatBold" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('bold')" title="In đậm (Ctrl+B)"><i class="ri-bold"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatItalic" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('italic')" title="In nghiêng (Ctrl+I)"><i class="ri-italic"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatUnderline" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('underline')" title="Gạch chân (Ctrl+U)"><i class="ri-underline"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatStrike" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('strikeThrough')" title="Gạch ngang"><i class="ri-strikethrough"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatSub" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('subscript')" title="Chỉ số dưới (Ví dụ: H₂O, x₁)"><i class="ri-subscript"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatSup" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('superscript')" title="Chỉ số trên (Ví dụ: x², m³)"><i class="ri-superscript"></i></button>
+                        </div>
+                        <span class="toolbar-divider"></span>
+
+                        <!-- Nhóm Màu chữ & Highlight -->
+                        <div class="toolbar-group">
+                            <div class="toolbar-dropdown-wrapper">
+                                <button type="button" class="toolbar-btn toolbar-btn-color" id="btnTextColorPicker" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="toggleColorPalette('text', event)" title="Màu chữ">
+                                    <i class="ri-font-color"></i>
+                                    <span class="color-indicator" id="textColorIndicator" style="background-color: #dc2626;"></span>
+                                    <i class="ri-arrow-down-s-line arrow-down"></i>
+                                </button>
+                                <div class="toolbar-color-palette" id="textColorPalette" style="display: none;" onmousedown="event.stopPropagation();">
+                                    <div class="palette-title">Màu văn bản</div>
+                                    <div class="palette-colors">
+                                        <span class="palette-color-box" style="background:#0f172a;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#0f172a')" title="Đen mặc định"></span>
+                                        <span class="palette-color-box" style="background:#dc2626;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#dc2626')" title="Đỏ tươi"></span>
+                                        <span class="palette-color-box" style="background:#b91c1c;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#b91c1c')" title="Đỏ đậm (Đáp án đúng)"></span>
+                                        <span class="palette-color-box" style="background:#2563eb;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#2563eb')" title="Xanh dương"></span>
+                                        <span class="palette-color-box" style="background:#1d4ed8;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#1d4ed8')" title="Xanh đậm"></span>
+                                        <span class="palette-color-box" style="background:#16a34a;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#16a34a')" title="Xanh lá"></span>
+                                        <span class="palette-color-box" style="background:#ea580c;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#ea580c')" title="Cam"></span>
+                                        <span class="palette-color-box" style="background:#9333ea;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#9333ea')" title="Tím"></span>
+                                    </div>
+                                    <div class="palette-custom">
+                                        <label><i class="ri-palette-line"></i> Chọn màu: <input type="color" id="customTextColor" onmousedown="saveCurrentEditorSelection();" onchange="applyTextColor(this.value)" value="#dc2626"></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="toolbar-dropdown-wrapper">
+                                <button type="button" class="toolbar-btn toolbar-btn-color" id="btnBgColorPicker" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="toggleColorPalette('bg', event)" title="Tô màu dạ quang (Highlight)">
+                                    <i class="ri-mark-pen-line"></i>
+                                    <span class="color-indicator" id="bgColorIndicator" style="background-color: #fef08a;"></span>
+                                    <i class="ri-arrow-down-s-line arrow-down"></i>
+                                </button>
+                                <div class="toolbar-color-palette" id="bgColorPalette" style="display: none;" onmousedown="event.stopPropagation();">
+                                    <div class="palette-title">Màu dạ quang</div>
+                                    <div class="palette-colors">
+                                        <span class="palette-color-box" style="background:#fef08a;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('#fef08a')" title="Vàng dạ quang"></span>
+                                        <span class="palette-color-box" style="background:#bbf7d0;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('#bbf7d0')" title="Xanh lục nhạt"></span>
+                                        <span class="palette-color-box" style="background:#bae6fd;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('#bae6fd')" title="Xanh lơ nhạt"></span>
+                                        <span class="palette-color-box" style="background:#fbcfe8;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('#fbcfe8')" title="Hồng phấn"></span>
+                                        <span class="palette-color-box" style="background:#fed7aa;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('#fed7aa')" title="Cam nhạt"></span>
+                                        <span class="palette-color-box palette-color-clear" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyBgColor('transparent')" title="Xóa màu dạ quang"><i class="ri-close-line"></i></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="toolbar-divider"></span>
+
+                        <!-- Nhóm Căn lề & Xóa định dạng -->
+                        <div class="toolbar-group">
+                            <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyLeft')" title="Căn trái"><i class="ri-align-left"></i></button>
+                            <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyCenter')" title="Căn giữa"><i class="ri-align-center"></i></button>
+                            <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyRight')" title="Căn phải"><i class="ri-align-right"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnClearFormatting" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="clearEditorFormatting()" title="Xóa định dạng (Về chữ chuẩn)"><i class="ri-format-clear"></i></button>
+                        </div>
+                        <span class="toolbar-divider"></span>
+
+                        <!-- Nhóm Chèn Hình ảnh (Tải lên / Nhập URL / Hướng dẫn dán) -->
+                        <div class="toolbar-group">
+                            <div class="toolbar-dropdown-wrapper">
+                                <button type="button" class="toolbar-btn toolbar-btn-highlighted" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="toggleImageMenu()" title="Chèn & Chỉnh sửa hình ảnh">
+                                    <i class="ri-image-add-line"></i> <span class="btn-text-sm">Hình ảnh</span> <i class="ri-arrow-down-s-line arrow-down"></i>
+                                </button>
+                                <div class="toolbar-dropdown-menu" id="imageInsertMenu" style="display: none;">
+                                    <button type="button" class="dropdown-item" onclick="triggerImageUpload()">
+                                        <i class="ri-upload-2-line" style="color: #2563eb;"></i> Tải ảnh từ máy tính...
+                                    </button>
+                                    <button type="button" class="dropdown-item" onclick="promptImageUrl()">
+                                        <i class="ri-link" style="color: #059669;"></i> Nhập link URL ảnh...
+                                    </button>
+                                    <button type="button" class="dropdown-item" onclick="insertSampleDemoImage()">
+                                        <i class="ri-sparkling-2-line" style="color: #7c3aed;"></i> Chèn ảnh mẫu thử nghiệm kéo / cắt...
+                                    </button>
+                                    <div class="dropdown-divider"></div>
+                                    <div class="dropdown-hint">
+                                        <i class="ri-information-line"></i> <b>Mẹo:</b> Nhấn <b>Ctrl + V</b> để dán ảnh trực tiếp từ clipboard vào bài! Bấm vào ảnh trong bài để <b>kéo giãn</b> hoặc <b>cắt ảnh</b>.
+                                    </div>
+                                </div>
+                                <input type="file" id="editorHiddenImageInput" accept="image/*" style="display: none;" onchange="handleImageFileSelected(this)">
+                            </div>
+
+                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="openLatexMathModal()" title="Chèn & Xem trước công thức Toán học LaTeX">
+                                <i class="ri-functions" style="color: #ea580c;"></i> <span class="btn-text-sm">LaTeX</span>
+                            </button>
+                        </div>
+                        <span class="toolbar-divider"></span>
+
+                        <!-- Nhóm Bảng toán & Bảng số liệu -->
+                        <div class="toolbar-group">
+                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('bbt')" title="Chèn Bảng biến thiên Toán học">
+                                <i class="ri-line-chart-line" style="color: #1d4ed8;"></i> <span class="btn-text-sm">Bảng biến thiên</span>
+                            </button>
+                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('general')" title="Chèn Bảng dữ liệu / Số liệu">
+                                <i class="ri-table-line" style="color: #047857;"></i> <span class="btn-text-sm">Bảng số liệu</span>
+                            </button>
+                        </div>
                     </div>
-                    <div id="codeEditor" class="studio-code-font" contenteditable="true" spellcheck="false" style="flex: 1; padding: 15px; overflow-y: auto; outline: none; font-family: inherit; font-size: 15px; line-height: 1.6;" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></div>
+                    <!-- OVERLAY ĐIỀU CHỈNH KÍCH THƯỚC & THANH CÔNG CỤ NỔI CHO ẢNH -->
+                    <div id="editorImgResizerOverlay" class="editor-img-resizer-overlay" style="display: none;">
+                        <div class="img-float-toolbar" id="imgFloatToolbar">
+                            <div class="img-float-group">
+                                <button type="button" class="img-tool-btn" onclick="setImgWidthPreset('25%')" title="Độ rộng 25%">25%</button>
+                                <button type="button" class="img-tool-btn" onclick="setImgWidthPreset('50%')" title="Độ rộng 50%">50%</button>
+                                <button type="button" class="img-tool-btn" onclick="setImgWidthPreset('75%')" title="Độ rộng 75%">75%</button>
+                                <button type="button" class="img-tool-btn" onclick="setImgWidthPreset('100%')" title="Độ rộng 100%">100%</button>
+                            </div>
+                            <span class="img-tool-divider"></span>
+                            <div class="img-float-group">
+                                <button type="button" class="img-tool-btn" onclick="setImgAlign('left')" title="Căn trái"><i class="ri-align-left"></i></button>
+                                <button type="button" class="img-tool-btn" onclick="setImgAlign('center')" title="Căn giữa"><i class="ri-align-center"></i></button>
+                                <button type="button" class="img-tool-btn" onclick="setImgAlign('right')" title="Căn phải"><i class="ri-align-right"></i></button>
+                            </div>
+                            <span class="img-tool-divider"></span>
+                            <div class="img-float-group">
+                                <button type="button" class="img-tool-btn img-tool-crop" onclick="openCropperForActiveImage()" title="Cắt ảnh trực tiếp">
+                                    <i class="ri-crop-line"></i> Cắt ảnh
+                                </button>
+                                <button type="button" class="img-tool-btn img-tool-delete" onclick="deleteActiveEditorImage()" title="Xóa ảnh">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="img-resize-handle handle-nw" data-handle="nw"></div>
+                        <div class="img-resize-handle handle-ne" data-handle="ne"></div>
+                        <div class="img-resize-handle handle-se" data-handle="se"></div>
+                        <div class="img-resize-handle handle-sw" data-handle="sw"></div>
+                        <div class="img-dim-tooltip" id="imgDimTooltip">0 × 0 px</div>
+                    </div>
+                    <div id="codeEditor" class="studio-code-font" contenteditable="true" spellcheck="false" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></div>
                 </div>
             </div>
         </div>
@@ -895,6 +1032,446 @@
         </div>
     </div>
 
-    <script src="/editor.js?v=20261104_v10"></script>
+    
+    <!-- MODAL CẮT ẢNH TRỰC TIẾP TRONG STUDIO EDITOR -->
+    <div id="imageCropperModal" class="studio-modal-overlay cropper-modal-overlay" style="display: none; z-index: 9999999;">
+        <div class="cropper-modal-container">
+            <!-- Header -->
+            <div class="cropper-modal-header">
+                <div class="cropper-modal-title">
+                    <i class="ri-crop-2-line" style="color: #2563eb; font-size: 1.3rem;"></i>
+                    <span>Cắt & Chỉnh sửa hình ảnh trực tiếp</span>
+                </div>
+                <button type="button" class="cropper-btn-close" onclick="closeImageCropperModal()">&times;</button>
+            </div>
+            <!-- Body / Workspace -->
+            <div class="cropper-modal-body">
+                <div class="cropper-stage" id="cropperStage">
+                    <div class="cropper-image-wrapper" id="cropperImageWrapper">
+                        <img id="cropperSourceImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="Ảnh cần cắt">
+                        <div id="cropperBox" class="cropper-box">
+                            <div class="cropper-grid"></div>
+                            <div class="crop-h crop-h-nw" data-dir="nw"></div>
+                            <div class="crop-h crop-h-ne" data-dir="ne"></div>
+                            <div class="crop-h crop-h-se" data-dir="se"></div>
+                            <div class="crop-h crop-h-sw" data-dir="sw"></div>
+                            <div class="crop-h crop-h-n" data-dir="n"></div>
+                            <div class="crop-h crop-h-s" data-dir="s"></div>
+                            <div class="crop-h crop-h-w" data-dir="w"></div>
+                            <div class="crop-h crop-h-e" data-dir="e"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Controls bar -->
+                <div class="cropper-controls">
+                    <div class="cropper-control-group">
+                        <span class="cropper-ctrl-label"><i class="ri-aspect-ratio-line"></i> Tỷ lệ:</span>
+                        <button type="button" class="cropper-ctrl-btn active" data-ratio="free" onclick="setCropRatio('free', this)">Tự do</button>
+                        <button type="button" class="cropper-ctrl-btn" data-ratio="1:1" onclick="setCropRatio(1, this)">1:1</button>
+                        <button type="button" class="cropper-ctrl-btn" data-ratio="4:3" onclick="setCropRatio(4/3, this)">4:3</button>
+                        <button type="button" class="cropper-ctrl-btn" data-ratio="16:9" onclick="setCropRatio(16/9, this)">16:9</button>
+                    </div>
+                    <div class="cropper-control-divider"></div>
+                    <div class="cropper-control-group">
+                        <span class="cropper-ctrl-label"><i class="ri-anticlockwise-2-line"></i> Thao tác:</span>
+                        <button type="button" class="cropper-ctrl-btn" onclick="rotateCropper(-90)" title="Xoay trái 90°"><i class="ri-arrow-go-back-line"></i> 90°</button>
+                        <button type="button" class="cropper-ctrl-btn" onclick="rotateCropper(90)" title="Xoay phải 90°"><i class="ri-arrow-go-forward-line"></i> 90°</button>
+                        <button type="button" class="cropper-ctrl-btn" onclick="flipCropper('h')" title="Lật ngang"><i class="ri-reflect-line"></i> Lật</button>
+                        <button type="button" class="cropper-ctrl-btn" onclick="resetCropBox()" title="Đặt lại khung cắt"><i class="ri-restart-line"></i> Đặt lại</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Footer -->
+            <div class="cropper-modal-footer">
+                <div class="cropper-info-text">
+                    <i class="ri-cursor-line"></i> Kéo các góc của khung chữ nhật để chọn vùng cắt mong muốn.
+                </div>
+                <div class="cropper-actions">
+                    <button type="button" class="cropper-btn-cancel" onclick="closeImageCropperModal()">Hủy</button>
+                    <button type="button" class="cropper-btn-apply" onclick="applyImageCrop()">
+                        <i class="ri-check-line"></i> Áp dụng cắt ảnh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/editor.js?v=20261105_word_rich_v6"></script>
+
+    <!-- MODAL BÀN PHÍM ẢO TOÁN HỌC MATHTYPE & SOẠN THẢO LATEX -->
+    <div id="latexMathModal" class="studio-modal-overlay mathtype-modal-overlay" style="display: none; z-index: 9999999;" onclick="if(event.target === this) closeLatexMathModal()">
+        <div class="studio-modal-box mathtype-modal-container">
+            <!-- Header -->
+            <div class="mathtype-modal-header">
+                <div class="mathtype-modal-title">
+                    <div class="mathtype-icon-badge">
+                        <i class="ri-calculator-line"></i>
+                    </div>
+                    <div>
+                        <div class="mathtype-title-main">Bàn phím ảo Toán học MathType & Soạn thảo LaTeX</div>
+                        <div class="mathtype-title-sub">Bấm các phím ảo hoặc gõ trực tiếp công thức chuẩn Bộ GD&ĐT</div>
+                    </div>
+                </div>
+                <button type="button" class="mathtype-btn-close" onclick="closeLatexMathModal()">&times;</button>
+            </div>
+
+            <!-- Workspace: Live Preview & LaTeX Input -->
+            <div class="mathtype-workspace">
+                <!-- Khung xem trước trực quan (Live Math Preview) -->
+                <div class="mathtype-preview-wrapper">
+                    <div class="mathtype-preview-label">
+                        <i class="ri-eye-line"></i> Hiển thị trực quan (Live Preview):
+                    </div>
+                    <div id="latexLivePreview" class="mathtype-preview-box">
+                        <span class="mathtype-placeholder">Công thức toán học sẽ hiển thị trực quan tại đây...</span>
+                    </div>
+                </div>
+
+                <!-- Ô nhập mã LaTeX & Công cụ hỗ trợ gõ -->
+                <div class="mathtype-input-wrapper">
+                    <div class="mathtype-input-header">
+                        <label for="latexFormulaInput" class="mathtype-input-label">
+                            <i class="ri-code-line"></i> Mã công thức LaTeX:
+                        </label>
+                        <div class="mathtype-quick-actions">
+                            <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="clearLatexFormula()" title="Xóa toàn bộ">
+                                <i class="ri-delete-bin-line"></i> Xóa hết
+                            </button>
+                            <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="backspaceLatexFormula()" title="Xóa lùi 1 ký tự">
+                                <i class="ri-backspace-line"></i> Xóa lùi
+                            </button>
+                            <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="copyLatexFormula()" title="Sao chép mã LaTeX">
+                                <i class="ri-file-copy-line"></i> Sao chép
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="latexFormulaInput" rows="2" class="mathtype-textarea" placeholder="Bấm các phím ảo bên dưới hoặc gõ trực tiếp (ví dụ: \frac{-b \pm \sqrt{\Delta}}{2a})..." oninput="updateLatexLivePreview()"></textarea>
+                </div>
+            </div>
+
+            <!-- MathType Virtual Keyboard (Bàn phím ảo phân nhóm) -->
+            <div class="mathtype-keyboard-container">
+                <!-- Navigation Tabs -->
+                <div class="mathtype-tabs-nav" id="mathTypeTabsNav">
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn active" data-tab="algebra" onclick="switchMathTypeTab('algebra', this)">
+                        <i class="ri-divide-line"></i> Đại số & Phân số
+                    </button>
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn" data-tab="calculus" onclick="switchMathTypeTab('calculus', this)">
+                        <i class="ri-line-chart-line"></i> Giải tích & Lượng giác
+                    </button>
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn" data-tab="geometry" onclick="switchMathTypeTab('geometry', this)">
+                        <i class="ri-compass-3-line"></i> Hình học & Vectơ
+                    </button>
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn" data-tab="matrix" onclick="switchMathTypeTab('matrix', this)">
+                        <i class="ri-brackets-line"></i> Hệ PT & Ma trận
+                    </button>
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn" data-tab="greek" onclick="switchMathTypeTab('greek', this)">
+                        <i class="ri-omega"></i> Ký tự Hy Lạp & Logic
+                    </button>
+                    <button type="button" onmousedown="event.preventDefault();" class="mathtype-tab-btn" data-tab="numpad" onclick="switchMathTypeTab('numpad', this)">
+                        <i class="ri-grid-line"></i> Phím số & Ký hiệu
+                    </button>
+                </div>
+
+                <!-- Tab Panes (Keyboards) -->
+                <div class="mathtype-tab-content">
+                    <!-- Tab 1: Đại số & Phân số -->
+                    <div class="mathtype-pane" id="mathPane-algebra" style="display: flex;">
+                        <!-- Nhóm Phân số & Căn -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Phân số & Căn thức</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{a}{b}', 'frac')" title="Phân số">\(\frac{a}{b}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{1}{2}')" title="Một phần hai">\(\frac{1}{2}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{\\partial y}{\\partial x}')" title="Đạo hàm riêng">\(\frac{\partial y}{\partial x}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sqrt{x}', 'sqrt')" title="Căn bậc hai">\(\sqrt{x}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sqrt[3]{x}', 'sqrt3')" title="Căn bậc ba">\(\sqrt[3]{x}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sqrt[n]{x}', 'sqrtn')" title="Căn bậc n">\(\sqrt[n]{x}\)</button>
+                        </div>
+
+                        <!-- Nhóm Mũ & Chỉ số -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Mũ & Chỉ số</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x^{2}', 'sup')" title="Mũ 2">\(x^2\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x^{3}', 'sup')" title="Mũ 3">\(x^3\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x^{n}', 'sup')" title="Mũ n">\(x^n\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x_{1}', 'sub')" title="Chỉ số 1">\(x_1\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x_{2}', 'sub')" title="Chỉ số 2">\(x_2\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x_{n}', 'sub')" title="Chỉ số n">\(x_n\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x_{1}^{2}')" title="Cả mũ và chỉ số">\(x_1^2\)</button>
+                        </div>
+
+                        <!-- Nhóm Dấu ngoặc -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Dấu ngoặc</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\left( x \\right)', 'paren')" title="Ngoặc đơn">\((x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\left[ x \\right]', 'bracket')" title="Ngoặc vuông">\([x]\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\left\\{ x \\right\\}', 'brace')" title="Ngoặc nhọn">\(\{x\}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\left| x \\right|', 'abs')" title="Trị tuyệt đối">\(|x|\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\left( \\frac{a}{b} \\right)')" title="Ngoặc phân số lớn">\(\left(\frac{a}{b}\right)\)</button>
+                        </div>
+
+                        <!-- Nhóm Phép toán & So sánh -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Phép toán & So sánh</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\pm')" title="Cộng trừ">\(\pm\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mp')" title="Trừ cộng">\(\mp\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\times')" title="Nhân">\(\times\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\div')" title="Chia">\(\div\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cdot')" title="Chấm nhân">\(\cdot\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\neq')" title="Khác">\(\neq\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\le')" title="Nhỏ hơn hoặc bằng">\(\le\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\ge')" title="Lớn hơn hoặc bằng">\(\ge\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\approx')" title="Xấp xỉ">\(\approx\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\equiv')" title="Đồng nhất">\(\equiv\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\infty')" title="Vô cùng">\(\infty\)</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Giải tích & Lượng giác -->
+                    <div class="mathtype-pane" id="mathPane-calculus" style="display: none;">
+                        <!-- Tích phân & Giới hạn -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Tích phân & Giới hạn</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\int f(x)dx')" title="Nguyên hàm">\(\int f(x)dx\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\int_{a}^{b} f(x)dx')" title="Tích phân xác định">\(\int_{a}^{b} f(x)dx\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\iint')" title="Tích phân kép">\(\iint\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\lim_{x \\to 0}')" title="Giới hạn về 0">\(\lim_{x \to 0}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\lim_{x \\to +\\infty}')" title="Giới hạn về dương vô cùng">\(\lim_{x \to +\infty}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\lim_{x \\to -\\infty}')" title="Giới hạn về âm vô cùng">\(\lim_{x \to -\infty}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\lim_{x \\to x_0}')" title="Giới hạn tại x0">\(\lim_{x \to x_0}\)</button>
+                        </div>
+
+                        <!-- Đạo hàm & Tổng -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Đạo hàm & Tổng chuỗi</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('f\'(x)')" title="Đạo hàm f'(x)">\(f'(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('f\'\'(x)')" title="Đạo hàm cấp 2">\(f''(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('y\'')" title="y'">\(y'\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('y\'\'')" title="y''">\(y''\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{df}{dx}')" title="df/dx">\(\frac{df}{dx}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sum_{i=1}^{n}')" title="Tổng Sigma">\(\sum_{i=1}^{n}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\prod_{i=1}^{n}')" title="Tích Pi">\(\prod_{i=1}^{n}\)</button>
+                        </div>
+
+                        <!-- Hàm mũ & Logarit -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Mũ & Logarit</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('e^{x}')" title="Hàm số mũ e^x">\(e^x\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\ln(x)')" title="Logarit tự nhiên">\(\ln(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\log_{a}(b)')" title="Logarit cơ số a">\(\log_a(b)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\log(x)')" title="Logarit thập phân">\(\log(x)\)</button>
+                        </div>
+
+                        <!-- Lượng giác -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Hàm lượng giác</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sin(x)')" title="Sin">\(\sin(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cos(x)')" title="Cos">\(\cos(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\tan(x)')" title="Tan">\(\tan(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cot(x)')" title="Cot">\(\cot(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sin^2(x)')" title="Sin bình">\(\sin^2(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cos^2(x)')" title="Cos bình">\(\cos^2(x)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\arcsin(x)')" title="Arcsin">\(\arcsin\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\arccos(x)')" title="Arccos">\(\arccos\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\arctan(x)')" title="Arctan">\(\arctan\)</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Hình học & Vectơ -->
+                    <div class="mathtype-pane" id="mathPane-geometry" style="display: none;">
+                        <!-- Vectơ -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Vectơ & Tọa độ</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{a}', 'vec')" title="Vectơ a">\(\vec{a}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{b}', 'vec')" title="Vectơ b">\(\vec{b}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{u}', 'vec')" title="Vectơ chỉ phương u">\(\vec{u}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{n}', 'vec')" title="Vectơ pháp tuyến n">\(\vec{n}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{0}')" title="Vectơ không">\(\vec{0}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\overrightarrow{AB}', 'vec')" title="Vectơ AB">\(\overrightarrow{AB}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\overrightarrow{OM}')" title="Vectơ OM">\(\overrightarrow{OM}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('|\\vec{a}|')" title="Độ dài vectơ">\(|\vec{a}|\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\vec{a} \\cdot \\vec{b}')" title="Tích vô hướng">\(\vec{a} \cdot \vec{b}\)</button>
+                        </div>
+
+                        <!-- Góc, Tam giác & Quan hệ -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Góc, Tam giác & Quan hệ</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\angle A')" title="Góc A">\(\angle A\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\widehat{ABC}')" title="Góc ABC">\(\widehat{ABC}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\triangle ABC')" title="Tam giác ABC">\(\triangle ABC\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('^{\\circ}')" title="Ký hiệu độ">\(^{\circ}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('90^{\\circ}')" title="90 độ">\(90^{\circ}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('180^{\\circ}')" title="180 độ">\(180^{\circ}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\parallel')" title="Song song">\(\parallel\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\perp')" title="Vuông góc">\(\perp\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cong')" title="Bằng nhau (hình học)">\(\cong\)</button>
+                        </div>
+
+                        <!-- Mặt phẳng & Hằng số -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Mặt phẳng & Hằng số</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(P)')" title="Mặt phẳng (P)">\((P)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(Q)')" title="Mặt phẳng (Q)">\((Q)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(\\alpha)')" title="Mặt phẳng Alpha">\((\alpha)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(\\beta)')" title="Mặt phẳng Beta">\((\beta)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(Oxyz)')" title="Hệ tọa độ Oxyz">\((Oxyz)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('(Oxy)')" title="Hệ tọa độ Oxy">\((Oxy)\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\pi')" title="Số Pi">\(\pi\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('2\\pi')" title="2 Pi">\(2\pi\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{\\pi}{2}')" title="Pi / 2">\(\frac{\pi}{2}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{\\pi}{3}')" title="Pi / 3">\(\frac{\pi}{3}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{\\pi}{4}')" title="Pi / 4">\(\frac{\pi}{4}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\frac{\\pi}{6}')" title="Pi / 6">\(\frac{\pi}{6}\)</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Hệ PT & Ma trận -->
+                    <div class="mathtype-pane" id="mathPane-matrix" style="display: none;">
+                        <!-- Hệ phương trình -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Hệ phương trình</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 90px;" onclick="insertMathSnippet('\\begin{cases} x + y = 1 \\\\ x - y = 0 \\end{cases}')" title="Hệ 2 phương trình">\(\begin{cases} x+y=1 \\ x-y=0 \end{cases}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 100px;" onclick="insertMathSnippet('\\begin{cases} x + y + z = 1 \\\\ 2x - y + z = 3 \\\\ x + 2y - z = 0 \\end{cases}')" title="Hệ 3 phương trình">\(\begin{cases} x+y+z=1 \\ \dots \end{cases}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 60px;" onclick="insertMathSnippet('\\begin{cases} a \\\\ b \\end{cases}')" title="Khung hệ 2 dòng">\(\begin{cases} a \\ b \end{cases}\)</button>
+                        </div>
+
+                        <!-- Tuyển điều kiện -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Tuyển điều kiện (Hoặc)</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 75px;" onclick="insertMathSnippet('\\left[ \\begin{array}{l} x = a \\\\ x = b \\end{array} \\right.')" title="Ngoặc vuông 2 nghiệm">\(\left[ \begin{array}{l} x = a \\ x = b \end{array} \right.\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 85px;" onclick="insertMathSnippet('\\left[ \\begin{array}{l} x = 1 \\\\ x = -1 \\\\ x = 0 \\end{array} \\right.')" title="Ngoặc vuông 3 nghiệm">\(\left[ \begin{array}{l} x=1 \\ x=-1 \\ x=0 \end{array} \right.\)</button>
+                        </div>
+
+                        <!-- Ma trận & Định thức -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Ma trận & Định thức</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 70px;" onclick="insertMathSnippet('\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}')" title="Ma trận 2x2">\(\begin{pmatrix} a & b \\ c & d \end{pmatrix}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 85px;" onclick="insertMathSnippet('\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}')" title="Ma trận 3x3">\(\begin{pmatrix} a & b & c \\ \dots \end{pmatrix}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" style="min-width: 70px;" onclick="insertMathSnippet('\\begin{vmatrix} a & b \\\\ c & d \\end{vmatrix}')" title="Định thức cấp 2">\(\begin{vmatrix} a & b \\ c & d \end{vmatrix}\)</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Ký tự Hy Lạp & Logic -->
+                    <div class="mathtype-pane" id="mathPane-greek" style="display: none;">
+                        <!-- Ký tự Hy Lạp thường -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Ký tự Hy Lạp thường</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\alpha')" title="Alpha">\(\alpha\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\beta')" title="Beta">\(\beta\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\gamma')" title="Gamma">\(\gamma\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\delta')" title="Delta thường">\(\delta\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\varepsilon')" title="Epsilon">\(\varepsilon\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\theta')" title="Theta">\(\theta\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\lambda')" title="Lambda">\(\lambda\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mu')" title="Mu">\(\mu\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\rho')" title="Rho">\(\rho\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\sigma')" title="Sigma thường">\(\sigma\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\tau')" title="Tau">\(\tau\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\varphi')" title="Phi">\(\varphi\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\omega')" title="Omega thường">\(\omega\)</button>
+                        </div>
+
+                        <!-- Ký tự Hy Lạp hoa & Tập số -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Ký tự hoa & Tập hợp số</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Delta')" title="Delta hoa">\(\Delta\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Omega')" title="Omega hoa">\(\Omega\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Sigma')" title="Sigma hoa">\(\Sigma\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Phi')" title="Phi hoa">\(\Phi\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mathbb{R}')" title="Tập số thực R">\(\mathbb{R}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mathbb{N}')" title="Tập số tự nhiên N">\(\mathbb{N}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mathbb{Z}')" title="Tập số nguyên Z">\(\mathbb{Z}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mathbb{Q}')" title="Tập số hữu tỉ Q">\(\mathbb{Q}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\mathbb{C}')" title="Tập số phức C">\(\mathbb{C}\)</button>
+                        </div>
+
+                        <!-- Tập hợp & Mệnh đề logic -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Tập hợp & Logic</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\in')" title="Thuộc">\(\in\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\notin')" title="Không thuộc">\(\notin\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\subset')" title="Tập con">\(\subset\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\supset')" title="Chứa">\(\supset\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cup')" title="Hợp">\(\cup\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\cap')" title="Giao">\(\cap\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\setminus')" title="Hiệu tập hợp">\(\setminus\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\emptyset')" title="Tập rỗng">\(\emptyset\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\forall')" title="Với mọi">\(\forall\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\exists')" title="Tồn tại">\(\exists\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Rightarrow')" title="Suy ra">\(\Rightarrow\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\Leftrightarrow')" title="Tương đương">\(\Leftrightarrow\)</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 6: Phím số & Ký hiệu -->
+                    <div class="mathtype-pane" id="mathPane-numpad" style="display: none;">
+                        <!-- Chữ số -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Bàn phím số</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('7')">7</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('8')">8</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('9')">9</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('4')">4</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('5')">5</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('6')">6</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('1')">1</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('2')">2</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('3')">3</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('0')">0</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('.')">.</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(',')">,</button>
+                        </div>
+
+                        <!-- Biến số thông dụng -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Biến số</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('x')">\(x\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('y')">\(y\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('z')">\(z\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('t')">\(t\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('n')">\(n\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('k')">\(k\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('m')">\(m\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('a')">\(a\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('b')">\(b\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('c')">\(c\)</button>
+                        </div>
+
+                        <!-- Phép toán & Ký hiệu -->
+                        <div class="mathtype-key-group">
+                            <div class="mathtype-group-title">Ký hiệu toán</div>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(' + ')">+</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(' - ')">-</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(' = ')">=</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(' < ')">&lt;</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet(' > ')">&gt;</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\quad')" title="Dấu cách">\(\text{space}\)</button>
+                            <button type="button" class="mathtype-key" onmousedown="event.preventDefault();" onclick="insertMathSnippet('\\dots')" title="Dấu ba chấm">\(\dots\)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer: Kiểu hiển thị & Nút chèn -->
+            <div class="mathtype-modal-footer">
+                <div class="mathtype-display-mode">
+                    <span class="mathtype-mode-label">Kiểu hiển thị:</span>
+                    <label class="mathtype-radio-label">
+                        <input type="radio" name="latexDisplayType" value="inline" checked> Trong dòng (<code>$công_thức$</code>)
+                    </label>
+                    <label class="mathtype-radio-label">
+                        <input type="radio" name="latexDisplayType" value="display"> Riêng một dòng (<code>$$công_thức$$</code>)
+                    </label>
+                </div>
+                <div class="mathtype-footer-actions">
+                    <button type="button" class="btn-studio-outline" onclick="closeLatexMathModal()">Đóng</button>
+                    <button type="button" class="btn-studio-primary mathtype-btn-insert" onclick="confirmInsertLatexFormula()">
+                        <i class="ri-check-line"></i> Chèn vào bài thi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

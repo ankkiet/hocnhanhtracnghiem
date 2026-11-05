@@ -286,9 +286,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="/style.css?v=20261104_v12">
-    <link rel="stylesheet" href="/style.css?v=20261104_v12" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="/style.css?v=20261104_v12"></noscript>
+    <link rel="preload" as="style" href="/style.css?v=20261105_v1">
+    <link rel="stylesheet" href="/style.css?v=20261105_v1" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="/style.css?v=20261105_v1"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
@@ -3011,6 +3011,12 @@ body.minimal-mode #publicLandingExtras {
                         <option value="teacher">teacher</option>
                     </select>
 
+                    <!-- Cam kết đồng ý xử lý dữ liệu cá nhân theo Điều 11 Nghị định 13/2023/NĐ-CP -->
+                    <label style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 4px 0; font-size: 12.2px; color: #475569; line-height: 1.45; cursor: pointer; text-align: left;">
+                        <input type="checkbox" id="regConsentPdpd" required style="margin-top: 2px; width: 16px; height: 16px; accent-color: #2563eb; flex-shrink: 0;">
+                        <span>Tôi đồng ý với <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Điều khoản sử dụng</a> &amp; <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023/NĐ-CP)</a>. Học sinh dưới 16 tuổi xác nhận có sự đồng ý của phụ huynh/giáo viên hướng dẫn.</span>
+                    </label>
+
                     <!-- Nút Đăng ký -->
                     <button class="button-submit btn-register-submit" type="submit">
                         <i class="ri-user-add-fill"></i> &nbsp; Tạo tài khoản ngay
@@ -3052,7 +3058,7 @@ body.minimal-mode #publicLandingExtras {
             <div class="google-user-banner">
                 <div class="google-user-avatar-box">
                     <span id="roleUserInitials">U</span>
-                    <img id="roleUserImg" src="" alt="avatar" style="display: none;" />
+                    <img id="roleUserImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E" alt="avatar" style="display: none;" />
                 </div>
                 <div class="google-user-meta">
                     <div class="google-tag">
@@ -3105,15 +3111,15 @@ body.minimal-mode #publicLandingExtras {
                         <span class="role-name">Giáo viên</span>
                         <i class="ri-checkbox-blank-circle-line role-check-icon"></i>
                     </div>
-                    <span class="role-badge-text pending">🛡️ Cần Admin duyệt</span>
+                    <span class="role-badge-text instant" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;">✨ Kích hoạt ngay</span>
                 </div>
             </div>
 
             <!-- Thông báo lưu ý khi chọn Giáo viên -->
-            <div id="teacherApprovalNotice" style="display: none; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #92400e; line-height: 1.45;">
+            <div id="teacherApprovalNotice" style="display: none; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #166534; line-height: 1.45;">
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <i class="ri-information-fill" style="font-size: 16px; color: #d97706; flex-shrink: 0;"></i>
-                    <span><b>Lưu ý:</b> Tài khoản Giáo viên cần Quản trị viên duyệt để kích hoạt tính năng tạo đề.</span>
+                    <i class="ri-checkbox-circle-fill" style="font-size: 16px; color: #16a34a; flex-shrink: 0;"></i>
+                    <span>Tài khoản Giáo viên được kích hoạt sử dụng ngay lập tức đầy đủ tính năng tạo đề và chấm thi!</span>
                 </div>
             </div>
 
@@ -3141,8 +3147,14 @@ body.minimal-mode #publicLandingExtras {
             </div>
             <input type="hidden" id="roleSchoolInput" value="" />
 
+            <!-- Cam kết đồng ý xử lý dữ liệu cá nhân theo Điều 11 Nghị định 13/2023/NĐ-CP -->
+            <label style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 2px 0; font-size: 12.2px; color: #475569; line-height: 1.45; cursor: pointer; text-align: left;">
+                <input type="checkbox" id="roleConsentPdpd" required style="margin-top: 2px; width: 16px; height: 16px; accent-color: #2563eb; flex-shrink: 0;">
+                <span>Tôi đồng ý xử lý dữ liệu cá nhân cơ bản theo <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Nghị định 13/2023/NĐ-CP</a> và tuân thủ <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Điều khoản sử dụng</a>.</span>
+            </label>
+
             <!-- Nút Submit Hoàn tất -->
-            <button class="button-submit" type="submit" id="btnSubmitRoleChoice" style="background-color: #2563eb; margin-top: 14px;">
+            <button class="button-submit" type="submit" id="btnSubmitRoleChoice" style="background-color: #2563eb; margin-top: 10px;">
                 <span id="btnSubmitRoleText">🚀 Hoàn tất & Vào học ngay</span>
             </button>
 
@@ -3724,8 +3736,11 @@ body.minimal-mode #publicLandingExtras {
         <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với HocNhanhTN!</h2>
         <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
         
-        <div style="max-width: 420px; margin: 0 auto 16px auto;">
+        <div style="max-width: 420px; margin: 0 auto 12px auto;">
             <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <div style="font-size: 0.78rem; color: #64748b; margin-top: 6px; line-height: 1.4;">
+                <i class="ri-shield-user-line" style="color: #10b981;"></i> Có thể nhập Họ tên hoặc Biệt danh/Mã học sinh (Chỉ dùng chấm điểm &amp; BXH theo <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: underline;">NĐ 13/2023/NĐ-CP</a>).
+            </div>
         </div>
 
         <!-- Banner thông báo cho Thí sinh tự do -->
@@ -3760,6 +3775,16 @@ body.minimal-mode #publicLandingExtras {
             <button id="viewLbBtn" class="btn-outline" style="font-size: 1.15rem; padding: 14px 24px; border-radius: 10px; font-weight: 600; background: white; border-color: #eab308; color: #ca8a04;" onclick="showLeaderboardOnly()">
                 <i class="ri-trophy-fill"></i> Xem BXH
             </button>
+        </div>
+
+        <div style="display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px auto 4px auto; font-size: 0.8rem; color: #64748b;">
+            <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                <i class="ri-flag-2-line" style="color: #ef4444;"></i> Báo cáo đề thi / Bản quyền
+            </a>
+            <span style="color: #cbd5e1;">•</span>
+            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                <i class="ri-shield-check-line" style="color: #2563eb;"></i> Quyền dữ liệu cá nhân (NĐ 13/2023)
+            </a>
         </div>
 
         <!-- Khung Quảng cáo Giao diện chờ (Banner_Man_Hinh_Cho - Chỉ xuất hiện khi mở link làm bài) -->
@@ -4486,35 +4511,40 @@ body.minimal-mode #publicLandingExtras {
         </div>
         <p style="margin: 0 0 16px 0; color: #475569; font-weight: 500; font-size: 0.95rem;">Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên • Chuẩn GDPT 2018</p>
         
-        <!-- LIÊN KẾT PHÁP LÝ & BẢO MẬT CHUẨN GOOGLE ADSENSE & BOT CRAWL -->
-        <nav aria-label="Liên kết chân trang pháp lý và chính sách" style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; font-size: 0.88rem;">
+        <!-- LIÊN KẾT PHÁP LÝ & BẢO MẬT CHUẨN PHÁP LUẬT VIỆT NAM & GOOGLE ADSENSE -->
+        <nav aria-label="Liên kết chân trang pháp lý và chính sách" style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.88rem;">
             <a href="/cam-nang" style="color: #2563eb; text-decoration: none; font-weight: 600;">Cẩm nang GDPT 2018</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="/privacy" style="color: #2563eb; text-decoration: none; font-weight: 600;">Chính sách bảo mật (Privacy Policy)</a>
+            <a href="/privacy" style="color: #2563eb; text-decoration: none; font-weight: 600;">Chính sách bảo mật (NĐ 13/2023/NĐ-CP)</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="/terms" style="color: #2563eb; text-decoration: none; font-weight: 600;">Điều khoản sử dụng (Terms of Service)</a>
+            <a href="/terms" style="color: #2563eb; text-decoration: none; font-weight: 600;">Điều khoản sử dụng</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="/about" style="color: #2563eb; text-decoration: none; font-weight: 600;">Về chúng tôi (About Us)</a>
+            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Quyền dữ liệu &amp; Xóa dữ liệu</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="/contact" style="color: #2563eb; text-decoration: none; font-weight: 600;">Liên hệ hỗ trợ (Contact)</a>
+            <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #dc2626; text-decoration: none; font-weight: 600;">Báo cáo bản quyền / Vi phạm</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="/canvas.html" target="_blank" rel="noopener" style="color: #64748b; text-decoration: none; font-weight: 500;">UI Component Canvas</a>
+            <a href="/about" style="color: #2563eb; text-decoration: none; font-weight: 600;">Về chúng tôi</a>
+            <span style="color: #cbd5e1;">•</span>
+            <a href="/contact" style="color: #2563eb; text-decoration: none; font-weight: 600;">Liên hệ hỗ trợ</a>
         </nav>
 
-        <p style="margin: 0; color: #64748b; font-size: 0.82rem; line-height: 1.6;">
-            &copy; 2026 HocNhanhTN. Dự án giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm cho học sinh THCS & THPT trên toàn quốc.
+        <p style="margin: 0 0 6px 0; color: #64748b; font-size: 0.82rem; line-height: 1.6;">
+            &copy; 2026 HocNhanhTN. Dự án công nghệ giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm cho học sinh THCS &amp; THPT trên toàn quốc.
+        </p>
+        <p style="margin: 0 auto; max-width: 860px; color: #94a3b8; font-size: 0.76rem; line-height: 1.55;">
+            <b>Tuyên bố miễn trừ pháp lý:</b> HocNhanhTN là nền tảng phần mềm giáo dục độc lập phục vụ cộng đồng, không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào. Các đề thi trên hệ thống chỉ phục vụ mục đích ôn luyện, tham khảo. Vận hành tuân thủ Nghị định 13/2023/NĐ-CP về Bảo vệ dữ liệu cá nhân, Điều 198b Luật Sở hữu trí tuệ 2022, Luật Bảo vệ bí mật nhà nước 2018 và Nghị định 147/2024/NĐ-CP.
         </p>
     </div>
 </footer>
 
-<!-- MODAL NỘI DUNG PHÁP LÝ & CHÍNH SÁCH BẢO MẬT (CHUẨN ADSENSE) -->
+<!-- MODAL NỘI DUNG PHÁP LÝ & CHÍNH SÁCH BẢO MẬT (TUÂN THỦ PHÁP LUẬT VIỆT NAM & ADSENSE) -->
 <div id="legalModal" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 999999; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);">
-    <div class="modal-content" style="max-width: 720px; width: 92%; max-height: 86vh; display: flex; flex-direction: column; border-radius: 16px; padding: 0; overflow: hidden; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
+    <div class="modal-content" style="max-width: 740px; width: 92%; max-height: 86vh; display: flex; flex-direction: column; border-radius: 16px; padding: 0; overflow: hidden; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.25);">
         <!-- Modal Header -->
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i class="ri-shield-check-line" style="color: #2563eb; font-size: 1.4rem;"></i>
-                <h3 id="legalModalTitle" style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700;">Chính sách & Điều khoản</h3>
+                <h3 id="legalModalTitle" style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700;">Chính sách Pháp lý &amp; Bảo vệ Dữ liệu Cá nhân</h3>
             </div>
             <button type="button" onclick="closeLegalModal()" style="background: transparent; border: none; font-size: 22px; color: #64748b; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="ri-close-line"></i>
@@ -4523,54 +4553,59 @@ body.minimal-mode #publicLandingExtras {
 
         <!-- Navigation Tabs -->
         <div style="display: flex; background: #f1f5f9; padding: 6px 16px; gap: 8px; border-bottom: 1px solid #e2e8f0; overflow-x: auto;">
-            <button type="button" class="legal-tab-btn active" id="tabBtnPrivacy" onclick="switchLegalTab('privacy')" style="padding: 8px 14px; border: none; background: #ffffff; color: #2563eb; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Chính sách bảo mật</button>
-            <button type="button" class="legal-tab-btn" id="tabBtnTerms" onclick="switchLegalTab('terms')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Điều khoản dịch vụ</button>
+            <button type="button" class="legal-tab-btn active" id="tabBtnPrivacy" onclick="switchLegalTab('privacy')" style="padding: 8px 14px; border: none; background: #ffffff; color: #2563eb; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Bảo vệ dữ liệu (NĐ 13/2023)</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnTerms" onclick="switchLegalTab('terms')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Điều khoản &amp; Bản quyền</button>
             <button type="button" class="legal-tab-btn" id="tabBtnAbout" onclick="switchLegalTab('about')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Về HocNhanhTN</button>
-            <button type="button" class="legal-tab-btn" id="tabBtnContact" onclick="switchLegalTab('contact')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Liên hệ</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnContact" onclick="switchLegalTab('contact')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Liên hệ &amp; Khiếu nại</button>
         </div>
 
         <!-- Modal Body Scrollable -->
         <div style="padding: 24px; overflow-y: auto; text-align: left; line-height: 1.65; color: #334155; font-size: 0.92rem; flex: 1;">
             <!-- Tab 1: Privacy Policy -->
             <div id="legalContentPrivacy">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Chính sách bảo mật quyền riêng tư (Privacy Policy)</h4>
-                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 16px;"><i>Cập nhật lần cuối: Tháng 10 năm 2026</i></p>
-                <p>HocNhanhTN (tại <code>https://hocnhanhtn.online/</code>) tôn trọng và cam kết bảo vệ quyền riêng tư của tất cả học sinh, giáo viên và người dùng khi truy cập nền tảng.</p>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Chính sách Bảo vệ Dữ liệu Cá nhân (Tuân thủ Nghị định 13/2023/NĐ-CP)</h4>
+                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;"><i>Áp dụng theo Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018 và Luật Trẻ em 2016</i></p>
+                <p>HocNhanhTN (<code>https://hocnhanhtn.online/</code>) cam kết chỉ xử lý <b>Dữ liệu cá nhân cơ bản</b> với sự đồng ý tự nguyện, tường minh của người dùng và <b>không thu thập bất kỳ Dữ liệu cá nhân nhạy cảm nào</b> (không thu thập CCCD, tài khoản ngân hàng, sinh trắc học hay vị trí GPS chính xác).</p>
                 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">1. Thu thập và sử dụng dữ liệu</h5>
-                <p>Chúng tôi chỉ thu thập các thông tin tối thiểu cần thiết để phục vụ mục đích học tập và làm bài kiểm tra:</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">1. Thông báo xử lý dữ liệu cá nhân (Điều 13 Nghị định 13/2023/NĐ-CP)</h5>
                 <ul>
-                    <li>Họ và tên thí sinh (được lưu tạm thời để chấm điểm và hiển thị trên Bảng xếp hạng bài thi).</li>
-                    <li>Địa chỉ Email và tài khoản đăng nhập (đối với giáo viên quản lý đề thi và học sinh đăng ký lưu lịch sử học tập dài hạn).</li>
+                    <li><b>Học sinh làm bài tự do:</b> Chỉ cần nhập Họ tên hoặc Biệt danh/Mã học sinh để chấm điểm và xếp hạng trong phạm vi đề thi.</li>
+                    <li><b>Người dùng đăng ký tài khoản:</b> Lưu trữ Họ tên, Email/Tên đăng nhập, mật khẩu băm một chiều (PBKDF2/Bcrypt) và Trường/Lớp (không bắt buộc) để đồng bộ lịch sử bài thi và quản lý đề thi.</li>
                 </ul>
 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">2. Tệp Cookie & Quảng cáo của bên thứ ba (Google AdSense)</h5>
-                <p>Để duy trì hệ thống máy chủ phục vụ cộng đồng học sinh miễn phí, trang web có hợp tác với mạng lưới quảng cáo của <b>Google AdSense</b>:</p>
-                <ul>
-                    <li><b>Google và các đối tác bên thứ ba</b> sử dụng tệp cookie (chẳng hạn như cookie DoubleClick/DART) để phân phát quảng cáo dựa trên các lượt truy cập trước đó của người dùng vào trang web này hoặc các trang web khác trên Internet.</li>
-                    <li>Người dùng có thể chọn không tham gia sử dụng cookie để phân phát quảng cáo dựa trên mối quan tâm bằng cách truy cập <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">Cài đặt quảng cáo của Google (Google Ads Settings)</a> hoặc trang <a href="http://www.aboutads.info/choices/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">AboutAds.info</a>.</li>
-                </ul>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">2. Bảo vệ dữ liệu trẻ em dưới 16 tuổi (Điều 20 NĐ 13/2023/NĐ-CP &amp; Luật Trẻ em 2016)</h5>
+                <p>Đối với học sinh dưới 16 tuổi (từ đủ 7 tuổi trở lên theo Điều 20 NĐ 13/2023/NĐ-CP), việc tạo tài khoản lưu lịch sử dài hạn được thực hiện với sự đồng ý của học sinh và sự hướng dẫn, đồng ý của phụ huynh, người giám hộ hoặc giáo viên phụ trách. Trong phòng thi trực tuyến, hệ thống tắt hoàn toàn quảng cáo tự động để đảm bảo môi trường học đường an toàn tuyệt đối.</p>
 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">3. Bảo vệ quyền riêng tư của trẻ em (COPPA / GDPT)</h5>
-                <p>HocNhanhTN là nền tảng giáo dục. Chúng tôi không bao giờ chủ đích thu thập dữ liệu định danh nhạy cảm hoặc bất kỳ thông tin riêng tư nào từ trẻ em dưới 13 tuổi. Trong phòng thi trực tuyến, chúng tôi cam kết không hiển thị các quảng cáo có nội dung phản cảm, không phù hợp với lứa tuổi học sinh.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">3. Tệp Cookie &amp; Quảng cáo Google AdSense</h5>
+                <p>Trang web sử dụng Cookie kỹ thuật để duy trì phiên thi và hợp tác với <b>Google AdSense</b> tại màn hình chờ nhằm duy trì máy chủ miễn phí. Bạn có thể tùy chỉnh hoặc từ chối Cookie quảng cáo tại <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">Cài đặt quảng cáo Google</a>.</p>
 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">4. Quyền của người dùng đối với dữ liệu</h5>
-                <p>Người dùng có toàn quyền yêu cầu xem, chỉnh sửa hoặc xóa vĩnh viễn thông tin tài khoản và lịch sử bài thi của mình bất kỳ lúc nào bằng cách liên hệ với Quản trị viên.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">4. Thực thi Quyền xóa dữ liệu &amp; Rút lại sự đồng ý (Điều 9 &amp; Điều 16 NĐ 13/2023/NĐ-CP)</h5>
+                <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-top: 8px;">
+                    <p style="margin: 0 0 10px 0; font-size: 0.86rem; color: #475569;">Bạn có thể thực thi quyền xóa dữ liệu cá nhân ngay lập tức trên hệ thống thông qua các công cụ tự phục vụ dưới đây:</p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button type="button" onclick="clearLocalPersonalDataPdpd()" style="background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="ri-eraser-line" style="color: #d97706;"></i> Xóa dữ liệu làm bài trên thiết bị này
+                        </button>
+                        <button type="button" onclick="requestDeleteMyAccountPdpd()" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 8px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="ri-delete-bin-6-line"></i> Xóa vĩnh viễn tài khoản &amp; dữ liệu máy chủ
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Tab 2: Terms of Service -->
             <div id="legalContentTerms" style="display: none;">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Điều khoản dịch vụ & Sử dụng (Terms of Service)</h4>
-                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 16px;"><i>Áp dụng từ: Năm 2026</i></p>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Điều khoản Dịch vụ, Bản quyền &amp; Bí mật Nhà nước</h4>
+                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;"><i>Tuân thủ Luật Sở hữu trí tuệ 2022, Luật Bảo vệ bí mật nhà nước 2018 &amp; Nghị định 147/2024/NĐ-CP</i></p>
                 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">1. Mục đích sử dụng</h5>
-                <p>HocNhanhTN cung cấp công cụ số hóa đề thi, tổ chức kiểm tra trắc nghiệm và ôn luyện trực tuyến phục vụ học sinh & giáo viên. Người dùng cam kết sử dụng nền tảng cho mục đích giáo dục lành mạnh, trung thực trong thi cử và tôn trọng pháp luật.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">1. Tuyên bố không mạo danh cơ quan nhà nước</h5>
+                <p>HocNhanhTN là giải pháp phần mềm giáo dục độc lập phục vụ cộng đồng phi lợi nhuận, <b>không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào</b>. Các đề thi trên hệ thống chỉ phục vụ mục đích tự ôn luyện, tham khảo.</p>
 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">2. Quyền sở hữu nội dung</h5>
-                <p>Giáo viên và tác giả biên soạn đề thi chịu trách nhiệm về tính chính xác và bản quyền của tài liệu tải lên. HocNhanhTN không sở hữu bản quyền các câu hỏi do người dùng tải lên và có quyền gỡ bỏ nội dung nếu phát hiện vi phạm bản quyền hoặc thuần phong mỹ tục.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">2. Trách nhiệm bản quyền học liệu &amp; Bí mật nhà nước (Quyết định 531/QĐ-TTg)</h5>
+                <p>Người tải lên chịu hoàn toàn trách nhiệm trước pháp luật về bản quyền tài liệu. <b>Nghiêm cấm tuyệt đối</b> việc tải lên đề thi chính thức chưa đến thời điểm công bố thuộc danh mục Bí mật nhà nước trong lĩnh vực giáo dục (Luật Bảo vệ bí mật nhà nước 2018) hoặc nội dung vi phạm Điều 8 Luật An ninh mạng 2018.</p>
 
-                <h5 style="color: #0f172a; margin: 16px 0 6px;">3. Vận hành phi lợi nhuận</h5>
-                <p>Dịch vụ được cung cấp miễn phí. Quảng cáo hiển thị trên trang web (chỉ tại màn hình chờ) nhằm mục đích duy trì hạ tầng máy chủ và chi phí phát sinh để đảm bảo hệ thống luôn hoạt động ổn định cho học sinh cả nước.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">3. Quy trình tiếp nhận &amp; gỡ bỏ trong 24 giờ (Điều 198b Luật SHTT 2022)</h5>
+                <p>Nếu phát hiện đề thi xâm phạm quyền tác giả hoặc vi phạm quy định pháp luật, vui lòng bấm nút <b>"🚩 Báo cáo đề thi / Bản quyền"</b> để gửi yêu cầu gỡ bỏ. Ban quản trị cam kết thẩm tra và gỡ bỏ trong vòng 24 giờ.</p>
             </div>
 
             <!-- Tab 3: About Us -->
@@ -4739,15 +4774,82 @@ body.minimal-mode #publicLandingExtras {
         <label style="font-weight: 600; display: block; margin-bottom: 5px;">Thời gian làm bài (Phút)</label>
         <input type="number" id="modalQuizTime" placeholder="Để trống hoặc 0 nếu không giới hạn" style="margin-bottom: 15px;">
         
-        <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 25px;">
+        <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 14px;">
             <input type="checkbox" id="modalQuizShuffle" style="width: 20px; height: 20px; margin-right: 10px;">
-            <i class="ri-shuffle-line" style="color: var(--primary); margin-right: 6px;"></i> Tự động trộn ngẫu nhiên câu hỏi & đáp án
+            <i class="ri-shuffle-line" style="color: var(--primary); margin-right: 6px;"></i> Tự động trộn ngẫu nhiên câu hỏi &amp; đáp án
+        </label>
+
+        <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin-bottom: 20px; padding: 10px 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 0.84rem; color: #334155; line-height: 1.45;">
+            <input type="checkbox" id="modalQuizLegalCommit" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #2563eb; flex-shrink: 0;">
+            <span><b>Cam kết pháp lý:</b> Tôi xác nhận tài liệu đề thi này thuộc quyền biên soạn/sử dụng hợp pháp của tôi, không xâm phạm bản quyền (Luật SHTT 2022), không chứa nội dung vi phạm Điều 8 Luật An ninh mạng và <b>không thuộc danh mục đề thi chính thức Bí mật nhà nước chưa công bố</b> (Luật Bảo vệ bí mật nhà nước 2018).</span>
         </label>
         
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <button class="btn-outline" style="margin: 0; width: auto;" onclick="closePublishModal()">Hủy</button>
             <button id="btnConfirmPublish" class="btn-primary" style="margin: 0; width: auto;" onclick="confirmPublish()">
-                <i class="ri-send-plane-fill"></i> Lưu & Xuất bản
+                <i class="ri-send-plane-fill"></i> Lưu &amp; Xuất bản
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Báo cáo Đề thi / Khiếu nại Bản quyền (Điều 198b Luật SHTT 2022 & Nghị định 147/2024/NĐ-CP) -->
+<div id="reportViolationModal" class="modal-overlay" style="display: none; z-index: 999999;">
+    <div class="modal-content" style="max-width: 520px; width: 92%; border-radius: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h3 style="margin: 0; color: #dc2626; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+                <i class="ri-flag-2-fill"></i> Báo cáo Đề thi / Khiếu nại Bản quyền
+            </h3>
+            <button type="button" onclick="closeReportQuizModal()" style="background: transparent; border: none; font-size: 22px; color: #64748b; cursor: pointer;">
+                <i class="ri-close-line"></i>
+            </button>
+        </div>
+        <p style="font-size: 0.86rem; color: #475569; line-height: 1.5; margin: 0 0 14px 0;">
+            Thực hiện theo <b>Điều 198b Luật Sở hữu trí tuệ 2022</b> và <b>Nghị định 147/2024/NĐ-CP</b>. Ban quản trị sẽ thẩm tra và gỡ bỏ nội dung vi phạm trong vòng 24 giờ.
+        </p>
+        <div style="margin-bottom: 10px;">
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Loại báo cáo <span style="color: #dc2626;">*</span></label>
+            <select id="reportQuizType" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.9rem;">
+                <option value="copyright">Vi phạm bản quyền học liệu / Sao chép trái phép (Luật SHTT)</option>
+                <option value="state_secret">Đề thi thuộc danh mục Bí mật nhà nước chưa công bố</option>
+                <option value="inappropriate_content">Nội dung không phù hợp môi trường sư phạm (NĐ 147/2024)</option>
+                <option value="wrong_answer">Sai sót kiến thức / Đáp án trong đề thi</option>
+            </select>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mã đề thi hoặc Liên kết</label>
+            <input type="text" id="reportQuizIdInput" placeholder="Mã đề hoặc URL đề thi..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; margin: 0;">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Email hoặc SĐT nhận kết quả xử lý <span style="color: #dc2626;">*</span></label>
+            <input type="text" id="reportQuizEmailInput" placeholder="Nhập email hoặc số điện thoại của bạn..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; margin: 0;">
+        </div>
+        <div style="margin-bottom: 14px;">
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mô tả chi tiết &amp; Căn cứ xác minh <span style="color: #dc2626;">*</span></label>
+            <textarea id="reportQuizDescInput" rows="3" placeholder="Nêu rõ nguồn gốc tài liệu gốc hoặc nội dung vi phạm cần gỡ bỏ..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;"></textarea>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" class="btn-outline" style="margin: 0; width: auto;" onclick="closeReportQuizModal()">Đóng</button>
+            <button type="button" id="btnSubmitReportQuiz" class="btn-primary" style="margin: 0; width: auto; background: #dc2626; border: none;" onclick="submitReportQuizAction()">
+                <i class="ri-send-plane-fill"></i> Gửi báo cáo
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Banner Thông báo Cookie & Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) -->
+<div id="pdpdConsentBanner" style="display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); width: calc(100% - 28px); max-width: 780px; background: rgba(15, 23, 42, 0.96); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 14px; padding: 14px 18px; z-index: 99990; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35); backdrop-filter: blur(10px);">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 240px; font-size: 0.82rem; line-height: 1.5; color: #e2e8f0;">
+            <strong style="color: #ffffff; display: inline-flex; align-items: center; gap: 5px;"><i class="ri-shield-check-fill" style="color: #38bdf8;"></i> Thông báo Cookie &amp; Dữ liệu cá nhân (NĐ 13/2023/NĐ-CP):</strong>
+            HocNhanhTN sử dụng bộ nhớ cục bộ và cookie kỹ thuật để lưu tiến độ làm bài, bảo mật phiên thi và duy trì máy chủ miễn phí. Xem chi tiết tại <a href="/privacy" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">Chính sách bảo mật</a> &amp; <a href="/terms" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">Điều khoản sử dụng</a>.
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <button type="button" onclick="acceptPdpdConsent('essential')" style="background: rgba(255, 255, 255, 0.1); color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.2); padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                Chỉ thiết yếu
+            </button>
+            <button type="button" onclick="acceptPdpdConsent('all')" style="background: #2563eb; color: #ffffff; border: none; padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);">
+                Tôi đồng ý
             </button>
         </div>
     </div>
@@ -5131,6 +5233,6 @@ body.minimal-mode #publicLandingExtras {
         }
     });
 </script>
-<script src="/script.js?v=20261104_v12"></script>
+<script src="/script.js?v=20261105_v2"></script>
 </body>
 </html>

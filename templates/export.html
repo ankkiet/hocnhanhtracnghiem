@@ -1281,8 +1281,105 @@ input:disabled + .slider-ui {
     }
 }
 
-    </style>
-    <link rel="stylesheet" href="/export.css?v=20261101_v3">
+    
+
+/* ================= RESPONSIVE MOBILE & TABLET STYLES ================= */
+@media (max-width: 900px) {
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    .export-navbar {
+        height: auto !important;
+        min-height: 54px !important;
+        padding: 8px 12px !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    .export-navbar-left {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+    }
+    .btn-nav-back {
+        padding: 6px 10px !important;
+        font-size: 0.8rem !important;
+        flex-shrink: 0 !important;
+    }
+    .export-title-block {
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+    .export-doc-name {
+        font-size: 0.88rem !important;
+        max-width: 160px !important;
+    }
+    .export-doc-meta {
+        font-size: 0.72rem !important;
+        gap: 4px !important;
+    }
+    .export-navbar-center {
+        display: none !important;
+    }
+    .export-navbar-right {
+        gap: 6px !important;
+        flex-shrink: 0 !important;
+    }
+    .btn-action-docx, .btn-action-pdf {
+        padding: 7px 11px !important;
+        font-size: 0.8rem !important;
+        border-radius: 8px !important;
+        gap: 5px !important;
+    }
+    .export-workspace {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: calc(100vh - 60px) !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    .export-sidebar {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--exp-border) !important;
+    }
+    .export-preview-area {
+        width: 100% !important;
+        padding: 16px 8px 60px !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .a4-viewport-container {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn-nav-back span {
+        display: none !important;
+    }
+    .export-doc-name {
+        max-width: 110px !important;
+    }
+    .btn-action-docx span, .btn-action-pdf span {
+        display: none !important;
+    }
+    .btn-action-docx, .btn-action-pdf {
+        padding: 8px 10px !important;
+    }
+    .btn-action-docx i, .btn-action-pdf i {
+        margin: 0 !important;
+        font-size: 1.1rem !important;
+    }
+}
+
+</style>
+    <link rel="stylesheet" href="/export.css?v=20261105_word_rich_v5">
 
     <!-- MathJax 3 -->
     <script>
@@ -1612,6 +1709,6 @@ input:disabled + .slider-ui {
     <div class="export-toast-container" id="exportToastContainer"></div>
 
     <!-- SCRIPT -->
-    <script src="/export.js?v=20261101_v3"></script>
+    <script src="/export.js?v=20261105_word_rich_v5"></script>
 </body>
 </html>

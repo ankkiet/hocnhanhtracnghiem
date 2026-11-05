@@ -226,18 +226,13 @@ class AuthService:
                     }
 
                 if current_role == 'teacher' and current_status != 'approved':
-                    return {
-                        "status": "pending_approval",
-                        "user_id": user_id,
-                        "email": email,
-                        "full_name": user_data.get('full_name') or name,
-                        "class_name": user_data.get('class_name', ''),
-                        "phone": user_data.get('phone', ''),
-                        "school": user_data.get('school', ''),
-                        "role": "teacher",
-                        "avatar": picture or user_data.get('avatar', ''),
-                        "message": "Tài khoản Giáo viên của bạn đang chờ Quản trị viên phê duyệt."
-                    }
+                    # Tự động kích hoạt tài khoản Giáo viên mà không cần chờ Admin duyệt
+                    try:
+                        db.collection('users').document(user_id).update({'status': 'approved'})
+                        invalidate_user_cache(user_id)
+                        current_status = 'approved'
+                    except Exception as e:
+                        logger.warning(f"Không thể cập nhật status giáo viên sang approved: {e}")
 
                 final_role = current_role or 'student'
                 final_name = user_data.get('full_name') or name
@@ -349,47 +344,33 @@ class AuthService:
             'profile_completed': True
         }
 
-        if selected_role == 'teacher':
-            update_payload['status'] = 'pending'
-            db.collection('users').document(user_id).update(update_payload)
-            invalidate_user_cache(user_id)
-            return {
-                "status": "pending_approval",
-                "user_id": user_id,
-                "role": "teacher",
-                "email": email,
-                "full_name": resolved_name,
-                "class_name": class_name,
-                "phone": phone,
-                "school": school,
-                "message": "Đã ghi nhận thông tin Giáo viên! Tài khoản của bạn đang chờ Quản trị viên xét duyệt trước khi có thể truy cập."
-            }
-        else:
-            update_payload['status'] = 'approved'
-            db.collection('users').document(user_id).update(update_payload)
-            invalidate_user_cache(user_id)
-            token_payload = {
-                "sub": user_id,
-                "username": email,
-                "role": "student",
-                "full_name": resolved_name,
-                "class_name": class_name
-            }
-            jwt_token = create_access_token(token_payload)
-            refresh_token = create_refresh_token(token_payload)
-            return {
-                "status": "success",
-                "token": jwt_token,
-                "access_token": jwt_token,
-                "refresh_token": refresh_token,
-                "role": "student",
-                "full_name": resolved_name,
-                "class_name": class_name,
-                "phone": phone,
-                "school": school,
-                "email": email,
-                "message": "Cập nhật thông tin thành công! Chúc bạn học tập hiệu quả."
-            }
+        update_payload['status'] = 'approved'
+        db.collection('users').document(user_id).update(update_payload)
+        invalidate_user_cache(user_id)
+        token_payload = {
+            "sub": user_id,
+            "username": email,
+            "role": selected_role,
+            "full_name": resolved_name,
+            "class_name": class_name,
+            "school": school
+        }
+        jwt_token = create_access_token(token_payload)
+        refresh_token = create_refresh_token(token_payload)
+        role_msg = "Đăng ký vai trò Giáo viên thành công! Bạn có thể sử dụng tất cả tính năng ngay bây giờ." if selected_role == 'teacher' else "Cập nhật thông tin thành công! Chúc bạn học tập hiệu quả."
+        return {
+            "status": "success",
+            "token": jwt_token,
+            "access_token": jwt_token,
+            "refresh_token": refresh_token,
+            "role": selected_role,
+            "full_name": resolved_name,
+            "class_name": class_name,
+            "phone": phone,
+            "school": school,
+            "email": email,
+            "message": role_msg
+        }
 
     def check_approval_status(self, user_id: str) -> Dict[str, Any]:
         """Kiểm tra trạng thái phê duyệt của tài khoản giáo viên."""
@@ -407,34 +388,32 @@ class AuthService:
         full_name = user_data.get('full_name', '')
         email = user_data.get('email') or user_data.get('username', '')
 
-        if status == 'approved':
-            token_payload = {
-                "sub": user_id,
-                "username": email,
-                "role": role,
-                "full_name": full_name
-            }
-            jwt_token = create_access_token(token_payload)
-            return {
-                "status": "approved",
-                "token": jwt_token,
-                "role": role,
-                "full_name": full_name,
-                "class_name": user_data.get('class_name', ''),
-                "phone": user_data.get('phone', ''),
-                "school": user_data.get('school', ''),
-                "email": email,
-                "message": "Tài khoản của bạn đã được Quản trị viên phê duyệt thành công!"
-            }
+        if status != 'approved':
+            try:
+                db.collection('users').document(user_id).update({'status': 'approved'})
+                invalidate_user_cache(user_id)
+                status = 'approved'
+            except Exception as e:
+                logger.warning(f"Không thể cập nhật status giáo viên: {e}")
+                status = 'approved'
+
+        token_payload = {
+            "sub": user_id,
+            "username": email,
+            "role": role,
+            "full_name": full_name
+        }
+        jwt_token = create_access_token(token_payload)
         return {
-            "status": "pending",
+            "status": "approved",
+            "token": jwt_token,
             "role": role,
             "full_name": full_name,
             "class_name": user_data.get('class_name', ''),
             "phone": user_data.get('phone', ''),
             "school": user_data.get('school', ''),
             "email": email,
-            "message": "Tài khoản vẫn đang trong danh sách chờ Quản trị viên xét duyệt."
+            "message": "Tài khoản của bạn đã được kích hoạt thành công!"
         }
 
     def get_user_profile(self, token: Optional[str]) -> Dict[str, Any]:
@@ -469,17 +448,14 @@ class AuthService:
                 }
 
             if role == 'teacher' and status != 'approved':
-                return {
-                    "status": "pending_approval",
-                    "user_id": user.get('id'),
-                    "email": email or username,
-                    "full_name": user.get('full_name', ''),
-                    "class_name": user.get('class_name', ''),
-                    "phone": user.get('phone', ''),
-                    "school": user.get('school', ''),
-                    "role": "teacher",
-                    "avatar": user.get('avatar', '')
-                }
+                # Tự động duyệt tài khoản giáo viên
+                try:
+                    db.collection('users').document(user.get('id')).update({'status': 'approved'})
+                    invalidate_user_cache(user.get('id'))
+                    status = 'approved'
+                except Exception as e:
+                    logger.warning(f"Không thể cập nhật status giáo viên sang approved: {e}")
+                    status = 'approved'
 
         return {
             "status": "success",
@@ -529,7 +505,7 @@ class AuthService:
             final_status = 'approved'
         else:
             final_role = 'teacher'
-            final_status = 'pending'
+            final_status = 'approved'
 
         hashed_pwd = hash_password(password)
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -545,6 +521,8 @@ class AuthService:
             'phone': phone.strip(),
             'school': school.strip(),
             'role_selected_at': now_iso,
+            'consent_pdpd_at': now_iso,
+            'consent_terms_version': '2026.11-ND13',
             'profile_completed': True,
             'auth_provider': 'password',
             'created_at': now_iso,
@@ -553,11 +531,6 @@ class AuthService:
 
         db.collection('users').add(user_data)
 
-        if final_role == 'teacher':
-            return {
-                "status": "success",
-                "message": "Đăng ký thành công! Tài khoản Giáo viên của bạn đang chờ Quản trị viên duyệt trước khi có thể đăng nhập."
-            }
         return {
             "status": "success",
             "message": "Đăng ký thành công! Bạn có thể đăng nhập ngay."
@@ -606,13 +579,14 @@ class AuthService:
             status = user_data.get('status', 'approved')
 
         if role == 'teacher' and status != 'approved':
-            return {
-                "status": "pending_approval",
-                "user_id": user_id,
-                "role": "teacher",
-                "full_name": user_data.get('full_name', ''),
-                "message": "Tài khoản Giáo viên đang chờ Quản trị viên xét duyệt."
-            }
+            # Tự động kích hoạt tài khoản Giáo viên mà không cần chờ Admin duyệt
+            try:
+                db.collection('users').document(user_id).update({'status': 'approved'})
+                invalidate_user_cache(user_id)
+                status = 'approved'
+            except Exception as e:
+                logger.warning(f"Không thể cập nhật status giáo viên sang approved: {e}")
+                status = 'approved'
 
         now_iso = datetime.now(timezone.utc).isoformat()
         db.collection('users').document(user_id).update({'last_login': now_iso})
@@ -667,6 +641,113 @@ class AuthService:
             "access_token": new_access,
             "refresh_token": new_refresh,
             "message": "Làm mới phiên làm việc thành công"
+        }
+
+    def delete_my_account(self, token: str, reason: str = "") -> Dict[str, Any]:
+        """
+        Thực thi Quyền xóa dữ liệu & Rút lại sự đồng ý của chủ thể dữ liệu
+        theo Điều 9 và Điều 16 Nghị định 13/2023/NĐ-CP về Bảo vệ dữ liệu cá nhân.
+        """
+        if not token:
+            raise HTTPException(status_code=401, detail="Thiếu mã xác thực (Token)")
+
+        user_info = get_user_from_token(token)
+        if not user_info:
+            raise HTTPException(status_code=401, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
+
+        user_id = user_info.get("id") or user_info.get("user_id")
+        role = user_info.get("role", "student")
+        username = (user_info.get("username") or user_info.get("email") or "").lower()
+
+        if role == "admin" or username in ADMIN_EMAILS:
+            raise HTTPException(
+                status_code=403,
+                detail="Tài khoản Quản trị viên hệ thống không thể tự xóa qua cổng người dùng."
+            )
+
+        db = _get_db()
+        if db is None:
+            raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
+
+        try:
+            # 1. Xóa lịch sử làm bài và tiến độ lưu tạm của người dùng (nếu có)
+            for coll_name, field_name in [
+                ("student_history", "user_id"),
+                ("student_progress", "user_id"),
+            ]:
+                try:
+                    docs = _query_where(db.collection(coll_name), field_name, user_id).get()
+                    for doc in docs:
+                        db.collection(coll_name).document(doc.id).delete()
+                except Exception as sub_err:
+                    logger.warning(f"AuthService: Không thể dọn {coll_name} của {user_id}: {sub_err}")
+
+            # 2. Xóa hồ sơ tài khoản cá nhân khỏi collection users
+            db.collection("users").document(user_id).delete()
+            invalidate_user_cache(user_id)
+
+            audit_service.record_event(
+                action="USER_SELF_DELETE_PDPD",
+                actor_id=user_id,
+                actor_role=role,
+                details={"reason": (reason or "User requested erasure under Decree 13/2023/ND-CP")[:200]}
+            )
+        except Exception as e:
+            logger.error(f"AuthService: Lỗi khi xóa dữ liệu cá nhân user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Không thể xóa dữ liệu tài khoản lúc này, vui lòng thử lại.")
+
+        return {
+            "status": "success",
+            "message": "Đã xóa vĩnh viễn tài khoản và toàn bộ dữ liệu cá nhân của bạn theo Nghị định 13/2023/NĐ-CP."
+        }
+
+    def submit_legal_report(self, req_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Tiếp nhận báo cáo vi phạm bản quyền (Điều 198b Luật SHTT 2022),
+        nội dung vi phạm (Nghị định 147/2024/NĐ-CP) hoặc yêu cầu quyền dữ liệu cá nhân (NĐ 13/2023/NĐ-CP).
+        """
+        description = (req_data.get("description") or "").strip()
+        reporter_email = (req_data.get("reporter_email") or "").strip()
+        if len(description) < 5:
+            raise HTTPException(status_code=400, detail="Vui lòng mô tả chi tiết nội dung cần báo cáo hoặc hỗ trợ.")
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        ticket_code = f"HNTN-{int(time.time())}"
+        record = {
+            "ticket_code": ticket_code,
+            "report_type": (req_data.get("report_type") or "copyright").strip(),
+            "quiz_id": (req_data.get("quiz_id") or "").strip(),
+            "reporter_name": (req_data.get("reporter_name") or "Ẩn danh").strip()[:120],
+            "reporter_email": reporter_email[:150],
+            "reporter_role": (req_data.get("reporter_role") or "other").strip()[:50],
+            "description": description[:3000],
+            "consent_pdpd": bool(req_data.get("consent_pdpd", True)),
+            "status": "pending_review",
+            "created_at": now_iso,
+        }
+
+        db = _get_db()
+        if db is not None:
+            try:
+                db.collection("legal_reports").add(record)
+            except Exception as e:
+                logger.warning(f"AuthService: Không thể ghi legal_reports lên Firestore: {e}")
+
+        audit_service.record_event(
+            action="LEGAL_REPORT_SUBMITTED",
+            actor_id=reporter_email or "anonymous",
+            actor_role=record["reporter_role"],
+            details={
+                "ticket_code": ticket_code,
+                "report_type": record["report_type"],
+                "quiz_id": record["quiz_id"],
+            }
+        )
+
+        return {
+            "status": "success",
+            "ticket_code": ticket_code,
+            "message": f"Đã tiếp nhận yêu cầu (Mã hồ sơ: {ticket_code}). Ban quản trị sẽ thẩm tra và xử lý trong vòng 24 - 48 giờ làm việc theo quy định pháp luật."
         }
 
 
