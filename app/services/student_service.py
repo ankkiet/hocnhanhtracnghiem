@@ -4,7 +4,6 @@ Xử lý nghiệp vụ thi, chấm điểm Bộ GD&ĐT (Phần I, II, III), phi�
 """
 
 import datetime
-import re
 import sys
 import time
 from typing import Any
@@ -90,7 +89,10 @@ class StudentService:
             quiz_data = quiz_doc.to_dict()
             QUIZ_CACHE[req.quiz_id] = {'time': now, 'data': quiz_data}
 
-        if quiz_data.get('status') == 'unpublished':
+        status = quiz_data.get('status', 'published')
+        if status in ['trashed', 'deleted']:
+            raise HTTPException(status_code=404, detail="Bài thi không tồn tại hoặc đã bị xóa.")
+        if status in ['unpublished', 'locked', 'archived']:
             raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa.")
 
         student_id = None
@@ -138,6 +140,12 @@ class StudentService:
                 raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
             quiz_data = quiz_doc.to_dict()
             QUIZ_CACHE[req.quiz_id] = {'time': now, 'data': quiz_data}
+
+        status = quiz_data.get('status', 'published')
+        if status in ['trashed', 'deleted']:
+            raise HTTPException(status_code=404, detail="Bài thi không tồn tại hoặc đã bị xóa.")
+        if status in ['unpublished', 'locked', 'archived']:
+            raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa.")
 
         questions = quiz_data.get('data') or quiz_data.get('questions') or []
 

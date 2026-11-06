@@ -68,6 +68,9 @@ def _get_quiz_meta(quiz_id: str):
                 q_data = None
 
         if q_data:
+            status = q_data.get('status', 'published')
+            if status in ['trashed', 'deleted']:
+                return None, None
             title = (q_data.get('title') or '').strip()
             count = len(q_data.get('data', []))
             time_limit = q_data.get('time_limit', 0)

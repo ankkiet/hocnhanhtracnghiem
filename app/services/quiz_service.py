@@ -108,7 +108,11 @@ class QuizService:
                 (user and user.get('role') in ['teacher', 'admin'])
             )
 
-        if quiz_data.get('status') == 'unpublished' and not is_creator:
+        quiz_status = quiz_data.get('status', 'published')
+        if quiz_status in ['trashed', 'deleted']:
+            if not is_creator:
+                raise HTTPException(status_code=404, detail="Bài thi không tồn tại hoặc đã bị xóa.")
+        elif quiz_status in ['unpublished', 'locked', 'archived'] and not is_creator:
             raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
 
         updated_at = quiz_data.get('updated_at')

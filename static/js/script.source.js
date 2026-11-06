@@ -2437,7 +2437,11 @@ async function initApp() {
                 const appBox = document.getElementById('mainAppContainer');
                 if (appBox) appBox.style.display = 'block';
                 const qBox = document.getElementById('quiz-container');
-                if (qBox) qBox.innerHTML = "<div class='card' style='text-align:center; padding: 28px; max-width: 600px; margin: 40px auto;'><p style='font-size: 1.1rem; color: #64748b; font-weight: 600;'><i class='ri-error-warning-line' style='font-size: 1.5rem; color: #f59e0b; vertical-align: middle;'></i> Bài thi không tồn tại hoặc đã bị xóa.</p><a href='/' class='btn-primary' style='display:inline-block; margin-top: 14px; text-decoration: none;'>Về trang chủ</a></div>"; 
+                const errMsg = (result && (result.detail || result.message)) || "Bài thi không tồn tại hoặc đã bị xóa.";
+                const isLocked = typeof errMsg === 'string' && (errMsg.includes("khóa") || errMsg.includes("xuất bản"));
+                const iconClass = isLocked ? "ri-lock-2-line" : "ri-error-warning-line";
+                const iconColor = isLocked ? "#ef4444" : "#f59e0b";
+                if (qBox) qBox.innerHTML = `<div class='card' style='text-align:center; padding: 28px; max-width: 600px; margin: 40px auto;'><p style='font-size: 1.1rem; color: #475569; font-weight: 600;'><i class='${iconClass}' style='font-size: 1.6rem; color: ${iconColor}; vertical-align: middle; margin-right: 6px;'></i> ${escapeHtml(errMsg)}</p><a href='/' class='btn-primary' style='display:inline-block; margin-top: 14px; text-decoration: none;'>Về trang chủ</a></div>`; 
             }
         } catch (e) {
             console.error("Lỗi khi tải đề thi initApp:", e);
@@ -4917,7 +4921,12 @@ async function handleQuizAction(quizId, action) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, action: action })
         });
-        const data = await res.json();
+        let data = {};
+        try {
+            data = await res.json();
+        } catch(jsonErr) {
+            data = { detail: res.statusText || "Máy chủ phản hồi không đúng định dạng" };
+        }
         hideGlobalLoader();
         if (res.ok && data.status === 'success') {
             if (action === 'trash') alert("Đã đưa vào thùng rác!");
@@ -4925,11 +4934,11 @@ async function handleQuizAction(quizId, action) {
             if (action === 'restore') alert("Đã khôi phục thành công!");
             loadTeacherQuizzes();
         } else {
-            alert("Lỗi: " + data.detail);
+            alert("Lỗi: " + (data.detail || data.message || "Thao tác không thành công"));
         }
     } catch(e) {
         hideGlobalLoader();
-        alert("Lỗi kết nối máy chủ");
+        alert("Lỗi kết nối máy chủ: " + (e.message || "Không thể gửi yêu cầu"));
     }
 }
 
@@ -4957,10 +4966,17 @@ async function toggleQuizStatus(quizId, newStatus) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ teacher_token: authToken, quiz_id: quizId, status: newStatus })
         });
+        let data = {};
+        try { data = await res.json(); } catch(e){}
         hideGlobalLoader();
-        if (res.ok) loadTeacherQuizzes();
+        if (res.ok && data.status === 'success') {
+            loadTeacherQuizzes();
+        } else {
+            alert("Lỗi: " + (data.detail || "Không thể thay đổi trạng thái đề thi"));
+        }
     } catch(e) {
         hideGlobalLoader();
+        alert("Lỗi kết nối máy chủ khi đổi trạng thái đề thi");
     }
 }
 
@@ -9651,16 +9667,30 @@ function acceptPdpdConsent(level = 'all') {
         }));
     } catch (e) {}
     const banner = document.getElementById('pdpdConsentBanner');
-    if (banner) banner.style.display = 'none';
+    if (banner) {
+        if (banner.classList.contains('u225')) {
+            banner.classList.remove('is-bite');
+            void banner.offsetWidth;
+            banner.classList.add('is-bite', 'is-done');
+            setTimeout(() => {
+                banner.classList.remove('is-on', 'is-done', 'is-x');
+                banner.classList.add('is-fab');
+                const fab = banner.querySelector('.u225-fab');
+                if (fab) fab.tabIndex = 0;
+            }, 1050);
+        } else {
+            banner.style.display = 'none';
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     try {
         const hasConsent = localStorage.getItem('hntn_pdpd_consent');
         const isQuizRoute = document.documentElement.classList.contains('hntn-is-quiz-route') || /[?&](id|quiz_id)=/i.test(window.location.search);
-        if (!hasConsent && !isQuizRoute) {
-            const banner = document.getElementById('pdpdConsentBanner');
-            if (banner) banner.style.display = 'block';
+        const banner = document.getElementById('pdpdConsentBanner');
+        if (banner && !banner.classList.contains('u225') && !hasConsent && !isQuizRoute) {
+            banner.style.display = 'block';
         }
     } catch (e) {}
 });

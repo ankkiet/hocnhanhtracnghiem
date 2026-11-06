@@ -4837,23 +4837,474 @@ body.minimal-mode #publicLandingExtras {
     </div>
 </div>
 
-<!-- Banner Thông báo Cookie & Bảo vệ Dữ liệu Cá nhân (Nghị định 13/2023/NĐ-CP) -->
-<div id="pdpdConsentBanner" style="display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); width: calc(100% - 28px); max-width: 780px; background: rgba(15, 23, 42, 0.96); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 14px; padding: 14px 18px; z-index: 99990; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35); backdrop-filter: blur(10px);">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 240px; font-size: 0.82rem; line-height: 1.5; color: #e2e8f0;">
-            <strong style="color: #ffffff; display: inline-flex; align-items: center; gap: 5px;"><i class="ri-shield-check-fill" style="color: #38bdf8;"></i> Thông báo Cookie &amp; Dữ liệu cá nhân (NĐ 13/2023/NĐ-CP):</strong>
-            HocNhanhTN sử dụng bộ nhớ cục bộ và cookie kỹ thuật để lưu tiến độ làm bài, bảo mật phiên thi và duy trì máy chủ miễn phí. Xem chi tiết tại <a href="/privacy" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">Chính sách bảo mật</a> &amp; <a href="/terms" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 600;">Điều khoản sử dụng</a>.
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
-            <button type="button" onclick="acceptPdpdConsent('essential')" style="background: rgba(255, 255, 255, 0.1); color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.2); padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;">
-                Chỉ thiết yếu
-            </button>
-            <button type="button" onclick="acceptPdpdConsent('all')" style="background: #2563eb; color: #ffffff; border: none; padding: 7px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);">
-                Tôi đồng ý
-            </button>
-        </div>
+<!-- Lucian UX/UI Prompt #225 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#225 -->
+<style>
+/* Lucian UX/UI Prompt theme tokens & Element #225: Cookie consent with a bite */
+:root {
+  --ux-page: #f8fafc;
+  --ux-surface: #ffffff;
+  --ux-surface-2: #f1f5f9;
+  --ux-surface-3: #e2e8f0;
+  --ux-ink: #0f172a;
+  --ux-ink-2: #475569;
+  --ux-ink-3: #64748b;
+  --ux-line: rgba(15, 23, 42, 0.08);
+  --ux-line-2: rgba(15, 23, 42, 0.16);
+  --ux-accent: #2563eb;
+  --ux-accent-2: #38bdf8;
+  --ux-accent-soft: rgba(37, 99, 235, 0.12);
+  --ux-accent-ink: #ffffff;
+  --ux-mint: #10b981;
+  --ux-warn: #f59e0b;
+  --ux-danger: #ef4444;
+  --ux-shadow-strong: rgba(15, 23, 42, 0.22);
+}
+.ux, .ux *, .ux *::before, .ux *::after { box-sizing: border-box; }
+.ux { font-family: inherit; color: var(--ux-ink); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; -webkit-tap-highlight-color: transparent; word-break: keep-all; overflow-wrap: break-word; }
+:where(.ux) :is(button, input, textarea, select) { font: inherit; color: inherit; }
+:where(.ux) button { cursor: pointer; }
+.ux :focus-visible { outline: 2px solid var(--ux-accent); outline-offset: 3px; }
+.ux [hidden] { display: none !important; }
+
+/* Scoped styles for Element #225 */
+.u225 {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  width: 350px;
+  max-width: calc(100vw - 36px);
+  z-index: 99995;
+  pointer-events: none;
+  color: var(--ux-ink);
+}
+@media (max-width: 480px) {
+  .u225 {
+    left: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}
+.u225-bn {
+  pointer-events: auto;
+  position: relative;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--ux-surface);
+  box-shadow: 0 0 0 1px var(--ux-line), 0 24px 48px -12px var(--ux-shadow-strong);
+  transform: translateY(140%);
+  transition: transform .5s cubic-bezier(.3, 1.25, .5, 1);
+}
+.u225.is-on .u225-bn {
+  transform: none;
+}
+.u225.is-done .u225-bn {
+  transform: translateY(140%);
+  transition: transform .45s cubic-bezier(.5, 0, .75, 0) .55s;
+}
+.u225-tp {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.u225-ck {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.u225-ck svg {
+  width: 44px;
+  height: 44px;
+  overflow: visible;
+}
+.u225-bt circle.b {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0);
+  transition: transform .25s cubic-bezier(.3, 1.6, .5, 1);
+}
+.u225.is-bite .u225-bt circle.b {
+  transform: none;
+}
+.u225-cr {
+  position: absolute;
+  right: 2px;
+  top: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: #B45309;
+  opacity: 0;
+}
+.u225.is-bite .u225-cr {
+  animation: u225-cr .7s ease-in forwards;
+}
+.u225-cr:nth-of-type(2) {
+  right: 8px;
+  width: 3px;
+  height: 3px;
+  animation-delay: .05s !important;
+}
+.u225-cr:nth-of-type(3) {
+  right: -2px;
+  top: 9px;
+  width: 3px;
+  height: 3px;
+  animation-delay: .1s !important;
+}
+@keyframes u225-cr {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(6px, 34px) rotate(160deg); }
+}
+.u225-tx b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ux-ink);
+}
+.u225-tx span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--ux-ink-3);
+}
+.u225-ex {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .45s cubic-bezier(.3, 1, .4, 1);
+}
+.u225-ex > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.u225.is-x .u225-ex {
+  grid-template-rows: 1fr;
+}
+.u225-rw {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--ux-line);
+}
+.u225-rw:first-child {
+  margin-top: 10px;
+}
+.u225-rw div {
+  flex: 1;
+  min-width: 0;
+}
+.u225-rw b {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ux-ink);
+}
+.u225-rw small {
+  display: block;
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--ux-ink-3);
+}
+.u225-rw em {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ux-mint);
+}
+.u225-sw {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 22px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--ux-surface-3);
+  cursor: pointer;
+  transition: background .2s;
+}
+.u225-sw::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .25s cubic-bezier(.3, 1.5, .5, 1);
+}
+.u225-sw[aria-checked="true"] {
+  background: #10B981;
+}
+.u225-sw[aria-checked="true"]::after {
+  transform: translateX(14px);
+}
+.u225-sw:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+.u225-bs {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.u225-bs button {
+  flex: 1;
+  height: 38px;
+  border: 0;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.u225-set, .u225-sv {
+  background: var(--ux-surface-2);
+  color: var(--ux-ink);
+  box-shadow: inset 0 0 0 1px var(--ux-line);
+}
+.u225-set:hover, .u225-sv:hover {
+  background: var(--ux-surface-3);
+}
+.u225-all {
+  background: var(--ux-accent);
+  color: #ffffff;
+}
+.u225-all:hover {
+  background: #1d4ed8;
+}
+.u225-sv {
+  display: none;
+}
+.u225.is-x .u225-set {
+  display: none;
+}
+.u225.is-x .u225-sv {
+  display: block;
+}
+.u225-fab {
+  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ux-surface);
+  box-shadow: 0 0 0 1px var(--ux-line), 0 10px 24px -6px var(--ux-shadow-strong);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transform: scale(0);
+  transition: transform .4s cubic-bezier(.3, 1.7, .5, 1);
+}
+.u225-fab:hover {
+  transform: scale(1.1);
+}
+.u225.is-fab .u225-fab {
+  transform: none;
+}
+.u225-fab svg {
+  width: 28px;
+  height: 28px;
+}
+.u225 button:focus-visible {
+  outline: 2px solid var(--ux-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .u225-bn, .u225.is-done .u225-bn, .u225-ex, .u225-fab, .u225-bt circle.b {
+    transition: none;
+  }
+  .u225.is-bite .u225-cr {
+    animation: none;
+  }
+}
+</style>
+<div class="ux u225" id="pdpdConsentBanner" style="display: none;">
+  <div class="u225-bn" role="dialog" aria-label="Cookie consent">
+    <div class="u225-tp">
+      <span class="u225-ck" aria-hidden="true"></span>
+      <div class="u225-tx">
+        <b>Cho phép sử dụng Cookie?</b>
+        <span>Lưu tiến độ thi, bảo mật phiên và tuân thủ <a href="/privacy" target="_blank" style="color:var(--ux-accent);text-decoration:underline;">NĐ 13/2023</a>.</span>
+      </div>
     </div>
+    <div class="u225-ex">
+      <div class="u225-ls"></div>
+    </div>
+    <div class="u225-bs">
+      <button type="button" class="u225-set">Tùy chọn</button>
+      <button type="button" class="u225-sv">Lưu lựa chọn</button>
+      <button type="button" class="u225-all">Đồng ý tất cả</button>
+    </div>
+  </div>
+  <button type="button" class="u225-fab" aria-label="Cài đặt Cookie & Quyền riêng tư" tabindex="-1" title="Cài đặt Cookie & Quyền riêng tư"></button>
 </div>
+<script>
+(function () {
+  var root = document.getElementById('pdpdConsentBanner');
+  if (!root) return;
+  var bn = root.querySelector('.u225-bn');
+  var ck = root.querySelector('.u225-ck');
+  var ls = root.querySelector('.u225-ls');
+  var set = root.querySelector('.u225-set');
+  var sv = root.querySelector('.u225-sv');
+  var all = root.querySelector('.u225-all');
+  var fab = root.querySelector('.u225-fab');
+  var rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var uid = 'u225_' + Math.random().toString(36).slice(2, 7);
+
+  function cookieSvg(id, bite) {
+    return '<svg viewBox="0 0 44 44"><defs><mask id="' + id + '" class="u225-bt"><rect width="44" height="44" fill="#fff"/>' + (bite ? '<circle class="b" cx="38" cy="7" r="9" fill="#000"/><circle class="b" cx="42" cy="17" r="6" fill="#000"/><circle class="b" cx="30" cy="2" r="6" fill="#000"/>' : '') + '</mask></defs><g mask="url(#' + id + ')"><circle cx="22" cy="22" r="19" fill="#F2B866"/><circle cx="22" cy="22" r="19" fill="none" stroke="#D97706" stroke-width="2"/><circle cx="15" cy="16" r="3" fill="#78350F"/><circle cx="26" cy="27" r="3.2" fill="#78350F"/><circle cx="14" cy="29" r="2.2" fill="#78350F"/><circle cx="29" cy="15" r="2" fill="#78350F"/></g></svg>';
+  }
+
+  if (ck) ck.innerHTML = cookieSvg(uid + 'a', true) + '<i class="u225-cr"></i><i class="u225-cr"></i><i class="u225-cr"></i>';
+  if (fab) fab.innerHTML = cookieSvg(uid + 'b', false).replace('<svg ', '<svg aria-hidden="true" ');
+
+  var CK = [
+    ['Thiết yếu (Bắt buộc)', 'Lưu phiên làm bài, đăng nhập và bảo mật', 1],
+    ['Phân tích hiệu năng', 'Thống kê phổ điểm & tối ưu tốc độ tải đề', 1],
+    ['Tùy chỉnh giao diện', 'Ghi nhớ kích cỡ chữ, chế độ xem và bộ lọc', 1]
+  ];
+
+  var savedConsent = null;
+  try {
+    var raw = localStorage.getItem('hntn_pdpd_consent');
+    if (raw) savedConsent = JSON.parse(raw);
+  } catch (e) {}
+
+  var on = CK.map(function (c, idx) {
+    if (c[2] === 1) return true;
+    if (savedConsent && savedConsent.choices) return !!savedConsent.choices[idx];
+    return true;
+  });
+
+  var S = CK.map(function (c, i) {
+    var r = document.createElement('div');
+    r.className = 'u225-rw';
+    r.innerHTML = '<div><b></b><small></small></div>' + (c[2] ? '<em></em>' : '') + '<button type="button" class="u225-sw" role="switch"></button>';
+    r.querySelector('b').textContent = c[0];
+    r.querySelector('small').textContent = c[1];
+    if (c[2]) r.querySelector('em').textContent = 'Luôn bật';
+    var b = r.querySelector('button');
+    b.setAttribute('aria-label', c[0]);
+    if (c[2]) b.disabled = true;
+    b.addEventListener('click', function () {
+      on[i] = !on[i];
+      sync();
+    });
+    if (ls) ls.appendChild(r);
+    return b;
+  });
+
+  function sync() {
+    S.forEach(function (b, i) {
+      b.setAttribute('aria-checked', on[i]);
+    });
+  }
+
+  function expand(v) {
+    root.classList.toggle('is-x', v);
+  }
+
+  function saveAndDone(level) {
+    try {
+      localStorage.setItem('hntn_pdpd_consent', JSON.stringify({
+        level: level,
+        choices: on,
+        accepted_at: new Date().toISOString(),
+        regulation: 'ND-13-2023-ND-CP'
+      }));
+    } catch (e) {}
+
+    root.classList.remove('is-bite');
+    void root.offsetWidth;
+    root.classList.add('is-bite', 'is-done');
+
+    setTimeout(function () {
+      root.classList.remove('is-on', 'is-done', 'is-x');
+      root.classList.add('is-fab');
+      if (fab) {
+        fab.tabIndex = 0;
+        fab.focus({ preventScroll: true });
+      }
+    }, rm ? 0 : 1050);
+  }
+
+  if (set) {
+    set.addEventListener('click', function () {
+      expand(true);
+      if (S[1]) S[1].focus({ preventScroll: true });
+    });
+  }
+
+  if (sv) {
+    sv.addEventListener('click', function () {
+      saveAndDone('custom');
+    });
+  }
+
+  if (all) {
+    all.addEventListener('click', function () {
+      on = on.map(function () { return true; });
+      sync();
+      saveAndDone('all');
+    });
+  }
+
+  if (fab) {
+    fab.addEventListener('click', function () {
+      root.classList.remove('is-fab', 'is-bite');
+      fab.tabIndex = -1;
+      root.classList.add('is-on');
+      expand(true);
+      setTimeout(function () {
+        if (S[1]) S[1].focus({ preventScroll: true });
+      }, 300);
+    });
+  }
+
+  window.openCookieSettings = function () {
+    if (!root) return;
+    root.style.display = 'block';
+    root.classList.remove('is-fab', 'is-bite');
+    if (fab) fab.tabIndex = -1;
+    root.classList.add('is-on');
+    expand(true);
+    setTimeout(function () {
+      if (S[1]) S[1].focus({ preventScroll: true });
+    }, 300);
+  };
+
+  sync();
+
+  // Kiểm tra route: không hiển thị làm phiền khi đang trong phòng thi
+  var isQuizRoute = document.documentElement.classList.contains('hntn-is-quiz-route') || /[?&](id|quiz_id)=/i.test(window.location.search);
+  if (isQuizRoute) {
+    root.style.display = 'none';
+    return;
+  }
+
+  root.style.display = 'block';
+
+  if (savedConsent) {
+    root.classList.add('is-fab');
+    if (fab) fab.tabIndex = 0;
+  } else {
+    setTimeout(function () {
+      root.classList.add('is-on');
+    }, rm ? 0 : 600);
+  }
+})();
+</script>
 
 <!-- Modal Thống kê Phổ điểm & Phân tích Đề thi -->
 <div id="analyticsModal" class="modal-overlay" style="display: none;">
@@ -5233,6 +5684,6 @@ body.minimal-mode #publicLandingExtras {
         }
     });
 </script>
-<script src="/script.js?v=20261105_v2"></script>
+<script src="/script.js?v=20261106_v9"></script>
 </body>
 </html>

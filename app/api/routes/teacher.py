@@ -2,31 +2,31 @@ import asyncio
 import datetime
 import json
 import logging
+import re
+from typing import Any, Dict, Optional
+
 from app.utils.helpers import (
     evaluate_mcq_answer,
     evaluate_short_answer,
     evaluate_true_false_answer,
 )
-import re
-from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 import time
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from firebase_admin import db as realtime_db
 from firebase_admin import firestore
 from pydantic import BaseModel
 
-from core.docx_exporter import export_quiz_to_docx, export_multi_quizzes_to_docx
+from core.docx_exporter import export_multi_quizzes_to_docx, export_quiz_to_docx
 from core.security import get_user_from_token
-from core.state import QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE
+from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SETTINGS_CACHE, SUBMISSIONS_CACHE
 from services.ai_service import (
     call_gemini_with_fallback,
-    fix_json_latex_escapes,
     diagnose_gemini_error,
-    GeminiAPIException
+    fix_json_latex_escapes,
 )
 from services.audit_service import audit_service
 from services.r2_service import delete_images_from_r2, extract_image_keys_from_data
@@ -189,26 +189,45 @@ async def quiz_action(req: QuizActionRequest):
         
     if req.action == 'trash':
         doc_ref.update({'status': 'trashed'})
+        QUIZ_CACHE.pop(req.quiz_id, None)
+        SUBMISSIONS_CACHE.pop(req.quiz_id, None)
+        LEADERBOARD_CACHE.pop(req.quiz_id, None)
     elif req.action == 'restore':
         doc_ref.update({'status': 'unpublished'})
+        QUIZ_CACHE.pop(req.quiz_id, None)
+        SUBMISSIONS_CACHE.pop(req.quiz_id, None)
+        LEADERBOARD_CACHE.pop(req.quiz_id, None)
     elif req.action == 'permanent':
-        audit_service.record_event(
-            action="QUIZ_PERMANENT_DELETE",
-            actor_id=user_uid,
-            actor_role=user.get('role', 'teacher'),
-            target_id=req.quiz_id
-        )
-        # 1. Trích xuất toàn bộ ảnh có trong đề thi và xóa khỏi Cloudflare R2 + Local cache
-        quiz_data = doc.to_dict()
-        image_keys = extract_image_keys_from_data(quiz_data)
-        if image_keys:
-            delete_images_from_r2(image_keys)
-
-        # 2. Xóa toàn bộ tài liệu trong subcollection 'submissions'
         try:
-            subs = doc_ref.collection('submissions').stream()
-            for sub in subs:
-                sub.reference.delete()
+            audit_service.record_event(
+                action="QUIZ_PERMANENT_DELETE",
+                actor_id=user_uid,
+                actor_role=user.get('role', 'teacher'),
+                target_id=req.quiz_id
+            )
+        except Exception as audit_err:
+            logger.warning(f"[CẢNH BÁO] Lỗi ghi audit log permanent delete: {audit_err}")
+
+        # 1. Trích xuất toàn bộ ảnh có trong đề thi và xóa khỏi Cloudflare R2 + Local cache
+        try:
+            quiz_data = doc.to_dict() or {}
+            image_keys = extract_image_keys_from_data(quiz_data)
+            if image_keys:
+                delete_images_from_r2(image_keys)
+        except Exception as img_err:
+            logger.warning(f"[CẢNH BÁO] Lỗi khi dọn dẹp ảnh R2: {img_err}")
+
+        # 2. Xóa toàn bộ tài liệu trong subcollection 'submissions' bằng Batch (nhanh gấp 50 lần, chống timeout)
+        try:
+            subs = list(doc_ref.collection('submissions').limit(500).stream())
+            if subs:
+                batch = db.batch()
+                for i, sub in enumerate(subs):
+                    batch.delete(sub.reference)
+                    if (i + 1) % 400 == 0:
+                        batch.commit()
+                        batch = db.batch()
+                batch.commit()
         except Exception as sub_err:
             logger.warning(f"[CẢNH BÁO] Lỗi khi dọn dẹp submissions: {sub_err}")
 
@@ -220,6 +239,11 @@ async def quiz_action(req: QuizActionRequest):
 
         # 4. Xóa chính document bài thi trong Firestore
         doc_ref.delete()
+
+        # 5. Xóa sạch mọi tầng cache liên quan
+        QUIZ_CACHE.pop(req.quiz_id, None)
+        SUBMISSIONS_CACHE.pop(req.quiz_id, None)
+        LEADERBOARD_CACHE.pop(req.quiz_id, None)
     return {"status": "success"}
 
 @router.post("/toggle_publish", summary="Bật/Tắt xuất bản đề thi")
@@ -239,6 +263,7 @@ async def toggle_publish(req: TogglePublishRequest):
         raise HTTPException(status_code=403, detail="Không có quyền thay đổi trạng thái")
         
     doc_ref.update({'status': req.status})
+    QUIZ_CACHE.pop(req.quiz_id, None)
     return {"status": "success"}
 
 @router.get("/monitor/{quiz_id}", summary="Lấy danh sách trạng thái làm bài trực tiếp")
@@ -353,6 +378,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
             pass
         if not api_keys:
             import os
+
             from core.config import settings
             env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
             if env_keys:
@@ -1098,6 +1124,7 @@ async def cross_check_quiz_answers(req: CrossCheckAnswersRequest):
     # Fallback sang cấu hình môi trường nếu Firestore chưa có keys
     if not api_keys:
         import os
+
         from core.config import settings
         env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
         if env_keys:
@@ -1187,6 +1214,7 @@ async def generate_similar_quiz_questions(req: GenerateSimilarQuestionsRequest):
     # Fallback sang cấu hình môi trường nếu Firestore chưa có keys
     if not api_keys:
         import os
+
         from core.config import settings
         env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
         if env_keys:
@@ -1263,6 +1291,7 @@ async def diagnose_ai_endpoint(req: Optional[DiagnoseAIRequest] = None):
 
     if not api_keys:
         import os
+
         from core.config import settings
         env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
         if env_keys:
@@ -1279,9 +1308,10 @@ async def diagnose_ai_endpoint(req: Optional[DiagnoseAIRequest] = None):
             **diag
         }
 
+    from google.genai import types
+
     from services.ai_service import get_gemini_client
     from services.gemini_tracker_service import mask_api_key
-    from google.genai import types
 
     models_to_test = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
     key_diagnostics = []
