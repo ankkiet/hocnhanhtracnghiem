@@ -799,6 +799,52 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
                         pass
 
+                if not px_width:
+
+                    try:
+
+                        shapes = node.xpath('.//*[local-name()="shape"]')
+
+                        for s in shapes:
+
+                            s_style = s.get('style', '')
+
+                            w_match = re.search(r'width:\s*([0-9.]+)\s*(pt|in|px)?', s_style, re.IGNORECASE)
+
+                            if w_match:
+
+                                val = float(w_match.group(1))
+
+                                unit = (w_match.group(2) or 'px').lower()
+
+                                if unit == 'pt':
+
+                                    px_width = int(val * 1.3333)
+
+                                elif unit == 'in':
+
+                                    px_width = int(val * 96)
+
+                                else:
+
+                                    px_width = int(val)
+
+                                if px_width <= 2:
+
+                                    break
+
+                                img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
+
+                                break
+
+                        if px_width > 0 and px_width <= 2:
+
+                            continue
+
+                    except Exception:
+
+                        pass
+
                         
 
                 processed_rids = set()
@@ -1362,6 +1408,52 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
                             continue
 
                         img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
+
+                except Exception:
+
+                    pass
+
+            if not px_width:
+
+                try:
+
+                    shapes = node.xpath('.//*[local-name()="shape"]')
+
+                    for s in shapes:
+
+                        s_style = s.get('style', '')
+
+                        w_match = re.search(r'width:\s*([0-9.]+)\s*(pt|in|px)?', s_style, re.IGNORECASE)
+
+                        if w_match:
+
+                            val = float(w_match.group(1))
+
+                            unit = (w_match.group(2) or 'px').lower()
+
+                            if unit == 'pt':
+
+                                px_width = int(val * 1.3333)
+
+                            elif unit == 'in':
+
+                                px_width = int(val * 96)
+
+                            else:
+
+                                px_width = int(val)
+
+                            if px_width <= 2:
+
+                                break
+
+                            img_style = f"width: {px_width}px; max-width: 100%; height: auto; vertical-align: middle; margin: 4px;"
+
+                            break
+
+                    if px_width > 0 and px_width <= 2:
+
+                        continue
 
                 except Exception:
 

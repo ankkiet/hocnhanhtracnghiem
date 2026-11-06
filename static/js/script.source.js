@@ -7283,6 +7283,15 @@ function getRealQuestionType(q) {
     // 5. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
     if (opts.length === 0 && q.correct_answer) return 'short_answer';
 
+    // 6. Nếu thuộc nhóm Phần III hoặc group_title chứa Trả lời ngắn
+    const grp = String(q.group_title || '').toUpperCase();
+    if (opts.length === 0 && (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III'))) {
+        return 'short_answer';
+    }
+    if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
+        if (mcqCount === 0) return 'true_false';
+    }
+
     return 'mcq';
 }
 
@@ -7358,6 +7367,13 @@ function dataToEditorText(data) {
     return text;
 }
 
+function cleanEditorClosingTags(text) {
+    if (!text) return '';
+    return text.replace(/(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+$/gi, '')
+               .replace(/^(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+/gi, '')
+               .trim();
+}
+
 function parseEditorText(text) {
     // Trả lại mã Base64 thật cho các thẻ [HÌNH_ẢNH_X] trước khi bóc tách
     let restoredText = text;
@@ -7370,14 +7386,23 @@ function parseEditorText(text) {
     const lines = restoredText.split('\n');
     let sharedContext = "";
 
-    const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
+    // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
+    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
+
     // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
-    const mcqOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\.\:\)]/;
+    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
     // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/;
-    const shortAnsRegex = /^\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]\s*(.*)$/i;
-    const explainRegex = /^\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]\s*(.*)$/i;
-    const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
+    // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
+    const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Lời giải / Hướng dẫn giải
+    const explainRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Tiêu đề Phần / Nhóm (PHẦN I, PHẦN II, PHẦN III, BÀI TẬP...)
+    const groupRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -7387,8 +7412,25 @@ function parseEditorText(text) {
 
         if (qRegex.test(line)) {
             if (currentQ) data.push(currentQ);
-            let qText = line.replace(qRegex, '').trim();
-            currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: qText, options: [], correct_answer: null, explain: '' };
+            let qText = cleanEditorClosingTags(line.replace(qRegex, '').trim());
+            
+            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
+            let defaultType = 'mcq';
+            const grpUpper = (sharedContext || '').toUpperCase();
+            if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
+                defaultType = 'short_answer';
+            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
+                defaultType = 'true_false';
+            }
+
+            currentQ = {
+                type: defaultType,
+                group_title: sharedContext.trim(),
+                question: qText,
+                options: [],
+                correct_answer: (defaultType === 'true_false' ? {} : null),
+                explain: ''
+            };
             sharedContext = ""; 
         } else if (mcqOptRegex.test(line)) {
             // 1. ƯU TIÊN TUYỆT ĐỐI CHO MCQ KHI PHƯƠNG ÁN LÀ CHỮ IN HOA A, B, C, D

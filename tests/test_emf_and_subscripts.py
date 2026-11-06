@@ -9,7 +9,7 @@ from core.text_parser import extract_questions_from_text_bulletproof, replace_pl
 class TestEmfAndSubscripts(unittest.TestCase):
 
     def test_crossplatform_emf_conversion(self):
-        """Kiểm tra chuyển đổi EMF sang PNG trên môi trường giả lập Linux (tắt Windows GDI+)."""
+        """Kiểm tra chuyển đổi EMF sang SVG vector sắc nét trên môi trường giả lập Linux (tắt Windows GDI+)."""
         docx_path = r'C:\Users\pc\.gemini\antigravity\brain\c85f7b74-1a22-4e28-b877-5ad24b0d9718\.user_uploaded\media_1793856217385_0695d0a9.docx'
         doc = docx.Document(docx_path)
         
@@ -18,21 +18,24 @@ class TestEmfAndSubscripts(unittest.TestCase):
         try:
             ic.CLSID_PNG = None
             
-            # Kiểm tra ảnh Câu 5 (image2.emf)
+            # Kiểm tra ảnh Câu 5 (image2.emf) -> Chuyển sang SVG vector sắc nét
             blob_la = doc.part.rels['rId6'].target_part.blob
-            png_la, mime_la = process_image_blob(blob_la, 'image/x-emf')
-            self.assertEqual(mime_la, 'image/png')
-            self.assertIsNotNone(png_la)
-            self.assertTrue(len(png_la) > 2000)
-            self.assertTrue(png_la.startswith(b'\x89PNG\r\n\x1a\n'))
+            svg_la, mime_la = process_image_blob(blob_la, 'image/x-emf')
+            self.assertEqual(mime_la, 'image/svg+xml')
+            self.assertIsNotNone(svg_la)
+            self.assertTrue(b'<svg' in svg_la)
             
-            # Kiểm tra ảnh Câu 6 (image3.emf)
+            # Kiểm tra ảnh Câu 6 (image3.emf) -> Chuyển sang SVG vector sắc nét
             blob_ala = doc.part.rels['rId7'].target_part.blob
-            png_ala, mime_ala = process_image_blob(blob_ala, 'image/x-emf')
-            self.assertEqual(mime_ala, 'image/png')
-            self.assertIsNotNone(png_ala)
-            self.assertTrue(len(png_ala) > 2000)
-            self.assertTrue(png_ala.startswith(b'\x89PNG\r\n\x1a\n'))
+            svg_ala, mime_ala = process_image_blob(blob_ala, 'image/x-emf')
+            self.assertEqual(mime_ala, 'image/svg+xml')
+            self.assertIsNotNone(svg_ala)
+            self.assertTrue(b'<svg' in svg_ala)
+
+            # Kiểm tra hàm dự phòng convert_vector_image_to_png vẫn xuất ra PNG hợp lệ
+            png_la = convert_vector_image_to_png(blob_la)
+            self.assertIsNotNone(png_la)
+            self.assertTrue(png_la.startswith(b'\x89PNG\r\n\x1a\n'))
         finally:
             ic.CLSID_PNG = old_clsid
 
@@ -118,6 +121,34 @@ class TestEmfAndSubscripts(unittest.TestCase):
             orig_ratio = 2832 / 485
             new_ratio = result_img.width / result_img.height
             self.assertAlmostEqual(orig_ratio, new_ratio, delta=0.05)
+
+    def test_wmf_vector_to_svg_conversion(self):
+        """Kiểm tra chuyển đổi WMF (vector Word cũ) sang SVG sắc nét và giữ nguyên PNG/JPEG cho ảnh raster."""
+        from core.image_converter import vector_to_svg_crossplatform, process_image_blob
+        from core.docx_parser import parse_docx_to_marked_text
+
+        docx_path = r'C:\Users\pc\.gemini\antigravity\brain\c85f7b74-1a22-4e28-b877-5ad24b0d9718\.user_uploaded\media_1793982734230_d39f79b5.docx'
+        doc = docx.Document(docx_path)
+
+        # 1. Kiểm tra 5 ảnh WMF trong docx được chuyển sang SVG
+        for rId in ['rId5', 'rId7', 'rId9', 'rId11', 'rId13']:
+            blob = doc.part.related_parts[rId].blob
+            svg_str = vector_to_svg_crossplatform(blob)
+            self.assertIsNotNone(svg_str)
+            self.assertTrue(svg_str.startswith('<svg'))
+            self.assertIn('viewBox', svg_str)
+
+            proc_blob, proc_mime = process_image_blob(blob, 'image/x-wmf')
+            self.assertEqual(proc_mime, 'image/svg+xml')
+            self.assertTrue(b'<svg' in proc_blob)
+
+        # 2. Kiểm tra bóc tách docx nhận diện đúng các ảnh SVG trong Câu 7 và Câu 8
+        marked_text, image_mapping = parse_docx_to_marked_text(docx_path)
+        self.assertGreaterEqual(len(image_mapping), 10)
+        for i in range(1, 11):
+            key = f'[IMG_{i}]'
+            self.assertIn(key, image_mapping)
+            self.assertIn('.svg', image_mapping[key])
 
 
 if __name__ == '__main__':

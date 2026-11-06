@@ -732,6 +732,24 @@ function saveDraftToSession() {
     }
 }
 
+function isSyntaxHighlightColor(styleStr) {
+    if (!styleStr) return false;
+    const s = styleStr.toLowerCase();
+    return s.includes('#2563eb') || s.includes('37, 99, 235') ||
+           s.includes('#059669') || s.includes('5, 150, 105') ||
+           s.includes('#7c3aed') || s.includes('124, 58, 237') ||
+           s.includes('#0ea5e9') || s.includes('14, 165, 233') ||
+           s.includes('#16a34a') || s.includes('22, 163, 74') ||
+           s.includes('#b45309') || s.includes('180, 83, 9');
+}
+
+function cleanEditorClosingTags(text) {
+    if (!text) return '';
+    return text.replace(/(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+$/gi, '')
+               .replace(/^(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+/gi, '')
+               .trim();
+}
+
 // ----------------------------------------------------
 // THIẾT LẬP SỰ KIỆN TRÌNH SOẠN THẢO CODE
 // ----------------------------------------------------
@@ -759,23 +777,29 @@ function getRichEditorText(node) {
             // 3. Thẻ SPAN hoặc FONT chứa màu sắc / nền chữ tùy biến
             else if (tag === 'SPAN' || tag === 'FONT') {
                 const textContent = (child.textContent || '').trim();
-                // Nếu là nhãn câu hỏi (Câu 1:, *A., b), vv.) do editor sinh ra, lấy chữ thuần để parser nhận diện chuẩn
-                const isPrefixSpan = /^(?:(?:Câu|Bài|Question|Q)\s*\d+[\.\:\)]|\*?[A-Da-d][\.\:\)])$/i.test(textContent) ||
-                                     /^(?:(?:Câu|Bài|Question|Q)\s*\d+[\.\:\)]|\*?[A-Da-d][\.\:\)])\s*$/i.test(child.textContent || '');
+                const styleAttr = child.getAttribute ? (child.getAttribute('style') || '') : '';
+                const colorAttr = child.getAttribute ? (child.getAttribute('color') || '') : '';
+                const fullStyle = (styleAttr + ';' + colorAttr).toLowerCase();
+
+                // Nếu là thẻ syntax highlight do editor sinh ra (prefix câu, đáp án, lời giải, phần hoặc màu cú pháp),
+                // tháo bỏ thẻ wrapper để parser nhận diện chính xác 100%
+                const isPrefixSpan = /^(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?/i.test(textContent) ||
+                                     /^(?:\*\s*)?\(?\[?(?:\*?[A-Fa-f]|\*?[a-d])[\.\:\)\-\]\/]/.test(textContent) ||
+                                     /^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]/i.test(textContent) ||
+                                     /^(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]/i.test(textContent) ||
+                                     /^(?:PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i.test(textContent) ||
+                                     isSyntaxHighlightColor(fullStyle);
+
                 if (isPrefixSpan) {
-                    result += child.textContent;
-                } else {
-                    let styleAttr = child.getAttribute('style');
-                    let colorAttr = child.getAttribute('color');
-                    if (styleAttr || colorAttr) {
-                        let finalStyle = styleAttr || '';
-                        if (colorAttr && !finalStyle.includes('color')) {
-                            finalStyle += `;color:${colorAttr};`;
-                        }
-                        result += `<span style="${finalStyle}">${getRichEditorText(child)}</span>`;
-                    } else {
-                        result += getRichEditorText(child);
+                    result += getRichEditorText(child);
+                } else if (styleAttr || colorAttr) {
+                    let finalStyle = styleAttr || '';
+                    if (colorAttr && !finalStyle.includes('color')) {
+                        finalStyle += `;color:${colorAttr};`;
                     }
+                    result += `<span style="${finalStyle}">${getRichEditorText(child)}</span>`;
+                } else {
+                    result += getRichEditorText(child);
                 }
             } 
             else if (tag === 'BR') {
@@ -885,6 +909,15 @@ function getRealQuestionType(q) {
     // 5. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
     if (opts.length === 0 && q.correct_answer) return 'short_answer';
 
+    // 6. Nếu thuộc nhóm Phần III hoặc group_title chứa Trả lời ngắn
+    const grp = String(q.group_title || '').toUpperCase();
+    if (opts.length === 0 && (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III'))) {
+        return 'short_answer';
+    }
+    if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
+        if (mcqCount === 0) return 'true_false';
+    }
+
     return 'mcq';
 }
 
@@ -976,14 +1009,23 @@ function parseEditorText(text) {
     const lines = restoredText.split('\n');
     let sharedContext = "";
 
-    const qRegex = /^\s*(Câu|Bài|Question|Q)\s*\d+[\.\:\-\)]/i;
+    // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
+    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
+
     // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
-    const mcqOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\.\:\)]/;
+    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
     // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/;
-    const shortAnsRegex = /^\s*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]\s*(.*)$/i;
-    const explainRegex = /^\s*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]\s*(.*)$/i;
-    const groupRegex = /^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
+    // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
+    const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Lời giải / Hướng dẫn giải
+    const explainRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Tiêu đề Phần / Nhóm (PHẦN I, PHẦN II, PHẦN III, BÀI TẬP...)
+    const groupRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -993,13 +1035,23 @@ function parseEditorText(text) {
 
         if (qRegex.test(line)) {
             if (currentQ) data.push(currentQ);
-            let qText = line.replace(qRegex, '').trim();
+            let qText = cleanEditorClosingTags(line.replace(qRegex, '').trim());
+            
+            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
+            let defaultType = 'mcq';
+            const grpUpper = (sharedContext || '').toUpperCase();
+            if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
+                defaultType = 'short_answer';
+            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
+                defaultType = 'true_false';
+            }
+
             currentQ = {
-                type: 'mcq',
+                type: defaultType,
                 group_title: sharedContext.trim(),
                 question: qText,
                 options: [],
-                correct_answer: null,
+                correct_answer: (defaultType === 'true_false' ? {} : null),
                 explain: ''
             };
             sharedContext = ""; 
@@ -1021,7 +1073,7 @@ function parseEditorText(text) {
                 || /[✓✔☑]/i.test(line)
                 || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
 
-            let optContent = line.replace(mcqOptRegex, '').trim();
+            let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
             let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
                                          .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
                                          .trim();
@@ -1054,14 +1106,14 @@ function parseEditorText(text) {
             if (hasFalseTag) isTrue = false;
 
             // Làm sạch nội dung phương án và giữ lại nhãn ma trận HocNhanhTN nếu có
-            let optContent = line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '').trim();
+            let optContent = cleanEditorClosingTags(line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '').trim());
             let azotaTag = "";
             const mTag = optContent.match(/^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:<\/MARK>\s*|<\/u>\s*)*/i);
             if (mTag) {
                 azotaTag = mTag[1].trim();
                 optContent = optContent.substring(mTag[0].length).trim();
             }
-            optContent = optContent.replace(/^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?[a-d](?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/](?:\s*<\/u>)*(?:\s*<\/MARK>)*\s*/, '').trim();
+            optContent = optContent.replace(tfOptRegex, '').trim();
             if (!azotaTag) {
                 const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
                 if (mTagPost) {
@@ -1069,7 +1121,7 @@ function parseEditorText(text) {
                     optContent = mTagPost[2].trim();
                 }
             }
-            optContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '').replace(/^\*+\s*/g, '').trim();
+            optContent = cleanEditorClosingTags(optContent.replace(/<\/?(?:MARK|u)>/gi, '').replace(/^\*+\s*/g, '').trim());
             if (azotaTag) {
                 optContent = `${azotaTag} ${optContent}`.trim();
             }
@@ -1086,10 +1138,10 @@ function parseEditorText(text) {
         } else if (shortAnsRegex.test(line)) {
             if (currentQ) {
                 const ansMatch = line.match(shortAnsRegex);
-                const ansContent = (ansMatch[1] || "").trim();
+                const ansContent = cleanEditorClosingTags((ansMatch[1] || "").trim());
 
-                const mcqOptsCount = (currentQ.options || []).filter(opt => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\.\:\)]/.test(opt)).length;
-                const tfOptsCount = (currentQ.options || []).filter(opt => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/.test(opt)).length;
+                const mcqOptsCount = (currentQ.options || []).filter(opt => mcqOptRegex.test(opt)).length;
+                const tfOptsCount = (currentQ.options || []).filter(opt => tfOptRegex.test(opt)).length;
 
                 const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
                     || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
@@ -1136,10 +1188,12 @@ function parseEditorText(text) {
         } else if (explainRegex.test(line)) {
             if (currentQ) {
                 const expMatch = line.match(explainRegex);
-                currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expMatch[1].trim();
+                const expContent = cleanEditorClosingTags((expMatch[1] || "").trim());
+                currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expContent;
             }
         } else if (groupRegex.test(line)) {
-            sharedContext += (sharedContext ? "<br>" : "") + line;
+            const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+            sharedContext = grpContent;
         } else {
             const isInsideMathOrTable = (textToCheck) => {
                 if (line.trim().startsWith('|') || (line.trim().endsWith('|') && line.includes('|'))) return true;
