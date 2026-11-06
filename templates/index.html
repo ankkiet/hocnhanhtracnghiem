@@ -4521,6 +4521,8 @@ body.minimal-mode #publicLandingExtras {
             <span style="color: #cbd5e1;">•</span>
             <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Quyền dữ liệu &amp; Xóa dữ liệu</a>
             <span style="color: #cbd5e1;">•</span>
+            <a href="javascript:void(0)" onclick="window.openCookieSettings && window.openCookieSettings()" style="color: #2563eb; text-decoration: none; font-weight: 600;"><i class="ri-settings-4-line"></i> Cài đặt Cookie</a>
+            <span style="color: #cbd5e1;">•</span>
             <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #dc2626; text-decoration: none; font-weight: 600;">Báo cáo bản quyền / Vi phạm</a>
             <span style="color: #cbd5e1;">•</span>
             <a href="/about" style="color: #2563eb; text-decoration: none; font-weight: 600;">Về chúng tôi</a>
@@ -4873,7 +4875,7 @@ body.minimal-mode #publicLandingExtras {
   bottom: 20px;
   width: 350px;
   max-width: calc(100vw - 36px);
-  z-index: 99995;
+  z-index: 9999999 !important;
   pointer-events: none;
   color: var(--ux-ink);
 }
@@ -4884,8 +4886,20 @@ body.minimal-mode #publicLandingExtras {
     width: calc(100vw - 24px);
   }
 }
+.u225.is-on {
+  pointer-events: auto !important;
+}
+.u225.is-fab {
+  width: 46px !important;
+  height: 46px !important;
+  pointer-events: auto !important;
+}
+.u225.is-fab .u225-bn {
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
 .u225-bn {
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: relative;
   padding: 16px;
   border-radius: 22px;
@@ -4893,13 +4907,17 @@ body.minimal-mode #publicLandingExtras {
   box-shadow: 0 0 0 1px var(--ux-line), 0 24px 48px -12px var(--ux-shadow-strong);
   transform: translateY(140%);
   transition: transform .5s cubic-bezier(.3, 1.25, .5, 1);
+  visibility: visible;
 }
 .u225.is-on .u225-bn {
   transform: none;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 .u225.is-done .u225-bn {
   transform: translateY(140%);
   transition: transform .45s cubic-bezier(.5, 0, .75, 0) .55s;
+  pointer-events: none !important;
 }
 .u225-tp {
   display: flex;
@@ -4916,6 +4934,7 @@ body.minimal-mode #publicLandingExtras {
   width: 44px;
   height: 44px;
   overflow: visible;
+  pointer-events: none;
 }
 .u225-bt circle.b {
   transform-box: fill-box;
@@ -4986,8 +5005,17 @@ body.minimal-mode #publicLandingExtras {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 2px;
+  padding: 9px 6px;
   border-bottom: 1px solid var(--ux-line);
+  user-select: none;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.u225-rw.is-clickable {
+  cursor: pointer;
+}
+.u225-rw.is-clickable:hover {
+  background: var(--ux-surface-2);
 }
 .u225-rw:first-child {
   margin-top: 10px;
@@ -5014,6 +5042,7 @@ body.minimal-mode #publicLandingExtras {
   font-size: 10px;
   font-weight: 700;
   color: var(--ux-mint);
+  margin-right: 4px;
 }
 .u225-sw {
   position: relative;
@@ -5025,6 +5054,7 @@ body.minimal-mode #publicLandingExtras {
   background: var(--ux-surface-3);
   cursor: pointer;
   transition: background .2s;
+  pointer-events: auto !important;
 }
 .u225-sw::after {
   content: "";
@@ -5039,7 +5069,7 @@ body.minimal-mode #publicLandingExtras {
   transition: transform .25s cubic-bezier(.3, 1.5, .5, 1);
 }
 .u225-sw[aria-checked="true"] {
-  background: #10B981;
+  background: #10B981 !important;
 }
 .u225-sw[aria-checked="true"]::after {
   transform: translateX(14px);
@@ -5047,6 +5077,7 @@ body.minimal-mode #publicLandingExtras {
 .u225-sw:disabled {
   opacity: .65;
   cursor: not-allowed;
+  pointer-events: none;
 }
 .u225-bs {
   display: flex;
@@ -5063,6 +5094,10 @@ body.minimal-mode #publicLandingExtras {
   font-weight: 700;
   cursor: pointer;
   transition: all .15s ease;
+  pointer-events: auto !important;
+}
+.u225-bs button:active {
+  transform: scale(0.97);
 }
 .u225-set, .u225-sv {
   background: var(--ux-surface-2);
@@ -5089,7 +5124,7 @@ body.minimal-mode #publicLandingExtras {
   display: block;
 }
 .u225-fab {
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: absolute;
   left: 0;
   bottom: 0;
@@ -5104,6 +5139,7 @@ body.minimal-mode #publicLandingExtras {
   cursor: pointer;
   transform: scale(0);
   transition: transform .4s cubic-bezier(.3, 1.7, .5, 1);
+  z-index: 10;
 }
 .u225-fab:hover {
   transform: scale(1.1);
@@ -5114,6 +5150,7 @@ body.minimal-mode #publicLandingExtras {
 .u225-fab svg {
   width: 28px;
   height: 28px;
+  pointer-events: none;
 }
 .u225 button:focus-visible {
   outline: 2px solid var(--ux-accent);
@@ -5141,12 +5178,12 @@ body.minimal-mode #publicLandingExtras {
       <div class="u225-ls"></div>
     </div>
     <div class="u225-bs">
-      <button type="button" class="u225-set">Tùy chọn</button>
-      <button type="button" class="u225-sv">Lưu lựa chọn</button>
-      <button type="button" class="u225-all">Đồng ý tất cả</button>
+      <button type="button" class="u225-set" id="u225BtnSettings" onclick="window.u225OpenSettings && window.u225OpenSettings(event)">Tùy chọn</button>
+      <button type="button" class="u225-sv" id="u225BtnSave" onclick="window.u225SaveChoices && window.u225SaveChoices(event)">Lưu lựa chọn</button>
+      <button type="button" class="u225-all" id="u225BtnAcceptAll" onclick="window.u225AcceptAll && window.u225AcceptAll(event)">Đồng ý tất cả</button>
     </div>
   </div>
-  <button type="button" class="u225-fab" aria-label="Cài đặt Cookie & Quyền riêng tư" tabindex="-1" title="Cài đặt Cookie & Quyền riêng tư"></button>
+  <button type="button" class="u225-fab" id="u225Fab" aria-label="Cài đặt Cookie & Quyền riêng tư" tabindex="-1" title="Cài đặt Cookie & Quyền riêng tư" onclick="window.u225ToggleFab && window.u225ToggleFab(event)"></button>
 </div>
 <script>
 (function () {
@@ -5171,8 +5208,8 @@ body.minimal-mode #publicLandingExtras {
 
   var CK = [
     ['Thiết yếu (Bắt buộc)', 'Lưu phiên làm bài, đăng nhập và bảo mật', 1],
-    ['Phân tích hiệu năng', 'Thống kê phổ điểm & tối ưu tốc độ tải đề', 1],
-    ['Tùy chỉnh giao diện', 'Ghi nhớ kích cỡ chữ, chế độ xem và bộ lọc', 1]
+    ['Phân tích hiệu năng', 'Thống kê phổ điểm & tối ưu tốc độ tải đề', 0],
+    ['Tùy chỉnh giao diện', 'Ghi nhớ kích cỡ chữ, chế độ xem và bộ lọc', 0]
   ];
 
   var savedConsent = null;
@@ -5183,31 +5220,48 @@ body.minimal-mode #publicLandingExtras {
 
   var on = CK.map(function (c, idx) {
     if (c[2] === 1) return true;
-    if (savedConsent && savedConsent.choices) return !!savedConsent.choices[idx];
+    if (savedConsent && savedConsent.choices && typeof savedConsent.choices[idx] === 'boolean') {
+      return savedConsent.choices[idx];
+    }
     return true;
   });
+
+  window.__u225_getChoices = function () {
+    return on.slice();
+  };
 
   var S = CK.map(function (c, i) {
     var r = document.createElement('div');
     r.className = 'u225-rw';
-    r.innerHTML = '<div><b></b><small></small></div>' + (c[2] ? '<em></em>' : '') + '<button type="button" class="u225-sw" role="switch"></button>';
+    if (!c[2]) {
+      r.classList.add('is-clickable');
+    }
+    r.innerHTML = '<div><b></b><small></small></div>' + (c[2] ? '<em>Luôn bật</em>' : '') + '<button type="button" class="u225-sw" role="switch" aria-checked="' + (on[i] ? 'true' : 'false') + '"></button>';
     r.querySelector('b').textContent = c[0];
     r.querySelector('small').textContent = c[1];
-    if (c[2]) r.querySelector('em').textContent = 'Luôn bật';
     var b = r.querySelector('button');
     b.setAttribute('aria-label', c[0]);
-    if (c[2]) b.disabled = true;
-    b.addEventListener('click', function () {
-      on[i] = !on[i];
-      sync();
-    });
+    if (c[2]) {
+      b.disabled = true;
+    } else {
+      var toggle = function (ev) {
+        if (ev) ev.stopPropagation();
+        on[i] = !on[i];
+        sync();
+      };
+      b.addEventListener('click', toggle);
+      r.addEventListener('click', function (ev) {
+        if (ev.target === b || b.contains(ev.target)) return;
+        toggle(ev);
+      });
+    }
     if (ls) ls.appendChild(r);
     return b;
   });
 
   function sync() {
     S.forEach(function (b, i) {
-      b.setAttribute('aria-checked', on[i]);
+      b.setAttribute('aria-checked', on[i] ? 'true' : 'false');
     });
   }
 
@@ -5239,43 +5293,55 @@ body.minimal-mode #publicLandingExtras {
     }, rm ? 0 : 1050);
   }
 
-  if (set) {
-    set.addEventListener('click', function () {
-      expand(true);
+  window.u225OpenSettings = function (ev) {
+    if (ev) ev.preventDefault();
+    expand(true);
+    if (S[1]) S[1].focus({ preventScroll: true });
+  };
+
+  window.u225SaveChoices = function (ev) {
+    if (ev) ev.preventDefault();
+    saveAndDone('custom');
+  };
+
+  window.u225AcceptAll = function (ev) {
+    if (ev) ev.preventDefault();
+    on = on.map(function () { return true; });
+    sync();
+    saveAndDone('all');
+  };
+
+  window.u225ToggleFab = function (ev) {
+    if (ev) ev.preventDefault();
+    root.classList.remove('is-fab', 'is-bite', 'is-done');
+    if (fab) fab.tabIndex = -1;
+    root.classList.add('is-on');
+    expand(true);
+    setTimeout(function () {
       if (S[1]) S[1].focus({ preventScroll: true });
-    });
+    }, 300);
+  };
+
+  if (set) {
+    set.addEventListener('click', window.u225OpenSettings);
   }
 
   if (sv) {
-    sv.addEventListener('click', function () {
-      saveAndDone('custom');
-    });
+    sv.addEventListener('click', window.u225SaveChoices);
   }
 
   if (all) {
-    all.addEventListener('click', function () {
-      on = on.map(function () { return true; });
-      sync();
-      saveAndDone('all');
-    });
+    all.addEventListener('click', window.u225AcceptAll);
   }
 
   if (fab) {
-    fab.addEventListener('click', function () {
-      root.classList.remove('is-fab', 'is-bite');
-      fab.tabIndex = -1;
-      root.classList.add('is-on');
-      expand(true);
-      setTimeout(function () {
-        if (S[1]) S[1].focus({ preventScroll: true });
-      }, 300);
-    });
+    fab.addEventListener('click', window.u225ToggleFab);
   }
 
   window.openCookieSettings = function () {
     if (!root) return;
     root.style.display = 'block';
-    root.classList.remove('is-fab', 'is-bite');
+    root.classList.remove('is-fab', 'is-bite', 'is-done');
     if (fab) fab.tabIndex = -1;
     root.classList.add('is-on');
     expand(true);
@@ -5684,6 +5750,6 @@ body.minimal-mode #publicLandingExtras {
         }
     });
 </script>
-<script src="/script.js?v=20261106_v9"></script>
+<script src="/script.js?v=20261106_cookie_v2"></script>
 </body>
 </html>

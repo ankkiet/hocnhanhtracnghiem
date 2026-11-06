@@ -9660,8 +9660,10 @@ async function requestDeleteMyAccountPdpd() {
 
 function acceptPdpdConsent(level = 'all') {
     try {
+        const choices = level === 'all' ? [true, true, true] : (window.__u225_getChoices ? window.__u225_getChoices() : [true, true, true]);
         localStorage.setItem('hntn_pdpd_consent', JSON.stringify({
             level: level,
+            choices: choices,
             accepted_at: new Date().toISOString(),
             regulation: 'ND-13-2023-ND-CP'
         }));
