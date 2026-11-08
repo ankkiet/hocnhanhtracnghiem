@@ -294,6 +294,16 @@ def get_auto_numbering_prefix(para, doc, counters: dict) -> str:
         roman_str = roman_map.get(val, f"I{val}")
         return f"{roman_str}. "
     else:
+        # KIỂM TRA ĐẶC BIỆT: Nếu đoạn văn bản chứa các phương án trắc nghiệm tiếp nối như B., C., D. (hoặc b, c, d)
+        # thì tiền tố danh sách này thực chất là phương án A (hoặc a), KHÔNG PHẢI là số thứ tự câu hỏi 1. hay Câu 1!
+        raw_p_text = para.text or ""
+        if re.search(r'(?:\s+|^)[B-F][\.\:\)]', raw_p_text):
+            counters['opt'] = counters.get('opt', 0) + 1
+            return "A. "
+        if re.search(r'(?:\s+|^)[b-d][\)\.\:]', raw_p_text):
+            counters['sub'] = counters.get('sub', 0) + 1
+            return "a) "
+
         if "câu" in lvlText.lower() or "bài" in lvlText.lower():
             counters['q'] = counters.get('q', 0) + 1
             counters['opt'] = 0
@@ -988,11 +998,11 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
     from core.text_parser import extract_explain_from_block
 
-    q_regex = r'(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])(?:\s+|$)'
+    q_regex = r'(?i:(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d*[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])\d+[\.\:\)\/])(?:\s+|$))'
 
     opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
 
-    token_pattern = re.compile(f'({q_regex})|({opt_regex})', re.IGNORECASE)
+    token_pattern = re.compile(f'({q_regex})|({opt_regex})')
 
     
 
@@ -1033,6 +1043,12 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
         
 
         if is_question:
+            # Nếu chỉ khớp số trần (\d+.) nhưng ngay sau đó cùng dòng lại có phương án B, C -> đây là dòng phương án của câu trước, không phải câu hỏi mới!
+            if not re.search(r'(?i:Câu|Bài|Question|Q)', m.group(1)):
+                nl_pos = full_text.find('\n', match_end)
+                line_rest = full_text[match_end:nl_pos if nl_pos != -1 else len(full_text)]
+                if re.search(r'(?:\s+|^)[B-F][\.\:\)]', line_rest) or re.search(r'(?:\s+|^)[b-d][\)\.\:]', line_rest):
+                    continue
 
             if state == "IN_OPTION" and options:
 

@@ -273,6 +273,7 @@ class GeminiTrackerService:
 
                     keys_result.append({
                         "index": idx + 1,
+                        "key": k,
                         "masked_key": masked,
                         "status": k_status,
                         "status_label": status_label,

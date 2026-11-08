@@ -891,7 +891,24 @@ function getRealQuestionType(q) {
     // 2. Nếu có từ 2 ý chữ thường a), b), c), d) trở lên -> 100% BẮT BUỘC là Đúng / Sai
     if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
 
-    // 3. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
+    // 3. Nếu KHÔNG có phương án nào: kiểm tra tiêu đề nhóm hoặc loại câu hỏi đã được xác định
+    const grp = String(q.group_title || '').toUpperCase();
+    if (opts.length === 0) {
+        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III')) {
+            return 'short_answer';
+        }
+        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
+            return 'true_false';
+        }
+        const t = String(q.type || '').toLowerCase();
+        if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') return 'short_answer';
+        if (t === 'true_false' || t === 'tf' || t === 'dung_sai') return 'true_false';
+        if (q.correct_answer !== null && q.correct_answer !== undefined && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+            return 'short_answer';
+        }
+    }
+
+    // 4. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
     const t = String(q.type || '').toLowerCase();
     if (t === 'true_false' || t === 'tf' || t === 'dung_sai') {
         if (mcqCount === 0) return 'true_false';
@@ -901,29 +918,17 @@ function getRealQuestionType(q) {
     }
     if (t === 'mcq') return 'mcq';
 
-    // 4. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
+    // 5. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
     if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
         if (mcqCount === 0) return 'true_false';
     }
 
-    // 5. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
+    // 6. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
     if (opts.length === 0 && q.correct_answer) return 'short_answer';
-
-    // 6. Nếu thuộc nhóm Phần III hoặc group_title chứa Trả lời ngắn
-    const grp = String(q.group_title || '').toUpperCase();
-    if (opts.length === 0 && (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III'))) {
-        return 'short_answer';
-    }
-    if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
-        if (mcqCount === 0) return 'true_false';
-    }
 
     return 'mcq';
 }
 
-// ----------------------------------------------------
-// CHUYỂN ĐỔI GIỮA DỮ LIỆU JSON VÀ TEXT CODE
-// ----------------------------------------------------
 function dataToEditorText(data) {
     let html = "";
     data.forEach((q, i) => {
@@ -1008,15 +1013,16 @@ function parseEditorText(text) {
     let currentQ = null;
     const lines = restoredText.split('\n');
     let sharedContext = "";
+    let currentSectionHeader = "";
 
     // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
     const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
 
     // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
-    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
     const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
@@ -1039,7 +1045,8 @@ function parseEditorText(text) {
             
             // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
             let defaultType = 'mcq';
-            const grpUpper = (sharedContext || '').toUpperCase();
+            const activeGroup = (currentSectionHeader || sharedContext || '').trim();
+            const grpUpper = activeGroup.toUpperCase();
             if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
                 defaultType = 'short_answer';
             } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
@@ -1048,10 +1055,10 @@ function parseEditorText(text) {
 
             currentQ = {
                 type: defaultType,
-                group_title: sharedContext.trim(),
+                group_title: activeGroup,
                 question: qText,
                 options: [],
-                correct_answer: (defaultType === 'true_false' ? {} : null),
+                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' ? '' : null)),
                 explain: ''
             };
             sharedContext = ""; 
@@ -1061,26 +1068,64 @@ function parseEditorText(text) {
                 currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
                 sharedContext = "";
             }
+            // Nếu trước đó đã lỡ gom các bước/phát biểu a), b), c), d) vào options (do tưởng nhầm là câu Đúng/Sai),
+            // hãy hoàn trả toàn bộ về thân câu hỏi (question stem) vì đây là câu hỏi trắc nghiệm A, B, C, D
+            if (currentQ.options && currentQ.options.length > 0 && currentQ.options.some(opt => /^\s*\(?[a-d][\.\:\)\-]/.test(opt))) {
+                const restoredStem = currentQ.options.join('<br>');
+                currentQ.question = (currentQ.question ? currentQ.question + '<br>' : '') + restoredStem;
+                currentQ.options = [];
+                currentQ.correct_answer = null;
+            }
             currentQ.type = 'mcq';
-            const match = line.match(mcqOptRegex);
-            const charRaw = match[1].trim().toUpperCase();
-            const char = charRaw.replace('*', '').trim();
-            
-            // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
-            const isCorrect = charRaw.includes('*')
-                || /^\s*\*/.test(line)
-                || /<\/?(?:MARK|u)>/i.test(line)
-                || /[✓✔☑]/i.test(line)
-                || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
 
-            let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
-            let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
-                                         .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
-                                         .trim();
-            
-            const fullOpt = `${char}. ${cleanContent}`;
-            currentQ.options.push(fullOpt);
-            if (isCorrect) currentQ.correct_answer = fullOpt;
+            // Kiểm tra xem dòng này có chứa nhiều phương án A, B, C, D gộp chung không (ví dụ: "A. X.  B. Y.  C. Z.  D. T.")
+            const multiOptPat = /(?:^|\t|\s{2,}|(?<=[;\.\:\?!])\s+)(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/g;
+            const subMatches = [];
+            let subM;
+            while ((subM = multiOptPat.exec(line)) !== null) {
+                subMatches.push(subM);
+            }
+
+            if (subMatches.length > 1) {
+                subMatches.forEach((mItem, mIdx) => {
+                    const charRaw = mItem[1].trim().toUpperCase();
+                    const char = charRaw.replace('*', '').trim();
+                    const isCorrect = mItem[0].includes('*')
+                        || /<\/?(?:MARK|u)>/i.test(mItem[0])
+                        || /[✓✔☑]/i.test(mItem[0])
+                        || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(mItem[0]);
+
+                    const start = mItem.index + mItem[0].length;
+                    const end = (mIdx + 1 < subMatches.length) ? subMatches[mIdx + 1].index : line.length;
+                    let optContent = cleanEditorClosingTags(line.substring(start, end).trim());
+                    let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
+                                                 .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
+                                                 .trim();
+                    const fullOpt = `${char}. ${cleanContent}`;
+                    currentQ.options.push(fullOpt);
+                    if (isCorrect) currentQ.correct_answer = fullOpt;
+                });
+            } else {
+                const match = line.match(mcqOptRegex);
+                const charRaw = match[1].trim().toUpperCase();
+                const char = charRaw.replace('*', '').trim();
+                
+                // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
+                const isCorrect = charRaw.includes('*')
+                    || /^\s*\*/.test(line)
+                    || /<\/?(?:MARK|u)>/i.test(line)
+                    || /[✓✔☑]/i.test(line)
+                    || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
+
+                let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
+                let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
+                                             .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
+                                             .trim();
+                
+                const fullOpt = `${char}. ${cleanContent}`;
+                currentQ.options.push(fullOpt);
+                if (isCorrect) currentQ.correct_answer = fullOpt;
+            }
         } else if (tfOptRegex.test(line)) {
             // 2. DẠNG ĐÚNG / SAI KHI PHƯƠNG ÁN LÀ CHỮ THƯỜNG a), b), c), d)
             if (!currentQ) {
@@ -1193,6 +1238,7 @@ function parseEditorText(text) {
             }
         } else if (groupRegex.test(line)) {
             const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+            currentSectionHeader = grpContent;
             sharedContext = grpContent;
         } else {
             const isInsideMathOrTable = (textToCheck) => {
@@ -3167,16 +3213,29 @@ window.runCrossCheckAI = async function() {
             })
         });
         const data = await res.json();
+        if (typeof hideStudioLoader === 'function') hideStudioLoader();
+        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
+
         if (res.ok && data.status === 'success') {
-            currentData = data.quiz_data || currentData;
-            const mismatches = data.mismatches_found || 0;
+            const rawQuiz = data.quiz_data || data.data || [];
+            if (Array.isArray(rawQuiz) && rawQuiz.length > 0) {
+                currentData = rawQuiz;
+            }
+            const totalChecked = data.total_checked || data.total_questions || currentData.length;
+            const mismatches = (data.mismatches_found !== undefined) ? data.mismatches_found : ((data.mismatch_count !== undefined) ? data.mismatch_count : (data.mismatches ? data.mismatches.length : 0));
             syncDataToEditor();
             renderPreviewAll();
             saveDraftToSession();
             if (mismatches > 0) {
-                alert(`⚠️ Phát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu! Vui lòng rà soát các thẻ cảnh báo màu cam.`);
+                setTimeout(() => {
+                    const firstWarn = document.querySelector('.cross-check-warning-box');
+                    if (firstWarn) {
+                        firstWarn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+                alert(`⚠️ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát xong ${totalChecked} câu hỏi.\nPhát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu!\n\nHệ thống đã đánh dấu các khung cảnh báo MÀU CAM tại từng câu hỏi tương ứng trong Studio để bạn rà soát và quyết định cập nhật.`);
             } else {
-                showToast("Tuyệt vời! 100% đáp án khớp với kết quả AI giải độc lập.");
+                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của Giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
             }
         } else {
             showAIDiagnosticModal(data);
@@ -3932,11 +3991,57 @@ function insertImageToEditor(srcUrl) {
     if (!editor) return;
     restoreEditorSelection();
     editor.focus();
-    const imgHtml = `<img src="${srcUrl}" style="max-width: 100%; height: auto; border-radius: 6px; margin: 8px auto; display: block;" alt="hình minh họa">`;
+    const imgHtml = `<img src="${srcUrl}" draggable="true" style="max-width: 100%; height: auto; border-radius: 6px; margin: 8px auto; display: block;" alt="hình minh họa">`;
     document.execCommand('insertHTML', false, imgHtml);
     saveCurrentEditorSelection();
     editor.dispatchEvent(new Event('input', { bubbles: true }));
-    showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo giãn hoặc cắt ảnh.');
+    showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
+}
+
+function insertImageAtRange(srcUrl, range) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    editor.focus();
+
+    let targetRange = range;
+    if (!targetRange || !editor.contains(targetRange.startContainer)) {
+        restoreEditorSelection();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+            targetRange = sel.getRangeAt(0);
+        }
+    }
+
+    const img = document.createElement('img');
+    img.src = srcUrl;
+    img.setAttribute('draggable', 'true');
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.borderRadius = '6px';
+    img.style.margin = '8px auto';
+    img.style.display = 'block';
+    img.alt = 'hình minh họa';
+
+    if (targetRange && editor.contains(targetRange.startContainer)) {
+        targetRange.insertNode(img);
+        const newRange = document.createRange();
+        newRange.setStartAfter(img);
+        newRange.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        saveCurrentEditorSelection();
+    } else {
+        editor.appendChild(img);
+    }
+
+    selectEditorImage(img);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    saveDraftToSession();
+
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -3947,6 +4052,112 @@ let isResizingImage = false;
 let resizeHandleDir = '';
 let resizeStartX = 0, resizeStartY = 0;
 let resizeStartWidth = 0, resizeStartHeight = 0, resizeAspect = 1;
+let draggedEditorImg = null;
+let currentDropRange = null;
+
+function getCaretRangeFromPoint(clientX, clientY) {
+    if (document.caretRangeFromPoint) {
+        return document.caretRangeFromPoint(clientX, clientY);
+    } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(clientX, clientY);
+        if (pos) {
+            const range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+            return range;
+        }
+    }
+    return null;
+}
+
+function updateEditorDropCaret(clientX, clientY) {
+    const editor = document.getElementById('codeEditor');
+    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
+    const caret = document.getElementById('editorDropCaret');
+    if (!editor || !wrapper || !caret) return;
+
+    const range = getCaretRangeFromPoint(clientX, clientY);
+    if (!range || !editor.contains(range.startContainer)) {
+        hideEditorDropCaret();
+        return;
+    }
+
+    currentDropRange = range;
+
+    // Cập nhật vùng chọn hệ thống để con trỏ chuột cũng định vị tại đây
+    try {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } catch (e) {}
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    let rect = null;
+
+    const rects = range.getClientRects();
+    if (rects.length > 0 && rects[0].height > 0) {
+        rect = rects[0];
+    } else {
+        const bRect = range.getBoundingClientRect();
+        if (bRect && bRect.height > 0) {
+            rect = bRect;
+        }
+    }
+
+    // Nếu range bị collapsed trong khối rỗng hoặc cuối dòng, chèn span ẩn tạm thời để đo vị trí chính xác 100%
+    if (!rect || rect.height === 0) {
+        try {
+            const marker = document.createElement('span');
+            marker.textContent = '\uFEFF';
+            marker.style.cssText = 'display:inline-block; width:0; height:1.4em; padding:0; margin:0; border:0; line-height:inherit; font-size:inherit;';
+            const clone = range.cloneRange();
+            clone.insertNode(marker);
+            const mRect = marker.getBoundingClientRect();
+            marker.remove();
+            if (mRect && mRect.height > 0) {
+                rect = mRect;
+            }
+        } catch (e) {}
+    }
+
+    // Fallback nếu vẫn chưa lấy được rect
+    if (!rect || rect.height === 0) {
+        let node = range.startContainer;
+        if (node.nodeType === Node.TEXT_NODE) {
+            node = node.parentNode;
+        }
+        if (node && node.getBoundingClientRect) {
+            const nodeRect = node.getBoundingClientRect();
+            rect = {
+                top: nodeRect.top,
+                left: clientX,
+                bottom: nodeRect.bottom,
+                right: clientX + 2,
+                height: Math.min(26, Math.max(18, nodeRect.height))
+            };
+        }
+    }
+
+    if (!rect) {
+        hideEditorDropCaret();
+        return;
+    }
+
+    const top = rect.top - wrapperRect.top + wrapper.scrollTop;
+    const left = rect.left - wrapperRect.left + wrapper.scrollLeft;
+    const height = Math.max(18, Math.min(36, rect.height || 22));
+
+    caret.style.display = 'block';
+    caret.style.top = top + 'px';
+    caret.style.left = left + 'px';
+    caret.style.height = height + 'px';
+}
+
+function hideEditorDropCaret() {
+    const caret = document.getElementById('editorDropCaret');
+    if (caret) caret.style.display = 'none';
+    currentDropRange = null;
+}
 
 function initEditorImageInteractions() {
     const editor = document.getElementById('codeEditor');
@@ -4002,23 +4213,142 @@ function initEditorImageInteractions() {
         }
     });
 
-    // Support Drag and Drop image files directly into editor
-    editor.addEventListener('dragover', function(e) {
-        if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
-            e.preventDefault();
+    // Tự động gán draggable="true" cho mọi ảnh khi rê chuột vào trong editor
+    editor.addEventListener('mouseenter', function(e) {
+        if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
+            e.target.setAttribute('draggable', 'true');
+        }
+    }, true);
+
+    // 1. Kéo bắt đầu từ ảnh trong editor (Drag Start)
+    editor.addEventListener('dragstart', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            draggedEditorImg = e.target;
+            hideEditorImageResizer();
+            e.dataTransfer.effectAllowed = 'move';
+            try {
+                e.dataTransfer.setData('text/plain', e.target.src || '');
+                e.dataTransfer.setData('text/html', e.target.outerHTML || '');
+            } catch (err) {}
+
+            setTimeout(() => {
+                if (draggedEditorImg) {
+                    draggedEditorImg.classList.add('editor-img-dragging');
+                }
+            }, 0);
         }
     });
 
+    // 2. Kéo kết thúc (Drag End)
+    editor.addEventListener('dragend', function(e) {
+        if (draggedEditorImg) {
+            draggedEditorImg.classList.remove('editor-img-dragging');
+            draggedEditorImg = null;
+        }
+        hideEditorDropCaret();
+    });
+
+    // 3. Rê chuột khi đang kéo (Drag Over) - hiển thị dấu nháy chuột định vị chính xác vị trí thả
+    editor.addEventListener('dragover', function(e) {
+        const isInternalImg = !!draggedEditorImg;
+        const isFiles = e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files');
+        const isHtml = e.dataTransfer && e.dataTransfer.types && (
+            Array.from(e.dataTransfer.types).includes('text/html') || 
+            Array.from(e.dataTransfer.types).includes('text/uri-list') ||
+            Array.from(e.dataTransfer.types).includes('text/plain')
+        );
+
+        if (isInternalImg || isFiles || isHtml) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = isInternalImg ? 'move' : 'copy';
+            updateEditorDropCaret(e.clientX, e.clientY);
+        }
+    });
+
+    // 4. Rời khỏi editor khi đang kéo
+    editor.addEventListener('dragleave', function(e) {
+        if (!editor.contains(e.relatedTarget)) {
+            hideEditorDropCaret();
+        }
+    });
+
+    // 5. Thả ảnh vào vị trí dấu nháy (Drop)
     editor.addEventListener('drop', function(e) {
+        const targetDropRange = getCaretRangeFromPoint(e.clientX, e.clientY) || currentDropRange;
+        hideEditorDropCaret();
+
+        // TRƯỜNG HỢP 1: Kéo ảnh có sẵn trong bài sang vị trí mới
+        if (draggedEditorImg) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const targetImg = draggedEditorImg;
+            draggedEditorImg = null;
+            targetImg.classList.remove('editor-img-dragging');
+
+            if (!targetDropRange || !editor.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Tránh thả ảnh vào chính nó
+            if (targetImg.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Chèn ảnh vào đúng vị trí dấu nháy
+            targetDropRange.insertNode(targetImg);
+
+            // Đặt con trỏ chuột ngay sau ảnh vừa thả
+            const newRange = document.createRange();
+            newRange.setStartAfter(targetImg);
+            newRange.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            saveCurrentEditorSelection();
+
+            // Hiển thị khung chọn và nút điều khiển cho ảnh tại vị trí mới
+            selectEditorImage(targetImg);
+
+            // Kích hoạt re-parse đề thi và cập nhật xem trước ngay lập tức
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            saveDraftToSession();
+
+            if (typeof showToast === 'function') {
+                showToast('✓ Đã di chuyển hình ảnh đến vị trí mới!');
+            }
+            return;
+        }
+
+        // TRƯỜNG HỢP 2: Thả tệp ảnh từ máy tính vào đúng vị trí dấu nháy
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
                 e.preventDefault();
+                e.stopPropagation();
+
                 const reader = new FileReader();
                 reader.onload = function(evt) {
-                    insertImageToEditor(evt.target.result);
+                    insertImageAtRange(evt.target.result, targetDropRange);
                 };
                 reader.readAsDataURL(file);
+                return;
+            }
+        }
+
+        // TRƯỜNG HỢP 3: Kéo ảnh từ khung Xem trước (Giao diện học sinh) hoặc web khác vào
+        if (e.dataTransfer) {
+            const html = e.dataTransfer.getData('text/html');
+            if (html && /<img\b[^>]*>/i.test(html)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const img = temp.querySelector('img');
+                if (img && img.src) {
+                    insertImageAtRange(img.src, targetDropRange);
+                    return;
+                }
             }
         }
     });
@@ -4525,6 +4855,11 @@ window.insertSampleDemoImage = function() {
 document.addEventListener('DOMContentLoaded', function() {
     const previewContent = document.getElementById('preview-content');
     if (previewContent) {
+        previewContent.addEventListener('mouseenter', function(e) {
+            if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
+                e.target.setAttribute('draggable', 'true');
+            }
+        }, true);
         previewContent.addEventListener('dblclick', function(e) {
             if (e.target && e.target.tagName === 'IMG') {
                 const targetSrc = e.target.getAttribute('src');

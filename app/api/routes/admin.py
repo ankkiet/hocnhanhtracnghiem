@@ -195,13 +195,8 @@ async def get_api_key(admin_token: str):
         raise HTTPException(status_code=500, detail="Lỗi DB")
         
     verify_admin_access(admin_token, db)
-    now = time.time()
-    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
-        return {"status": "success", "api_keys": SETTINGS_CACHE['gemini']['data']}
-        
-    settings_doc = db.collection('settings').document('gemini').get()
-    api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
-    SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+    from app.api.routes.document import get_cached_gemini_keys
+    api_keys = get_cached_gemini_keys(db)
     return {"status": "success", "api_keys": api_keys}
 
 
@@ -269,12 +264,16 @@ async def get_gemini_stats(admin_token: str):
         
     verify_admin_access(admin_token, db)
     
-    settings_doc = db.collection('settings').document('gemini').get()
-    api_keys = settings_doc.to_dict().get('api_keys', []) if settings_doc.exists else []
+    from app.api.routes.document import get_cached_gemini_keys
+    api_keys = get_cached_gemini_keys(db)
     
     from services.gemini_tracker_service import gemini_tracker
     stats = gemini_tracker.get_metrics(api_keys)
-    return {"status": "success", "data": stats}
+    return {
+        "status": "success",
+        "data": stats,
+        "metrics": stats
+    }
 
 
 @router.post("/ping_gemini_key", summary="Kiểm tra trực tiếp 1 Gemini API Key (Admin)")
@@ -313,6 +312,8 @@ async def ping_gemini_key(req: PingKeyRequest):
                     "status": "success",
                     "key": mask_api_key(clean_k),
                     "state": "healthy",
+                    "result": "Hoạt động tốt (Healthy)",
+                    "latency_ms": duration_ms,
                     "message": f"Khóa API hoạt động tốt với {m} (Phản hồi sau {duration_ms}ms)"
                 }
             except Exception as e_model:
@@ -335,6 +336,8 @@ async def ping_gemini_key(req: PingKeyRequest):
             "status": "error",
             "key": mask_api_key(clean_k),
             "state": state,
+            "result": f"Lỗi ({state})",
+            "latency_ms": duration_ms,
             "message": f"[{diag.get('error_code')}] {diag.get('error_name')}: {diag.get('cause')}",
             "diagnostic": diag
         }

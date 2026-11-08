@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import math
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -1600,33 +1601,42 @@ async def generate_mcq_with_gemini(
 
 
 
-    chunks = chunk_marked_text(marked_text, questions_per_chunk=15)
+    # Khử trùng lặp và làm sạch danh sách API Keys
+    valid_keys = []
+    seen_keys = set()
+    for k in (api_keys or []):
+        if k and isinstance(k, str) and k.strip() and k.strip() not in seen_keys:
+            seen_keys.add(k.strip())
+            valid_keys.append(k.strip())
 
+    if not valid_keys:
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        raise GeminiAPIException(diag)
+
+    num_keys = len(valid_keys)
+
+    # Đếm số câu hỏi sơ bộ trong văn bản để chia đều khối lượng công việc cho các API Key
+    q_regex = r'(?:^|\n)\s*(?:Câu|Bài|Question|Q)\s*\d+\s*[\.\:\-\)]|(?:^|\n)\s*\d+\s*[\.\:\)]'
+    detected_count = len(re.findall(q_regex, marked_text, re.IGNORECASE))
+
+    # Tối ưu kích thước từng phần (chunk) theo số lượng Worker (API Keys):
+    # Nếu có nhiều key và đề thi dài (> 15 câu), chia đều số câu cho các key (mỗi chunk 8 - 15 câu)
+    if num_keys > 1 and detected_count > 15:
+        target_per_key = math.ceil(detected_count / num_keys)
+        questions_per_chunk = max(8, min(15, target_per_key))
+    else:
+        questions_per_chunk = 15
+
+    chunks = chunk_marked_text(marked_text, questions_per_chunk=questions_per_chunk)
     all_extracted_data = []
 
-    
-
-    # Giới hạn tối đa 2 tác vụ chạy đồng thời để chống chạm Rate Limit 429 trên Google Free Tier
-
-    concurrency_limit = asyncio.Semaphore(2)
-
-    
-
     # Đếm tổng số placeholder ảnh trong toàn bộ tài liệu để nhắc AI
-
     total_imgs = len(re.findall(r'\[IMG_\d+\]', marked_text))
-
     img_reminder = (
-
         f" Tài liệu chứa {total_imgs} ảnh được đánh dấu bằng [IMG_X] (X là số). "
-
         "TUYỆT ĐỐI PHẢI GIỮ NGUYÊN 100% các placeholder [IMG_X] đúng như trong văn bản gốc. "
-
         "KHÔNG được viết lại thành [Hình X], [Image X], [Ảnh X] hay bất kỳ dạng nào khác."
-
     ) if total_imgs > 0 else ""
-
-    
 
     system_instruction = (
         "Bạn là một chuyên gia giáo dục và biên tập viên đề thi trắc nghiệm chuẩn sư phạm. "
@@ -1655,57 +1665,29 @@ async def generate_mcq_with_gemini(
         f"Trả về kết quả dưới dạng JSON array duy nhất.{img_reminder}"
     )
 
-    
-
     last_chunk_error = None
 
-    async def process_chunk(idx, chunk):
+    async def process_chunk(idx: int, chunk: str, chunk_keys: List[str]):
         nonlocal last_chunk_error
 
         if not chunk.strip():
-
             return None
 
-        
-
         # Đếm placeholder ảnh trong chunk này
-
         chunk_imgs = re.findall(r'\[IMG_\d+\]', chunk)
-
         img_list_str = ", ".join(chunk_imgs) if chunk_imgs else ""
-
         img_strict_rule = (
-
             f"\n            QUAN TRỌNG: Chunk này chứa {len(chunk_imgs)} ảnh: {img_list_str}. "
-
             "Bạn PHẢI sao chép nguyên xi các placeholder ảnh này (đúng chính xác từng ký tự kể cả dấu ngoặc vuông và dấu gạch dưới) "
-
             "vào trường 'question' hoặc 'options' tương ứng. KHÔNG ĐƯỢC bỏ qua, viết lại hay sáng tác thêm placeholder ảnh mới."
-
         ) if chunk_imgs else ""
 
-            
-
-        async with concurrency_limit:
-
-            if active_tasks is not None and task_id and task_id in active_tasks:
-
-                active_tasks[task_id]["message"] = f"AI đang bóc tách phần {idx + 1}/{len(chunks)}..."
-
-                
-
-            prompt = f"""
-
+        prompt = f"""
             Bạn là trợ lý AI chuyên gia phân tích và bóc tách đề thi theo CHUẨN CẤU TRÚC MỚI CỦA BỘ GIÁO DỤC VÀ ĐÀO TẠO (Chương trình GDPT 2018).
-
             Nhiệm vụ: Trích xuất CHÍNH XÁC toàn bộ các câu hỏi từ phần văn bản {idx + 1}/{len(chunks)} sau thành danh sách JSON chuẩn.
-
             {ak_prompt_section}
-
             ĐỀ THI GỒM 3 DẠNG CÂU HỎI THEO QUY CHUẨN BỘ GD&ĐT:
-
             
-
             1. PHẦN I: TRẮC NGHIỆM NHIỀU LỰA CHỌN (type: "mcq")
                - 4 lựa chọn A, B, C, D (bắt buộc tiền tố 'A. ', 'B. ', 'C. ', 'D. ').
                - NGUYÊN TẮC SỐNG CÒN: Khi các lựa chọn là CHỮ IN HOA A, B, C, D (hoặc A), B), C), D)) -> 100% BẮT BUỘC gán type: "mcq". TUYỆT ĐỐI CẤM KHÔNG ĐƯỢC CHUYỂN SANG type: "true_false", KHÔNG ĐƯỢC BIẾN THÀNH a), b), c), d), VÀ KHÔNG ĐƯỢC GÁN correct_answer dạng dictionary!
@@ -1792,129 +1774,125 @@ async def generate_mcq_with_gemini(
             8. TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA BỎ các thẻ [IMG_X]. Phải sao chép NGUYÊN XI, ĐÚNG TỪNG KÝ TỰ các placeholder [IMG_X] vào câu hỏi hoặc đáp án tương ứng.
             9. Chỉ trả về duy nhất mảng JSON [...] không có văn bản giải thích nào khác ngoài JSON.{img_strict_rule}
 
-            
-
             Văn bản:
-
             {chunk}
-
             """
 
-            try:
+        try:
+            response = await call_gemini_with_fallback(
+                prompt=prompt,
+                api_keys=chunk_keys,
+                system_instruction=system_instruction,
+                thinking_budget=0
+            )
 
-                response = await call_gemini_with_fallback(
+            raw_text = response.text
+            # Khôi phục lại placeholder ảnh mà AI có thể đã viết sai
+            raw_text = restore_image_placeholders(raw_text)
+            fixed_raw = fix_json_latex_escapes(raw_text)
+            parsed_json = None
 
-                    prompt=prompt,
-
-                    api_keys=api_keys,
-
-                    system_instruction=system_instruction,
-
-                    thinking_budget=0
-
-                )
-
-                raw_text = response.text
-
-                # Khôi phục lại placeholder ảnh mà AI có thể đã viết sai
-
-                raw_text = restore_image_placeholders(raw_text)
-
-                
-
-                fixed_raw = fix_json_latex_escapes(raw_text)
-                parsed_json = None
-                
-                if json_repair is not None:
+            if json_repair is not None:
+                try:
+                    parsed_json = json_repair.loads(fixed_raw)
+                except Exception:
                     try:
-                        parsed_json = json_repair.loads(fixed_raw)
-                    except Exception:
-                        try:
-                            parsed_json = json_repair.loads(raw_text)
-                        except Exception:
-                            pass
-                            
-                if parsed_json is None:
-                    match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
-                    json_text = match.group(0) if match else fixed_raw
-                    try:
-                        parsed_json = json.loads(json_text, strict=False)
+                        parsed_json = json_repair.loads(raw_text)
                     except Exception:
                         pass
 
-                # Nếu AI trả về bọc trong Object {"questions": [...]}, tự động trích xuất danh sách
-                if isinstance(parsed_json, dict):
-                    for k in ["questions", "data", "quiz", "result", "items", "cau_hoi", "list"]:
-                        if isinstance(parsed_json.get(k), list):
-                            parsed_json = parsed_json[k]
-                            break
+            if parsed_json is None:
+                match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
+                json_text = match.group(0) if match else fixed_raw
+                try:
+                    parsed_json = json.loads(json_text, strict=False)
+                except Exception:
+                    pass
+
+            # Nếu AI trả về bọc trong Object {"questions": [...]}, tự động trích xuất danh sách
+            if isinstance(parsed_json, dict):
+                for k in ["questions", "data", "quiz", "result", "items", "cau_hoi", "list"]:
+                    if isinstance(parsed_json.get(k), list):
+                        parsed_json = parsed_json[k]
+                        break
+                else:
+                    if "question" in parsed_json:
+                        parsed_json = [parsed_json]
                     else:
-                        if "question" in parsed_json:
-                            parsed_json = [parsed_json]
-                        else:
-                            parsed_json = []
+                        parsed_json = []
 
-                if isinstance(parsed_json, list):
-                    norm_questions = [normalize_question_data(q) for q in parsed_json if isinstance(q, dict)]
-                    return reinject_missing_image_placeholders(chunk, norm_questions)
-                return None
+            if isinstance(parsed_json, list):
+                norm_questions = [normalize_question_data(q) for q in parsed_json if isinstance(q, dict)]
+                return reinject_missing_image_placeholders(chunk, norm_questions)
+            return None
 
-            except Exception as e:
-                last_chunk_error = e
-                logger.warning(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
-                err_str = str(e).lower()
-                is_fatal = isinstance(e, GeminiAPIException) or any(k in err_str for k in ["429", "quota", "invalid", "not valid", "no api key", "chưa cấu hình", "tất cả các key"])
-                if is_fatal:
-                    abort_event.set()
-                return None
+        except Exception as e:
+            last_chunk_error = e
+            logger.warning(f"Lỗi khi xử lý chunk {idx + 1}: {e}")
+            err_str = str(e).lower()
+            is_fatal = isinstance(e, GeminiAPIException) or any(k in err_str for k in ["429", "quota", "invalid", "not valid", "no api key", "chưa cấu hình", "tất cả các key"])
+            if is_fatal:
+                abort_event.set()
+            return None
 
-
-
-    # Cơ chế Fail-Fast & Báo cáo phần trăm tiến độ từng chunk
-    sem = asyncio.Semaphore(2)
+    # Thiết lập Multi-Key Worker Pool song song:
+    # 1 key: 2 luồng, 2 keys: 4 luồng, 3 keys: 6 luồng, >= 4 keys: tối đa 8 luồng
+    max_concurrency = max(2, min(num_keys * 2, 8))
+    worker_semaphore = asyncio.Semaphore(max_concurrency)
     abort_event = asyncio.Event()
     completed_chunks = 0
     total_valid_chunks = sum(1 for c in chunks if c.strip()) or 1
 
-    async def sem_process_chunk(idx, chunk):
+    async def sem_process_chunk(idx: int, chunk: str, chunk_keys: List[str]):
         if abort_event.is_set():
-            return None
-        async with sem:
+            return (idx, None)
+        async with worker_semaphore:
             if abort_event.is_set():
-                return None
-            res = await process_chunk(idx, chunk)
+                return (idx, None)
+
+            if active_tasks is not None and task_id and task_id in active_tasks:
+                worker_no = (idx % num_keys) + 1
+                active_tasks[task_id]["message"] = f"AI Worker #{worker_no} đang bóc tách phần {idx + 1}/{len(chunks)}..."
+
+            res = await process_chunk(idx, chunk, chunk_keys)
             if res is not None and task_id and not abort_event.is_set():
                 nonlocal completed_chunks
                 completed_chunks += 1
                 try:
-                    from core.state import active_tasks
-                    if task_id in active_tasks:
+                    from core.state import active_tasks as g_tasks
+                    if task_id in g_tasks:
                         pct = min(85, round(35 + (completed_chunks / total_valid_chunks * 45)))
-                        active_tasks[task_id]["progress"] = pct
-                        active_tasks[task_id]["message"] = f"AI đã bóc tách xong phần {completed_chunks}/{total_valid_chunks} ({pct}%)..."
+                        g_tasks[task_id]["progress"] = pct
+                        g_tasks[task_id]["message"] = f"AI đã hoàn thành {completed_chunks}/{total_valid_chunks} phần ({pct}%)..."
                 except Exception:
                     pass
-            return res
+            return (idx, res)
 
-    tasks = [sem_process_chunk(idx, chunk) for idx, chunk in enumerate(chunks)]
-    results = await asyncio.gather(*tasks)
+    # Phân phối đều các phần cho từng API Key theo mô hình Round-Robin kết hợp Fallback
+    tasks = []
+    for idx, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        primary_k_idx = idx % num_keys
+        # Key chính được thử trước, các key còn lại làm fallback nếu key chính hết quota
+        rotated_keys = [valid_keys[(primary_k_idx + offset) % num_keys] for offset in range(num_keys)]
+        tasks.append(sem_process_chunk(idx, chunk, rotated_keys))
 
-    for res in results:
-        if res:
-            all_extracted_data.extend(res)
+    raw_results = await asyncio.gather(*tasks)
+
+    # RÁP LẠI TOÀN BỘ ĐỀ THI THEO ĐÚNG THỨ TỰ BAN ĐẦU (sắp xếp theo chunk index idx)
+    sorted_results = sorted(raw_results, key=lambda x: x[0])
+    for idx, chunk_res in sorted_results:
+        if chunk_res:
+            all_extracted_data.extend(chunk_res)
 
     if not all_extracted_data and any(c.strip() for c in chunks):
-        diag = diagnose_gemini_error(last_chunk_error or Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu."), keys_tried=api_keys)
+        diag = diagnose_gemini_error(last_chunk_error or Exception("AI không thể trích xuất bất kỳ câu hỏi nào từ tài liệu."), keys_tried=valid_keys)
         raise GeminiAPIException(diag)
 
-
-
     # Áp đặt lại Bảng đáp án chuẩn (Source of Truth) lên toàn bộ dữ liệu bóc tách
-
     if answer_key and hasattr(answer_key, 'get_answer'):
-
         from core.answer_key_extractor import reconcile_quiz_with_answer_key
-
         all_extracted_data = reconcile_quiz_with_answer_key(all_extracted_data, answer_key)
 
 
@@ -2133,9 +2111,18 @@ async def process_pdf_with_ocr(
     Chuyển đổi từng trang thành ảnh chất lượng cao và dùng Gemini Multimodal để bóc tách câu hỏi,
     công thức LaTeX và hình vẽ.
     """
-    if not api_keys:
+    valid_keys = []
+    seen_keys = set()
+    for k in (api_keys or []):
+        if k and isinstance(k, str) and k.strip() and k.strip() not in seen_keys:
+            seen_keys.add(k.strip())
+            valid_keys.append(k.strip())
+
+    if not valid_keys:
         diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
         raise GeminiAPIException(diag)
+
+    num_keys = len(valid_keys)
 
     if fitz is None:
         raise Exception("Thư viện PyMuPDF chưa được cài đặt để đọc PDF.")
@@ -2149,100 +2136,128 @@ async def process_pdf_with_ocr(
 
     doc = fitz.open(pdf_path)
     total_pages = len(doc)
-    all_extracted_questions = []
-
+    pages_bytes = []
     for page_idx in range(total_pages):
-        page_num = page_idx + 1
-        if active_tasks and task_id and task_id in active_tasks:
-            active_tasks[task_id]["message"] = f"AI đang OCR trang scan {page_num}/{total_pages}..."
-
         page = doc[page_idx]
         pix = page.get_pixmap(dpi=180)
-        img_bytes = pix.tobytes("jpeg")
+        pages_bytes.append((page_idx, pix.tobytes("jpeg")))
+    doc.close()
 
-        system_instruction = (
-            "Bạn là chuyên gia OCR tài liệu đề thi trắc nghiệm Việt Nam chuẩn xác nhất.\n"
-            "Nhiệm vụ: Đọc ảnh trang đề thi chụp/scan và bóc tách CHÍNH XÁC toàn bộ câu hỏi theo chuẩn GDPT 2018 (mcq, true_false, short_answer).\n"
-            "Quy tắc sống còn:\n"
-            "1. Nhận diện trung thực mọi chữ, số, công thức toán/hóa học, bảng biểu từ ảnh.\n"
-            "2. Biểu thức toán BẮT BUỘC đặt trong \\( và \\). Công thức hóa học / chỉ số dưới dùng thẻ HTML <sub> và <sup> (vd: H<sub>2</sub>SO<sub>4</sub>, Fe<sup>3+</sup>).\n"
-            "3. ĐÁP ÁN: Nếu đề có dấu hiệu đáp án của giáo viên (khoanh tròn, gạch chân, dấu tick, dấu *, hoặc bảng đáp án): "
-            "hãy gán đúng đáp án đó và đặt is_ai_suggested: false.\n"
-            "Nếu KHÔNG có bất kỳ dấu hiệu đáp án nào: HÃY TỰ GIẢI ĐỂ GỢI Ý ĐÁP ÁN ĐÚNG KÈM LỜI GIẢI ('explain'), "
-            "và BẮT BUỘC đặt is_ai_suggested: true, ai_suggestion_note: 'AI đề xuất, cần giáo viên xác nhận'.\n"
-            "4. Định dạng trả về: DUY NHẤT một JSON array [...] gồm các câu hỏi của trang này."
-        )
+    system_instruction = (
+        "Bạn là chuyên gia OCR tài liệu đề thi trắc nghiệm Việt Nam chuẩn xác nhất.\n"
+        "Nhiệm vụ: Đọc ảnh trang đề thi chụp/scan và bóc tách CHÍNH XÁC toàn bộ câu hỏi theo chuẩn GDPT 2018 (mcq, true_false, short_answer).\n"
+        "Quy tắc sống còn:\n"
+        "1. Nhận diện trung thực mọi chữ, số, công thức toán/hóa học, bảng biểu từ ảnh.\n"
+        "2. Biểu thức toán BẮT BUỘC đặt trong \\( và \\). Công thức hóa học / chỉ số dưới dùng thẻ HTML <sub> và <sup> (vd: H<sub>2</sub>SO<sub>4</sub>, Fe<sup>3+</sup>).\n"
+        "3. ĐÁP ÁN: Nếu đề có dấu hiệu đáp án của giáo viên (khoanh tròn, gạch chân, dấu tick, dấu *, hoặc bảng đáp án): "
+        "hãy gán đúng đáp án đó và đặt is_ai_suggested: false.\n"
+        "Nếu KHÔNG có bất kỳ dấu hiệu đáp án nào: HÃY TỰ GIẢI ĐỂ GỢI Ý ĐÁP ÁN ĐÚNG KÈM LỜI GIẢI ('explain'), "
+        "và BẮT BUỘC đặt is_ai_suggested: true, ai_suggestion_note: 'AI đề xuất, cần giáo viên xác nhận'.\n"
+        "4. Định dạng trả về: DUY NHẤT một JSON array [...] gồm các câu hỏi của trang này."
+    )
 
-        prompt_text = f"""
-        Trang đề thi số {page_num}/{total_pages}. Hãy nhận diện toàn bộ câu hỏi và trích xuất thành mảng JSON:
-        [
-          {{
-            "question_number": {page_num},
-            "type": "mcq",
-            "group_title": "",
-            "question": "Nội dung câu hỏi...",
-            "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-            "correct_answer": "A. ...",
-            "explain": "Lời giải chi tiết...",
-            "is_ai_suggested": true,
-            "ai_suggestion_note": "AI đề xuất, cần giáo viên xác nhận"
-          }}
-        ]
-        """
+    max_concurrency = max(2, min(num_keys * 2, 8))
+    worker_semaphore = asyncio.Semaphore(max_concurrency)
+    completed_pages = 0
 
-        from google.genai import types
-        image_part = types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
-        multimodal_contents = [image_part, prompt_text]
+    async def ocr_single_page(page_idx: int, img_bytes: bytes, page_keys: List[str]):
+        page_num = page_idx + 1
+        async with worker_semaphore:
+            if active_tasks and task_id and task_id in active_tasks:
+                worker_no = (page_idx % num_keys) + 1
+                active_tasks[task_id]["message"] = f"AI Worker #{worker_no} đang OCR trang scan {page_num}/{total_pages}..."
 
-        try:
-            response = await call_gemini_with_fallback(
-                prompt=multimodal_contents,
-                api_keys=api_keys,
-                system_instruction=system_instruction,
-                thinking_budget=0
-            )
+            from google.genai import types
+            image_part = types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
+            prompt_text = f"""
+            Trang đề thi số {page_num}/{total_pages}. Hãy nhận diện toàn bộ câu hỏi và trích xuất thành mảng JSON:
+            [
+              {{
+                "question_number": {page_num},
+                "type": "mcq",
+                "group_title": "",
+                "question": "Nội dung câu hỏi...",
+                "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+                "correct_answer": "A. ...",
+                "explain": "Lời giải chi tiết...",
+                "is_ai_suggested": true,
+                "ai_suggestion_note": "AI đề xuất, cần giáo viên xác nhận"
+              }}
+            ]
+            """
+            multimodal_contents = [image_part, prompt_text]
 
-            raw_text = response.text
-            fixed_raw = fix_json_latex_escapes(raw_text)
-            parsed_page = None
+            try:
+                response = await call_gemini_with_fallback(
+                    prompt=multimodal_contents,
+                    api_keys=page_keys,
+                    system_instruction=system_instruction,
+                    thinking_budget=0
+                )
 
-            if json_repair is not None:
-                try:
-                    parsed_page = json_repair.loads(fixed_raw)
-                except Exception:
+                raw_text = response.text
+                fixed_raw = fix_json_latex_escapes(raw_text)
+                parsed_page = None
+
+                if json_repair is not None:
                     try:
-                        parsed_page = json_repair.loads(raw_text)
+                        parsed_page = json_repair.loads(fixed_raw)
+                    except Exception:
+                        try:
+                            parsed_page = json_repair.loads(raw_text)
+                        except Exception:
+                            pass
+
+                if parsed_page is None:
+                    match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
+                    json_text = match.group(0) if match else fixed_raw
+                    try:
+                        parsed_page = json.loads(json_text, strict=False)
                     except Exception:
                         pass
 
-            if parsed_page is None:
-                match = re.search(r'\[\s*\{.*\}\s*\]', fixed_raw, re.DOTALL)
-                json_text = match.group(0) if match else fixed_raw
-                try:
-                    parsed_page = json.loads(json_text, strict=False)
-                except Exception:
-                    pass
-
-            if isinstance(parsed_page, dict):
-                for k in ["questions", "data", "quiz", "result", "items", "cau_hoi", "list"]:
-                    if isinstance(parsed_page.get(k), list):
-                        parsed_page = parsed_page[k]
-                        break
-                else:
-                    if "question" in parsed_page:
-                        parsed_page = [parsed_page]
+                if isinstance(parsed_page, dict):
+                    for k in ["questions", "data", "quiz", "result", "items", "cau_hoi", "list"]:
+                        if isinstance(parsed_page.get(k), list):
+                            parsed_page = parsed_page[k]
+                            break
                     else:
-                        parsed_page = []
+                        if "question" in parsed_page:
+                            parsed_page = [parsed_page]
+                        else:
+                            parsed_page = []
 
-            if isinstance(parsed_page, list):
-                for q in parsed_page:
-                    if isinstance(q, dict):
-                        norm_q = normalize_question_data(q)
-                        all_extracted_questions.append(norm_q)
-        except Exception as page_err:
-            logger.warning(f"[CẢNH BÁO] OCR trang {page_num} gặp lỗi: {page_err}")
+                page_questions = []
+                if isinstance(parsed_page, list):
+                    for q in parsed_page:
+                        if isinstance(q, dict):
+                            norm_q = normalize_question_data(q)
+                            page_questions.append(norm_q)
 
-    doc.close()
+                nonlocal completed_pages
+                completed_pages += 1
+                if active_tasks and task_id and task_id in active_tasks:
+                    pct = min(85, round(20 + (completed_pages / total_pages * 65)))
+                    active_tasks[task_id]["progress"] = pct
+                    active_tasks[task_id]["message"] = f"Đã OCR xong {completed_pages}/{total_pages} trang ({pct}%)..."
+
+                return (page_idx, page_questions)
+            except Exception as page_err:
+                logger.warning(f"[CẢNH BÁO] OCR trang {page_num} gặp lỗi: {page_err}")
+                return (page_idx, [])
+
+    page_tasks = []
+    for page_idx, img_b in pages_bytes:
+        primary_k_idx = page_idx % num_keys
+        page_keys = [valid_keys[(primary_k_idx + off) % num_keys] for off in range(num_keys)]
+        page_tasks.append(ocr_single_page(page_idx, img_b, page_keys))
+
+    page_results = await asyncio.gather(*page_tasks)
+    sorted_page_results = sorted(page_results, key=lambda x: x[0])
+
+    all_extracted_questions = []
+    for p_idx, q_list in sorted_page_results:
+        all_extracted_questions.extend(q_list)
 
     if not all_extracted_questions:
         raise Exception("Không thể nhận diện câu hỏi từ tài liệu PDF scan / ảnh.")
@@ -2315,6 +2330,18 @@ async def cross_check_answers(
     if not quiz_data:
         return {"status": "success", "total_checked": 0, "mismatch_count": 0, "mismatches": [], "data": quiz_data}
 
+    valid_keys = []
+    seen_keys = set()
+    for k in (api_keys or []):
+        if k and isinstance(k, str) and k.strip() and k.strip() not in seen_keys:
+            seen_keys.add(k.strip())
+            valid_keys.append(k.strip())
+
+    if not valid_keys:
+        return {"status": "error", "message": "Chưa cấu hình API Key"}
+
+    num_keys = len(valid_keys)
+
     # Chuẩn bị dữ liệu chỉ chứa câu hỏi và phương án (loại bỏ correct_answer để AI không bị thiên vị)
     blind_questions = []
     for idx, q in enumerate(quiz_data):
@@ -2336,43 +2363,81 @@ async def cross_check_answers(
         "[{\"index\": 0, \"ai_solved_answer\": \"...\", \"explain\": \"...\"}]"
     )
 
-    prompt = f"""
-    Hãy giải độc lập danh sách {len(blind_questions)} câu hỏi sau và cung cấp đáp án đúng cùng lời giải:
-    {json.dumps(blind_questions, ensure_ascii=False)}
-    """
+    # Chia thành các batch tối đa 15 câu để tránh chạm giới hạn output tokens
+    batch_size = 15
+    batches = [blind_questions[i:i + batch_size] for i in range(0, len(blind_questions), batch_size)]
 
-    response = await call_gemini_with_fallback(
-        prompt=prompt,
-        api_keys=api_keys,
-        system_instruction=system_instruction,
-        thinking_budget=0
-    )
-
-    fixed_raw = fix_json_latex_escapes(response.text)
-    solved_list = None
-    if json_repair is not None:
+    async def solve_single_batch(b_idx: int, b_questions: list, b_keys: List[str]):
+        prompt = f"""
+        Hãy giải độc lập danh sách {len(b_questions)} câu hỏi sau và cung cấp đáp án đúng cùng lời giải:
+        {json.dumps(b_questions, ensure_ascii=False)}
+        """
         try:
-            solved_list = json_repair.loads(fixed_raw)
-        except Exception:
-            pass
-    if solved_list is None:
-        m = re.search(r'\[.*\]', fixed_raw, re.DOTALL)
-        if m:
-            try:
-                solved_list = json.loads(m.group(0), strict=False)
-            except Exception:
-                pass
+            response = await call_gemini_with_fallback(
+                prompt=prompt,
+                api_keys=b_keys,
+                system_instruction=system_instruction,
+                thinking_budget=0
+            )
 
-    if isinstance(solved_list, dict):
-        for k in ["results", "data", "solutions", "answers"]:
-            if isinstance(solved_list.get(k), list):
-                solved_list = solved_list[k]
-                break
+            fixed_raw = fix_json_latex_escapes(response.text)
+            batch_list = None
+            if json_repair is not None:
+                try:
+                    batch_list = json_repair.loads(fixed_raw)
+                except Exception:
+                    pass
+            if batch_list is None:
+                m = re.search(r'\[.*\]', fixed_raw, re.DOTALL)
+                if m:
+                    try:
+                        batch_list = json.loads(m.group(0), strict=False)
+                    except Exception:
+                        pass
 
-    if not isinstance(solved_list, list):
-        solved_list = []
+            if isinstance(batch_list, dict):
+                for k in ["results", "data", "solutions", "answers"]:
+                    if isinstance(batch_list.get(k), list):
+                        batch_list = batch_list[k]
+                        break
 
-    solved_map = {item["index"]: item for item in solved_list if isinstance(item, dict) and "index" in item}
+            if isinstance(batch_list, list):
+                return batch_list
+            return []
+        except Exception as e:
+            logger.warning(f"Lỗi khi giải chéo batch {b_idx + 1}: {e}")
+            return []
+
+    # Phân phối đều các batch cho từng API Key theo Round-Robin
+    batch_tasks = []
+    for b_idx, b_q in enumerate(batches):
+        b_keys = [valid_keys[(b_idx + off) % num_keys] for off in range(num_keys)]
+        batch_tasks.append(solve_single_batch(b_idx, b_q, b_keys))
+
+    batch_results = await asyncio.gather(*batch_tasks)
+    solved_list = []
+    for br in batch_results:
+        if br:
+            solved_list.extend(br)
+
+    solved_map = {}
+    for item in solved_list:
+        if isinstance(item, dict):
+            idx_val = item.get("index")
+            if idx_val is None:
+                idx_val = item.get("question_index") or item.get("id") or item.get("cau")
+            if idx_val is not None:
+                try:
+                    num_match = re.search(r'\d+', str(idx_val))
+                    if num_match:
+                        parsed_idx = int(num_match.group(0))
+                        solved_map[parsed_idx] = item
+                except Exception:
+                    pass
+
+    # Tự động đồng bộ nếu AI giải trả về 1-based index (1 đến N) thay vì 0-based index (0 đến N-1)
+    if solved_map and 0 not in solved_map and len(quiz_data) in solved_map:
+        solved_map = {k - 1: v for k, v in solved_map.items()}
 
     mismatches = []
     updated_quiz_data = []
@@ -2384,32 +2449,55 @@ async def cross_check_answers(
 
         if idx in solved_map:
             ai_item = solved_map[idx]
-            ai_ans = ai_item.get("ai_solved_answer")
-            ai_explain = ai_item.get("explain", "")
+            ai_ans = (
+                ai_item.get("ai_solved_answer") or
+                ai_item.get("ai_answer") or
+                ai_item.get("answer") or
+                ai_item.get("correct_answer") or
+                ai_item.get("solution") or
+                ai_item.get("dap_an")
+            )
+            ai_explain = (
+                ai_item.get("explain") or
+                ai_item.get("explanation") or
+                ai_item.get("reason") or
+                ai_item.get("loi_giai") or
+                ""
+            )
 
             # So sánh đáp án
             is_different = False
-            if q_type == "mcq":
-                t_char_m = re.search(r'^[A-F]', str(teacher_ca).strip(), re.IGNORECASE)
-                a_char_m = re.search(r'^[A-F]', str(ai_ans).strip(), re.IGNORECASE)
-                t_char = t_char_m.group(0).upper() if t_char_m else ""
-                a_char = a_char_m.group(0).upper() if a_char_m else ""
-                if t_char and a_char and t_char != a_char:
-                    is_different = True
-                elif not t_char and str(teacher_ca).strip().lower() != str(ai_ans).strip().lower():
-                    is_different = True
-            elif q_type == "true_false":
-                if isinstance(teacher_ca, dict) and isinstance(ai_ans, dict):
+            if ai_ans is not None:
+                if q_type == "mcq":
+                    t_str = str(teacher_ca or "").strip()
+                    a_str = str(ai_ans or "").strip()
+                    t_match = re.search(r'\b([A-F])\b', t_str.upper()) or re.search(r'^([A-F])', t_str.upper())
+                    a_match = re.search(r'\b([A-F])\b', a_str.upper()) or re.search(r'^([A-F])', a_str.upper())
+                    t_char = t_match.group(1).upper() if t_match else ""
+                    a_char = a_match.group(1).upper() if a_match else ""
+                    if t_char and a_char:
+                        if t_char != a_char:
+                            is_different = True
+                    elif t_str and a_str:
+                        if t_str.lower() != a_str.lower():
+                            is_different = True
+                elif q_type == "true_false":
+                    t_tf = parse_tf_answer(teacher_ca)
+                    a_tf = parse_tf_answer(ai_ans)
                     for sub_k in ["a", "b", "c", "d"]:
-                        if sub_k in teacher_ca and sub_k in ai_ans:
-                            if bool(teacher_ca[sub_k]) != bool(ai_ans[sub_k]):
+                        if sub_k in t_tf and sub_k in a_tf:
+                            if bool(t_tf[sub_k]) != bool(a_tf[sub_k]):
                                 is_different = True
                                 break
-            else: # short_answer
-                t_clean = re.sub(r'[\s\.\,]', '', str(teacher_ca).lower())
-                a_clean = re.sub(r'[\s\.\,]', '', str(ai_ans).lower())
-                if t_clean != a_clean:
-                    is_different = True
+                else: # short_answer
+                    t_clean = re.sub(r'^(đáp án|đáp số|kết quả|ans|x\s*=)\s*[:=]?\s*', '', str(teacher_ca or '').lower().strip())
+                    a_clean = re.sub(r'^(đáp án|đáp số|kết quả|ans|x\s*=)\s*[:=]?\s*', '', str(ai_ans or '').lower().strip())
+                    t_clean = t_clean.replace(',', '.')
+                    a_clean = a_clean.replace(',', '.')
+                    t_clean = re.sub(r'\s+', '', t_clean)
+                    a_clean = re.sub(r'\s+', '', a_clean)
+                    if t_clean and a_clean and t_clean != a_clean:
+                        is_different = True
 
             if is_different:
                 mismatch_record = {
@@ -2435,8 +2523,11 @@ async def cross_check_answers(
     return {
         "status": "success",
         "total_checked": len(quiz_data),
+        "total_questions": len(quiz_data),
         "mismatch_count": len(mismatches),
+        "mismatches_found": len(mismatches),
         "mismatches": mismatches,
+        "quiz_data": updated_quiz_data,
         "data": updated_quiz_data
     }
 

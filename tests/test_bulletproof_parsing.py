@@ -624,5 +624,82 @@ class TestBulletproofParsing(unittest.TestCase):
         self.assertEqual(res[0]["correct_answer"], {"a": True, "b": False, "c": True, "d": False})
 
 
+
+    def test_sequence_ordering_question_keeps_steps_in_stem(self):
+        """Kiểm tra câu hỏi dạng thứ tự/bước thí nghiệm (a, b, c, d, e...) kèm lựa chọn A, B, C, D."""
+        import os
+        import tempfile
+        import docx
+        from core.text_parser import extract_questions_from_text_bulletproof
+        from core.docx_parser import extract_formatting_from_docx
+
+        text = (
+            "Câu 20. Các thao tác cơ bản để đo nhiệt nóng chảy riêng của cục nước đá là\n"
+            "a. Khuấy liên tục nước đá, cứ sau 2 phút lại đọc số đo trên oát kế và nhiệt độ trên nhiệt kế rồi ghi lại kết quả.\n"
+            "b. Cho viên nước đá khối lượng m (kg) và một ít nước lạnh vào bình nhiệt lượng kế, sao cho toàn bộ điện trở chìm trong hỗn hợp nước đá.\n"
+            "c. Bật nguồn điện.\n"
+            "d. Cắm đầu đo của nhiệt kế vào bình nhiệt lượng kế.\n"
+            "e. Nối oát kế với nhiệt lượng kế và nguồn điện.\n"
+            "Thứ tự đúng các thao tác là\n"
+            "A. b, a, c, d, e.\n"
+            "<MARK>B. b, d, e, c, a.</MARK>\n"
+            "C. b, d, a, e, c.\n"
+            "D. b, d, a, c, e.\n"
+        )
+        res = extract_questions_from_text_bulletproof(text)
+        self.assertEqual(len(res), 1)
+        self.assertEqual(res[0]["type"], "mcq")
+        self.assertEqual(len(res[0]["options"]), 4)
+        self.assertTrue("a. Khuấy liên tục" in res[0]["question"])
+        self.assertTrue("Thứ tự đúng các thao tác là" in res[0]["question"])
+        self.assertEqual(res[0]["correct_answer"], "B. b, d, e, c, a.")
+
+        # Test DOCX parser formatting
+        doc = docx.Document()
+        doc.add_paragraph("Câu 20. Các thao tác cơ bản để đo nhiệt nóng chảy riêng của cục nước đá là")
+        doc.add_paragraph("a. Khuấy liên tục nước đá, cứ sau 2 phút lại đọc số đo trên oát kế và nhiệt độ trên nhiệt kế rồi ghi lại kết quả.")
+        doc.add_paragraph("b. Cho viên nước đá khối lượng m (kg) và một ít nước lạnh vào bình nhiệt lượng kế, sao cho toàn bộ điện trở chìm trong hỗn hợp nước đá.")
+        doc.add_paragraph("c. Bật nguồn điện.")
+        doc.add_paragraph("d. Cắm đầu đo của nhiệt kế vào bình nhiệt lượng kế.")
+        doc.add_paragraph("e. Nối oát kế với nhiệt lượng kế và nguồn điện.")
+        doc.add_paragraph("Thứ tự đúng các thao tác là")
+        doc.add_paragraph("A. b, a, c, d, e.")
+        p_b = doc.add_paragraph()
+        r_b = p_b.add_run("B. b, d, e, c, a.")
+        r_b.font.color.rgb = docx.shared.RGBColor(255, 0, 0)
+        doc.add_paragraph("C. b, d, a, e, c.")
+        doc.add_paragraph("D. b, d, a, c, e.")
+
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            doc.save(tmp_path)
+            res_docx = extract_formatting_from_docx(tmp_path)
+            self.assertEqual(len(res_docx), 1)
+            self.assertEqual(len(res_docx[0]["options"]), 4)
+            self.assertTrue("a. Khuấy liên tục" in res_docx[0]["question"])
+            self.assertEqual(res_docx[0]["correct_answer"], "B. b, d, e, c, a.")
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+def test_cau_9_auto_numbering_missing_opt_a():
+    """Kiểm tra câu hỏi bị khuyết tiền tố A. hoặc bị Word tự động đánh số 1. ở dòng phương án"""
+    raw_text = """Câu 9. Dụng cụ nào sau đây dùng để đo nhiệt độ?
+1. Cân đồng hồ.          B. Nhiệt kế.          C. Vôn kế.          D. Tốc kế.
+Câu 10. Nhiệt độ tuyệt đối là gì?
+A. Đo bằng Celsius.      B. Đo bằng Kelvin.     C. Đo bằng F.       D. Không đo được.
+"""
+    from core.text_parser import extract_questions_from_text_bulletproof
+    from services.ai_service import normalize_question_data
+    data = extract_questions_from_text_bulletproof(raw_text)
+    norm = [normalize_question_data(q, use_ai=False) for q in data]
+    assert len(norm) == 2
+    assert norm[0]["type"] == "mcq"
+    assert len(norm[0]["options"]) == 4
+    assert norm[0]["options"][0] == "A. Cân đồng hồ."
+    assert norm[0]["options"][1] == "B. Nhiệt kế."

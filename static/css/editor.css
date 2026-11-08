@@ -1371,9 +1371,14 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
    IN-EDITOR IMAGE SELECTION, RESIZE HANDLES & FLOATING BAR
    ========================================================================== */
 #codeEditor img {
-    cursor: pointer;
-    transition: outline 0.15s ease;
+    cursor: grab;
+    -webkit-user-drag: element;
     user-select: none;
+    transition: outline 0.15s ease, opacity 0.2s ease;
+}
+
+#codeEditor img:active {
+    cursor: grabbing;
 }
 
 #codeEditor img:hover {
@@ -1385,6 +1390,55 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     outline: 2.5px solid #2563eb !important;
     outline-offset: 3px !important;
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15) !important;
+}
+
+#codeEditor img.editor-img-dragging {
+    opacity: 0.35 !important;
+    outline: 2.5px dashed #2563eb !important;
+    outline-offset: 3px !important;
+}
+
+#preview-content img {
+    cursor: grab;
+    -webkit-user-drag: element;
+}
+
+/* Caret nhấp nháy chỉ báo vị trí thả ảnh chuẩn xác (Drop Caret Indicator) */
+.editor-drop-caret {
+    position: absolute;
+    width: 2.5px;
+    background-color: #2563eb;
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 60;
+    box-shadow: 0 0 5px rgba(37, 99, 235, 0.85);
+    animation: editorDropCaretBlink 0.75s steps(1) infinite;
+    display: none;
+    transition: top 0.05s ease, left 0.05s ease;
+}
+
+.editor-drop-caret::before,
+.editor-drop-caret::after {
+    content: '';
+    position: absolute;
+    left: -3px;
+    width: 8.5px;
+    height: 2.5px;
+    background-color: #2563eb;
+    border-radius: 1px;
+}
+
+.editor-drop-caret::before {
+    top: -1px;
+}
+
+.editor-drop-caret::after {
+    bottom: -1px;
+}
+
+@keyframes editorDropCaretBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
 }
 
 .editor-img-resizer-overlay {

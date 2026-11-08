@@ -2018,6 +2018,8 @@ function showCreateView() {
 function showAdminView() {
     document.getElementById('mainAppContainer').style.display = 'none';
     document.getElementById('adminContainer').style.display = 'block';
+    if (typeof loadAdminUsers === 'function') loadAdminUsers();
+    if (typeof loadAdminSettings === 'function') loadAdminSettings();
 }
 
 function toggleAuth(type) {
@@ -5108,8 +5110,8 @@ async function loadAdminGeminiStats() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/admin/gemini_stats?admin_token=${authToken}`);
         const data = await res.json();
-        if (res.ok && data.status === 'success' && data.metrics) {
-            const m = data.metrics;
+        const m = (data && (data.metrics || data.data)) || null;
+        if (res.ok && data.status === 'success' && m) {
             const today = m.today || {};
             const allTime = m.all_time || {};
 
@@ -5161,7 +5163,7 @@ async function loadAdminGeminiStats() {
                             <td style="padding: 8px 12px; font-weight: 600; color: ${k.errors_429_today > 0 ? '#dc2626' : '#64748b'};">${k.errors_429_today || 0}</td>
                             <td style="padding: 8px 12px; color: #64748b; font-size: 0.82rem;">${k.last_used ? new Date(k.last_used).toLocaleTimeString() : 'Chưa dùng'}</td>
                             <td style="padding: 8px 12px; text-align: center;">
-                                <button type="button" class="btn-outline" style="padding: 3px 8px; font-size: 0.78rem; border-radius: 4px;" onclick="pingGeminiKey('${escapeHtml(k.key)}', this)">Ping</button>
+                                <button type="button" class="btn-outline" style="padding: 3px 8px; font-size: 0.78rem; border-radius: 4px;" onclick="pingGeminiKey('${escapeHtml(k.key || (typeof adminApiKeys !== 'undefined' ? adminApiKeys[idx] : '') || '')}', this)">Ping</button>
                             </td>
                         `;
                         keysTbody.appendChild(tr);
@@ -5387,7 +5389,7 @@ async function uploadFile() {
     const formData = new FormData();
     formData.append("file", file);
     
-    const useAI = document.getElementById('useAIToggle') ? document.getElementById('useAIToggle').checked : true;
+    const useAI = document.getElementById('useAIToggle') ? document.getElementById('useAIToggle').checked : false;
     formData.append("use_ai", useAI);
     
     // Hiển thị trạng thái khởi tạo nhanh
@@ -7265,7 +7267,24 @@ function getRealQuestionType(q) {
     // 2. Nếu có từ 2 ý chữ thường a), b), c), d) trở lên -> 100% BẮT BUỘC là Đúng / Sai
     if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
 
-    // 3. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
+    // 3. Nếu KHÔNG có phương án nào: kiểm tra tiêu đề nhóm hoặc loại câu hỏi đã được xác định
+    const grp = String(q.group_title || '').toUpperCase();
+    if (opts.length === 0) {
+        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III')) {
+            return 'short_answer';
+        }
+        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
+            return 'true_false';
+        }
+        const t = String(q.type || '').toLowerCase();
+        if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') return 'short_answer';
+        if (t === 'true_false' || t === 'tf' || t === 'dung_sai') return 'true_false';
+        if (q.correct_answer !== null && q.correct_answer !== undefined && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+            return 'short_answer';
+        }
+    }
+
+    // 4. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
     const t = String(q.type || '').toLowerCase();
     if (t === 'true_false' || t === 'tf' || t === 'dung_sai') {
         if (mcqCount === 0) return 'true_false';
@@ -7275,22 +7294,13 @@ function getRealQuestionType(q) {
     }
     if (t === 'mcq') return 'mcq';
 
-    // 4. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
+    // 5. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
     if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
         if (mcqCount === 0) return 'true_false';
     }
 
-    // 5. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
+    // 6. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
     if (opts.length === 0 && q.correct_answer) return 'short_answer';
-
-    // 6. Nếu thuộc nhóm Phần III hoặc group_title chứa Trả lời ngắn
-    const grp = String(q.group_title || '').toUpperCase();
-    if (opts.length === 0 && (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III'))) {
-        return 'short_answer';
-    }
-    if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
-        if (mcqCount === 0) return 'true_false';
-    }
 
     return 'mcq';
 }
@@ -7385,15 +7395,16 @@ function parseEditorText(text) {
     let currentQ = null;
     const lines = restoredText.split('\n');
     let sharedContext = "";
+    let currentSectionHeader = "";
 
     // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
     const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
 
     // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
-    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
     const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
@@ -7416,7 +7427,8 @@ function parseEditorText(text) {
             
             // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
             let defaultType = 'mcq';
-            const grpUpper = (sharedContext || '').toUpperCase();
+            const activeGroup = (currentSectionHeader || sharedContext || '').trim();
+            const grpUpper = activeGroup.toUpperCase();
             if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
                 defaultType = 'short_answer';
             } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
@@ -7425,10 +7437,10 @@ function parseEditorText(text) {
 
             currentQ = {
                 type: defaultType,
-                group_title: sharedContext.trim(),
+                group_title: activeGroup,
                 question: qText,
                 options: [],
-                correct_answer: (defaultType === 'true_false' ? {} : null),
+                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' ? '' : null)),
                 explain: ''
             };
             sharedContext = ""; 
@@ -7437,6 +7449,14 @@ function parseEditorText(text) {
             if (!currentQ) {
                 currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
                 sharedContext = "";
+            }
+            // Nếu trước đó đã lỡ gom các bước/phát biểu a), b), c), d) vào options (do tưởng nhầm là câu Đúng/Sai),
+            // hãy hoàn trả toàn bộ về thân câu hỏi (question stem) vì đây là câu hỏi trắc nghiệm A, B, C, D
+            if (currentQ.options && currentQ.options.length > 0 && currentQ.options.some(opt => /^\s*\(?[a-d][\.\:\)\-]/.test(opt))) {
+                const restoredStem = currentQ.options.join('<br>');
+                currentQ.question = (currentQ.question ? currentQ.question + '<br>' : '') + restoredStem;
+                currentQ.options = [];
+                currentQ.correct_answer = null;
             }
             currentQ.type = 'mcq';
             const match = line.match(mcqOptRegex);
@@ -7567,7 +7587,9 @@ function parseEditorText(text) {
                 currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expMatch[1].trim();
             }
         } else if (groupRegex.test(line)) {
-            sharedContext += (sharedContext ? "<br>" : "") + line;
+            const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+            currentSectionHeader = grpContent;
+            sharedContext = grpContent;
         } else {
             if (currentQ && currentQ.explain) {
                 currentQ.explain += "<br>" + line;
@@ -7576,7 +7598,9 @@ function parseEditorText(text) {
             } else if (currentQ) {
                 currentQ.question += (currentQ.question ? "<br>" : "") + line;
             } else {
-                sharedContext += (sharedContext ? "<br>" : "") + line;
+                const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+            currentSectionHeader = grpContent;
+            sharedContext = grpContent;
             }
         }
     }
@@ -10609,16 +10633,28 @@ window.runCrossCheckAI = async function() {
             })
         });
         const data = await res.json();
+        if (typeof hideStudioLoader === 'function') hideStudioLoader();
+
         if (res.ok && data.status === 'success') {
-            currentData = data.quiz_data || currentData;
-            const mismatches = data.mismatches_found || 0;
+            const rawQuiz = data.quiz_data || data.data || [];
+            if (Array.isArray(rawQuiz) && rawQuiz.length > 0) {
+                currentData = rawQuiz;
+            }
+            const totalChecked = data.total_checked || data.total_questions || currentData.length;
+            const mismatches = (data.mismatches_found !== undefined) ? data.mismatches_found : ((data.mismatch_count !== undefined) ? data.mismatch_count : (data.mismatches ? data.mismatches.length : 0));
             syncDataToEditorSafe();
             renderPreviewAll();
             if (typeof saveDraftToSession === 'function') saveDraftToSession();
             if (mismatches > 0) {
-                alert(`⚠️ Phát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu! Vui lòng rà soát các thẻ cảnh báo màu cam.`);
+                setTimeout(() => {
+                    const firstWarn = document.querySelector('.cross-check-warning-box');
+                    if (firstWarn) {
+                        firstWarn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+                alert(`⚠️ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát xong ${totalChecked} câu hỏi.\nPhát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu!\n\nHệ thống đã đánh dấu các khung cảnh báo MÀU CAM tại từng câu hỏi tương ứng để bạn rà soát và quyết định cập nhật.`);
             } else {
-                showToast("Tuyệt vời! 100% đáp án khớp với kết quả AI giải độc lập.");
+                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của Giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
             }
         } else {
             showAIDiagnosticModal(data);

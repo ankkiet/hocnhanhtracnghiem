@@ -133,7 +133,20 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         sec_header = sec["header"]
         sec_part = sec["part"]
 
-        matches = list(q_split_pattern.finditer(sec_content))
+        raw_matches = list(q_split_pattern.finditer(sec_content))
+        if not raw_matches:
+            continue
+
+        matches = []
+        for m in raw_matches:
+            g1 = m.group(1)
+            # Nếu không có "Câu/Bài/Question/Q" mà chỉ khớp số trần (\d+.)
+            if not (g1 and g1.strip()):
+                nl_pos = sec_content.find('\n', m.end())
+                line_rest = sec_content[m.end():nl_pos if nl_pos != -1 else len(sec_content)]
+                if re.search(r'(?:\s+|^)[B-F][\.\:\)]', line_rest) or re.search(r'(?:\s+|^)[b-d][\)\.\:]', line_rest):
+                    continue
+            matches.append(m)
         if not matches:
             continue
 
@@ -285,6 +298,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         if first_nl != -1 and first_nl < b_start:
                             stem_part = block[:first_nl].strip()
                             opt_a_text = block[first_nl:b_start].strip()
+                            opt_a_text = re.sub(r'^\s*(?:<[^>]+>\s*)*(?:\d+|[a-zA-Z])[\.\:\)\/]\s*', '', opt_a_text).strip()
                             block = stem_part + f"\nA. {opt_a_text}\n" + block[b_start:]
                     mcq_matches_new = list(mcq_opt_pattern.finditer(block))
                     first_a_idx = next((idx_m for idx_m, m_m in enumerate(mcq_matches_new) if 'A' in m_m.group(2).upper()), None)
