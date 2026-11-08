@@ -85,6 +85,16 @@ window.showAIDiagnosticModal = function(errData) {
             errorName = 'Chưa cấu hình Google Gemini API Key';
             cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
             solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
+        } else if (rawLower.includes('scanned_pdf') || rawLower.includes('pdf scan') || rawLower.includes('ảnh chụp') || rawLower.includes('không có lớp chữ')) {
+            errorCode = 'SCANNED_PDF_NEEDS_AI';
+            errorName = 'Phát hiện tệp PDF Scan / Ảnh chụp (Chưa bật AI)';
+            cause = 'Tệp PDF của bạn là tài liệu scan hoặc ảnh chụp không có lớp chữ số hóa. Thuật toán bóc tách nội bộ (không dùng AI) không thể đọc được chữ từ hình ảnh.';
+            solution = '1. Vui lòng BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã có Gemini API Key trong Cài đặt Admin.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lớp văn bản gốc.';
+        } else if (rawLower.includes('không thể trích xuất') || rawLower.includes('không tìm thấy câu hỏi') || rawLower.includes('câu 1:') || rawLower.includes('format')) {
+            errorCode = 'FORMAT_NOT_RECOGNIZED';
+            errorName = 'Không tìm thấy câu hỏi trắc nghiệm hợp lệ';
+            cause = 'Hệ thống không tìm thấy câu hỏi đúng định dạng trong tài liệu (cần có "Câu 1:" hoặc "1." và các phương án A, B, C, D) hoặc tài liệu scan chưa bật AI.';
+            solution = '1. Nếu là tài liệu PDF scan / ảnh chụp: Hãy BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp.\n2. Nếu là file Word/PDF văn bản: Đảm bảo đề thi có đánh số câu rõ ràng ("Câu 1:" hoặc "1.") và các phương án A, B, C, D.\n3. Tải "file Word mẫu chuẩn" ở trang chủ để tham khảo cấu trúc.';
         } else {
             errorCode = 'AI_COMMUNICATION_ERROR';
             errorName = 'Lỗi kết nối tới dịch vụ AI';
@@ -120,16 +130,32 @@ window.showAIDiagnosticModal = function(errData) {
         return `<li style="margin-bottom: 6px;">${safeEsc(cleanText)}</li>`;
     }).join('');
 
+    const isDocFormatError = errorCode === 'SCANNED_PDF_NEEDS_AI' || errorCode === 'FORMAT_NOT_RECOGNIZED' || errorCode === 'PDF_EXTRACT_EMPTY' || errorCode === 'IMAGE_OCR_EMPTY' || errorCode === 'CORRUPTED_FILE';
+    const modalTitle = isDocFormatError ? 'Chi Tiết Sự Cố Bóc Tách Tài Liệu' : 'Chi Tiết Sự Cố AI';
+    const modalSub = isDocFormatError ? 'Chẩn đoán định dạng tệp & Hướng dẫn xử lý' : 'Chẩn đoán nguyên nhân & Hướng dẫn khắc phục';
+    const headerBg = isDocFormatError ? '#fffbeb' : '#fef2f2';
+    const headerBorder = isDocFormatError ? '#fef3c7' : '#fee2e2';
+    const iconBg = isDocFormatError ? '#fef3c7' : '#fee2e2';
+    const iconColor = isDocFormatError ? '#d97706' : '#dc2626';
+    const iconClass = isDocFormatError ? 'ri-file-warning-fill' : 'ri-error-warning-fill';
+    const titleColor = isDocFormatError ? '#92400e' : '#991b1b';
+    const subColor = isDocFormatError ? '#b45309' : '#b91c1c';
+    const badgeBg = isDocFormatError ? '#fde68a' : '#fda4af';
+    const badgeColor = isDocFormatError ? '#78350f' : '#881337';
+    const nameColor = isDocFormatError ? '#92400e' : '#9f1239';
+    const boxBg = isDocFormatError ? '#fefce8' : '#fff1f2';
+    const boxBorder = isDocFormatError ? '#fef08a' : '#fecdd3';
+
     modal.innerHTML = `
         <div style="background:#ffffff; border-radius:14px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; font-family:inherit;" onclick="event.stopPropagation();">
-            <div style="background:#fef2f2; border-bottom:1px solid #fee2e2; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div style="background:${headerBg}; border-bottom:1px solid ${headerBorder}; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="width:40px; height:40px; border-radius:10px; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
-                        <i class="ri-error-warning-fill"></i>
+                    <div style="width:40px; height:40px; border-radius:10px; background:${iconBg}; color:${iconColor}; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                        <i class="${iconClass}"></i>
                     </div>
                     <div>
-                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:#991b1b;">Chi Tiết Sự Cố AI</h3>
-                        <div style="font-size:0.8rem; color:#b91c1c; margin-top:2px;">Chẩn đoán nguyên nhân & Hướng dẫn khắc phục</div>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:${titleColor};">${modalTitle}</h3>
+                        <div style="font-size:0.8rem; color:${subColor}; margin-top:2px;">${modalSub}</div>
                     </div>
                 </div>
                 <button type="button" onclick="closeAIDiagnosticModal()" style="border:none; background:transparent; font-size:1.6rem; line-height:1; color:#94a3b8; cursor:pointer; padding:0 4px;" title="Đóng">&times;</button>
@@ -138,11 +164,11 @@ window.showAIDiagnosticModal = function(errData) {
             <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
                 <div>
                     <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-alert-line" style="color:#ef4444;"></i> Lỗi gì (Sự cố)
+                        <i class="ri-alert-line" style="color:${iconColor};"></i> Lỗi gì (Sự cố)
                     </div>
-                    <div style="padding:10px 14px; background:#fff1f2; border:1px solid #fecdd3; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:#fda4af; color:#881337; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
-                        <span style="font-weight:600; font-size:0.92rem; color:#9f1239;">${safeEsc(errorName)}</span>
+                    <div style="padding:10px 14px; background:${boxBg}; border:1px solid ${boxBorder}; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:${badgeBg}; color:${badgeColor}; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
+                        <span style="font-weight:600; font-size:0.92rem; color:${nameColor};">${safeEsc(errorName)}</span>
                     </div>
                 </div>
 
@@ -188,7 +214,7 @@ window.showAIDiagnosticModal = function(errData) {
                 <button type="button" onclick="copyAIDiagnosticData()" style="padding:8px 14px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
                     <i class="ri-file-copy-line"></i> Sao chép lỗi
                 </button>
-                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:#dc2626; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
+                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:${isDocFormatError ? '#d97706' : '#dc2626'}; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
                     Đã hiểu & Đóng
                 </button>
             </div>
@@ -218,11 +244,8 @@ if (isLocal) {
 } else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
     // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
     API_BASE_URL = window.location.origin;
-} else if (currentHost.includes('hocnhanhtn.online') || currentHost.includes('pages.dev')) {
-    // Tận dụng Cloudflare Worker Reverse Proxy (/api/...) để cùng domain, không bị chặn DNS và tối ưu tốc độ
-    API_BASE_URL = window.location.origin;
 } else {
-    // Tất cả tên miền production tĩnh khác
+    // Tất cả tên miền production (hocnhanhtn.online, Cloudflare Pages, Vercel, vv.) kết nối tới Cloud Backend Koyeb (CORS đã cấu hình đầy đủ)
     API_BASE_URL = PROD_BACKEND_URL;
 }
 
@@ -8298,11 +8321,20 @@ function resolveMcqIndices(q, userAnswer, correctAnswer, serverItem, status) {
             const cleanOpt = normalizeOptionCompareText(opt.replace(/^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*/, ''));
             if (cleanOpt === correctContent) revCorrectIdx = oIdx;
         });
+        // 3.1. Tìm kiếm tương đối / chứa chuỗi nếu khớp tuyệt đối thất bại
+        if (revCorrectIdx === -1) {
+            opts.forEach((opt, oIdx) => {
+                const cleanOpt = normalizeOptionCompareText(opt.replace(/^\*?\s*(?:<[^>]+>\s*)*[A-Fa-f][\.\:\)]\s*/, ''));
+                if (cleanOpt && correctContent && (cleanOpt.includes(correctContent) || correctContent.includes(cleanOpt))) {
+                    revCorrectIdx = oIdx;
+                }
+            });
+        }
     }
 
     if (revCorrectIdx === -1) {
         opts.forEach((opt, oIdx) => {
-            if (matchOptionToTarget(opt, oIdx, q.correct_answer || correctAnswer)) revCorrectIdx = oIdx;
+            if (matchOptionToTarget(opt, oIdx, q.correct_answer || correctAnswer || sAns)) revCorrectIdx = oIdx;
         });
     }
 
@@ -8325,6 +8357,26 @@ function resolveMcqIndices(q, userAnswer, correctAnswer, serverItem, status) {
     if (revCorrectIdx >= 0 && revCorrectIdx < opts.length) {
         const m = opts[revCorrectIdx].match(/^[A-F]/i);
         correctCharDisplay = m ? m[0].toUpperCase() : String.fromCharCode(65 + revCorrectIdx);
+    } else if (sAns) {
+        // Fallback kiên cố: Nếu không tìm thấy vị trí trong opts, lấy chữ cái hoặc nội dung từ sAns
+        if (typeof sAns === 'string') {
+            const mLetter = sAns.match(/^\*?\s*(?:<[^>]+>\s*)*([A-Fa-f])[\.\:\)]?/);
+            if (mLetter) {
+                correctCharDisplay = mLetter[1].toUpperCase();
+            } else {
+                correctCharDisplay = sAns.replace(/<[^>]+>/g, '').trim();
+            }
+        } else if (typeof sAns === 'number' && sAns >= 0 && sAns < 26) {
+            correctCharDisplay = String.fromCharCode(65 + sAns);
+        }
+        // Nếu có chữ cái, gán lại revCorrectIdx theo chữ cái đó trong opts nếu có
+        if (revCorrectIdx === -1 && correctCharDisplay && /^[A-F]$/i.test(correctCharDisplay)) {
+            const targetChar = correctCharDisplay.toUpperCase();
+            opts.forEach((opt, oIdx) => {
+                const m = opt.match(/^[A-F]/i);
+                if (m && m[0].toUpperCase() === targetChar) revCorrectIdx = oIdx;
+            });
+        }
     }
     if (status === 'correct') {
         if (!correctCharDisplay && userCharDisplay) correctCharDisplay = userCharDisplay;
@@ -8367,7 +8419,7 @@ function switchResultView(viewType, autoScroll = true) {
             }
         }
         const urlParams = new URLSearchParams(window.location.search);
-        const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+        const quizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : (urlParams.get('quiz_id') || urlParams.get('id'));
         fetchLeaderboard(quizId);
     } else {
         // 'review' view
@@ -8427,20 +8479,23 @@ function hideLeaderboardOnly() {
     const azotaFooter = document.getElementById('azotaFooter');
     if (azotaFooter) azotaFooter.style.display = 'block';
 
-    document.getElementById('welcomeScreen').style.display = 'block';
-    updateAdPassUI();
-    const quizId = getCurrentQuizId();
+    const quizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : null;
     if (quizId && window.location.pathname.startsWith('/xep-hang/')) {
+        if (!Array.isArray(currentData) || currentData.length === 0) {
+            window.location.href = `/thi/${encodeURIComponent(quizId)}`;
+            return;
+        }
         history.pushState({ page: 'exam', quizId: quizId }, '', `/thi/${quizId}`);
     }
+    document.getElementById('welcomeScreen').style.display = 'block';
+    updateAdPassUI();
 }
 
 // --- HÀM TẢI LẠI BẢNG XẾP HẠNG KHI BẤM NÚT REFRESH ---
 async function refreshLeaderboardBtn() {
     const btn = document.getElementById('lbRefreshBtn');
     if (btn) btn.classList.add('rotating');
-    const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    const quizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : null;
     await fetchLeaderboard(quizId);
     setTimeout(() => {
         if (btn) btn.classList.remove('rotating');
@@ -8449,6 +8504,9 @@ async function refreshLeaderboardBtn() {
 
 // --- HÀM TẢI VÀ RENDER BẢNG XẾP HẠNG THÀNH TÍCH PHÒNG THI ---
 async function fetchLeaderboard(quizId) {
+    if (!quizId && typeof getCurrentQuizId === 'function') {
+        quizId = getCurrentQuizId();
+    }
     const lb = document.getElementById('leaderboard');
     const lbList = document.getElementById('leaderboardList');
     const podiumEl = document.getElementById('leaderboardPodium');
@@ -8460,7 +8518,10 @@ async function fetchLeaderboard(quizId) {
         let listData = [];
         if (quizId) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/leaderboard/${quizId}`);
+                let response = await fetch(`${API_BASE_URL}/api/leaderboard/${encodeURIComponent(quizId)}`);
+                if (!response.ok && response.status === 404) {
+                    response = await fetch(`${API_BASE_URL}/api/student/leaderboard/${encodeURIComponent(quizId)}`);
+                }
                 if (response.ok) {
                     const result = await response.json();
                     if (result.status === 'success' && Array.isArray(result.data)) {
@@ -8476,6 +8537,7 @@ async function fetchLeaderboard(quizId) {
         const currentStudent = (studentName && studentName.trim()) || 'Học sinh';
         const myScore = (quizProgress && quizProgress.score !== undefined) ? quizProgress.score : (practiceScore || 0);
         const myTime = (quizProgress && quizProgress.timeElapsed) ? quizProgress.timeElapsed : (startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 45);
+        const myTotalQ = (quizProgress && quizProgress.totalQuestions) || (Array.isArray(currentData) ? currentData.length : 0);
 
         // Nếu danh sách từ server rỗng và học sinh đã làm xong, tạo bản ghi của chính học sinh để luôn hiển thị
         const hasCompleted = (quizProgress && quizProgress.completed) || (myScore > 0 && startTime > 0);
@@ -8485,6 +8547,7 @@ async function fetchLeaderboard(quizId) {
                 listData = [{
                     student_name: currentStudent,
                     score: myScore,
+                    total_questions: myTotalQ,
                     time_elapsed: myTime
                 }];
             }
@@ -8496,6 +8559,7 @@ async function fetchLeaderboard(quizId) {
                     listData.push({
                         student_name: currentStudent,
                         score: myScore,
+                        total_questions: myTotalQ,
                         time_elapsed: myTime
                     });
                     listData.sort((a, b) => b.score - a.score || a.time_elapsed - b.time_elapsed);
@@ -8507,8 +8571,25 @@ async function fetchLeaderboard(quizId) {
         listData = listData.slice(0, 5);
 
         // Cập nhật số lượng thí sinh
-        if (badgeEl) badgeEl.innerText = `Top ${listData.length} xuất sắc nhất`;
-        if (tabLbBadge) tabLbBadge.innerText = `Top 5`;
+        if (badgeEl) {
+            badgeEl.innerText = listData.length > 0 ? `Top ${listData.length} xuất sắc nhất` : 'Chưa có lượt thi';
+        }
+        if (tabLbBadge) {
+            tabLbBadge.innerText = listData.length > 0 ? `Top ${listData.length}` : 'Top 5';
+        }
+
+        // Xử lý khi chưa có dữ liệu thí sinh nào (Empty State)
+        if (listData.length === 0) {
+            if (podiumEl) podiumEl.style.display = 'none';
+            lbList.innerHTML = `
+                <div style="text-align: center; padding: 40px 16px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; margin-top: 10px;">
+                    <div style="font-size: 2.6rem; margin-bottom: 8px;">🏆</div>
+                    <div style="font-size: 1.05rem; font-weight: 700; color: #334155; margin-bottom: 6px;">Chưa có lượt thi nào trên Bảng xếp hạng</div>
+                    <p style="font-size: 0.9rem; color: #64748b; margin: 0;">Hãy là người đầu tiên làm bài và ghi tên tại vị trí Quán quân!</p>
+                </div>
+            `;
+            return;
+        }
 
         // Render Podium Top 1-3
         if (podiumEl) {
@@ -8969,17 +9050,19 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                     </div>
                 `;
             } else if (status === 'skipped') {
+                const displayCorrect = correctCharDisplay || (typeof correctAnswer === 'string' && (correctAnswer.match(/^[A-F]/i) ? correctAnswer.match(/^[A-F]/i)[0].toUpperCase() : correctAnswer.replace(/<[^>]+>/g, '').trim())) || '';
                 summaryBannerHtml = `
                     <div class="review-quick-banner is-skipped">
                         <i class="ri-question-fill" style="font-size: 1.15rem;"></i> 
-                        <span>Chưa trả lời! Đáp án đúng là: <b class="highlight-correct">${correctCharDisplay || ''}</b></span>
+                        <span>Chưa trả lời! Đáp án đúng là: <b class="highlight-correct">${displayCorrect}</b></span>
                     </div>
                 `;
             } else {
+                const displayCorrect = correctCharDisplay || (typeof correctAnswer === 'string' && (correctAnswer.match(/^[A-F]/i) ? correctAnswer.match(/^[A-F]/i)[0].toUpperCase() : correctAnswer.replace(/<[^>]+>/g, '').trim())) || '';
                 summaryBannerHtml = `
                     <div class="review-quick-banner is-wrong">
                         <i class="ri-close-circle-fill" style="font-size: 1.15rem;"></i> 
-                        <span>Lựa chọn của bạn: <b class="highlight-wrong">${userCharDisplay || '(Chưa chọn)'}</b> &nbsp;|&nbsp; Đáp án chính xác: <b class="highlight-correct">${correctCharDisplay || ''}</b></span>
+                        <span>Lựa chọn của bạn: <b class="highlight-wrong">${userCharDisplay || '(Chưa chọn)'}</b> &nbsp;|&nbsp; Đáp án chính xác: <b class="highlight-correct">${displayCorrect}</b></span>
                     </div>
                 `;
             }
@@ -9253,44 +9336,69 @@ async function submitExam(isReview = false, forceSubmit = false) {
     });
 
     const urlParams = new URLSearchParams(window.location.search);
-    const quizId = urlParams.get('quiz_id') || urlParams.get('id');
+    const quizId = (typeof getCurrentQuizId === 'function') ? getCurrentQuizId() : (urlParams.get('quiz_id') || urlParams.get('id'));
     let backendResults = null;
     let verifiedScore = null;
 
     // 2. Chấm điểm phía Server nếu có kết nối và có mã đề thi
     if (!isReview && quizId) {
-        try {
-            // QUAN TRỌNG: Chuyển đổi đáp án từ chỉ số ĐÃ TRỘN sang chỉ số GỐC
-            // để Backend so khớp đúng câu hỏi với đáp án tương ứng
-            const serverAnswers = {};
-            currentData.forEach((q, qIndex) => {
-                const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
-                if (userAnswers[qIndex] !== undefined) {
-                    serverAnswers[origIdx] = userAnswers[qIndex];
-                }
-            });
+        // QUAN TRỌNG: Chuyển đổi đáp án từ chỉ số ĐÃ TRỘN sang chỉ số GỐC
+        // để Backend so khớp đúng câu hỏi với đáp án tương ứng
+        const serverAnswers = {};
+        currentData.forEach((q, qIndex) => {
+            const origIdx = (q._originalIndex !== undefined) ? q._originalIndex : qIndex;
+            if (userAnswers[qIndex] !== undefined) {
+                serverAnswers[origIdx] = userAnswers[qIndex];
+            }
+        });
 
-            const res = await fetch(`${API_BASE_URL}/api/student/submit_exam`, {
+        const submitPayload = {
+            quiz_id: quizId,
+            student_name: studentName || 'Học sinh',
+            student_token: authToken || '',
+            answers: serverAnswers,
+            time_elapsed: totalTimeElapsed,
+            session_id: window.currentExamSessionId || (quizProgress && quizProgress.sessionId) || '',
+            tab_switch_count: window.examTabSwitchCount || (quizProgress && quizProgress.tabSwitchCount) || 0
+        };
+
+        const trySubmit = async (baseUrl) => {
+            const res = await fetch(`${baseUrl}/api/student/submit_exam`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    quiz_id: quizId,
-                    student_name: studentName || 'Học sinh',
-                    student_token: authToken || '',
-                    answers: serverAnswers,
-                    time_elapsed: totalTimeElapsed,
-                    session_id: window.currentExamSessionId || (quizProgress && quizProgress.sessionId) || '',
-                    tab_switch_count: window.examTabSwitchCount || (quizProgress && quizProgress.tabSwitchCount) || 0
-                })
+                body: JSON.stringify(submitPayload)
             });
-            const resData = await res.json();
-            if (res.ok && resData.status === 'success') {
-                verifiedScore = resData.score;
-                backendResults = resData.results;
-            }
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            return await res.json();
+        };
+
+        let resData = null;
+        try {
+            resData = await trySubmit(API_BASE_URL);
         } catch(err) {
-            console.warn("Lỗi kết nối server chấm điểm, sử dụng cơ chế chấm điểm cục bộ:", err);
+            console.warn("Lỗi kết nối server chấm điểm qua API_BASE_URL, đang thử lại qua PROD_BACKEND_URL:", err);
+            if (API_BASE_URL !== PROD_BACKEND_URL) {
+                try {
+                    resData = await trySubmit(PROD_BACKEND_URL);
+                } catch(fbErr) {
+                    console.error("Lỗi kết nối cả PROD_BACKEND_URL:", fbErr);
+                }
+            }
         }
+
+        if (resData && resData.status === 'success') {
+            verifiedScore = resData.score;
+            backendResults = resData.results;
+        }
+    }
+
+    // Nếu ở chế độ THI THỬ (exam) mà không nhận được kết quả chấm điểm từ server:
+    // Tuyệt đối không tự chấm cục bộ vì chế độ thi thử đã bị Anti-Cheat ẩn đáp án đúng,
+    // tránh việc toàn bộ câu hỏi bị chấm 0đ và không hiển thị đáp án đúng.
+    if (currentMode === 'exam' && !isReview && !backendResults) {
+        hideGlobalLoader();
+        alert("⚠️ Không thể kết nối với máy chủ chấm điểm bài thi (Máy chủ đang khởi động hoặc đường truyền mạng chập chờn).\n\nBài làm của bạn vẫn được lưu nguyên vẹn. Vui lòng kiểm tra lại kết nối mạng Internet và bấm nút 'Nộp bài' lại một lần nữa!");
+        return;
     }
 
     // 3. Fallback chấm điểm cục bộ nếu không có kết quả từ server
@@ -10870,7 +10978,12 @@ window.applySimilarQuestionsToQuiz = function() {
 // ========================================================
 // HỆ THỐNG BẢO MẬT & CHỐNG GIAN LẬN THI THỬ (EXAM ANTI-CHEAT)
 // CHỈ ÁP DỤNG DUY NHẤT TRONG CHẾ ĐỘ THI THỬ (EXAM MODE)
-// KHÔNG ÁP DỤNG TRONG CHẾ ĐỘ LUYỆN TẬP HOẶC BIÊN SOẠN
+// TUYỆT ĐỐI KHÔNG ÁP DỤNG TRONG CHẾ ĐỘ LUYỆN TẬP HOẶC BIÊN SOẠN
+// CÁC QUY TẮC:
+// 1. NGHIÊM CẤM CHỤP MÀN HÌNH (PrtScn, Snipping Tool, Win+Shift+S, Cmd+Shift+3/4/5)
+// 2. NGHIÊM CẤM QUAY MÀN HÌNH (WebRTC getDisplayMedia, MediaRecorder, Game Bar, Cmd+Shift+5)
+// 3. MÀN CHẮN BẢO MẬT TỰ ĐỘNG KHI CỬA SỔ BỊ MẤT FOCUS (CHỐNG CHỤP/QUAY TỪ BÊN NGOÀI)
+// 4. MỌI HÀNH VI ĐỀU BỊ GHI NHẬN VÀ CẢNH BÁO VI PHẠM (QUÁ 3 LẦN TỰ ĐỘNG THU BÀI)
 // ========================================================
 window.currentExamSessionId = null;
 window.examTabSwitchCount = 0;
@@ -10882,6 +10995,120 @@ window._examLeaveTimestamp = null;
 window._examListeners = {};
 window._examSessionHeartbeat = null;
 
+function clearExamClipboard() {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText('').catch(() => {});
+        }
+    } catch (err) {}
+}
+
+function flashAntiScreenShield() {
+    const shield = document.getElementById('examScreenShield');
+    if (shield) {
+        shield.classList.add('active');
+        shield.style.display = 'flex';
+        setTimeout(() => {
+            const isFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
+            if (isFocused && shield) {
+                shield.classList.remove('active');
+                shield.style.display = 'none';
+            }
+        }, 800);
+    }
+}
+
+function hookScreenRecordingAPIs() {
+    // 1. Chặn API quay / chia sẻ màn hình trình duyệt (Loom, Screen Recorder, Browser Extensions)
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+        if (!window._origGetDisplayMedia) {
+            window._origGetDisplayMedia = navigator.mediaDevices.getDisplayMedia;
+        }
+        navigator.mediaDevices.getDisplayMedia = async function(...args) {
+            if (window.examAntiCheatActive && currentMode === 'exam' && !document.body.classList.contains('quiz-completed')) {
+                handleExamViolation('screen_record', 'Phát hiện hành vi kích hoạt quay màn hình hoặc chia sẻ màn hình bài thi!');
+                throw new DOMException('Chế độ thi thử nghiêm cấm hành vi quay hoặc chia sẻ màn hình!', 'NotAllowedError');
+            }
+            return window._origGetDisplayMedia.apply(this, args);
+        };
+    }
+
+    // 2. Chặn captureStream từ HTMLCanvasElement
+    if (HTMLCanvasElement.prototype.captureStream) {
+        if (!window._origCanvasCaptureStream) {
+            window._origCanvasCaptureStream = HTMLCanvasElement.prototype.captureStream;
+        }
+        HTMLCanvasElement.prototype.captureStream = function(...args) {
+            if (window.examAntiCheatActive && currentMode === 'exam' && !document.body.classList.contains('quiz-completed')) {
+                handleExamViolation('screen_record', 'Phát hiện hành vi quay video canvas màn hình bài thi!');
+                throw new DOMException('Chế độ thi thử nghiêm cấm quay video màn hình!', 'NotAllowedError');
+            }
+            return window._origCanvasCaptureStream.apply(this, args);
+        };
+    }
+
+    // 3. Chặn MediaRecorder nếu cố tình ghi lại stream trong trang
+    if (window.MediaRecorder) {
+        if (!window._origMediaRecorder) {
+            window._origMediaRecorder = window.MediaRecorder;
+        }
+        window.MediaRecorder = function(stream, options) {
+            if (window.examAntiCheatActive && currentMode === 'exam' && !document.body.classList.contains('quiz-completed')) {
+                handleExamViolation('screen_record', 'Phát hiện hành vi kích hoạt công cụ ghi hình (MediaRecorder) trong phòng thi!');
+                throw new DOMException('Chế độ thi thử nghiêm cấm quay màn hình!', 'NotAllowedError');
+            }
+            return new window._origMediaRecorder(stream, options);
+        };
+        window.MediaRecorder.prototype = window._origMediaRecorder.prototype;
+        window.MediaRecorder.isTypeSupported = window._origMediaRecorder.isTypeSupported;
+    }
+}
+
+function initExamWatermark() {
+    let wm = document.getElementById('examWatermarkOverlay');
+    if (!wm) {
+        wm = document.createElement('div');
+        wm.id = 'examWatermarkOverlay';
+        wm.className = 'exam-watermark-overlay';
+        document.body.appendChild(wm);
+    }
+    
+    const name = (typeof studentName !== 'undefined' && studentName) || (quizProgress && quizProgress.studentName) || 'Thí sinh';
+    const sId = (window.currentExamSessionId || (quizProgress && quizProgress.sessionId) || '').slice(-6);
+    const dateStr = new Date().toLocaleDateString('vi-VN');
+    const text = `${name}${sId ? ' • #' + sId : ''} • ${dateStr}`;
+    
+    let itemsHtml = '';
+    for (let i = 0; i < 24; i++) {
+        itemsHtml += `<span class="exam-wm-item">${escapeHtml(text)}</span>`;
+    }
+    wm.innerHTML = itemsHtml;
+    wm.style.display = 'grid';
+}
+
+function destroyExamWatermark() {
+    const wm = document.getElementById('examWatermarkOverlay');
+    if (wm) {
+        wm.style.display = 'none';
+        wm.innerHTML = '';
+    }
+}
+
+function unhookScreenRecordingAPIs() {
+    if (window._origGetDisplayMedia && navigator.mediaDevices) {
+        navigator.mediaDevices.getDisplayMedia = window._origGetDisplayMedia;
+        window._origGetDisplayMedia = null;
+    }
+    if (window._origCanvasCaptureStream && typeof HTMLCanvasElement !== 'undefined') {
+        HTMLCanvasElement.prototype.captureStream = window._origCanvasCaptureStream;
+        window._origCanvasCaptureStream = null;
+    }
+    if (window._origMediaRecorder) {
+        window.MediaRecorder = window._origMediaRecorder;
+        window._origMediaRecorder = null;
+    }
+}
+
 function initExamAntiCheat() {
     // CHỈ áp dụng trong chế độ Thi thử (exam) và khi đang ở giao diện phòng thi (minimal-mode)
     if (currentMode !== 'exam' || !document.body.classList.contains('minimal-mode') || document.body.classList.contains('quiz-completed')) {
@@ -10892,6 +11119,12 @@ function initExamAntiCheat() {
     if (window.examAntiCheatActive) return;
     window.examAntiCheatActive = true;
     document.body.classList.add('exam-mode');
+
+    // Chặn API quay màn hình trong chế độ thi thử
+    hookScreenRecordingAPIs();
+
+    // Kích hoạt Watermark bảo vệ bản quyền & chống chụp trộm (Mobile & Desktop)
+    initExamWatermark();
 
     window.examTabSwitchCount = (quizProgress && quizProgress.tabSwitchCount) || 0;
     window._examLeaveTimestamp = null;
@@ -10938,14 +11171,69 @@ function initExamAntiCheat() {
         return false;
     };
 
-    // 5. Chặn F12, DevTools và các tổ hợp phím tắt (Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S, Ctrl+P)
+    // 5. Chặn F12, DevTools, phím tắt chụp màn hình, phím tắt quay màn hình
     const onKeyDown = (e) => {
         if (!window.examAntiCheatActive || currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
         const key = e.key || '';
         const keyCode = e.keyCode || e.which;
         const ctrlOrCmd = e.ctrlKey || e.metaKey;
 
-        // F12
+        // 5.1. Phím PrintScreen (PrtScn)
+        if (key === 'PrintScreen' || keyCode === 44) {
+            e.preventDefault();
+            e.stopPropagation();
+            clearExamClipboard();
+            flashAntiScreenShield();
+            handleExamViolation('screenshot', 'Phát hiện hành vi chụp ảnh màn hình bài thi (Phím PrintScreen)!');
+            return false;
+        }
+
+        // 5.2. Tổ hợp phím chụp màn hình Snipping Tool & macOS (Shift + Win/Cmd + S / 3 / 4 / 5 / 6)
+        if (ctrlOrCmd && e.shiftKey) {
+            // macOS: Cmd + Shift + 3 / 4 / 5 / 6
+            if (['3', '4', '5', '6'].includes(key)) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearExamClipboard();
+                flashAntiScreenShield();
+                const isRec = key === '5';
+                const msg = isRec ? 'Phát hiện tổ hợp phím quay màn hình (Cmd + Shift + 5)!' : `Phát hiện tổ hợp phím chụp ảnh màn hình (Cmd + Shift + ${key})!`;
+                handleExamViolation(isRec ? 'screen_record' : 'screenshot', msg);
+                return false;
+            }
+
+            // Windows / Linux / macOS: Win/Ctrl + Shift + S (Snipping Tool / Screenshot)
+            if (key === 'S' || key === 's' || keyCode === 83) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearExamClipboard();
+                flashAntiScreenShield();
+                handleExamViolation('screenshot', 'Phát hiện tổ hợp phím chụp ảnh màn hình (Shift + S)!');
+                return false;
+            }
+        }
+
+        // 5.3. Phím tắt quay màn hình Windows Game Bar (Win + G, Win + Alt + R) & Ctrl + Shift + R
+        if (e.metaKey && (key === 'g' || key === 'G' || keyCode === 71)) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleExamViolation('screen_record', 'Phát hiện tổ hợp phím mở công cụ quay màn hình (Game Bar)!');
+            return false;
+        }
+        if (e.metaKey && e.altKey && (key === 'r' || key === 'R' || keyCode === 82)) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleExamViolation('screen_record', 'Phát hiện tổ hợp phím quay video màn hình (Win + Alt + R)!');
+            return false;
+        }
+        if (ctrlOrCmd && e.shiftKey && (key === 'R' || key === 'r' || keyCode === 82)) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleExamViolation('screen_record', 'Phát hiện tổ hợp phím quay video màn hình (Ctrl + Shift + R)!');
+            return false;
+        }
+
+        // 5.4. F12
         if (key === 'F12' || keyCode === 123) {
             e.preventDefault();
             e.stopPropagation();
@@ -10953,7 +11241,7 @@ function initExamAntiCheat() {
             return false;
         }
 
-        // Ctrl+Shift+I / J / C (DevTools)
+        // 5.5. Ctrl+Shift+I / J / C (DevTools)
         if (ctrlOrCmd && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(key)) {
             e.preventDefault();
             e.stopPropagation();
@@ -10961,7 +11249,7 @@ function initExamAntiCheat() {
             return false;
         }
 
-        // Ctrl+U (Xem mã nguồn trang)
+        // 5.6. Ctrl+U (Xem mã nguồn trang)
         if (ctrlOrCmd && (key === 'u' || key === 'U')) {
             e.preventDefault();
             e.stopPropagation();
@@ -10969,7 +11257,7 @@ function initExamAntiCheat() {
             return false;
         }
 
-        // Ctrl+S (Lưu trang) / Ctrl+P (In trang)
+        // 5.7. Ctrl+S (Lưu trang) / Ctrl+P (In trang)
         if (ctrlOrCmd && ['s', 'S', 'p', 'P'].includes(key)) {
             e.preventDefault();
             e.stopPropagation();
@@ -10977,12 +11265,45 @@ function initExamAntiCheat() {
         }
     };
 
+    // 5.8. Lắng nghe thêm keyup cho phím PrintScreen (vì Chrome/Windows thường gửi PrintScreen qua keyup)
+    const onKeyUp = (e) => {
+        if (!window.examAntiCheatActive || currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
+        const key = e.key || '';
+        const keyCode = e.keyCode || e.which;
+        if (key === 'PrintScreen' || keyCode === 44) {
+            e.preventDefault();
+            e.stopPropagation();
+            clearExamClipboard();
+            flashAntiScreenShield();
+            handleExamViolation('screenshot', 'Phát hiện hành vi chụp ảnh màn hình bài thi (Phím PrintScreen)!');
+        }
+    };
+
+    // 5.9. Chặn in trang / xuất trang (Print to PDF)
+    const onBeforePrint = (e) => {
+        if (!window.examAntiCheatActive || currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
+        if (e && e.preventDefault) e.preventDefault();
+        handleExamViolation('print_or_screenshot', 'Không cho phép in hoặc chụp lưu toàn bộ trang đề thi!');
+        return false;
+    };
+
     // 6. Phát hiện chuyển tab hoặc rời cửa sổ (visibilitychange & blur/focus)
     const onVisibilityChange = () => {
         if (!window.examAntiCheatActive || currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
         if (document.visibilityState === 'hidden') {
             window._examLeaveTimestamp = Date.now();
+            const shield = document.getElementById('examScreenShield');
+            if (shield) {
+                shield.classList.add('active');
+                shield.style.display = 'flex';
+            }
         } else if (document.visibilityState === 'visible') {
+            const shield = document.getElementById('examScreenShield');
+            if (shield) {
+                shield.classList.remove('active');
+                shield.style.display = 'none';
+            }
+            clearExamClipboard();
             if (window._examLeaveTimestamp) {
                 const awayDurationMs = Date.now() - window._examLeaveTimestamp;
                 window._examLeaveTimestamp = null;
@@ -11000,10 +11321,27 @@ function initExamAntiCheat() {
         if (!window._examLeaveTimestamp) {
             window._examLeaveTimestamp = Date.now();
         }
+        // Kích hoạt màn chắn bảo mật che nội dung bài thi chống chụp màn hình bằng Snipping Tool hoặc phần mềm ngoài
+        const shield = document.getElementById('examScreenShield');
+        if (shield) {
+            shield.classList.add('active');
+            shield.style.display = 'flex';
+        }
     };
 
     const onWindowFocus = () => {
         if (!window.examAntiCheatActive || currentMode !== 'exam' || document.body.classList.contains('quiz-completed')) return;
+        
+        // Hạ màn chắn bảo mật khi học sinh quay lại bài thi
+        const shield = document.getElementById('examScreenShield');
+        if (shield) {
+            shield.classList.remove('active');
+            shield.style.display = 'none';
+        }
+
+        // Xoá clipboard để vô hiệu hoá ảnh chụp từ Snipping Tool ngoài
+        clearExamClipboard();
+
         if (window._examLeaveTimestamp) {
             const awayDurationMs = Date.now() - window._examLeaveTimestamp;
             window._examLeaveTimestamp = null;
@@ -11030,6 +11368,8 @@ function initExamAntiCheat() {
         paste: onPaste,
         selectstart: onSelectStart,
         keydown: onKeyDown,
+        keyup: onKeyUp,
+        beforeprint: onBeforePrint,
         visibilitychange: onVisibilityChange,
         blur: onWindowBlur,
         focus: onWindowFocus,
@@ -11043,6 +11383,8 @@ function initExamAntiCheat() {
     document.addEventListener('paste', onPaste, true);
     document.addEventListener('selectstart', onSelectStart, true);
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    window.addEventListener('beforeprint', onBeforePrint);
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('blur', onWindowBlur);
     window.addEventListener('focus', onWindowFocus);
@@ -11054,6 +11396,19 @@ function destroyExamAntiCheat() {
     window.examAntiCheatActive = false;
     document.body.classList.remove('exam-mode');
 
+    // Gỡ chặn API quay màn hình
+    unhookScreenRecordingAPIs();
+
+    // Gỡ bỏ Watermark
+    destroyExamWatermark();
+
+    // Ẩn màn chắn bảo mật
+    const shield = document.getElementById('examScreenShield');
+    if (shield) {
+        shield.classList.remove('active');
+        shield.style.display = 'none';
+    }
+
     if (window._examListeners) {
         if (window._examListeners.contextmenu) document.removeEventListener('contextmenu', window._examListeners.contextmenu, true);
         if (window._examListeners.copy) document.removeEventListener('copy', window._examListeners.copy, true);
@@ -11061,6 +11416,8 @@ function destroyExamAntiCheat() {
         if (window._examListeners.paste) document.removeEventListener('paste', window._examListeners.paste, true);
         if (window._examListeners.selectstart) document.removeEventListener('selectstart', window._examListeners.selectstart, true);
         if (window._examListeners.keydown) window.removeEventListener('keydown', window._examListeners.keydown, true);
+        if (window._examListeners.keyup) window.removeEventListener('keyup', window._examListeners.keyup, true);
+        if (window._examListeners.beforeprint) window.removeEventListener('beforeprint', window._examListeners.beforeprint);
         if (window._examListeners.visibilitychange) document.removeEventListener('visibilitychange', window._examListeners.visibilitychange);
         if (window._examListeners.blur) window.removeEventListener('blur', window._examListeners.blur);
         if (window._examListeners.focus) window.removeEventListener('focus', window._examListeners.focus);
@@ -11086,7 +11443,11 @@ function handleExamViolation(reason, msg) {
 
     if (count >= maxViolations) {
         closeExamViolationModal();
-        alert(`🚨 VI PHẠM QUY CHẾ THI!\n\nBạn đã rời khỏi màn hình thi ${count} lần (vượt quá giới hạn ${maxViolations} lần cho phép).\n\nHệ thống tự động thu bài và nộp kết quả ngay bây giờ.`);
+        alert(`🚨 VI PHẠM QUY CHẾ THI!
+
+Bạn đã vi phạm quy chế thi ${count} lần (vượt quá giới hạn ${maxViolations} lần cho phép do chụp màn hình, quay màn hình hoặc rời màn hình làm bài).
+
+Hệ thống tự động dừng thời gian và thu bài nộp ngay bây giờ.`);
         submitExam(false, true);
         return;
     }
@@ -11101,13 +11462,25 @@ function showExamViolationModal(count, maxViolations, detailMsg) {
     const countEl = document.getElementById('examViolationCount');
     if (countEl) countEl.innerText = `${count} / ${maxViolations}`;
 
+    const titleEl = document.getElementById('examViolationTitle');
+    if (titleEl) {
+        const lowerMsg = (detailMsg || '').toLowerCase();
+        if (lowerMsg.includes('chụp') || lowerMsg.includes('screenshot') || lowerMsg.includes('printscreen')) {
+            titleEl.innerHTML = '<i class="ri-camera-lens-fill" style="color: #dc2626;"></i> CẢNH BÁO: PHÁT HIỆN HÀNH VI CHỤP MÀN HÌNH!';
+        } else if (lowerMsg.includes('quay') || lowerMsg.includes('ghi hình') || lowerMsg.includes('chia sẻ')) {
+            titleEl.innerHTML = '<i class="ri-record-circle-fill" style="color: #dc2626;"></i> CẢNH BÁO: PHÁT HIỆN HÀNH VI QUAY MÀN HÌNH!';
+        } else {
+            titleEl.innerHTML = '<i class="ri-alarm-warning-fill" style="color: #dc2626;"></i> CẢNH BÁO RỜI MÀN HÌNH BÀI THI!';
+        }
+    }
+
     const descEl = document.getElementById('examViolationDesc');
     if (descEl) {
         const remaining = maxViolations - count;
         descEl.innerHTML = `
             ${detailMsg ? `<div style="font-size: 0.95rem; color: #dc2626; font-weight: 700; margin-bottom: 8px;"><i class="ri-error-warning-fill"></i> ${escapeHtml(detailMsg)}</div>` : ''}
-            <div>Thí sinh không được phép chuyển tab, mở ứng dụng khác hoặc thoát chế độ toàn màn hình trong suốt thời gian làm bài thi thử.</div>
-            <div style="margin-top: 8px; font-weight: 700; color: #b91c1c;">Bạn còn <b>${remaining}</b> lần cảnh báo trước khi bài thi bị tự động nộp!</div>
+            <div>Thí sinh tuyệt đối <b>không được phép chụp ảnh màn hình, quay video màn hình, chia sẻ màn hình</b>, chuyển tab hoặc rời khỏi chế độ toàn màn hình trong suốt thời gian làm bài thi thử.</div>
+            <div style="margin-top: 8px; font-weight: 700; color: #b91c1c;">Bạn còn <b>${remaining}</b> lần cảnh báo trước khi bài thi bị tự động thu bài và chấm điểm!</div>
         `;
     }
 

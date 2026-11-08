@@ -30,6 +30,50 @@ def extract_explain_from_block(text: str) -> tuple:
     return text, ""
 
 
+def extract_unlabeled_tf_statements(block: str) -> tuple:
+    """
+    Cứu hộ câu hỏi Đúng/Sai không có nhãn a), b), c), d) ở đầu dòng
+    nhưng có chữ Đ / S / Đúng / Sai / D ở cuối mỗi dòng phát biểu.
+    Trả về: (stem, [a) ..., b) ..., c) ..., d) ...], {'a': bool, ...})
+    """
+    lines = [line.strip() for line in block.split('\n') if line.strip()]
+    if len(lines) < 3:
+        return None, None, None
+
+    tf_pattern = re.compile(r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$', re.IGNORECASE)
+    tf_line_indices = [idx for idx, l in enumerate(lines) if tf_pattern.search(l)]
+
+    if len(tf_line_indices) >= 2:
+        first_opt_idx = tf_line_indices[0]
+        stem_lines = lines[:first_opt_idx]
+        opt_lines = lines[first_opt_idx:]
+
+        options = []
+        tf_dict = {}
+        char_code = ord('a')
+
+        for l in opt_lines:
+            m = tf_pattern.search(l)
+            if m:
+                tf_val_str = m.group(1).upper()
+                is_true = True if ('Đ' in tf_val_str or 'D' in tf_val_str or 'ĐÚNG' in tf_val_str) else False
+                content = l[:m.start()].strip()
+                char = chr(char_code)
+                options.append(f"{char}) {content}")
+                tf_dict[char] = is_true
+                char_code += 1
+            else:
+                if options:
+                    options[-1] += " " + l
+                else:
+                    stem_lines.append(l)
+
+        if len(options) >= 2:
+            stem = "\n".join(stem_lines).strip()
+            return stem, options, tf_dict
+
+    return None, None, None
+
 def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict = None) -> List[Dict[str, Any]]:
     """
     Bộ bóc tách câu hỏi siêu bền vững theo chuẩn Bộ GD&ĐT (GDPT 2018):
@@ -45,6 +89,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     raw_text = raw_text.replace('\xa0', ' ').replace('\u202f', ' ').replace('\ufeff', '')
     raw_text = raw_text.replace('\xad', '-').replace('\u2013', '-').replace('\u2014', '-')
     raw_text = re.sub(r'<sup>\s*[oO0°]\s*</sup>\s*([CFK])', r'°\1', raw_text)
+    raw_text = re.sub(r'([SĐD])\s*([a-d]\))', r'\1\n\2', raw_text)
 
     # 1. Tách Bảng đáp án ở cuối văn bản trước khi xử lý
     raw_text_questions, ak_raw, detected_ak = separate_answer_key_from_text(raw_text)
@@ -109,7 +154,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
         })
 
     q_split_pattern = re.compile(
-        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*(\d*)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)\/])(?:\s+|<[^>]+>|$)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*(\d*)[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])(\d+)[\.\:\)\/])(?:\s+|<[^>]+>|$)',
         re.IGNORECASE
     )
 
@@ -199,7 +244,25 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             # Chỉ coi là Đúng / Sai khi KHÔNG CÓ phương án A-D in hoa và có các ý a), b), c), d) chữ thường
             is_tf = (len(mcq_matches) < 2) and ((sec_type == "true_false" and len(sub_matches) >= 2) or (len(sub_matches) >= 3 and sec_type != "mcq"))
 
+            unlabeled_stem, unlabeled_opts, unlabeled_tf_dict = None, None, None
+            if not is_tf and len(mcq_matches) < 2:
+                unlabeled_stem, unlabeled_opts, unlabeled_tf_dict = extract_unlabeled_tf_statements(block)
+                if unlabeled_opts and len(unlabeled_opts) >= 2:
+                    is_tf = True
+
             if is_tf:
+                if unlabeled_opts:
+                    results.append({
+                        "question_number": raw_q_num,
+                        "part": sec_part,
+                        "type": "true_false",
+                        "group_title": sec_header if i == 0 else "",
+                        "question": unlabeled_stem,
+                        "options": unlabeled_opts,
+                        "correct_answer": unlabeled_tf_dict,
+                        "explain": explain
+                    })
+                    continue
                 q_text = block[:sub_matches[0].start()].strip()
                 options = []
                 opt_tf_marks = {}
@@ -229,11 +292,11 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         if last_nl != -1:
                             opt_content_raw = opt_content_raw[:last_nl].strip()
 
-                    m_end_tf = re.search(r'[\s\t\xa0]+(Đ|S|Đúng|Sai)\s*$', opt_content_raw, re.IGNORECASE)
+                    m_end_tf = re.search(r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$', opt_content_raw, re.IGNORECASE)
                     trailing_tf = None
                     if m_end_tf:
                         tf_str = m_end_tf.group(1).upper()
-                        trailing_tf = True if 'Đ' in tf_str else False
+                        trailing_tf = True if ('Đ' in tf_str or tf_str in ['D', 'T', 'TRUE'] or 'ĐÚNG' in tf_str) else False
                         opt_content_raw = opt_content_raw[:m_end_tf.start()].strip()
 
                     clean_text, is_corr, is_fls, ext_char = clean_option_text(opt_content_raw)

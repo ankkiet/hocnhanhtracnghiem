@@ -81,6 +81,7 @@ async def ping_session(req: PingSessionRequest):
     return await student_service.ping_session(req)
 
 
+@router.get("/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng học sinh theo đề thi (alias)")
 @router.get("/student/leaderboard/{quiz_id}", summary="Lấy bảng xếp hạng học sinh theo đề thi")
 async def get_leaderboard(quiz_id: str):
     return await student_service.get_leaderboard(quiz_id=quiz_id)

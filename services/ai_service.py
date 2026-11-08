@@ -397,14 +397,14 @@ def clean_question_prefix(text: str) -> str:
 
     raw = text.strip()
     cleaned = re.sub(
-        r'^(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*(?:<\/[^>]+>\s*)*',
+        r'^(?:<[^>]+>\s*)*(?:(?:\[|\()?\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*(?:<\/[^>]+>\s*)*',
         '',
         raw,
         flags=re.IGNORECASE
     )
     if not cleaned:
         cleaned = re.sub(
-            r'^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
+            r'^(?:(?:\[|\()?\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*',
             '',
             raw,
             flags=re.IGNORECASE

@@ -703,3 +703,25 @@ A. Đo bằng Celsius.      B. Đo bằng Kelvin.     C. Đo bằng F.       D. 
     assert len(norm[0]["options"]) == 4
     assert norm[0]["options"][0] == "A. Cân đồng hồ."
     assert norm[0]["options"][1] == "B. Nhiệt kế."
+
+def test_unlabeled_true_false_and_glued():
+    """Kiểm tra câu hỏi Đúng/Sai không có nhãn a), b), c), d) và câu hỏi có nhãn dính liền như Sb)"""
+    raw_text = """Câu 1: Phát biểu sau đây ĐÚNG hay SAI?
+Việc sử dụng video call giúp gần gũi hơn. S
+Giao tiếp qua mạng xã hội có thể gây hiểu lầm. Đ
+Tương tác thường xuyên giúp củng cố quan hệ. S
+Giao tiếp giúp kết nối nhanh chóng. Đ
+Câu hỏi 2: AI tạo sinh là gì?
+a) AI chỉ tạo ra hình ảnh. Sb) ChatGPT là AI tạo sinh. Đc) Không có ứng dụng. Sd) Có thể tạo nội dung tự động. Đ
+"""
+    from core.text_parser import extract_questions_from_text_bulletproof
+    from services.ai_service import normalize_question_data
+    data = extract_questions_from_text_bulletproof(raw_text)
+    norm = [normalize_question_data(q, use_ai=False) for q in data]
+    assert len(norm) == 2
+    assert norm[0]["type"] == "true_false"
+    assert len(norm[0]["options"]) == 4
+    assert norm[0]["correct_answer"] == {"a": False, "b": True, "c": False, "d": True}
+    assert norm[1]["type"] == "true_false"
+    assert len(norm[1]["options"]) == 4
+    assert norm[1]["correct_answer"] == {"a": False, "b": True, "c": False, "d": True}

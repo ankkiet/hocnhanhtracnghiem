@@ -1213,6 +1213,29 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     border-color: #cbd5e1;
 }
 
+.toolbar-btn-latex {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #ea580c;
+    font-weight: 600;
+    gap: 4px;
+    padding: 0 8px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(234, 88, 12, 0.08);
+}
+
+.toolbar-btn-latex:hover {
+    background: #ffedd5;
+    border-color: #fdba74;
+    color: #c2410c;
+    transform: translateY(-1px);
+}
+
+.toolbar-btn-latex:active {
+    background: #fed7aa;
+    transform: translateY(0);
+}
+
 .btn-text-sm {
     font-size: 0.8rem;
     font-weight: 600;

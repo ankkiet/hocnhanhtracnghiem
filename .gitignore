@@ -28,6 +28,10 @@ dist/
 env/
 venv/
 ENV/
+*.pem
+*.key
+*.cert
+*.crt
 
 # --- Firebase Service Account Keys ---
 *firebase-adminsdk*.json
@@ -52,6 +56,8 @@ coverage.xml
 # --- IDEs, Tooling & OS Metadata ---
 .vscode/
 .idea/
+.project
+.settings/
 .DS_Store
 Thumbs.db
 ehthumbs.db
@@ -65,6 +71,9 @@ Desktop.ini
 !.codegraph/.gitignore
 .taste-skill/
 .gemini/
+.antigravity/
+.system_generated/
+.user_uploaded/
 node_modules/
 
 # --- Browser Automation & Test Profiles ---
@@ -80,6 +89,10 @@ logs/
 
 # --- Temporary Scratch & Backup Folders ---
 scratch/
+temp/
+tmp/
+*.tmp
+*.bak
 backup_bgd_feature/
 backup_perf/
 backup_*/

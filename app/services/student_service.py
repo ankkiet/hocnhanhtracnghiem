@@ -269,7 +269,7 @@ class StudentService:
             curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
             LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
         else:
-            LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': [lb_entry]}
+            LEADERBOARD_CACHE.pop(req.quiz_id, None)
 
         return {
             "status": "success",
@@ -312,6 +312,8 @@ class StudentService:
             })
             curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
             LEADERBOARD_CACHE[request.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
+        else:
+            LEADERBOARD_CACHE.pop(request.quiz_id, None)
 
         return {"status": "success"}
 
@@ -368,13 +370,14 @@ class StudentService:
         else:
             subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
             try:
-                # CHỈ LẤY ĐÚNG 5 BÀI ĐIỂM CAO NHẤT TỪ FIRESTORE (tiết kiệm 99% Read)
-                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(5).get()
+                # Lấy top 20 bài điểm cao nhất từ Firestore để xét chuẩn tie-break theo time_elapsed
+                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(20).get()
             except Exception:
-                docs = subs_ref.limit(5).get()
+                docs = subs_ref.limit(20).get()
             raw_submissions = [doc.to_dict() for doc in docs]
             SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': raw_submissions}
 
+        quiz_total_q = None
         results = []
         for data in raw_submissions:
             try:
@@ -391,6 +394,19 @@ class StudentService:
                 total = int(data.get('total_questions', 0))
             except (ValueError, TypeError):
                 total = 0
+
+            if total <= 0:
+                if quiz_total_q is None:
+                    if quiz_id in QUIZ_CACHE and 'data' in QUIZ_CACHE[quiz_id]:
+                        quiz_total_q = len(QUIZ_CACHE[quiz_id]['data'].get('data', []))
+                    else:
+                        try:
+                            q_doc = db.collection('quizzes').document(quiz_id).get()
+                            quiz_total_q = len(q_doc.to_dict().get('data', [])) if q_doc.exists else 0
+                        except Exception:
+                            quiz_total_q = 0
+                if quiz_total_q and quiz_total_q > 0:
+                    total = quiz_total_q
 
             results.append({
                 'student_name': data.get('student_name', 'Ẩn danh'),

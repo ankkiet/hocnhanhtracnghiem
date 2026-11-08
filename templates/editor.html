@@ -45,7 +45,20 @@
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+        <!-- Trình soạn thảo công thức MathLive (hỗ trợ cả đường dẫn cục bộ và CDN fallback an toàn) -->
     <script src="/static/js/mathlive.min.js"></script>
+    <script>
+        if (!window.customElements || !window.customElements.get('math-field')) {
+            var s = document.createElement('script');
+            s.src = '/mathlive.min.js';
+            s.onerror = function() {
+                var cdn = document.createElement('script');
+                cdn.src = 'https://cdn.jsdelivr.net/npm/mathlive@0.104.2/dist/mathlive.min.js';
+                document.head.appendChild(cdn);
+            };
+            document.head.appendChild(s);
+        }
+    </script>
 
     <!-- CRITICAL STYLES CHO HIỆU ỨNG LOADING HOCNHANHTN BAN ĐẦU (Chuẩn hieuung.html) -->
     <style id="hntn-critical-preloader-css">
@@ -550,7 +563,7 @@
                                 <input type="file" id="editorHiddenImageInput" accept="image/*" style="display: none;" onchange="handleImageFileSelected(this)">
                             </div>
 
-                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="openLatexMathModal()" title="Chèn & Xem trước công thức Toán học LaTeX">
+                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection();" onclick="openLatexMathModal()" title="Chèn & Xem trước công thức Toán học LaTeX">
                                 <i class="ri-functions" style="color: #ea580c;"></i> <span class="btn-text-sm">LaTeX</span>
                             </button>
                         </div>
@@ -1099,7 +1112,7 @@
         </div>
     </div>
 
-    <script src="/editor.js?v=20261107_image_drag_drop_caret_v1"></script>
+    
 
         <!-- MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE CHUẨN GDPT 2018 -->
     <div id="latexMathModal" class="studio-modal-overlay mathtype-modal-overlay" style="display: none; z-index: 9999999;" onclick="if(event.target === this) closeLatexMathModal()">
@@ -1452,5 +1465,6 @@
         </div>
     </div>
 
+    <script src="/editor.js?v=20261108_mathtype_fix_v2"></script>
 </body>
 </html>
