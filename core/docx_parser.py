@@ -50,7 +50,7 @@ from services.r2_service import upload_image_to_r2
 
 # Biên dịch sẵn Regex (Tối ưu tốc độ quét vòng lặp văn bản)
 
-RE_NUMBERING = re.compile(r'^\s*(Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', re.IGNORECASE)
+RE_NUMBERING = re.compile(r'^\s*(Câu\s*hỏi|Câu|Bài|Question|Q|\d+[\.\:\)]|\*?\s*[A-F][\.\:\)])', re.IGNORECASE)
 
 RE_GROUP_TITLE = re.compile(r'^\s*(PHẦN|PART|CHƯƠNG|BÀI TẬP|TEST|PRACTICE|MỨC ĐỘ|DẠNG|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b', re.IGNORECASE)
 
@@ -506,7 +506,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
 
                     elif max_w == 2: score += 400
 
-                    elif max_w == 1: score += 80
+                    elif max_w == 1: score += 250
 
                 elif formatted_chars >= 2:
 
@@ -514,7 +514,7 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
 
                     elif max_w == 2: score += 150
 
-                    elif max_w == 1: score += 20
+                    elif max_w == 1: score += 150
 
                     
 
@@ -620,11 +620,23 @@ def inspect_run_formatting(rPr, run_text: str = ""):
 
         if c_node is not None:
 
-            c_val = str(c_node.get(qn('w:val'), '')).upper()
+            c_val = str(c_node.get(qn('w:val'), '')).upper().strip('#')
 
-            if c_val not in ['', 'AUTO', '000000', '111111', '222222', '333333', 'NONE', 'WINDOWSTEXT', 'DEFAULT']:
-
-                is_red_text = True
+            if c_val not in ['', 'AUTO', 'NONE', 'WINDOWSTEXT', 'DEFAULT']:
+                is_neutral = False
+                if len(c_val) == 6:
+                    try:
+                        r_c = int(c_val[0:2], 16)
+                        g_c = int(c_val[2:4], 16)
+                        b_c = int(c_val[4:6], 16)
+                        if max(abs(r_c - g_c), abs(g_c - b_c), abs(r_c - b_c)) <= 25:
+                            is_neutral = True
+                    except ValueError:
+                        pass
+                elif c_val in ['000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999', '595959', '7F7F7F', '808080', '404040', '262626']:
+                    is_neutral = True
+                if not is_neutral:
+                    is_red_text = True
 
 
 
@@ -998,9 +1010,9 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
     from core.text_parser import extract_explain_from_block
 
-    q_regex = r'(?i:(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d*[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])\d+[\.\:\)\/])(?:\s+|$))'
+    q_regex = r'(?i:(?:^|\n)\s*(?:(?:\[|\()?\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d*[\.\:\-\/\)]?\s*(?:\]|\))?|(?<![a-zA-Z0-9])\d+[\.\:\)\/])(?:\s+|$))'
 
-    opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
+    opt_regex = r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F](?:<[^>]+>\s*)*[\.\:\)\/\-]))(?:\(?\[?(\*?[A-F])(?:<[^>]+>\s*)*(?:[\.\:\/\)\]\-]|\b))(?:\s+|$)'
 
     token_pattern = re.compile(f'({q_regex})|({opt_regex})')
 

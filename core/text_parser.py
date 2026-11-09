@@ -113,7 +113,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     sections = []
     if section_matches and section_matches[0].start() > 0:
         prefix_text = raw_text[:section_matches[0].start()].strip()
-        if re.search(r'(?:Câu|Bài|\bQ\b)\s*\d+', prefix_text, re.IGNORECASE):
+        if re.search(r'(?:Câu\s*hỏi|Câu|Bài|Question|\bQ\b)\s*\d+', prefix_text, re.IGNORECASE):
             sections.append({
                 "header": "PHẦN I",
                 "type": "mcq",
@@ -159,15 +159,15 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
     )
 
     mcq_opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F][\.\:\)\/\-]))'
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\]\'\"\>])\s*|(?<=\s)(?=[B-F](?:<[^>]+>\s*)*[\.\:\)\/\-]))'
         r'((?:(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>|</b>|</B>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[A-D])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
+        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[A-D])(?:<[^>]+>\s*)*(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
     )
 
     sub_opt_pattern = re.compile(
-        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[b-d][\.\:\)\/\-]))'
+        r'(?:^|\n|\t|\s{2,}|(?<=[;\.\:\?!])\s*|(?<=[\)\}\}\'\"\>])\s*|(?<=\s)(?=[b-d](?:<[^>]+>\s*)*[\.\:\)\/\-]))'
         r'((?:(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC|nb|th|vd|vdc)\s*\]\s*(?:</MARK>|</mark>|</u>|</U>|</b>|</B>\s*)*)?'
-        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[a-d])(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
+        r'(?:<MARK>|<mark>|<u>|<U>|<b>|<B>\s*)*\(?\[?(?<![°oO\d\w])(\*?[a-d])(?:<[^>]+>\s*)*(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>)))\s*'
     )
 
     results = []
@@ -204,8 +204,18 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
             block, explain = extract_explain_from_block(raw_block)
 
-            # 1. Nếu là phần Trả lời ngắn (PHẦN III)
-            if sec_type == "short_answer":
+            table_ranges = [
+                (tbl_m.start(), tbl_m.end())
+                for tbl_m in re.finditer(r'<table\b[^>]*>.*?</table>', block, flags=re.DOTALL | re.IGNORECASE)
+            ]
+            def is_inside_table(pos: int) -> bool:
+                return any(t_start <= pos < t_end for t_start, t_end in table_ranges)
+
+            sub_matches = [m for m in sub_opt_pattern.finditer(block) if not is_inside_table(m.start())]
+            mcq_matches = [m for m in mcq_opt_pattern.finditer(block) if not is_inside_table(m.start())]
+
+            # 1. Nếu là phần Trả lời ngắn (PHẦN III): Chỉ nhận là short_answer khi KHÔNG có phương án trắc nghiệm A-D và KHÔNG có ý đúng sai a-d
+            if sec_type == "short_answer" and len(mcq_matches) < 2 and len(sub_matches) < 2:
                 ans_val = ""
                 ans_m = re.search(r'(?:<[^>]+>\s*)*(?:\(?\s*(?:Đáp án|Đáp số|ĐS|Đs|đs|DDS|Kết quả|Ans|Answer)\s*[\:\.\-\=]?\s*|\bĐS\b\s*)(?:</[^>]+>\s*)*([^\n\r\;\|<]+)', block, re.IGNORECASE)
                 if ans_m:
@@ -229,16 +239,6 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     "explain": explain
                 })
                 continue
-
-            table_ranges = [
-                (tbl_m.start(), tbl_m.end())
-                for tbl_m in re.finditer(r'<table\b[^>]*>.*?</table>', block, flags=re.DOTALL | re.IGNORECASE)
-            ]
-            def is_inside_table(pos: int) -> bool:
-                return any(t_start <= pos < t_end for t_start, t_end in table_ranges)
-
-            sub_matches = [m for m in sub_opt_pattern.finditer(block) if not is_inside_table(m.start())]
-            mcq_matches = [m for m in mcq_opt_pattern.finditer(block) if not is_inside_table(m.start())]
 
             # 2. DẠNG TRẮC NGHIỆM ĐÚNG / SAI (PHẦN II)
             # Chỉ coi là Đúng / Sai khi KHÔNG CÓ phương án A-D in hoa và có các ý a), b), c), d) chữ thường
@@ -351,7 +351,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 if len(filtered_matches) == 3 and filtered_matches[0].group(2).upper() == 'B':
                     b_start = filtered_matches[0].start()
                     pre_b = block[:b_start]
-                    m_a = re.search(r'(?:^|\s|\b)((?:<[^>]+>\s*)*\*?A(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>))\s*)', pre_b)
+                    m_a = re.search(r'(?:^|\s|\b)((?:<[^>]+>\s*)*\*?A(?:<[^>]+>\s*)*(?:[\.\:\/\)\]\-]|\s*\]|\s*\)|(?=</(?:b|B|u|U|mark|MARK|strong|STRONG)>))\s*)', pre_b)
                     if m_a:
                         stem_part = pre_b[:m_a.start()].strip()
                         opt_a_text = pre_b[m_a.start():].strip()
@@ -409,16 +409,31 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
                     options.append(f"{char}. {clean_opt}")
 
-                # Nếu chưa phát hiện đáp án qua gạch chân/tô đỏ/sao, kiểm tra phương án in đậm nội dung
+                # Nếu chưa phát hiện đáp án qua gạch chân/tô đỏ/sao, kiểm tra phương án in đậm nội dung hoặc toàn bộ
                 if not correct_ans:
-                    bold_opts = []
+                    bold_content_opts = []
+                    bold_total_opts = []
+                    bold_pattern = re.compile(r'<(?:b|strong)\b[^>]*>(?:(?!</(?:b|strong)>).)*\S.*?</(?:b|strong)>|<(?:b|strong)\b[^>]*>[^<]*\S|\*\*[^*]+\*\*', re.IGNORECASE | re.DOTALL)
                     for k_idx, opt_str in enumerate(options):
-                        raw_k = block[mcq_matches[k_idx].start():(mcq_matches[k_idx+1].start() if k_idx+1 < len(mcq_matches) else len(block))]
-                        content_after_marker = re.sub(r'^\s*<b>\s*[A-F][\.\:\)]\s*</b>', '', raw_k.strip(), flags=re.IGNORECASE)
-                        if '<b>' in content_after_marker or '<B>' in content_after_marker:
-                            bold_opts.append(opt_str)
-                    if len(bold_opts) == 1:
-                        correct_ans = bold_opts[0]
+                        start = mcq_matches[k_idx].start()
+                        end = mcq_matches[k_idx+1].start() if k_idx+1 < len(mcq_matches) else len(block)
+                        raw_k = block[start:end]
+                        cleaned_k = re.sub(r'<(?:b|strong)\b[^>]*>\s*</(?:b|strong)>', '', raw_k, flags=re.IGNORECASE)
+                        cleaned_k = re.sub(r'\*\*\s*\*\*', '', cleaned_k)
+                        content_after_marker = re.sub(r'^\s*(?:<(?:b|strong)\b[^>]*>\s*)*\*?[A-Fa-f][\.\:\)](?:\s*</(?:b|strong)>)*\s*', '', cleaned_k.strip(), flags=re.IGNORECASE)
+                        if bold_pattern.search(content_after_marker):
+                            bold_content_opts.append(opt_str)
+                        if bold_pattern.search(cleaned_k):
+                            bold_total_opts.append(opt_str)
+                    if len(bold_content_opts) == 1:
+                        correct_ans = bold_content_opts[0]
+                    elif len(bold_content_opts) == 0 and len(bold_total_opts) == 1:
+                        correct_ans = bold_total_opts[0]
+
+                # Làm sạch các thẻ in đậm đánh dấu khỏi options và correct_answer
+                options = [re.sub(r'</?(?:b|strong)\b[^>]*>', '', opt, flags=re.IGNORECASE).replace('**', '').strip() for opt in options]
+                if correct_ans:
+                    correct_ans = re.sub(r'</?(?:b|strong)\b[^>]*>', '', correct_ans, flags=re.IGNORECASE).replace('**', '').strip()
 
                 results.append({
                     "question_number": raw_q_num,

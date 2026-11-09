@@ -1101,7 +1101,10 @@ function parseEditorText(text) {
                 const restoredStem = currentQ.options.join('<br>');
                 currentQ.question = (currentQ.question ? currentQ.question + '<br>' : '') + restoredStem;
                 currentQ.options = [];
-                currentQ.correct_answer = null;
+                currentQ.correct_answer = null;
+
+                currentQ._rawOptions = [];
+
             }
             currentQ.type = 'mcq';
 
@@ -1117,20 +1120,56 @@ function parseEditorText(text) {
                 subMatches.forEach((mItem, mIdx) => {
                     const charRaw = mItem[1].trim().toUpperCase();
                     const char = charRaw.replace('*', '').trim();
-                    const isCorrect = mItem[0].includes('*')
-                        || /<\/?(?:MARK|u)>/i.test(mItem[0])
-                        || /[✓✔☑]/i.test(mItem[0])
-                        || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(mItem[0]);
-
-                    const start = mItem.index + mItem[0].length;
-                    const end = (mIdx + 1 < subMatches.length) ? subMatches[mIdx + 1].index : line.length;
-                    let optContent = cleanEditorClosingTags(line.substring(start, end).trim());
-                    let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
-                                                 .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
-                                                 .trim();
-                    const fullOpt = `${char}. ${cleanContent}`;
-                    currentQ.options.push(fullOpt);
-                    if (isCorrect) currentQ.correct_answer = fullOpt;
+                    const start = mItem.index + mItem[0].length;
+
+                    const end = (mIdx + 1 < subMatches.length) ? subMatches[mIdx + 1].index : line.length;
+
+                    let optContent = cleanEditorClosingTags(line.substring(start, end).trim());
+
+                    let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
+
+                                                 .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
+
+                                                 .trim();
+
+                    const isCorrect = mItem[0].includes('*')
+
+                        || optContent.includes('*')
+
+                        || /<\/?(?:MARK|u)>/i.test(mItem[0])
+
+                        || /<\/?(?:MARK|u)>/i.test(optContent)
+
+                        || /[✓✔☑]/i.test(mItem[0])
+
+                        || /[✓✔☑]/i.test(optContent)
+
+                        || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(mItem[0])
+
+                        || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(optContent);
+
+                    const fullOpt = ${char}. ;
+
+                    currentQ.options.push(fullOpt);
+
+                    currentQ._rawOptions = currentQ._rawOptions || [];
+
+                    currentQ._rawOptions.push({
+
+                        char: char,
+
+                        fullOpt: fullOpt,
+
+                        rawLine: mItem[0] + ' ' + optContent,
+
+                        rawContent: optContent,
+
+                        isExplicitCorrect: isCorrect
+
+                    });
+
+                    if (isCorrect) currentQ.correct_answer = fullOpt;
+
                 });
             } else {
                 const match = line.match(mcqOptRegex);
@@ -1151,7 +1190,24 @@ function parseEditorText(text) {
                 
                 const fullOpt = `${char}. ${cleanContent}`;
                 currentQ.options.push(fullOpt);
-                if (isCorrect) currentQ.correct_answer = fullOpt;
+                currentQ._rawOptions = currentQ._rawOptions || [];
+
+                currentQ._rawOptions.push({
+
+                    char: char,
+
+                    fullOpt: fullOpt,
+
+                    rawLine: line,
+
+                    rawContent: optContent,
+
+                    isExplicitCorrect: isCorrect
+
+                });
+
+                if (isCorrect) currentQ.correct_answer = fullOpt;
+
             }
         } else if (tfOptRegex.test(line)) {
             // 2. DẠNG ĐÚNG / SAI KHI PHƯƠNG ÁN LÀ CHỮ THƯỜNG a), b), c), d)
@@ -1352,11 +1408,83 @@ function parseEditorText(text) {
 
         const realType = getRealQuestionType(q);
         q.type = realType;
-        if (realType === 'mcq') {
-            if (!q.correct_answer || typeof q.correct_answer === 'object') {
-                q.correct_answer = q.options[0] || null;
-            }
-        } else if (realType === 'true_false') {
+        if (realType === 'mcq') {
+
+            if (!q.correct_answer || typeof q.correct_answer === 'object') {
+
+                const hasBoldText = (str) => {
+
+                    if (!str) return false;
+
+                    const clean = str.replace(/<(?:b|strong)\b[^>]*>\s*<\/(?:b|strong)>/gi, '').replace(/\*\*\s*\*\*/g, '');
+
+                    const htmlBold = /<(?:b|strong)\b[^>]*>(?:(?!<\/(?:b|strong)>)[\s\S])*\S(?:(?!<\/(?:b|strong)>)[\s\S])*<\/(?:b|strong)>/i.test(clean);
+
+                    const unclosedBold = /<(?:b|strong)\b[^>]*>[^<]*\S/i.test(clean);
+
+                    const mdBold = /\*\*[^*]+\*\*/.test(clean);
+
+                    return htmlBold || unclosedBold || mdBold;
+
+                };
+
+                const contentBoldOpts = [];
+
+                const totalBoldOpts = [];
+
+                (q._rawOptions || []).forEach(item => {
+
+                    if (hasBoldText(item.rawContent)) {
+
+                        contentBoldOpts.push(item.fullOpt);
+
+                    }
+
+                    if (hasBoldText(item.rawLine)) {
+
+                        totalBoldOpts.push(item.fullOpt);
+
+                    }
+
+                });
+
+                if (contentBoldOpts.length === 1) {
+
+                    q.correct_answer = contentBoldOpts[0];
+
+                } else if (contentBoldOpts.length === 0 && totalBoldOpts.length === 1) {
+
+                    q.correct_answer = totalBoldOpts[0];
+
+                } else {
+
+                    q.correct_answer = q.options[0] || null;
+
+                }
+
+            }
+
+            // Làm sạch thẻ in đậm (<b>, <strong>, **) khỏi options và correct_answer
+
+            if (q.options && q.options.length > 0) {
+
+                q.options = q.options.map(opt => {
+
+                    return opt.replace(/<\/?(?:b|strong)\b[^>]*>/gi, '').replace(/\*\*/g, '').trim();
+
+                });
+
+                if (typeof q.correct_answer === 'string') {
+
+                    q.correct_answer = q.correct_answer.replace(/<\/?(?:b|strong)\b[^>]*>/gi, '').replace(/\*\*/g, '').trim();
+
+                }
+
+            }
+
+            delete q._rawOptions;
+
+                } else if (realType === 'true_false') {
             if (typeof q.correct_answer !== 'object' || !q.correct_answer) {
                 q.correct_answer = { a: true, b: false, c: true, d: false };
             }
