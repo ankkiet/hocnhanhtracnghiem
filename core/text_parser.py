@@ -379,7 +379,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 mcq_matches = filtered_matches if filtered_matches else mcq_matches
                 q_text = block[:mcq_matches[0].start()].strip() if mcq_matches else block
                 options = []
-                correct_ans = ""
+                opt_candidates = []
 
                 for j, opt_m in enumerate(mcq_matches[:4]):
                     char_raw = opt_m.group(2).upper()
@@ -396,18 +396,45 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     clean_text, is_corr, is_fls, ext_char = clean_option_text(full_opt_text)
                     clean_opt = clean_text if clean_text else re.sub(r'</?(?:MARK|u)>', '', opt_content_raw, flags=re.IGNORECASE).strip()
                     clean_opt = re.sub(r'\s+', ' ', clean_opt).strip()
+                    full_opt = f"{char}. {clean_opt}"
+                    options.append(full_opt)
 
-                    is_correct_opt = (
-                        is_corr
-                        or is_asterisk
-                        or bool(re.search(r'</?(?:MARK|u)>', full_opt_text, re.IGNORECASE))
+                    # Phân loại tín hiệu đáp án đúng theo mức độ ưu tiên
+                    has_explicit = (
+                        is_asterisk
+                        or bool(re.search(r'</?MARK>', full_opt_text, re.IGNORECASE))
                         or bool(re.search(r'\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|✓|✔|☑', full_opt_text, re.IGNORECASE))
                     )
+                    has_u_prefix = (
+                        bool(re.search(r'^\s*(?:<[^>]+>\s*)*<u>\s*\*?' + char + r'[\.\:\)]', full_opt_text, re.IGNORECASE))
+                        or bool(re.search(r'^\s*\*?' + char + r'[\.\:\)]\s*<u>', full_opt_text, re.IGNORECASE))
+                    )
+                    has_u_any = bool(re.search(r'</?u>', full_opt_text, re.IGNORECASE))
 
-                    if is_correct_opt:
-                        correct_ans = f"{char}. {clean_opt}"
+                    opt_candidates.append({
+                        "char": char,
+                        "full_opt": full_opt,
+                        "has_explicit": has_explicit,
+                        "has_u_prefix": has_u_prefix,
+                        "has_u_any": has_u_any,
+                        "is_corr": is_corr
+                    })
 
-                    options.append(f"{char}. {clean_opt}")
+                # Quyết định đáp án đúng dựa trên tương quan tín hiệu giữa các phương án:
+                correct_ans = ""
+                explicit_matches = [c["full_opt"] for c in opt_candidates if c["has_explicit"]]
+                u_prefix_matches = [c["full_opt"] for c in opt_candidates if c["has_u_prefix"]]
+                u_any_matches = [c["full_opt"] for c in opt_candidates if c["has_u_any"]]
+                corr_helper_matches = [c["full_opt"] for c in opt_candidates if c["is_corr"]]
+
+                if len(explicit_matches) == 1:
+                    correct_ans = explicit_matches[0]
+                elif len(explicit_matches) == 0 and len(u_prefix_matches) == 1:
+                    correct_ans = u_prefix_matches[0]
+                elif len(explicit_matches) == 0 and len(u_prefix_matches) == 0 and len(u_any_matches) == 1:
+                    correct_ans = u_any_matches[0]
+                elif len(explicit_matches) == 0 and len(u_prefix_matches) == 0 and len(u_any_matches) == 0 and len(corr_helper_matches) == 1:
+                    correct_ans = corr_helper_matches[0]
 
                 # Nếu chưa phát hiện đáp án qua gạch chân/tô đỏ/sao, kiểm tra phương án in đậm nội dung hoặc toàn bộ
                 if not correct_ans:

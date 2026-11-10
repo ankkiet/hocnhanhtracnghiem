@@ -1588,7 +1588,11 @@ def _process_p_element(p_element, doc, counters: dict, image_mapping: dict) -> s
 
 
 
-            if is_red_text or is_highlighted or is_underline:
+            if is_red_text or is_highlighted:
+
+                para_text += f"<MARK>{formatted_text}</MARK>"
+
+            elif is_underline and re.match(r'^\s*\(?\[?\*?[A-Fa-f\d][\)\.\:\-\]\/]', run_text):
 
                 para_text += f"<MARK>{formatted_text}</MARK>"
 

@@ -725,3 +725,19 @@ a) AI chỉ tạo ra hình ảnh. Sb) ChatGPT là AI tạo sinh. Đc) Không có
     assert norm[1]["type"] == "true_false"
     assert len(norm[1]["options"]) == 4
     assert norm[1]["correct_answer"] == {"a": False, "b": True, "c": False, "d": True}
+
+
+def test_english_phonetics_underline_does_not_override_red_answer():
+    """Kiểm tra câu hỏi ngữ âm tiếng Anh có các chữ cái gạch chân ở cả 4 phương án không làm sai đáp án đỏ"""
+    from core.text_parser import extract_questions_from_text_bulletproof
+
+    raw_text = """Question 7. A. ch<u>i</u>ldhood\tB. b<u>i</u>ography\t<MARK><u>C. marriage</u></MARK>\tD. b<u>i</u>ological
+Question 8. A. <u>a</u>dmire\tB. <u>a</u>chievement\tC. <u>a</u>dopt\t<MARK><u>D. army</u></MARK>
+Question 9. A. dev<u>o</u>te\t<MARK><u>B. blockbuster</u></MARK>\tC. diagn<u>o</u>se\tD. her<u>o</u>
+"""
+    questions = extract_questions_from_text_bulletproof(raw_text)
+    assert len(questions) == 3
+    assert questions[0]["correct_answer"].startswith("C.")
+    assert questions[1]["correct_answer"].startswith("D.")
+    assert questions[2]["correct_answer"].startswith("B.")
+

@@ -456,9 +456,12 @@ def clean_option_text(opt: str) -> tuple:
         re.IGNORECASE
     ))
 
-    # Phát hiện gạch chân (<u>), highlight / tô đỏ / tô màu nền (<MARK>), dấu tick ở BẤT KỲ ĐÂU trong phương án
+    # Phát hiện gạch chân (<u>), highlight / tô đỏ / tô màu nền (<MARK>), dấu tick trong phương án
     has_mark_tag = bool(re.search(r'</?MARK>', opt_str, re.IGNORECASE))
-    has_underline_tag = bool(re.search(r'</?u>', opt_str, re.IGNORECASE))
+    # Chỉ coi <u> là dấu hiệu đáp án đúng nếu gạch chân ở nhãn (<u>A.</u>) hoặc gạch chân toàn bộ nội dung phương án
+    # Không tính gạch chân một chữ cái/âm tiết bên trong từ (ví dụ bài tập phát âm: ch<u>i</u>ldhood)
+    has_phonetic_underline = bool(re.search(r'\b\w+<u>\w+</u>|\b\w*<u>[a-zA-Z]{1,2}</u>\w+\b', opt_str))
+    has_underline_tag = bool(re.search(r'</?u>', opt_str, re.IGNORECASE)) and not has_phonetic_underline
     has_star = '*' in opt_str[:15]
     has_tick = any(c in opt_str for c in ['✓', '✔', '☑'])
 

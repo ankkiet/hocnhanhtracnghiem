@@ -1092,8 +1092,10 @@
         const letter = String.fromCharCode(65 + optIdx);
         if (typeof rawCa === 'string') {
             const cleanCa = rawCa.trim().toUpperCase();
-            if (cleanCa === letter) return true;
+            const cleanCaNoStar = cleanCa.replace(/^\*+\s*/, '');
+            if (cleanCa === letter || cleanCaNoStar === letter) return true;
             if (cleanCa.startsWith(letter + '.') || cleanCa.startsWith(letter + ')') || cleanCa.startsWith(letter + ':')) return true;
+            if (cleanCaNoStar.startsWith(letter + '.') || cleanCaNoStar.startsWith(letter + ')') || cleanCaNoStar.startsWith(letter + ':')) return true;
         }
         if (typeof rawCa === 'number' && rawCa === optIdx) return true;
         if (optText.trim().startsWith('*')) return true;
@@ -1122,12 +1124,14 @@
         }
 
         const s = String(rawCa).trim().toUpperCase();
-        for (let c of ['A', 'B', 'C', 'D']) {
-            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c) {
+        const sNoStar = s.replace(/^\*+\s*/, '');
+        for (let c of ['A', 'B', 'C', 'D', 'E', 'F']) {
+            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c
+                || sNoStar.startsWith(c + '.') || sNoStar.startsWith(c + ')') || sNoStar.startsWith(c + ':') || sNoStar === c) {
                 return c;
             }
         }
-        return s.slice(0, 3);
+        return sNoStar.slice(0, 3);
     }
 
     function formatText(text) {

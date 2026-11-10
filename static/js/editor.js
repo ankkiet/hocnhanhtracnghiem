@@ -1132,21 +1132,17 @@ function parseEditorText(text) {
 
                                                  .trim();
 
-                    const isCorrect = mItem[0].includes('*')
-
+                    const isExplicit = mItem[0].includes('*')
                         || optContent.includes('*')
-
-                        || /<\/?(?:MARK|u)>/i.test(mItem[0])
-
-                        || /<\/?(?:MARK|u)>/i.test(optContent)
-
+                        || /<\/?MARK>/i.test(mItem[0])
+                        || /<\/?MARK>/i.test(optContent)
                         || /[✓✔☑]/i.test(mItem[0])
-
                         || /[✓✔☑]/i.test(optContent)
-
                         || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(mItem[0])
-
                         || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(optContent);
+                    const isUPrefix = /^\s*(?:<[^>]+>\s*)*<u>\s*\*?[A-D][\.\:\)]/i.test(mItem[0] + ' ' + optContent)
+                        || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(mItem[0] + ' ' + optContent);
+                    const isCorrect = isExplicit || isUPrefix;
 
                     const fullOpt = ${char}. ;
 
@@ -1177,11 +1173,14 @@ function parseEditorText(text) {
                 const char = charRaw.replace('*', '').trim();
                 
                 // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
-                const isCorrect = charRaw.includes('*')
+                const isExplicit = charRaw.includes('*')
                     || /^\s*\*/.test(line)
-                    || /<\/?(?:MARK|u)>/i.test(line)
+                    || /<\/?MARK>/i.test(line)
                     || /[✓✔☑]/i.test(line)
                     || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
+                const isUPrefix = /^\s*(?:<[^>]+>\s*)*<u>\s*\*?[A-D][\.\:\)]/i.test(line)
+                    || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(line);
+                const isCorrect = isExplicit || isUPrefix;
 
                 let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
                 let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
@@ -1409,6 +1408,26 @@ function parseEditorText(text) {
         const realType = getRealQuestionType(q);
         q.type = realType;
         if (realType === 'mcq') {
+            // Đánh giá đáp án đúng theo tương quan tín hiệu giữa các phương án
+            if (q._rawOptions && q._rawOptions.length > 0) {
+                const explicitOpts = q._rawOptions.filter(o => 
+                    o.char.includes('*') || o.rawLine.includes('*') || /<\/?MARK>/i.test(o.rawLine) || /[✓✔☑]/.test(o.rawLine) || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]/i.test(o.rawLine)
+                );
+                const uPrefixOpts = q._rawOptions.filter(o => 
+                    /^\s*(?:<[^>]+>\s*)*<u>\s*\*?[A-D][\.\:\)]/i.test(o.rawLine) || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(o.rawLine)
+                );
+                const uAnyOpts = q._rawOptions.filter(o => /<\/?u>/i.test(o.rawLine));
+
+                if (explicitOpts.length === 1) {
+                    q.correct_answer = explicitOpts[0].fullOpt;
+                } else if (explicitOpts.length === 0 && uPrefixOpts.length === 1) {
+                    q.correct_answer = uPrefixOpts[0].fullOpt;
+                } else if (explicitOpts.length === 0 && uPrefixOpts.length === 0 && uAnyOpts.length === 1) {
+                    q.correct_answer = uAnyOpts[0].fullOpt;
+                } else if (explicitOpts.length === 0 && uAnyOpts.length > 1) {
+                    q.correct_answer = null;
+                }
+            }
 
             if (!q.correct_answer || typeof q.correct_answer === 'object') {
 

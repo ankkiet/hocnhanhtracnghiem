@@ -675,16 +675,22 @@ def is_option_correct(opt_idx: int, opt_text: str, raw_ca) -> bool:
     if clean_opt.startswith('*'):
         return True
     clean_ca = str(raw_ca).strip()
+    clean_ca_no_star = re.sub(r'^\*+\s*', '', clean_ca)
     letter = chr(ord('A') + opt_idx) if 0 <= opt_idx < 26 else ""
-    if clean_ca.upper() == letter:
+    if clean_ca.upper() == letter or clean_ca_no_star.upper() == letter:
         return True
     if clean_ca.upper().startswith(f"{letter}.") or clean_ca.upper().startswith(f"{letter}:") or clean_ca.upper().startswith(f"{letter})"):
         return True
-    if clean_ca == str(opt_idx):
+    if clean_ca_no_star.upper().startswith(f"{letter}.") or clean_ca_no_star.upper().startswith(f"{letter}:") or clean_ca_no_star.upper().startswith(f"{letter})"):
+        return True
+    if clean_ca == str(opt_idx) or clean_ca_no_star == str(opt_idx):
         return True
     match_prefix = re.match(r'^(\*?\s*[A-Fa-f][\.\:\)])\s*(.*)', clean_opt)
-    if match_prefix and match_prefix.group(2).strip() and clean_ca.strip() == match_prefix.group(2).strip():
-        return True
+    if match_prefix and match_prefix.group(2).strip():
+        opt_content = match_prefix.group(2).strip()
+        ca_content = re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', clean_ca).strip()
+        if opt_content == clean_ca.strip() or opt_content == ca_content:
+            return True
     return False
 
 
@@ -736,11 +742,13 @@ def extract_answer_display(q: dict) -> str:
 
     else:
         correct_str = str(raw_ca or '').strip()
-        for c in ["A", "B", "C", "D"]:
-            if correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c:
+        correct_str_no_star = re.sub(r'^\*+\s*', '', correct_str)
+        for c in ["A", "B", "C", "D", "E", "F"]:
+            if (correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c
+                or correct_str_no_star.startswith(f"{c}.") or correct_str_no_star.startswith(f"{c}:") or correct_str_no_star == c):
                 return c
-        if correct_str:
-            return correct_str[:2]
+        if correct_str_no_star:
+            return correct_str_no_star[:2]
         return "-"
 
 
