@@ -1341,6 +1341,81 @@ body.minimal-mode.quiz-completed #quiz-container {
     border-radius: 12px;
 }
 
+@keyframes publishAuditPulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); transform: scale(1); }
+    50% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); transform: scale(1.01); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); transform: scale(1); }
+}
+
+.publish-audit-highlight {
+    animation: publishAuditPulse 1.2s ease-in-out 3;
+    border: 2.5px solid #2563eb !important;
+    background-color: #eff6ff !important;
+    border-radius: 12px;
+}
+
+.pub-q-btn {
+    width: 38px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    text-decoration: none;
+    padding: 0;
+}
+.pub-q-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.pub-q-btn.btn-q-mcq {
+    border-color: #bfdbfe;
+    background: #ffffff;
+    color: #1e40af;
+}
+.pub-q-btn.btn-q-mcq:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+}
+.pub-q-btn.btn-q-tf {
+    border-color: #a7f3d0;
+    background: #ffffff;
+    color: #065f46;
+}
+.pub-q-btn.btn-q-tf:hover {
+    background: #ecfdf5;
+    border-color: #059669;
+}
+.pub-q-btn.btn-q-sa {
+    border-color: #fde68a;
+    background: #ffffff;
+    color: #92400e;
+}
+.pub-q-btn.btn-q-sa:hover {
+    background: #fffbeb;
+    border-color: #d97706;
+}
+.pub-q-btn.active-viewing {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.35) !important;
+}
+
+.pub-type-card.active {
+    background: #eff6ff !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
 /* ========================================================
    GOOGLE SIGN-IN & AUTH STYLES
    ======================================================== */
@@ -6572,4 +6647,217 @@ body.exam-mode img {
     white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 1px;
+}
+
+/* ========================================================
+   MODAL XÁC NHẬN NỘP BÀI THI (IN-PAGE MODAL, KHÔNG THOÁT TOÀN MÀN HÌNH)
+   ======================================================== */
+.exam-submit-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 9999999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    animation: examSubmitModalFadeIn 0.2s ease-out;
+}
+
+@keyframes examSubmitModalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.exam-submit-modal-card {
+    position: relative;
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 100%;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(226, 232, 240, 0.8);
+    animation: examSubmitModalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+@keyframes examSubmitModalPopIn {
+    from { opacity: 0; transform: scale(0.94) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.exam-submit-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.15s ease;
+}
+.exam-submit-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.exam-submit-modal-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: #ecfdf5;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+}
+
+.exam-submit-modal-title {
+    margin: 0 0 6px 0;
+    color: #0f172a;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.exam-submit-modal-sub {
+    margin: 0 0 18px 0;
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.exam-submit-stats-container {
+    text-align: left;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.exam-submit-stat-item {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+.exam-submit-stat-item.warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+}
+.exam-submit-stat-item.alert {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #c2410c;
+}
+.exam-submit-stat-item.info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+}
+.exam-submit-stat-item.success {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+
+.exam-submit-stat-item i {
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.exam-submit-confirm-prompt {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 14px 0 20px 0;
+    line-height: 1.5;
+}
+
+.exam-submit-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.btn-exam-modal-cancel {
+    flex: 1;
+    padding: 11px 18px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.btn-exam-modal-cancel:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.btn-exam-modal-confirm {
+    flex: 1.3;
+    padding: 11px 20px;
+    border-radius: 12px;
+    background: #059669;
+    color: #ffffff;
+    border: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+    transition: all 0.15s ease;
+}
+.btn-exam-modal-confirm:hover {
+    background: #047857;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(5, 150, 105, 0.45);
+}
+
+.dark .exam-submit-modal-card {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+.dark .exam-submit-modal-title {
+    color: #f8fafc;
+}
+.dark .exam-submit-modal-sub {
+    color: #94a3b8;
+}
+.dark .exam-submit-confirm-prompt {
+    color: #cbd5e1;
+}
+.dark .btn-exam-modal-cancel {
+    background: #334155;
+    color: #cbd5e1;
+    border-color: #475569;
+}
+.dark .btn-exam-modal-cancel:hover {
+    background: #475569;
+    color: #f8fafc;
 }

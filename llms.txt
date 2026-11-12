@@ -7,6 +7,7 @@ HocNhanhTN là nền tảng số hóa đề thi Word (.docx) và PDF thành phò
 ## Tính năng & Liên kết chính
 - [Trang chủ HocNhanhTN](https://hocnhanhtn.online/): Nền tảng số hóa và tổ chức phòng thi trực tuyến.
 - [Kho đề thi](https://hocnhanhtn.online/de-thi): Danh mục đề thi và ôn tập trắc nghiệm THCS & THPT.
+- [Hướng dẫn tạo & số hóa đề thi](https://hocnhanhtn.online/huong-dan-tao-de): Cẩm nang toàn diện kèm ảnh minh họa thực tế cho Trắc nghiệm 4 lựa chọn, Đúng/Sai, Trả lời ngắn, đề tổng hợp và cách khắc phục mọi lỗi thường gặp.
 - [Cẩm nang GDPT 2018](https://hocnhanhtn.online/cam-nang): Kho bài viết chuyên sâu về cấu trúc đề thi, bí quyết giải trắc nghiệm Đúng/Sai, trả lời ngắn và cẩm nang cho giáo viên.
   - [Cấu trúc đề thi Tốt nghiệp THPT môn Toán GDPT 2018](https://hocnhanhtn.online/cam-nang/cau-truc-de-thi-tot-nghiep-thpt-2025-gdpt-2018): Phân tích 3 dạng thức trắc nghiệm và chiến thuật 90 phút.
   - [Bí quyết làm trắc nghiệm Đúng/Sai điểm tối đa](https://hocnhanhtn.online/cam-nang/cach-lam-trac-nghiem-dung-sai-diem-toi-da): Thang điểm lũy tiến và cách tránh bẫy câu hỏi đa ý.

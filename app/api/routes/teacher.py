@@ -982,6 +982,9 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
         students_list.append({
             'id': str(data.get('_id') or data.get('session_id') or len(students_list)),
             'student_name': data.get('student_name', 'Ẩn danh').strip() or 'Ẩn danh',
+            'class_name': str(data.get('class_name') or '').strip(),
+            'school_name': str(data.get('school_name') or '').strip(),
+            'sbd': str(data.get('sbd') or '').strip(),
             'raw_score': raw_score,
             'scaled_score': norm_score,
             'total_questions': tot,
@@ -1074,6 +1077,10 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
         "question_stats": question_analysis,
         "hardest_questions": hardest,
         "students": students_list,
+        "settings": quiz_data.get('settings', {}),
+        "description": quiz_data.get('description', ''),
+        "mode": quiz_data.get('mode', 'exam'),
+        "time_limit": quiz_data.get('time_limit', 0),
         "questions_brief": [
             {
                 "question_index": idx + 1,

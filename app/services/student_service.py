@@ -206,6 +206,9 @@ class StudentService:
             'session_id': getattr(req, 'session_id', '') or '',
             'quiz_title': quiz_title,
             'student_name': req.student_name.strip() or 'Ẩn danh',
+            'class_name': getattr(req, 'class_name', '') or '',
+            'school_name': getattr(req, 'school_name', '') or '',
+            'sbd': getattr(req, 'sbd', '') or '',
             'score': round(score, 2),
             'total_questions': total_questions,
             'time_elapsed': req.time_elapsed,
@@ -259,6 +262,9 @@ class StudentService:
 
         lb_entry = {
             'student_name': submission_data['student_name'],
+            'class_name': submission_data.get('class_name', ''),
+            'school_name': submission_data.get('school_name', ''),
+            'sbd': submission_data.get('sbd', ''),
             'score': submission_data['score'],
             'total_questions': total_questions,
             'time_elapsed': req.time_elapsed
@@ -360,8 +366,25 @@ class StudentService:
         if db is None:
             return {"status": "error"}
 
-        # SỬ DỤNG CACHE CHO BẢNG XẾP HẠNG (300 giây = 5 phút) -> TIẾT KIỆM QUOTA HÀNG LOẠT
         now = time.time()
+
+        # Kiểm tra cài đặt giáo viên: nếu tắt Bảng xếp hạng thì không trả dữ liệu cho học sinh
+        quiz_doc_dict = None
+        if quiz_id in QUIZ_CACHE and 'data' in QUIZ_CACHE[quiz_id]:
+            quiz_doc_dict = QUIZ_CACHE[quiz_id]['data']
+        else:
+            try:
+                q_doc = db.collection('quizzes').document(quiz_id).get()
+                if q_doc.exists:
+                    quiz_doc_dict = q_doc.to_dict()
+                    QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_doc_dict}
+            except Exception:
+                pass
+
+        if quiz_doc_dict and quiz_doc_dict.get('settings', {}).get('leaderboard') is False:
+            return {"status": "success", "data": [], "hidden_by_teacher": True}
+
+        # SỬ DỤNG CACHE CHO BẢNG XẾP HẠNG (300 giây = 5 phút) -> TIẾT KIỆM QUOTA HÀNG LOẠT
         if quiz_id in LEADERBOARD_CACHE and now - LEADERBOARD_CACHE[quiz_id]['time'] < 300:
             return {"status": "success", "data": LEADERBOARD_CACHE[quiz_id]['data'][:5]}
 
@@ -410,6 +433,9 @@ class StudentService:
 
             results.append({
                 'student_name': data.get('student_name', 'Ẩn danh'),
+                'class_name': str(data.get('class_name') or '').strip(),
+                'school_name': str(data.get('school_name') or '').strip(),
+                'sbd': str(data.get('sbd') or '').strip(),
                 'score': score,
                 'total_questions': total,
                 'time_elapsed': time_elapsed

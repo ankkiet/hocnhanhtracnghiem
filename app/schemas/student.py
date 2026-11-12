@@ -21,6 +21,9 @@ class SubmitExamRequest(BaseModel):
     time_elapsed: int = 0
     session_id: Optional[str] = None
     tab_switch_count: Optional[int] = 0
+    class_name: Optional[str] = None
+    school_name: Optional[str] = None
+    sbd: Optional[str] = None
 
 
 class SyncHistoryItem(BaseModel):

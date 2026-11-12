@@ -319,7 +319,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                     else:
                         tf_dict = {k: opt_tf_marks.get(k, True) for k in ['a', 'b', 'c', 'd']}
                 else:
-                    tf_dict = {"a": True, "b": False, "c": True, "d": False}
+                    tf_dict = {}
 
                 results.append({
                     "question_number": raw_q_num,
@@ -448,7 +448,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         cleaned_k = re.sub(r'<(?:b|strong)\b[^>]*>\s*</(?:b|strong)>', '', raw_k, flags=re.IGNORECASE)
                         cleaned_k = re.sub(r'\*\*\s*\*\*', '', cleaned_k)
                         content_after_marker = re.sub(r'^\s*(?:<(?:b|strong)\b[^>]*>\s*)*\*?[A-Fa-f][\.\:\)](?:\s*</(?:b|strong)>)*\s*', '', cleaned_k.strip(), flags=re.IGNORECASE)
-                        if bold_pattern.search(content_after_marker):
+                        if bold_pattern.search(content_after_marker) or re.search(r'</(?:b|strong)>', content_after_marker, re.IGNORECASE):
                             bold_content_opts.append(opt_str)
                         if bold_pattern.search(cleaned_k):
                             bold_total_opts.append(opt_str)
@@ -490,10 +490,8 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                 else:
                     stem, tf_opts = extract_sub_statements_from_text(block)
                     if len(tf_opts) >= 3:
-                        tf_ca = {"a": True, "b": False, "c": True, "d": False}
                         ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans)\s*[\:\-\=]?\s*([^\n\r]+)', block, re.IGNORECASE)
-                        if ans_match:
-                            tf_ca = parse_tf_answer(ans_match.group(1).strip())
+                        tf_ca = parse_tf_answer(ans_match.group(1).strip()) if ans_match else {}
                         results.append({
                             "question_number": raw_q_num,
                             "part": sec_part,

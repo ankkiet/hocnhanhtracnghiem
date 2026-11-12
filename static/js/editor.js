@@ -1,1125 +1,1125 @@
-
-// =========================================================================
-// AI ERROR DIAGNOSTIC MODAL & LOG VIEWER (BÁO CÁO LỖI AI CHI TIẾT)
-// =========================================================================
-
-window.closeAIDiagnosticModal = function() {
-    const modal = document.getElementById('aiDiagnosticModal');
-    if (modal) modal.style.display = 'none';
-};
-
-window.copyAIDiagnosticData = function() {
-    if (!window._lastAIDiagnostic) return;
-    const diag = window._lastAIDiagnostic;
-    const reportText = [
-        "═══════════════════════════════════════════════",
-        "  HỆ THỐNG TRẮC NGHIỆM - BÁO CÁO CHI TIẾT SỰ CỐ AI",
-        "═══════════════════════════════════════════════",
-        `• Mã lỗi: ${diag.code}`,
-        `• Tên lỗi (Lỗi gì): ${diag.name}`,
-        `• Nguyên nhân (Do đâu): ${diag.cause}`,
-        `• Hướng dẫn khắc phục:
-${diag.solution}`,
-        diag.models ? `• Mô hình đã thử: ${diag.models}` : null,
-        diag.technical ? `• Chi tiết kỹ thuật:
-${diag.technical}` : null,
-        "═══════════════════════════════════════════════"
-    ].filter(Boolean).join("\n\n");
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(reportText).then(() => {
-            if (typeof showToast === 'function') showToast("Đã sao chép chi tiết sự cố AI vào clipboard!");
-            else alert("Đã sao chép chi tiết sự cố AI vào clipboard!");
-        }).catch(() => {
-            prompt("Sao chép thông tin lỗi bên dưới:", reportText);
-        });
-    } else {
-        prompt("Sao chép thông tin lỗi bên dưới:", reportText);
-    }
-};
-
-window.showAIDiagnosticModal = function(errData) {
-    if (!errData) errData = {};
-    const safeEsc = typeof escapeHtml === 'function' 
-        ? escapeHtml 
-        : (str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
-
-    if (typeof errData === 'string') {
-        errData = { detail: errData };
-    }
-    if (typeof errData.detail === 'object' && errData.detail !== null) {
-        errData = Object.assign({}, errData, errData.detail);
-    }
-
-    let errorCode = errData.error_code || 'AI_ERROR';
-    let errorName = errData.error_name || errData.message || 'Lỗi xử lý AI';
-    let cause = errData.cause || '';
-    let solution = errData.solution || '';
-    let technical = errData.technical_detail || (typeof errData.detail === 'string' ? errData.detail : '');
-    let modelsTried = Array.isArray(errData.models_tried) ? errData.models_tried.join(', ') : (errData.models_tried || '');
-
-    if (!cause) {
-        const rawLower = String(technical || errorName).toLowerCase();
-        if (rawLower.includes('429') || rawLower.includes('quota') || rawLower.includes('exhausted')) {
-            errorCode = 'QUOTA_EXCEEDED_429';
-            errorName = 'Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)';
-            cause = 'Tài khoản Google AI Studio đã chạm trần tốc độ gọi (15 RPM ở gói Free) hoặc đã dùng hết hạn mức token được cấp miễn phí trong ngày.';
-            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm các Gemini API Key dự phòng vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán Pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
-        } else if (rawLower.includes('404') || rawLower.includes('not found') || rawLower.includes('no longer available')) {
-            errorCode = 'MODEL_NOT_FOUND_404';
-            errorName = 'Mô hình AI không tồn tại hoặc đã ngừng cung cấp (404)';
-            cause = 'Phiên bản mô hình AI (như gemini-2.5-flash cũ) đã bị Google ngừng hỗ trợ cho tài khoản mới.';
-            solution = '1. Hệ thống đã tự động thử các model mới nhất (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
-        } else if (rawLower.includes('503') || rawLower.includes('unavailable') || rawLower.includes('high demand') || rawLower.includes('overloaded')) {
-            errorCode = 'SERVICE_UNAVAILABLE_503';
-            errorName = 'Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)';
-            cause = 'Cụm máy chủ của Google AI đang tiếp nhận lưu lượng truy cập toàn cầu đột biến hoặc đang bảo trì tạm thời.';
-            solution = '1. Vui lòng chờ 15 - 30 giây rồi bấm thử lại.\n2. Khi máy chủ Google hạ tải, yêu cầu sẽ được xử lý lại bình thường.';
-        } else if (rawLower.includes('api key not valid') || rawLower.includes('invalid api key')) {
-            errorCode = 'INVALID_API_KEY';
-            errorName = 'Khóa API Google Gemini không hợp lệ';
-            cause = 'Khóa API được cấu hình trong hệ thống không chính xác, đã bị xóa hoặc bị thu hồi trên Google Cloud Console.';
-            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào Admin Settings.';
-        } else if (rawLower.includes('chưa cấu hình') || rawLower.includes('no_api_keys')) {
-            errorCode = 'NO_API_KEYS';
-            errorName = 'Chưa cấu hình Google Gemini API Key';
-            cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
-            solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
-        } else if (rawLower.includes('scanned_pdf') || rawLower.includes('pdf scan') || rawLower.includes('ảnh chụp') || rawLower.includes('không có lớp chữ')) {
-            errorCode = 'SCANNED_PDF_NEEDS_AI';
-            errorName = 'Phát hiện tệp PDF Scan / Ảnh chụp (Chưa bật AI)';
-            cause = 'Tệp PDF của bạn là tài liệu scan hoặc ảnh chụp không có lớp chữ số hóa. Thuật toán bóc tách nội bộ (không dùng AI) không thể đọc được chữ từ hình ảnh.';
-            solution = '1. Vui lòng BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã có Gemini API Key trong Cài đặt Admin.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lớp văn bản gốc.';
-        } else if (rawLower.includes('không thể trích xuất') || rawLower.includes('không tìm thấy câu hỏi') || rawLower.includes('câu 1:') || rawLower.includes('format')) {
-            errorCode = 'FORMAT_NOT_RECOGNIZED';
-            errorName = 'Không tìm thấy câu hỏi trắc nghiệm hợp lệ';
-            cause = 'Hệ thống không tìm thấy câu hỏi đúng định dạng trong tài liệu (cần có "Câu 1:" hoặc "1." và các phương án A, B, C, D) hoặc tài liệu scan chưa bật AI.';
-            solution = '1. Nếu là tài liệu PDF scan / ảnh chụp: Hãy BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp.\n2. Nếu là file Word/PDF văn bản: Đảm bảo đề thi có đánh số câu rõ ràng ("Câu 1:" hoặc "1.") và các phương án A, B, C, D.\n3. Tải "file Word mẫu chuẩn" ở trang chủ để tham khảo cấu trúc.';
-        } else {
-            errorCode = 'AI_COMMUNICATION_ERROR';
-            errorName = 'Lỗi kết nối tới dịch vụ AI';
-            cause = technical ? `Phát sinh lỗi khi kết nối hoặc nhận phản hồi: ${technical.substring(0, 200)}` : 'Không thể kết nối hoặc nhận phản hồi từ dịch vụ AI.';
-            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ Quản trị viên nếu sự cố tiếp diễn.';
-        }
-    }
-
-    window._lastAIDiagnostic = {
-        code: errorCode,
-        name: errorName,
-        cause: cause,
-        solution: solution,
-        models: modelsTried,
-        technical: technical
-    };
-
-    let modal = document.getElementById('aiDiagnosticModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'aiDiagnosticModal';
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); z-index:1000000; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
-        modal.onclick = function(e) {
-            if (e.target === modal) window.closeAIDiagnosticModal();
-        };
-        document.body.appendChild(modal);
-    }
-
-    const solutionList = solution.split('\n').filter(s => s.trim()).map(s => {
-        let cleanText = s.replace(/^\d+[\.\)]\s*/, '').trim();
-        return `<li style="margin-bottom: 6px;">${safeEsc(cleanText)}</li>`;
-    }).join('');
-
-    const isDocFormatError = errorCode === 'SCANNED_PDF_NEEDS_AI' || errorCode === 'FORMAT_NOT_RECOGNIZED' || errorCode === 'PDF_EXTRACT_EMPTY' || errorCode === 'IMAGE_OCR_EMPTY' || errorCode === 'CORRUPTED_FILE';
-    const modalTitle = isDocFormatError ? 'Chi Tiết Sự Cố Bóc Tách Tài Liệu' : 'Chi Tiết Sự Cố AI';
-    const modalSub = isDocFormatError ? 'Chẩn đoán định dạng tệp & Hướng dẫn xử lý' : 'Chẩn đoán nguyên nhân & Hướng dẫn khắc phục';
-    const headerBg = isDocFormatError ? '#fffbeb' : '#fef2f2';
-    const headerBorder = isDocFormatError ? '#fef3c7' : '#fee2e2';
-    const iconBg = isDocFormatError ? '#fef3c7' : '#fee2e2';
-    const iconColor = isDocFormatError ? '#d97706' : '#dc2626';
-    const iconClass = isDocFormatError ? 'ri-file-warning-fill' : 'ri-error-warning-fill';
-    const titleColor = isDocFormatError ? '#92400e' : '#991b1b';
-    const subColor = isDocFormatError ? '#b45309' : '#b91c1c';
-    const badgeBg = isDocFormatError ? '#fde68a' : '#fda4af';
-    const badgeColor = isDocFormatError ? '#78350f' : '#881337';
-    const nameColor = isDocFormatError ? '#92400e' : '#9f1239';
-    const boxBg = isDocFormatError ? '#fefce8' : '#fff1f2';
-    const boxBorder = isDocFormatError ? '#fef08a' : '#fecdd3';
-
-    modal.innerHTML = `
-        <div style="background:#ffffff; border-radius:14px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; font-family:inherit;" onclick="event.stopPropagation();">
-            <div style="background:${headerBg}; border-bottom:1px solid ${headerBorder}; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div style="width:40px; height:40px; border-radius:10px; background:${iconBg}; color:${iconColor}; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
-                        <i class="${iconClass}"></i>
-                    </div>
-                    <div>
-                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:${titleColor};">${modalTitle}</h3>
-                        <div style="font-size:0.8rem; color:${subColor}; margin-top:2px;">${modalSub}</div>
-                    </div>
-                </div>
-                <button type="button" onclick="closeAIDiagnosticModal()" style="border:none; background:transparent; font-size:1.6rem; line-height:1; color:#94a3b8; cursor:pointer; padding:0 4px;" title="Đóng">&times;</button>
-            </div>
-            
-            <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
-                <div>
-                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-alert-line" style="color:${iconColor};"></i> Lỗi gì (Sự cố)
-                    </div>
-                    <div style="padding:10px 14px; background:${boxBg}; border:1px solid ${boxBorder}; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:${badgeBg}; color:${badgeColor}; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
-                        <span style="font-weight:600; font-size:0.92rem; color:${nameColor};">${safeEsc(errorName)}</span>
-                    </div>
-                </div>
-
-                <div>
-                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (Nguyên nhân)
-                    </div>
-                    <div style="padding:10px 14px; background:#fff7ed; border-left:3.5px solid #f97316; border-radius:6px; color:#9a3412; font-size:0.9rem; line-height:1.55;">
-                        ${safeEsc(cause)}
-                    </div>
-                </div>
-
-                <div>
-                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-tools-line" style="color:#16a34a;"></i> Cách khắc phục
-                    </div>
-                    <div style="padding:10px 14px; background:#f0fdf4; border-left:3.5px solid #22c55e; border-radius:6px; color:#166534; font-size:0.88rem;">
-                        <ul style="margin:0; padding-left:18px; line-height:1.55;">
-                            ${solutionList}
-                        </ul>
-                    </div>
-                </div>
-
-                ${modelsTried ? `
-                <div>
-                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:4px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-cpu-line"></i> Mô hình đã thử:
-                    </div>
-                    <div style="font-family:monospace; font-size:0.8rem; color:#475569; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #e2e8f0;">
-                        ${safeEsc(modelsTried)}
-                    </div>
-                </div>` : ''}
-
-                <details style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; background:#f8fafc;">
-                    <summary style="font-size:0.82rem; font-weight:600; color:#64748b; cursor:pointer; user-select:none;">
-                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & Log lỗi (Debug Info)
-                    </summary>
-                    <pre style="margin-top:8px; margin-bottom:0; font-family:monospace; font-size:0.76rem; background:#0f172a; color:#f8fafc; padding:10px; border-radius:6px; max-height:140px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">${safeEsc(technical || 'Không có log bổ sung')}</pre>
-                </details>
-            </div>
-
-            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <button type="button" onclick="copyAIDiagnosticData()" style="padding:8px 14px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-                    <i class="ri-file-copy-line"></i> Sao chép lỗi
-                </button>
-                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:${isDocFormatError ? '#d97706' : '#dc2626'}; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
-                    Đã hiểu & Đóng
-                </button>
-            </div>
-        </div>
-    `;
-
-    modal.style.display = 'flex';
-};
-
-
-// ========================================================
-// HOCNHANHTN EDITOR STUDIO - JAVASCRIPT CONTROLLER
-// ========================================================
-
-// Tự động nhận diện môi trường (Localhost vs Production)
-const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
-let API_BASE_URL = PROD_BACKEND_URL;
-
-const currentHost = window.location.hostname || '';
-const isLocal = 
-    window.location.protocol === 'file:' ||
-    currentHost === 'localhost' || 
-    currentHost === '127.0.0.1' || 
-    currentHost.startsWith('192.168.') || 
-    currentHost.startsWith('10.') || 
-    currentHost.endsWith('.local');
-
-if (isLocal) {
-    // Chạy cục bộ / offline / máy dev
-    API_BASE_URL = (window.location.port === '8000') ? window.location.origin : "http://127.0.0.1:8000";
-} else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
-    // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
-    API_BASE_URL = window.location.origin;
-} else if (currentHost.includes('hocnhanhtn.online') || currentHost.includes('pages.dev')) {
-    // Tận dụng Cloudflare Worker Reverse Proxy (/api/...) để cùng domain, không bị chặn DNS và tối ưu tốc độ
-    API_BASE_URL = window.location.origin;
-} else {
-    // Tất cả tên miền production tĩnh khác
-    API_BASE_URL = PROD_BACKEND_URL;
-}
-
-if (typeof localStorage !== 'undefined' && localStorage.getItem('CUSTOM_API_BASE_URL')) {
-    API_BASE_URL = localStorage.getItem('CUSTOM_API_BASE_URL');
-}
-
-// Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở Studio (Chống Sleep / Cold Start)
-fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
-
-// Global States
-let currentData = [];
-let editingQuizId = null;
-let editingQuizSettings = {
-    title: "Đề thi mới",
-    mode: "practice",
-    timeLimit: 0,
-    isShuffle: false
-};
-let currentStudioMode = 'edit'; // 'edit' | 'practice' | 'exam'
-let globalEditorImageStorage = {};
-let globalEditorImageCounter = 0;
-window.activeAIFeedbacks = {};
-
-// Auth
-let authToken = localStorage.getItem('auth_token') || '';
-let authRole = localStorage.getItem('auth_role') || '';
-
-// Practice / Exam test states
-let testPracticeAnswers = {};
-let testExamAnswers = {};
-
-// ========================================================
-// HOCNHANHTN LOADER SYSTEM FOR STUDIO
-// ========================================================
-function hidePageInitialLoader() {
-    const initialLoader = document.getElementById('pageInitialLoader');
-    if (initialLoader && !initialLoader.classList.contains('hntn-loaded')) {
-        initialLoader.classList.add('hntn-loaded');
-        setTimeout(() => {
-            if (initialLoader.parentNode) initialLoader.remove();
-        }, 500);
-    }
-}
-window.hidePageInitialLoader = hidePageInitialLoader;
-
-// An toàn: Tự động tắt preloader khi tải trang xong hoặc sau tối đa 5 giây
-window.addEventListener('load', () => {
-    setTimeout(hidePageInitialLoader, 250);
-});
-setTimeout(hidePageInitialLoader, 5000);
-
-function resetHntnLoader(container) {
-    if (!container) return;
-    const svg = container.querySelector('.hntn-loader-svg');
-    if (svg && svg.parentNode) {
-        const clone = svg.cloneNode(true);
-        svg.parentNode.replaceChild(clone, svg);
-    }
-}
-window.resetHntnLoader = resetHntnLoader;
-
-function showStudioLoader(options = {}) {
-    const title = (typeof options === 'string') ? options : (options.title || "Đang xử lý...");
-    const subtitle = (typeof options === 'string') ? "" : (options.subtitle || "Vui lòng chờ trong giây lát...");
-    const showProgress = (typeof options === 'object' && options.showProgress === true);
-    const progress = (typeof options === 'object' && typeof options.progress === 'number') ? options.progress : 0;
-
-    const overlay = document.getElementById('studioLoadingOverlay');
-    if (!overlay) return;
-
-    const titleEl = document.getElementById('studioLoadingStatus');
-    const subEl = document.getElementById('studioLoadingSub');
-    const progText = document.getElementById('studioProgressPercent');
-    const progBar = document.getElementById('studioProgressBar');
-    const progBg = document.getElementById('studioProgressBarBg');
-
-    if (titleEl) titleEl.innerText = title;
-    if (subEl) {
-        subEl.innerText = subtitle;
-        subEl.style.display = subtitle ? 'block' : 'none';
-    }
-
-    if (progBg) progBg.style.display = showProgress ? 'block' : 'none';
-    if (progText) {
-        progText.style.display = showProgress ? 'block' : 'none';
-        progText.innerText = `${Math.round(progress)}%`;
-    }
-    if (progBar && showProgress) {
-        progBar.style.width = `${Math.round(progress)}%`;
-    }
-
-    resetHntnLoader(overlay);
-    overlay.style.display = 'flex';
-}
-
-function updateStudioLoader(options = {}) {
-    const overlay = document.getElementById('studioLoadingOverlay');
-    if (!overlay || overlay.style.display === 'none') return;
-
-    if (options.title) {
-        const titleEl = document.getElementById('studioLoadingStatus');
-        if (titleEl) titleEl.innerText = options.title;
-    }
-    if (options.subtitle !== undefined) {
-        const subEl = document.getElementById('studioLoadingSub');
-        if (subEl) {
-            subEl.innerText = options.subtitle;
-            subEl.style.display = options.subtitle ? 'block' : 'none';
-        }
-    }
-    if (typeof options.progress === 'number') {
-        const progText = document.getElementById('studioProgressPercent');
-        const progBar = document.getElementById('studioProgressBar');
-        const progBg = document.getElementById('studioProgressBarBg');
-        if (progBg) progBg.style.display = 'block';
-        if (progText) {
-            progText.style.display = 'block';
-            progText.innerText = `${Math.round(options.progress)}%`;
-        }
-        if (progBar) progBar.style.width = `${Math.round(options.progress)}%`;
-    }
-}
-
-function hideStudioLoader() {
-    const overlay = document.getElementById('studioLoadingOverlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-window.showStudioLoader = showStudioLoader;
-window.updateStudioLoader = updateStudioLoader;
-window.hideStudioLoader = hideStudioLoader;
-window.showGlobalLoader = showStudioLoader;
-window.updateGlobalLoader = updateStudioLoader;
-window.hideGlobalLoader = hideStudioLoader;
-
-// Khởi chạy khi DOM sẵn sàng
-document.addEventListener('DOMContentLoaded', () => {
-    initStudio();
-});
-
-async function initStudio() {
-    if (!authToken) {
-        console.log("Khách trải nghiệm Studio chưa đăng nhập. Sẽ yêu cầu đăng nhập khi Lưu & Xuất bản.");
-    }
-
-    setupEditorEvents();
-    setupTitleEvents();
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const taskId = urlParams.get('task_id') || sessionStorage.getItem('editor_pending_task_id');
-    let quizId = urlParams.get('id') || urlParams.get('quiz_id');
-    if (!quizId) {
-        const pathMatch = window.location.pathname.match(/\/editor\/([^\/?#]+)/);
-        if (pathMatch && pathMatch[1]) {
-            quizId = decodeURIComponent(pathMatch[1]);
-        }
-    }
-    const titleParam = urlParams.get('title') || sessionStorage.getItem('editor_quiz_title');
-    const modeParam = urlParams.get('mode') || sessionStorage.getItem('editor_pending_mode');
-    const useAIParam = urlParams.get('use_ai');
-
-    const isAIExplicitlyDisabled = useAIParam === 'false' || modeParam === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
-    if (isAIExplicitlyDisabled) {
-        sessionStorage.setItem('editor_use_ai', 'false');
-    } else if (useAIParam === 'true' || modeParam === 'ai' || modeParam === 'ai_generate') {
-        sessionStorage.setItem('editor_use_ai', 'true');
-    }
-
-    if (titleParam) {
-        editingQuizSettings.title = titleParam;
-        document.getElementById('studioQuizTitle').value = titleParam;
-    }
-
-    try {
-        if (taskId) {
-            // Người dùng vừa bấm phân tích file hoặc sinh đề AI ở trang chủ -> Đã chuyển ngay sang Studio!
-            hidePageInitialLoader();
-            await pollStudioTask(taskId, titleParam, modeParam);
-        } else if (quizId) {
-            // Tải từ cơ sở dữ liệu nếu có ID trên URL
-            hidePageInitialLoader();
-            await loadQuizById(quizId);
-        } else {
-            // Tải từ Session Storage (hoặc bản lưu nháp trước đó)
-            loadQuizFromSession();
-            hidePageInitialLoader();
-        }
-    } catch(err) {
-        console.error("Lỗi nạp Studio:", err);
-        hidePageInitialLoader();
-    }
-}
-
-async function pollStudioTask(taskId, initialTitle, mode) {
-    const overlay = document.getElementById('studioLoadingOverlay');
-    const progressBar = document.getElementById('studioProgressBar');
-    const progressPercent = document.getElementById('studioProgressPercent');
-    const statusTitle = document.getElementById('studioLoadingStatus');
-    const statusSub = document.getElementById('studioLoadingSub');
-    const progBg = document.getElementById('studioProgressBarBg');
-
-    if (progBg) progBg.style.display = 'block';
-    if (progressPercent) progressPercent.style.display = 'block';
-
-    if (overlay) {
-        resetHntnLoader(overlay);
-        overlay.style.display = 'flex';
-    }
-    
-    if (initialTitle) {
-        editingQuizSettings.title = initialTitle;
-        document.getElementById('studioQuizTitle').value = initialTitle;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const useAIParam = urlParams.get('use_ai');
-    const isAIExplicitlyDisabled = useAIParam === 'false' || mode === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
-
-    if (statusTitle) {
-        statusTitle.innerText = mode === 'ai_generate' 
-            ? '🤖 AI đang suy nghĩ và sáng tạo câu hỏi...' 
-            : (isAIExplicitlyDisabled 
-                ? '⚡ Đang phân tích tài liệu bằng thuật toán nội bộ...' 
-                : '🤖 AI đang đọc và phân tích tài liệu...');
-    }
-    if (statusSub) {
-        statusSub.innerText = mode === 'ai_generate' 
-            ? 'Hệ thống đang sinh câu hỏi, 4 phương án lựa chọn và lời giải thích chi tiết.'
-            : (isAIExplicitlyDisabled 
-                ? 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh bằng thuật toán Python.'
-                : 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh và công thức toán học.');
-    }
-
-    let progress = 15;
-    let elapsedSeconds = 0;
-    const progressInterval = setInterval(() => {
-        elapsedSeconds++;
-        if (progress < 90) {
-            progress += Math.random() * 2;
-            if (progressBar) progressBar.style.width = Math.min(progress, 90) + '%';
-            if (progressPercent) progressPercent.innerText = Math.floor(Math.min(progress, 90)) + '%';
-        }
-        if (statusSub) {
-            statusSub.innerText = `Đã xử lý ${elapsedSeconds}s (thường mất 15-30 giây đối với tài liệu dài, vui lòng không tải lại trang)...`;
-        }
-    }, 1000);
-
-    let consecutive404Count = 0;
-
-    const poll = async () => {
-        try {
-            const statusRes = await fetch(`${API_BASE_URL}/api/task_status/${taskId}`);
-            
-            if (statusRes.status === 404) {
-                consecutive404Count++;
-                if (consecutive404Count < 5) {
-                    // Task có thể vừa được tạo hoặc máy chủ đang kích hoạt luồng ngầm, thử lại thêm
-                    setTimeout(poll, 3000);
-                    return;
-                }
-                clearInterval(progressInterval);
-                sessionStorage.removeItem('editor_pending_task_id');
-                sessionStorage.removeItem('editor_pending_mode');
-                if (overlay) overlay.style.display = 'none';
-                alert("Tiến trình phân tích không tìm thấy hoặc đã quá hạn. Đang mở bản lưu gần nhất.");
-                loadQuizFromSession();
-                return;
-            }
-
-            const statusData = await statusRes.json();
-            consecutive404Count = 0; // Đã kết nối thành công, reset bộ đếm
-
-            if (statusData.status === "success") {
-                clearInterval(progressInterval);
-                if (progressBar) progressBar.style.width = '100%';
-                if (progressPercent) progressPercent.innerText = '100%';
-                if (statusTitle) statusTitle.innerText = '✅ Phân tích hoàn tất!';
-                if (statusSub) statusSub.innerText = 'Đang hiển thị đề thi vào Studio...';
-                
-                await new Promise(r => setTimeout(r, 400));
-                
-                // Xóa task ID đã xử lý khỏi sessionStorage
-                sessionStorage.removeItem('editor_pending_task_id');
-                sessionStorage.removeItem('editor_pending_mode');
-                
-                // Làm sạch URL (bỏ ?task_id=...) để khi reload không bị lặp lại polling
-                window.history.replaceState({}, document.title, 'editor.html');
-
-                // Nạp dữ liệu vào Studio
-                currentData = normalizeImageUrls(statusData.data || []);
-                if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
-                    currentData.forEach(q => {
-                        q.is_ai_suggested = false;
-                        delete q.ai_suggestion_note;
-                    });
-                    window.activeAIFeedbacks = {};
-                }
-                editingQuizId = null;
-                window.isCurrentQuizPublished = false;
-                window.draftImageKeys = statusData.images || extractImageKeysFromClient(currentData);
-                sessionStorage.setItem('editor_draft_images', JSON.stringify(window.draftImageKeys));
-                
-                syncDataToEditor();
-                renderPreviewAll();
-                updateQCountBadge();
-                saveDraftToSession();
-
-                if (overlay) overlay.style.display = 'none';
-                showToast("✨ Phân tích hoàn tất! Dữ liệu đã sẵn sàng trong Studio.");
-            } else if (statusData.status === "error") {
-                clearInterval(progressInterval);
-                sessionStorage.removeItem('editor_pending_task_id');
-                sessionStorage.removeItem('editor_pending_mode');
-                if (overlay) overlay.style.display = 'none';
-                showAIDiagnosticModal(statusData);
-                loadQuizFromSession();
-            } else {
-                // Vẫn đang xử lý - Cập nhật tiến độ chính xác từ server
-                if (typeof statusData.progress === 'number' && statusData.progress > progress) {
-                    progress = statusData.progress;
-                    if (progressBar) progressBar.style.width = Math.min(progress, 98) + '%';
-                    if (progressPercent) progressPercent.innerText = Math.round(Math.min(progress, 98)) + '%';
-                }
-                if (statusData.message && statusTitle) {
-                    const icon = isAIExplicitlyDisabled ? "⚡ " : "🤖 ";
-                    statusTitle.innerText = icon + statusData.message;
-                }
-                // Rút ngắn chu kỳ thăm dò xuống 1.2s để phát hiện lỗi/hoàn thành siêu tốc
-                setTimeout(poll, 1200);
-            }
-        } catch(err) {
-            // Lỗi mạng hoặc server đang thức giấc (Cold Start), tự động thử lại sau 3.5s
-            if (statusTitle) statusTitle.innerText = isAIExplicitlyDisabled ? "⏳ Đang kết nối với máy chủ..." : "⏳ Đang kết nối với máy chủ AI...";
-            setTimeout(poll, 3500);
-        }
-    };
-
-    poll();
-}
-
-function renderMathJax(targetElement) {
-    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-        const targets = targetElement ? [targetElement] : undefined;
-        MathJax.typesetPromise(targets).catch((err) => console.log('MathJax error:', err));
-    } else {
-        setTimeout(() => {
-            if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-                const targets = targetElement ? [targetElement] : undefined;
-                MathJax.typesetPromise(targets).catch((err) => console.log('MathJax error:', err));
-            }
-        }, 400);
-    }
-}
-
-// ----------------------------------------------------
-// TẢI DỮ LIỆU ĐỀ THI
-// ----------------------------------------------------
-async function loadQuizById(quizId) {
-    showStudioLoader({
-        title: "Đang tải dữ liệu bài thi...",
-        subtitle: "Đang nạp toàn bộ câu hỏi, hình ảnh và công thức toán học..."
-    });
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken}`);
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            editingQuizId = quizId;
-            window.isCurrentQuizPublished = true;
-            sessionStorage.removeItem('editor_draft_images');
-            editingQuizSettings = {
-                title: result.title || "Đề thi chưa đặt tên",
-                mode: result.mode || "practice",
-                timeLimit: result.time_limit || 0,
-                isShuffle: result.is_shuffle || false
-            };
-            
-            document.getElementById('studioQuizTitle').value = editingQuizSettings.title;
-            currentData = normalizeImageUrls(result.data || []);
-            
-            syncDataToEditor();
-            renderPreviewAll();
-            updateQCountBadge();
-
-            // Hiển thị nút Copy Link trên thanh điều hướng Studio nếu đề đã xuất bản
-            const btnCopy = document.getElementById('btnStudioCopyLink');
-            if (btnCopy) btnCopy.style.display = 'inline-flex';
-            const deleteLabel = document.getElementById('discardOrDeleteLabel');
-            if (deleteLabel) deleteLabel.innerText = "Xóa đề";
-            const btnDiscard = document.getElementById('btnDiscardOrDelete');
-            if (btnDiscard) btnDiscard.title = "Xóa đề thi này khỏi hệ thống";
-
-            showToast("✅ Đã nạp dữ liệu đề thi thành công!");
-        } else {
-            alert("Không tìm thấy đề thi hoặc bạn không có quyền chỉnh sửa.");
-            window.location.href = "/giao-vien";
-        }
-    } catch(e) {
-        console.error(e);
-        alert("Lỗi tải đề thi từ máy chủ.");
-    } finally {
-        hideStudioLoader();
-    }
-}
-
-function loadQuizFromSession() {
-    const rawData = sessionStorage.getItem('editor_quiz_data');
-    const rawTitle = sessionStorage.getItem('editor_quiz_title');
-    const rawSettings = sessionStorage.getItem('editor_quiz_settings');
-
-    if (rawTitle) {
-        editingQuizSettings.title = rawTitle;
-        document.getElementById('studioQuizTitle').value = rawTitle;
-    } else {
-        document.getElementById('studioQuizTitle').value = editingQuizSettings.title;
-    }
-
-    if (rawSettings) {
-        try {
-            editingQuizSettings = { ...editingQuizSettings, ...JSON.parse(rawSettings) };
-        } catch(e) {}
-    }
-
-    if (rawData) {
-        try {
-            currentData = normalizeImageUrls(JSON.parse(rawData));
-            const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false' || sessionStorage.getItem('editor_pending_mode') === 'python';
-            if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
-                currentData.forEach(q => {
-                    q.is_ai_suggested = false;
-                    delete q.ai_suggestion_note;
-                });
-                window.activeAIFeedbacks = {};
-            }
-        } catch(e) {
-            currentData = [];
-        }
-    }
-
-    // Nếu chưa có dữ liệu nào, tạo khung mẫu ban đầu
-    if (!currentData || currentData.length === 0) {
-        currentData = [
-            {
-                group_title: "",
-                question: "Nội dung câu hỏi mẫu thứ nhất ở đây?",
-                options: [
-                    "A. Lựa chọn thứ nhất",
-                    "B. Lựa chọn thứ hai (đáp án đúng)",
-                    "C. Lựa chọn thứ ba",
-                    "D. Lựa chọn thứ tư"
-                ],
-                correct_answer: "B. Lựa chọn thứ hai (đáp án đúng)"
-            }
-        ];
-    }
-
-    syncDataToEditor();
-    renderPreviewAll();
-    updateQCountBadge();
-    saveDraftToSession();
-}
-
-function normalizeImageUrls(data) {
-    if (!data) return [];
-    try {
-        let jsonStr = JSON.stringify(data);
-        // 1. Chuyển đổi link R2 public direct (thường bị Cloudflare chặn 403) sang endpoint an toàn của backend
-        jsonStr = jsonStr.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev\//g, `${API_BASE_URL}/api/images/`);
-        
-        // 2. Chuyển đường dẫn tương đối /api/images/... thành URL tuyệt đối ${API_BASE_URL}/api/images/...
-        // Đảm bảo hoạt động hoàn hảo trên Cloudflare Pages (tránh lỗi 404 do Cloudflare Pages không phục vụ ảnh)
-        jsonStr = jsonStr.replace(/(["'])\/api\/images\//g, `$1${API_BASE_URL}/api/images/`);
-        
-        // 3. Khử trùng lặp nếu API_BASE_URL bị nối lặp
-        if (API_BASE_URL) {
-            const escapedBase = API_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const dupRegex = new RegExp(`(?:${escapedBase})+/api/images/`, 'g');
-            jsonStr = jsonStr.replace(dupRegex, `${API_BASE_URL}/api/images/`);
-        }
-        return JSON.parse(jsonStr);
-    } catch(e) {
-        return data;
-    }
-}
-
-function updateQCountBadge() {
-    const badge = document.getElementById('studioQCountBadge');
-    if (badge) {
-        badge.innerText = `${currentData.length} câu hỏi`;
-    }
-}
-
-function saveDraftToSession() {
-    sessionStorage.setItem('editor_quiz_data', JSON.stringify(currentData));
-    sessionStorage.setItem('editor_quiz_title', editingQuizSettings.title);
-    sessionStorage.setItem('editor_quiz_settings', JSON.stringify(editingQuizSettings));
-    
-    const indicator = document.getElementById('autosaveIndicator');
-    if (indicator) {
-        indicator.innerText = "✓ Đã lưu nháp";
-        indicator.style.opacity = "1";
-    }
-}
-
-function isSyntaxHighlightColor(styleStr) {
-    if (!styleStr) return false;
-    const s = styleStr.toLowerCase();
-    return s.includes('#2563eb') || s.includes('37, 99, 235') ||
-           s.includes('#059669') || s.includes('5, 150, 105') ||
-           s.includes('#7c3aed') || s.includes('124, 58, 237') ||
-           s.includes('#0ea5e9') || s.includes('14, 165, 233') ||
-           s.includes('#16a34a') || s.includes('22, 163, 74') ||
-           s.includes('#b45309') || s.includes('180, 83, 9');
-}
-
-function cleanEditorClosingTags(text) {
-    if (!text) return '';
-    return text.replace(/(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+$/gi, '')
-               .replace(/^(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+/gi, '')
-               .trim();
-}
-
-// ----------------------------------------------------
-// THIẾT LẬP SỰ KIỆN TRÌNH SOẠN THẢO CODE
-// ----------------------------------------------------
-function getRichEditorText(node) {
-    if (!node) return '';
-    let result = '';
-    for (let child of node.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) {
-            result += child.nodeValue;
-        } else if (child.nodeType === Node.ELEMENT_NODE) {
-            const tag = child.tagName;
-            // 1. Giữ nguyên khối ảnh (IMG) và bảng (TABLE) kèm toàn bộ style kích thước, căn lề
-            if (tag === 'IMG' || tag === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
-                result += child.outerHTML;
-            } 
-            // 2. Bảo toàn các thẻ định dạng chữ chuẩn Word (In đậm, In nghiêng, Gạch chân, Gạch ngang, Chỉ số, Dạ quang)
-            else if (tag === 'B' || tag === 'STRONG' || tag === 'I' || tag === 'EM' || tag === 'U' || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || tag === 'SUB' || tag === 'SUP' || tag === 'MARK') {
-                let inner = getRichEditorText(child);
-                let openTag = tag.toLowerCase();
-                if (openTag === 'strong') openTag = 'b';
-                if (openTag === 'em') openTag = 'i';
-                if (openTag === 'strike' || openTag === 'del') openTag = 's';
-                result += `<${openTag}>${inner}</${openTag}>`;
-            } 
-            // 3. Thẻ SPAN hoặc FONT chứa màu sắc / nền chữ tùy biến
-            else if (tag === 'SPAN' || tag === 'FONT') {
-                const textContent = (child.textContent || '').trim();
-                const styleAttr = child.getAttribute ? (child.getAttribute('style') || '') : '';
-                const colorAttr = child.getAttribute ? (child.getAttribute('color') || '') : '';
-                const fullStyle = (styleAttr + ';' + colorAttr).toLowerCase();
-
-                // Nếu là thẻ syntax highlight do editor sinh ra (prefix câu, đáp án, lời giải, phần hoặc màu cú pháp),
-                // tháo bỏ thẻ wrapper để parser nhận diện chính xác 100%
-                const isPrefixSpan = /^(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?/i.test(textContent) ||
-                                     /^(?:\*\s*)?\(?\[?(?:\*?[A-Fa-f]|\*?[a-d])[\.\:\)\-\]\/]/.test(textContent) ||
-                                     /^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]/i.test(textContent) ||
-                                     /^(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]/i.test(textContent) ||
-                                     /^(?:PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i.test(textContent) ||
-                                     isSyntaxHighlightColor(fullStyle);
-
-                if (isPrefixSpan) {
-                    result += getRichEditorText(child);
-                } else if (styleAttr || colorAttr) {
-                    let finalStyle = styleAttr || '';
-                    if (colorAttr && !finalStyle.includes('color')) {
-                        finalStyle += `;color:${colorAttr};`;
-                    }
-                    result += `<span style="${finalStyle}">${getRichEditorText(child)}</span>`;
-                } else {
-                    result += getRichEditorText(child);
-                }
-            } 
-            else if (tag === 'BR') {
-                result += '\n';
-            } 
-            else if (tag === 'DIV' || tag === 'P') {
-                let inner = getRichEditorText(child);
-                result += (result.length > 0 && !result.endsWith('\n') ? '\n' : '') + inner + '\n';
-            } 
-            else {
-                result += getRichEditorText(child);
-            }
-        }
-    }
-    return result;
-}
-
-function setupEditorEvents() {
-    const codeEditor = document.getElementById('codeEditor');
-    if (!codeEditor) return;
-
-    let editTimeout;
-    codeEditor.addEventListener('input', function() {
-        const indicator = document.getElementById('autosaveIndicator');
-        if (indicator) indicator.innerText = "⏳ Đang gõ...";
-
-        clearTimeout(editTimeout);
-        editTimeout = setTimeout(() => {
-            currentData = parseEditorText(getRichEditorText(codeEditor));
-            renderPreviewAll();
-            updateQCountBadge();
-            saveDraftToSession();
-        }, 300);
-    });
-
-    // Theo dõi và bảo toàn vùng chọn (Selection Range) của codeEditor
-    codeEditor.addEventListener('mouseup', saveCurrentEditorSelection);
-    codeEditor.addEventListener('keyup', saveCurrentEditorSelection);
-    codeEditor.addEventListener('touchend', saveCurrentEditorSelection);
-    document.addEventListener('selectionchange', function() {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-            const ed = document.getElementById('codeEditor');
-            if (ed && ed.contains(sel.anchorNode)) {
-                savedEditorSelection = sel.getRangeAt(0).cloneRange();
-            }
-        }
-    });
-
-    // Auto-complete bằng phím Tab
-    initEditorImageInteractions();
-
-    codeEditor.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            document.execCommand('insertText', false, '    ');
-        }
-    });
-}
-
-function setupTitleEvents() {
-    const titleInput = document.getElementById('studioQuizTitle');
-    if (!titleInput) return;
-
-    titleInput.addEventListener('input', function() {
-        editingQuizSettings.title = this.value.trim() || "Đề thi chưa đặt tên";
-        saveDraftToSession();
-    });
-}
-
-function syncDataToEditor() {
-    const codeEditor = document.getElementById('codeEditor');
-    if (codeEditor) {
-        codeEditor.innerHTML = dataToEditorText(currentData);
-    }
-}
-
-// ----------------------------------------------------
-// HÀM NHẬN DIỆN LOẠI CÂU HỎI CHUẨN XÁC 100% (CHUẨN GDPT 2018)
-// ----------------------------------------------------
-function getRealQuestionType(q) {
-    if (!q) return 'mcq';
-    const opts = Array.isArray(q.options) ? q.options : [];
-    const mcqCount = opts.filter(o => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\.\:\)]/.test(String(o).trim())).length;
-    const tfCount = opts.filter(o => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/.test(String(o).trim())).length;
-
-    // 1. Nếu có từ 2 phương án chữ in hoa A, B, C, D trở lên -> 100% BẮT BUỘC là MCQ
-    if (mcqCount >= 2 && mcqCount >= tfCount) return 'mcq';
-    // 2. Nếu có từ 2 ý chữ thường a), b), c), d) trở lên -> 100% BẮT BUỘC là Đúng / Sai
-    if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
-
-    // 3. Nếu KHÔNG có phương án nào: kiểm tra tiêu đề nhóm hoặc loại câu hỏi đã được xác định
-    const grp = String(q.group_title || '').toUpperCase();
-    if (opts.length === 0) {
-        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III')) {
-            return 'short_answer';
-        }
-        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
-            return 'true_false';
-        }
-        const t = String(q.type || '').toLowerCase();
-        if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') return 'short_answer';
-        if (t === 'true_false' || t === 'tf' || t === 'dung_sai') return 'true_false';
-        if (q.correct_answer !== null && q.correct_answer !== undefined && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
-            return 'short_answer';
-        }
-    }
-
-    // 4. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
-    const t = String(q.type || '').toLowerCase();
-    if (t === 'true_false' || t === 'tf' || t === 'dung_sai') {
-        if (mcqCount === 0) return 'true_false';
-    }
-    if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') {
-        if (mcqCount === 0 && tfCount < 2) return 'short_answer';
-    }
-    if (t === 'mcq') return 'mcq';
-
-    // 5. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
-    if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
-        if (mcqCount === 0) return 'true_false';
-    }
-
-    // 6. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
-    if (opts.length === 0 && q.correct_answer) return 'short_answer';
-
-    return 'mcq';
-}
-
-function dataToEditorText(data) {
-    let html = "";
-    data.forEach((q, i) => {
-        if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
-            html += `<div style="color: #b45309; font-weight: bold; margin-bottom: 5px;">${q.group_title.replace(/<br>/gi, '<br>')}</div>`;
-        }
-        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '').replace(/<br>/gi, '<br>');
-        html += `<div style="margin-top: 10px;"><span style="color: #2563eb; font-weight: bold;">Câu ${i + 1}: </span>${qClean}</div>`;
-        
-        let qType = getRealQuestionType(q);
-        if (qType === 'true_false') {
-            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
-            (q.options || []).forEach((opt, oIdx) => {
-                let optText = opt.replace(/<br>/gi, '<br>');
-                let charMatch = optText.match(/^[a-d]/);
-                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIdx);
-                let isTrue = (char && tfMap[char] === true) || /^\*[a-d]/.test(optText) || /\[ĐÚNG\]|\(Đúng\)/i.test(optText);
-                let cleanOpt = optText.replace(/^\*?[a-d][\)\.\:\-]\s*/, '');
-                cleanOpt = cleanOpt.replace(/\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)/gi, '').trim();
-                let prefix = isTrue ? `<span style="color: #059669; font-weight: bold;">*${char}) </span>` : `<span style="color: #0ea5e9; font-weight: bold;">${char}) </span>`;
-                html += `<div>${prefix}${cleanOpt}</div>`;
-            });
-        } else if (qType === 'short_answer') {
-            let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
-            if (ca) {
-                html += `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>${ca}</div>`;
-            }
-        } else {
-            // MCQ (4 lựa chọn)
-            (q.options || []).forEach((opt) => {
-                let isCorrect = (q.correct_answer === opt);
-                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
-                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
-                    let optLetter = (opt.trim().match(/^[A-F]/) || [])[0];
-                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
-                        isCorrect = true;
-                    }
-                }
-                let optText = opt.replace(/<br>/gi, '<br>');
-                if (isCorrect) {
-                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #059669; font-weight: bold;">*$1$2</span>');
-                } else {
-                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #7c3aed; font-weight: bold;">$1$2</span>');
-                }
-                html += `<div>${optText}</div>`;
-            });
-        }
-        if (q.explain && q.explain.trim()) {
-            html += `<div><span style="color: #16a34a; font-style: italic;">Lời giải: </span>${q.explain.replace(/<br>/gi, '<br>')}</div>`;
-        }
-        html += `<br>`;
-    });
-    
-    // Nén thẻ ảnh vào placeholder [HÌNH_ẢNH_X] - BỎ VÌ DÙNG WYSIWYG
-    globalEditorImageStorage = {};
-    globalEditorImageCounter = 0;
-
-    return html;
-}
-
-function isLineInsideMath(accumulatedText) {
-    if (!accumulatedText) return false;
-    const doubleDollars = (accumulatedText.match(/\$\$/g) || []).length;
-    if (doubleDollars % 2 !== 0) return true;
-    const openDisplay = (accumulatedText.match(/\\\[/g) || []).length;
-    const closeDisplay = (accumulatedText.match(/\\\]/g) || []).length;
-    if (openDisplay > closeDisplay) return true;
-    const mathEnvs = 'array|matrix|pmatrix|bmatrix|cases|aligned|align';
-    const openEnvs = (accumulatedText.match(new RegExp(`\\\\begin\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
-    const closeEnvs = (accumulatedText.match(new RegExp(`\\\\end\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
-    if (openEnvs > closeEnvs) return true;
-    return false;
-}
-
-function parseEditorText(text) {
-    let restoredText = text;
-    restoredText = restoredText.replace(/([SĐD])\s*([a-d]\))/g, '$1\n$2');
-    if (typeof renderMarkdownTables === 'function') {
-        restoredText = renderMarkdownTables(restoredText);
-    }
-    
-    const data = [];
-    let currentQ = null;
-    const lines = restoredText.split('\n');
-    let sharedContext = "";
-    let currentSectionHeader = "";
-
-    // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
-    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d*[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
-
-    // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
-    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
-
-    // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
-
-    // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
-    const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
-
-    // Nhận diện Lời giải / Hướng dẫn giải
-    const explainRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
-
-    // Nhận diện Tiêu đề Phần / Nhóm (PHẦN I, PHẦN II, PHẦN III, BÀI TẬP...)
-    const groupRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-        
-        if (trimmed === '') continue;
-
-        if (qRegex.test(line)) {
-            if (currentQ) data.push(currentQ);
-            let qText = cleanEditorClosingTags(line.replace(qRegex, '').trim());
-            
-            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
-            let defaultType = 'mcq';
-            const activeGroup = (currentSectionHeader || sharedContext || '').trim();
-            const grpUpper = activeGroup.toUpperCase();
-            if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
-                defaultType = 'short_answer';
-            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
-                defaultType = 'true_false';
-            }
-
-            currentQ = {
-                type: defaultType,
-                group_title: activeGroup,
-                question: qText,
-                options: [],
-                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' ? '' : null)),
-                explain: ''
-            };
-            sharedContext = ""; 
-        } else if (mcqOptRegex.test(line)) {
-            // 1. ƯU TIÊN TUYỆT ĐỐI CHO MCQ KHI PHƯƠNG ÁN LÀ CHỮ IN HOA A, B, C, D
-            if (!currentQ) {
-                currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
-                sharedContext = "";
-            }
-            // Nếu trước đó đã lỡ gom các bước/phát biểu a), b), c), d) vào options (do tưởng nhầm là câu Đúng/Sai),
-            // hãy hoàn trả toàn bộ về thân câu hỏi (question stem) vì đây là câu hỏi trắc nghiệm A, B, C, D
-            if (currentQ.options && currentQ.options.length > 0 && currentQ.options.some(opt => /^\s*\(?[a-d][\.\:\)\-]/.test(opt))) {
-                const restoredStem = currentQ.options.join('<br>');
-                currentQ.question = (currentQ.question ? currentQ.question + '<br>' : '') + restoredStem;
-                currentQ.options = [];
+
+// =========================================================================
+// AI ERROR DIAGNOSTIC MODAL & LOG VIEWER (BÁO CÁO LỖI AI CHI TIẾT)
+// =========================================================================
+
+window.closeAIDiagnosticModal = function() {
+    const modal = document.getElementById('aiDiagnosticModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.copyAIDiagnosticData = function() {
+    if (!window._lastAIDiagnostic) return;
+    const diag = window._lastAIDiagnostic;
+    const reportText = [
+        "═══════════════════════════════════════════════",
+        "  HỆ THỐNG TRẮC NGHIỆM - BÁO CÁO CHI TIẾT SỰ CỐ AI",
+        "═══════════════════════════════════════════════",
+        `• Mã lỗi: ${diag.code}`,
+        `• Tên lỗi (Lỗi gì): ${diag.name}`,
+        `• Nguyên nhân (Do đâu): ${diag.cause}`,
+        `• Hướng dẫn khắc phục:
+${diag.solution}`,
+        diag.models ? `• Mô hình đã thử: ${diag.models}` : null,
+        diag.technical ? `• Chi tiết kỹ thuật:
+${diag.technical}` : null,
+        "═══════════════════════════════════════════════"
+    ].filter(Boolean).join("\n\n");
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(() => {
+            if (typeof showToast === 'function') showToast("Đã sao chép chi tiết sự cố AI vào clipboard!");
+            else alert("Đã sao chép chi tiết sự cố AI vào clipboard!");
+        }).catch(() => {
+            prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+        });
+    } else {
+        prompt("Sao chép thông tin lỗi bên dưới:", reportText);
+    }
+};
+
+window.showAIDiagnosticModal = function(errData) {
+    if (!errData) errData = {};
+    const safeEsc = typeof escapeHtml === 'function' 
+        ? escapeHtml 
+        : (str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+
+    if (typeof errData === 'string') {
+        errData = { detail: errData };
+    }
+    if (typeof errData.detail === 'object' && errData.detail !== null) {
+        errData = Object.assign({}, errData, errData.detail);
+    }
+
+    let errorCode = errData.error_code || 'AI_ERROR';
+    let errorName = errData.error_name || errData.message || 'Lỗi xử lý AI';
+    let cause = errData.cause || '';
+    let solution = errData.solution || '';
+    let technical = errData.technical_detail || (typeof errData.detail === 'string' ? errData.detail : '');
+    let modelsTried = Array.isArray(errData.models_tried) ? errData.models_tried.join(', ') : (errData.models_tried || '');
+
+    if (!cause) {
+        const rawLower = String(technical || errorName).toLowerCase();
+        if (rawLower.includes('429') || rawLower.includes('quota') || rawLower.includes('exhausted')) {
+            errorCode = 'QUOTA_EXCEEDED_429';
+            errorName = 'Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)';
+            cause = 'Tài khoản Google AI Studio đã chạm trần tốc độ gọi (15 RPM ở gói Free) hoặc đã dùng hết hạn mức token được cấp miễn phí trong ngày.';
+            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm các Gemini API Key dự phòng vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán Pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
+        } else if (rawLower.includes('404') || rawLower.includes('not found') || rawLower.includes('no longer available')) {
+            errorCode = 'MODEL_NOT_FOUND_404';
+            errorName = 'Mô hình AI không tồn tại hoặc đã ngừng cung cấp (404)';
+            cause = 'Phiên bản mô hình AI (như gemini-2.5-flash cũ) đã bị Google ngừng hỗ trợ cho tài khoản mới.';
+            solution = '1. Hệ thống đã tự động thử các model mới nhất (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
+        } else if (rawLower.includes('503') || rawLower.includes('unavailable') || rawLower.includes('high demand') || rawLower.includes('overloaded')) {
+            errorCode = 'SERVICE_UNAVAILABLE_503';
+            errorName = 'Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)';
+            cause = 'Cụm máy chủ của Google AI đang tiếp nhận lưu lượng truy cập toàn cầu đột biến hoặc đang bảo trì tạm thời.';
+            solution = '1. Vui lòng chờ 15 - 30 giây rồi bấm thử lại.\n2. Khi máy chủ Google hạ tải, yêu cầu sẽ được xử lý lại bình thường.';
+        } else if (rawLower.includes('api key not valid') || rawLower.includes('invalid api key')) {
+            errorCode = 'INVALID_API_KEY';
+            errorName = 'Khóa API Google Gemini không hợp lệ';
+            cause = 'Khóa API được cấu hình trong hệ thống không chính xác, đã bị xóa hoặc bị thu hồi trên Google Cloud Console.';
+            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào Admin Settings.';
+        } else if (rawLower.includes('chưa cấu hình') || rawLower.includes('no_api_keys')) {
+            errorCode = 'NO_API_KEYS';
+            errorName = 'Chưa cấu hình Google Gemini API Key';
+            cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
+            solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
+        } else if (rawLower.includes('scanned_pdf') || rawLower.includes('pdf scan') || rawLower.includes('ảnh chụp') || rawLower.includes('không có lớp chữ')) {
+            errorCode = 'SCANNED_PDF_NEEDS_AI';
+            errorName = 'Phát hiện tệp PDF Scan / Ảnh chụp (Chưa bật AI)';
+            cause = 'Tệp PDF của bạn là tài liệu scan hoặc ảnh chụp không có lớp chữ số hóa. Thuật toán bóc tách nội bộ (không dùng AI) không thể đọc được chữ từ hình ảnh.';
+            solution = '1. Vui lòng BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã có Gemini API Key trong Cài đặt Admin.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lớp văn bản gốc.';
+        } else if (rawLower.includes('không thể trích xuất') || rawLower.includes('không tìm thấy câu hỏi') || rawLower.includes('câu 1:') || rawLower.includes('format')) {
+            errorCode = 'FORMAT_NOT_RECOGNIZED';
+            errorName = 'Không tìm thấy câu hỏi trắc nghiệm hợp lệ';
+            cause = 'Hệ thống không tìm thấy câu hỏi đúng định dạng trong tài liệu (cần có "Câu 1:" hoặc "1." và các phương án A, B, C, D) hoặc tài liệu scan chưa bật AI.';
+            solution = '1. Nếu là tài liệu PDF scan / ảnh chụp: Hãy BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp.\n2. Nếu là file Word/PDF văn bản: Đảm bảo đề thi có đánh số câu rõ ràng ("Câu 1:" hoặc "1.") và các phương án A, B, C, D.\n3. Tải "file Word mẫu chuẩn" ở trang chủ để tham khảo cấu trúc.';
+        } else {
+            errorCode = 'AI_COMMUNICATION_ERROR';
+            errorName = 'Lỗi kết nối tới dịch vụ AI';
+            cause = technical ? `Phát sinh lỗi khi kết nối hoặc nhận phản hồi: ${technical.substring(0, 200)}` : 'Không thể kết nối hoặc nhận phản hồi từ dịch vụ AI.';
+            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ Quản trị viên nếu sự cố tiếp diễn.';
+        }
+    }
+
+    window._lastAIDiagnostic = {
+        code: errorCode,
+        name: errorName,
+        cause: cause,
+        solution: solution,
+        models: modelsTried,
+        technical: technical
+    };
+
+    let modal = document.getElementById('aiDiagnosticModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'aiDiagnosticModal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.style.cssText = 'display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); z-index:1000000; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+        modal.onclick = function(e) {
+            if (e.target === modal) window.closeAIDiagnosticModal();
+        };
+        document.body.appendChild(modal);
+    }
+
+    const solutionList = solution.split('\n').filter(s => s.trim()).map(s => {
+        let cleanText = s.replace(/^\d+[\.\)]\s*/, '').trim();
+        return `<li style="margin-bottom: 6px;">${safeEsc(cleanText)}</li>`;
+    }).join('');
+
+    const isDocFormatError = errorCode === 'SCANNED_PDF_NEEDS_AI' || errorCode === 'FORMAT_NOT_RECOGNIZED' || errorCode === 'PDF_EXTRACT_EMPTY' || errorCode === 'IMAGE_OCR_EMPTY' || errorCode === 'CORRUPTED_FILE';
+    const modalTitle = isDocFormatError ? 'Chi Tiết Sự Cố Bóc Tách Tài Liệu' : 'Chi Tiết Sự Cố AI';
+    const modalSub = isDocFormatError ? 'Chẩn đoán định dạng tệp & Hướng dẫn xử lý' : 'Chẩn đoán nguyên nhân & Hướng dẫn khắc phục';
+    const headerBg = isDocFormatError ? '#fffbeb' : '#fef2f2';
+    const headerBorder = isDocFormatError ? '#fef3c7' : '#fee2e2';
+    const iconBg = isDocFormatError ? '#fef3c7' : '#fee2e2';
+    const iconColor = isDocFormatError ? '#d97706' : '#dc2626';
+    const iconClass = isDocFormatError ? 'ri-file-warning-fill' : 'ri-error-warning-fill';
+    const titleColor = isDocFormatError ? '#92400e' : '#991b1b';
+    const subColor = isDocFormatError ? '#b45309' : '#b91c1c';
+    const badgeBg = isDocFormatError ? '#fde68a' : '#fda4af';
+    const badgeColor = isDocFormatError ? '#78350f' : '#881337';
+    const nameColor = isDocFormatError ? '#92400e' : '#9f1239';
+    const boxBg = isDocFormatError ? '#fefce8' : '#fff1f2';
+    const boxBorder = isDocFormatError ? '#fef08a' : '#fecdd3';
+
+    modal.innerHTML = `
+        <div style="background:#ffffff; border-radius:14px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); border:1px solid #e2e8f0; font-family:inherit;" onclick="event.stopPropagation();">
+            <div style="background:${headerBg}; border-bottom:1px solid ${headerBorder}; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:40px; height:40px; border-radius:10px; background:${iconBg}; color:${iconColor}; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin:0; font-size:1.1rem; font-weight:700; color:${titleColor};">${modalTitle}</h3>
+                        <div style="font-size:0.8rem; color:${subColor}; margin-top:2px;">${modalSub}</div>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="border:none; background:transparent; font-size:1.6rem; line-height:1; color:#94a3b8; cursor:pointer; padding:0 4px;" title="Đóng">&times;</button>
+            </div>
+            
+            <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-alert-line" style="color:${iconColor};"></i> Lỗi gì (Sự cố)
+                    </div>
+                    <div style="padding:10px 14px; background:${boxBg}; border:1px solid ${boxBorder}; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:${badgeBg}; color:${badgeColor}; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
+                        <span style="font-weight:600; font-size:0.92rem; color:${nameColor};">${safeEsc(errorName)}</span>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (Nguyên nhân)
+                    </div>
+                    <div style="padding:10px 14px; background:#fff7ed; border-left:3.5px solid #f97316; border-radius:6px; color:#9a3412; font-size:0.9rem; line-height:1.55;">
+                        ${safeEsc(cause)}
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-tools-line" style="color:#16a34a;"></i> Cách khắc phục
+                    </div>
+                    <div style="padding:10px 14px; background:#f0fdf4; border-left:3.5px solid #22c55e; border-radius:6px; color:#166534; font-size:0.88rem;">
+                        <ul style="margin:0; padding-left:18px; line-height:1.55;">
+                            ${solutionList}
+                        </ul>
+                    </div>
+                </div>
+
+                ${modelsTried ? `
+                <div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:4px; display:flex; align-items:center; gap:5px;">
+                        <i class="ri-cpu-line"></i> Mô hình đã thử:
+                    </div>
+                    <div style="font-family:monospace; font-size:0.8rem; color:#475569; background:#f8fafc; padding:6px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+                        ${safeEsc(modelsTried)}
+                    </div>
+                </div>` : ''}
+
+                <details style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; background:#f8fafc;">
+                    <summary style="font-size:0.82rem; font-weight:600; color:#64748b; cursor:pointer; user-select:none;">
+                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & Log lỗi (Debug Info)
+                    </summary>
+                    <pre style="margin-top:8px; margin-bottom:0; font-family:monospace; font-size:0.76rem; background:#0f172a; color:#f8fafc; padding:10px; border-radius:6px; max-height:140px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">${safeEsc(technical || 'Không có log bổ sung')}</pre>
+                </details>
+            </div>
+
+            <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button type="button" onclick="copyAIDiagnosticData()" style="padding:8px 14px; background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="ri-file-copy-line"></i> Sao chép lỗi
+                </button>
+                <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:${isDocFormatError ? '#d97706' : '#dc2626'}; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
+                    Đã hiểu & Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+};
+
+
+// ========================================================
+// HOCNHANHTN EDITOR STUDIO - JAVASCRIPT CONTROLLER
+// ========================================================
+
+// Tự động nhận diện môi trường (Localhost vs Production)
+const PROD_BACKEND_URL = "https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app";
+let API_BASE_URL = PROD_BACKEND_URL;
+
+const currentHost = window.location.hostname || '';
+const isLocal = 
+    window.location.protocol === 'file:' ||
+    currentHost === 'localhost' || 
+    currentHost === '127.0.0.1' || 
+    currentHost.startsWith('192.168.') || 
+    currentHost.startsWith('10.') || 
+    currentHost.endsWith('.local');
+
+if (isLocal) {
+    // Chạy cục bộ / offline / máy dev
+    API_BASE_URL = (window.location.port === '8000') ? window.location.origin : "http://127.0.0.1:8000";
+} else if (currentHost.includes('koyeb.app') || currentHost.includes('ngrok')) {
+    // Phục vụ trực tiếp từ server backend hoặc tunnel ngrok
+    API_BASE_URL = window.location.origin;
+} else if (currentHost.includes('hocnhanhtn.online') || currentHost.includes('pages.dev')) {
+    // Tận dụng Cloudflare Worker Reverse Proxy (/api/...) để cùng domain, không bị chặn DNS và tối ưu tốc độ
+    API_BASE_URL = window.location.origin;
+} else {
+    // Tất cả tên miền production tĩnh khác
+    API_BASE_URL = PROD_BACKEND_URL;
+}
+
+if (typeof localStorage !== 'undefined' && localStorage.getItem('CUSTOM_API_BASE_URL')) {
+    API_BASE_URL = localStorage.getItem('CUSTOM_API_BASE_URL');
+}
+
+// Tự động gửi tín hiệu đánh thức máy chủ Backend ngay khi mở Studio (Chống Sleep / Cold Start)
+fetch(`${API_BASE_URL}/api/health`, { method: 'GET', cache: 'no-store' }).catch(() => {});
+
+// Global States
+let currentData = [];
+let editingQuizId = null;
+let editingQuizSettings = {
+    title: "Đề thi mới",
+    mode: "practice",
+    timeLimit: 0,
+    isShuffle: false
+};
+let currentStudioMode = 'edit'; // 'edit' | 'practice' | 'exam'
+let globalEditorImageStorage = {};
+let globalEditorImageCounter = 0;
+window.activeAIFeedbacks = {};
+
+// Auth
+let authToken = localStorage.getItem('auth_token') || '';
+let authRole = localStorage.getItem('auth_role') || '';
+
+// Practice / Exam test states
+let testPracticeAnswers = {};
+let testExamAnswers = {};
+
+// ========================================================
+// HOCNHANHTN LOADER SYSTEM FOR STUDIO
+// ========================================================
+function hidePageInitialLoader() {
+    const initialLoader = document.getElementById('pageInitialLoader');
+    if (initialLoader && !initialLoader.classList.contains('hntn-loaded')) {
+        initialLoader.classList.add('hntn-loaded');
+        setTimeout(() => {
+            if (initialLoader.parentNode) initialLoader.remove();
+        }, 500);
+    }
+}
+window.hidePageInitialLoader = hidePageInitialLoader;
+
+// An toàn: Tự động tắt preloader khi tải trang xong hoặc sau tối đa 5 giây
+window.addEventListener('load', () => {
+    setTimeout(hidePageInitialLoader, 250);
+});
+setTimeout(hidePageInitialLoader, 5000);
+
+function resetHntnLoader(container) {
+    if (!container) return;
+    const svg = container.querySelector('.hntn-loader-svg');
+    if (svg && svg.parentNode) {
+        const clone = svg.cloneNode(true);
+        svg.parentNode.replaceChild(clone, svg);
+    }
+}
+window.resetHntnLoader = resetHntnLoader;
+
+function showStudioLoader(options = {}) {
+    const title = (typeof options === 'string') ? options : (options.title || "Đang xử lý...");
+    const subtitle = (typeof options === 'string') ? "" : (options.subtitle || "Vui lòng chờ trong giây lát...");
+    const showProgress = (typeof options === 'object' && options.showProgress === true);
+    const progress = (typeof options === 'object' && typeof options.progress === 'number') ? options.progress : 0;
+
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (!overlay) return;
+
+    const titleEl = document.getElementById('studioLoadingStatus');
+    const subEl = document.getElementById('studioLoadingSub');
+    const progText = document.getElementById('studioProgressPercent');
+    const progBar = document.getElementById('studioProgressBar');
+    const progBg = document.getElementById('studioProgressBarBg');
+
+    if (titleEl) titleEl.innerText = title;
+    if (subEl) {
+        subEl.innerText = subtitle;
+        subEl.style.display = subtitle ? 'block' : 'none';
+    }
+
+    if (progBg) progBg.style.display = showProgress ? 'block' : 'none';
+    if (progText) {
+        progText.style.display = showProgress ? 'block' : 'none';
+        progText.innerText = `${Math.round(progress)}%`;
+    }
+    if (progBar && showProgress) {
+        progBar.style.width = `${Math.round(progress)}%`;
+    }
+
+    resetHntnLoader(overlay);
+    overlay.style.display = 'flex';
+}
+
+function updateStudioLoader(options = {}) {
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (!overlay || overlay.style.display === 'none') return;
+
+    if (options.title) {
+        const titleEl = document.getElementById('studioLoadingStatus');
+        if (titleEl) titleEl.innerText = options.title;
+    }
+    if (options.subtitle !== undefined) {
+        const subEl = document.getElementById('studioLoadingSub');
+        if (subEl) {
+            subEl.innerText = options.subtitle;
+            subEl.style.display = options.subtitle ? 'block' : 'none';
+        }
+    }
+    if (typeof options.progress === 'number') {
+        const progText = document.getElementById('studioProgressPercent');
+        const progBar = document.getElementById('studioProgressBar');
+        const progBg = document.getElementById('studioProgressBarBg');
+        if (progBg) progBg.style.display = 'block';
+        if (progText) {
+            progText.style.display = 'block';
+            progText.innerText = `${Math.round(options.progress)}%`;
+        }
+        if (progBar) progBar.style.width = `${Math.round(options.progress)}%`;
+    }
+}
+
+function hideStudioLoader() {
+    const overlay = document.getElementById('studioLoadingOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+window.showStudioLoader = showStudioLoader;
+window.updateStudioLoader = updateStudioLoader;
+window.hideStudioLoader = hideStudioLoader;
+window.showGlobalLoader = showStudioLoader;
+window.updateGlobalLoader = updateStudioLoader;
+window.hideGlobalLoader = hideStudioLoader;
+
+// Khởi chạy khi DOM sẵn sàng
+document.addEventListener('DOMContentLoaded', () => {
+    initStudio();
+});
+
+async function initStudio() {
+    if (!authToken) {
+        console.log("Khách trải nghiệm Studio chưa đăng nhập. Sẽ yêu cầu đăng nhập khi Lưu & Xuất bản.");
+    }
+
+    setupEditorEvents();
+    setupTitleEvents();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get('task_id') || sessionStorage.getItem('editor_pending_task_id');
+    let quizId = urlParams.get('id') || urlParams.get('quiz_id');
+    if (!quizId) {
+        const pathMatch = window.location.pathname.match(/\/editor\/([^\/?#]+)/);
+        if (pathMatch && pathMatch[1]) {
+            quizId = decodeURIComponent(pathMatch[1]);
+        }
+    }
+    const titleParam = urlParams.get('title') || sessionStorage.getItem('editor_quiz_title');
+    const modeParam = urlParams.get('mode') || sessionStorage.getItem('editor_pending_mode');
+    const useAIParam = urlParams.get('use_ai');
+
+    const isAIExplicitlyDisabled = useAIParam === 'false' || modeParam === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
+    if (isAIExplicitlyDisabled) {
+        sessionStorage.setItem('editor_use_ai', 'false');
+    } else if (useAIParam === 'true' || modeParam === 'ai' || modeParam === 'ai_generate') {
+        sessionStorage.setItem('editor_use_ai', 'true');
+    }
+
+    if (titleParam) {
+        editingQuizSettings.title = titleParam;
+        document.getElementById('studioQuizTitle').value = titleParam;
+    }
+
+    try {
+        if (taskId) {
+            // Người dùng vừa bấm phân tích file hoặc sinh đề AI ở trang chủ -> Đã chuyển ngay sang Studio!
+            hidePageInitialLoader();
+            await pollStudioTask(taskId, titleParam, modeParam);
+        } else if (quizId) {
+            // Tải từ cơ sở dữ liệu nếu có ID trên URL
+            hidePageInitialLoader();
+            await loadQuizById(quizId);
+        } else {
+            // Tải từ Session Storage (hoặc bản lưu nháp trước đó)
+            loadQuizFromSession();
+            hidePageInitialLoader();
+        }
+    } catch(err) {
+        console.error("Lỗi nạp Studio:", err);
+        hidePageInitialLoader();
+    }
+}
+
+async function pollStudioTask(taskId, initialTitle, mode) {
+    const overlay = document.getElementById('studioLoadingOverlay');
+    const progressBar = document.getElementById('studioProgressBar');
+    const progressPercent = document.getElementById('studioProgressPercent');
+    const statusTitle = document.getElementById('studioLoadingStatus');
+    const statusSub = document.getElementById('studioLoadingSub');
+    const progBg = document.getElementById('studioProgressBarBg');
+
+    if (progBg) progBg.style.display = 'block';
+    if (progressPercent) progressPercent.style.display = 'block';
+
+    if (overlay) {
+        resetHntnLoader(overlay);
+        overlay.style.display = 'flex';
+    }
+    
+    if (initialTitle) {
+        editingQuizSettings.title = initialTitle;
+        document.getElementById('studioQuizTitle').value = initialTitle;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const useAIParam = urlParams.get('use_ai');
+    const isAIExplicitlyDisabled = useAIParam === 'false' || mode === 'python' || sessionStorage.getItem('editor_use_ai') === 'false';
+
+    if (statusTitle) {
+        statusTitle.innerText = mode === 'ai_generate' 
+            ? '🤖 AI đang suy nghĩ và sáng tạo câu hỏi...' 
+            : (isAIExplicitlyDisabled 
+                ? '⚡ Đang phân tích tài liệu bằng thuật toán nội bộ...' 
+                : '🤖 AI đang đọc và phân tích tài liệu...');
+    }
+    if (statusSub) {
+        statusSub.innerText = mode === 'ai_generate' 
+            ? 'Hệ thống đang sinh câu hỏi, 4 phương án lựa chọn và lời giải thích chi tiết.'
+            : (isAIExplicitlyDisabled 
+                ? 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh bằng thuật toán Python.'
+                : 'Hệ thống đang bóc tách từng câu hỏi, đáp án, hình ảnh và công thức toán học.');
+    }
+
+    let progress = 15;
+    let elapsedSeconds = 0;
+    const progressInterval = setInterval(() => {
+        elapsedSeconds++;
+        if (progress < 90) {
+            progress += Math.random() * 2;
+            if (progressBar) progressBar.style.width = Math.min(progress, 90) + '%';
+            if (progressPercent) progressPercent.innerText = Math.floor(Math.min(progress, 90)) + '%';
+        }
+        if (statusSub) {
+            statusSub.innerText = `Đã xử lý ${elapsedSeconds}s (thường mất 15-30 giây đối với tài liệu dài, vui lòng không tải lại trang)...`;
+        }
+    }, 1000);
+
+    let consecutive404Count = 0;
+
+    const poll = async () => {
+        try {
+            const statusRes = await fetch(`${API_BASE_URL}/api/task_status/${taskId}`);
+            
+            if (statusRes.status === 404) {
+                consecutive404Count++;
+                if (consecutive404Count < 5) {
+                    // Task có thể vừa được tạo hoặc máy chủ đang kích hoạt luồng ngầm, thử lại thêm
+                    setTimeout(poll, 3000);
+                    return;
+                }
+                clearInterval(progressInterval);
+                sessionStorage.removeItem('editor_pending_task_id');
+                sessionStorage.removeItem('editor_pending_mode');
+                if (overlay) overlay.style.display = 'none';
+                alert("Tiến trình phân tích không tìm thấy hoặc đã quá hạn. Đang mở bản lưu gần nhất.");
+                loadQuizFromSession();
+                return;
+            }
+
+            const statusData = await statusRes.json();
+            consecutive404Count = 0; // Đã kết nối thành công, reset bộ đếm
+
+            if (statusData.status === "success") {
+                clearInterval(progressInterval);
+                if (progressBar) progressBar.style.width = '100%';
+                if (progressPercent) progressPercent.innerText = '100%';
+                if (statusTitle) statusTitle.innerText = '✅ Phân tích hoàn tất!';
+                if (statusSub) statusSub.innerText = 'Đang hiển thị đề thi vào Studio...';
+                
+                await new Promise(r => setTimeout(r, 400));
+                
+                // Xóa task ID đã xử lý khỏi sessionStorage
+                sessionStorage.removeItem('editor_pending_task_id');
+                sessionStorage.removeItem('editor_pending_mode');
+                
+                // Làm sạch URL (bỏ ?task_id=...) để khi reload không bị lặp lại polling
+                window.history.replaceState({}, document.title, 'editor.html');
+
+                // Nạp dữ liệu vào Studio
+                currentData = normalizeImageUrls(statusData.data || []);
+                if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
+                    currentData.forEach(q => {
+                        q.is_ai_suggested = false;
+                        delete q.ai_suggestion_note;
+                    });
+                    window.activeAIFeedbacks = {};
+                }
+                editingQuizId = null;
+                window.isCurrentQuizPublished = false;
+                window.draftImageKeys = statusData.images || extractImageKeysFromClient(currentData);
+                sessionStorage.setItem('editor_draft_images', JSON.stringify(window.draftImageKeys));
+                
+                syncDataToEditor();
+                renderPreviewAll();
+                updateQCountBadge();
+                saveDraftToSession();
+
+                if (overlay) overlay.style.display = 'none';
+                showToast("✨ Phân tích hoàn tất! Dữ liệu đã sẵn sàng trong Studio.");
+            } else if (statusData.status === "error") {
+                clearInterval(progressInterval);
+                sessionStorage.removeItem('editor_pending_task_id');
+                sessionStorage.removeItem('editor_pending_mode');
+                if (overlay) overlay.style.display = 'none';
+                showAIDiagnosticModal(statusData);
+                loadQuizFromSession();
+            } else {
+                // Vẫn đang xử lý - Cập nhật tiến độ chính xác từ server
+                if (typeof statusData.progress === 'number' && statusData.progress > progress) {
+                    progress = statusData.progress;
+                    if (progressBar) progressBar.style.width = Math.min(progress, 98) + '%';
+                    if (progressPercent) progressPercent.innerText = Math.round(Math.min(progress, 98)) + '%';
+                }
+                if (statusData.message && statusTitle) {
+                    const icon = isAIExplicitlyDisabled ? "⚡ " : "🤖 ";
+                    statusTitle.innerText = icon + statusData.message;
+                }
+                // Rút ngắn chu kỳ thăm dò xuống 1.2s để phát hiện lỗi/hoàn thành siêu tốc
+                setTimeout(poll, 1200);
+            }
+        } catch(err) {
+            // Lỗi mạng hoặc server đang thức giấc (Cold Start), tự động thử lại sau 3.5s
+            if (statusTitle) statusTitle.innerText = isAIExplicitlyDisabled ? "⏳ Đang kết nối với máy chủ..." : "⏳ Đang kết nối với máy chủ AI...";
+            setTimeout(poll, 3500);
+        }
+    };
+
+    poll();
+}
+
+function renderMathJax(targetElement) {
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        const targets = targetElement ? [targetElement] : undefined;
+        MathJax.typesetPromise(targets).catch((err) => console.log('MathJax error:', err));
+    } else {
+        setTimeout(() => {
+            if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+                const targets = targetElement ? [targetElement] : undefined;
+                MathJax.typesetPromise(targets).catch((err) => console.log('MathJax error:', err));
+            }
+        }, 400);
+    }
+}
+
+// ----------------------------------------------------
+// TẢI DỮ LIỆU ĐỀ THI
+// ----------------------------------------------------
+async function loadQuizById(quizId) {
+    showStudioLoader({
+        title: "Đang tải dữ liệu bài thi...",
+        subtitle: "Đang nạp toàn bộ câu hỏi, hình ảnh và công thức toán học..."
+    });
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${authToken}`);
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            editingQuizId = quizId;
+            window.isCurrentQuizPublished = true;
+            sessionStorage.removeItem('editor_draft_images');
+            editingQuizSettings = {
+                title: result.title || "Đề thi chưa đặt tên",
+                mode: result.mode || "practice",
+                timeLimit: result.time_limit || 0,
+                isShuffle: result.is_shuffle || false
+            };
+            
+            document.getElementById('studioQuizTitle').value = editingQuizSettings.title;
+            currentData = normalizeImageUrls(result.data || []);
+            
+            syncDataToEditor();
+            renderPreviewAll();
+            updateQCountBadge();
+
+            // Hiển thị nút Copy Link trên thanh điều hướng Studio nếu đề đã xuất bản
+            const btnCopy = document.getElementById('btnStudioCopyLink');
+            if (btnCopy) btnCopy.style.display = 'inline-flex';
+            const deleteLabel = document.getElementById('discardOrDeleteLabel');
+            if (deleteLabel) deleteLabel.innerText = "Xóa đề";
+            const btnDiscard = document.getElementById('btnDiscardOrDelete');
+            if (btnDiscard) btnDiscard.title = "Xóa đề thi này khỏi hệ thống";
+
+            showToast("✅ Đã nạp dữ liệu đề thi thành công!");
+        } else {
+            alert("Không tìm thấy đề thi hoặc bạn không có quyền chỉnh sửa.");
+            window.location.href = "/giao-vien";
+        }
+    } catch(e) {
+        console.error(e);
+        alert("Lỗi tải đề thi từ máy chủ.");
+    } finally {
+        hideStudioLoader();
+    }
+}
+
+function loadQuizFromSession() {
+    const rawData = sessionStorage.getItem('editor_quiz_data');
+    const rawTitle = sessionStorage.getItem('editor_quiz_title');
+    const rawSettings = sessionStorage.getItem('editor_quiz_settings');
+
+    if (rawTitle) {
+        editingQuizSettings.title = rawTitle;
+        document.getElementById('studioQuizTitle').value = rawTitle;
+    } else {
+        document.getElementById('studioQuizTitle').value = editingQuizSettings.title;
+    }
+
+    if (rawSettings) {
+        try {
+            editingQuizSettings = { ...editingQuizSettings, ...JSON.parse(rawSettings) };
+        } catch(e) {}
+    }
+
+    if (rawData) {
+        try {
+            currentData = normalizeImageUrls(JSON.parse(rawData));
+            const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false' || sessionStorage.getItem('editor_pending_mode') === 'python';
+            if (isAIExplicitlyDisabled && Array.isArray(currentData)) {
+                currentData.forEach(q => {
+                    q.is_ai_suggested = false;
+                    delete q.ai_suggestion_note;
+                });
+                window.activeAIFeedbacks = {};
+            }
+        } catch(e) {
+            currentData = [];
+        }
+    }
+
+    // Nếu chưa có dữ liệu nào, tạo khung mẫu ban đầu
+    if (!currentData || currentData.length === 0) {
+        currentData = [
+            {
+                group_title: "",
+                question: "Nội dung câu hỏi mẫu thứ nhất ở đây?",
+                options: [
+                    "A. Lựa chọn thứ nhất",
+                    "B. Lựa chọn thứ hai (đáp án đúng)",
+                    "C. Lựa chọn thứ ba",
+                    "D. Lựa chọn thứ tư"
+                ],
+                correct_answer: "B. Lựa chọn thứ hai (đáp án đúng)"
+            }
+        ];
+    }
+
+    syncDataToEditor();
+    renderPreviewAll();
+    updateQCountBadge();
+    saveDraftToSession();
+}
+
+function normalizeImageUrls(data) {
+    if (!data) return [];
+    try {
+        let jsonStr = JSON.stringify(data);
+        // 1. Chuyển đổi link R2 public direct (thường bị Cloudflare chặn 403) sang endpoint an toàn của backend
+        jsonStr = jsonStr.replace(/https:\/\/pub-[a-zA-Z0-9]+\.r2\.dev\//g, `${API_BASE_URL}/api/images/`);
+        
+        // 2. Chuyển đường dẫn tương đối /api/images/... thành URL tuyệt đối ${API_BASE_URL}/api/images/...
+        // Đảm bảo hoạt động hoàn hảo trên Cloudflare Pages (tránh lỗi 404 do Cloudflare Pages không phục vụ ảnh)
+        jsonStr = jsonStr.replace(/(["'])\/api\/images\//g, `$1${API_BASE_URL}/api/images/`);
+        
+        // 3. Khử trùng lặp nếu API_BASE_URL bị nối lặp
+        if (API_BASE_URL) {
+            const escapedBase = API_BASE_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const dupRegex = new RegExp(`(?:${escapedBase})+/api/images/`, 'g');
+            jsonStr = jsonStr.replace(dupRegex, `${API_BASE_URL}/api/images/`);
+        }
+        return JSON.parse(jsonStr);
+    } catch(e) {
+        return data;
+    }
+}
+
+function updateQCountBadge() {
+    const badge = document.getElementById('studioQCountBadge');
+    if (badge) {
+        badge.innerText = `${currentData.length} câu hỏi`;
+    }
+}
+
+function saveDraftToSession() {
+    sessionStorage.setItem('editor_quiz_data', JSON.stringify(currentData));
+    sessionStorage.setItem('editor_quiz_title', editingQuizSettings.title);
+    sessionStorage.setItem('editor_quiz_settings', JSON.stringify(editingQuizSettings));
+    
+    const indicator = document.getElementById('autosaveIndicator');
+    if (indicator) {
+        indicator.innerText = "✓ Đã lưu nháp";
+        indicator.style.opacity = "1";
+    }
+}
+
+function isSyntaxHighlightColor(styleStr) {
+    if (!styleStr) return false;
+    const s = styleStr.toLowerCase();
+    return s.includes('#2563eb') || s.includes('37, 99, 235') ||
+           s.includes('#059669') || s.includes('5, 150, 105') ||
+           s.includes('#7c3aed') || s.includes('124, 58, 237') ||
+           s.includes('#0ea5e9') || s.includes('14, 165, 233') ||
+           s.includes('#16a34a') || s.includes('22, 163, 74') ||
+           s.includes('#b45309') || s.includes('180, 83, 9');
+}
+
+function cleanEditorClosingTags(text) {
+    if (!text) return '';
+    return text.replace(/(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+$/gi, '')
+               .replace(/^(?:\s*<\/(?:div|p|span|b|strong|u|font|mark|i|em)>)+/gi, '')
+               .trim();
+}
+
+// ----------------------------------------------------
+// THIẾT LẬP SỰ KIỆN TRÌNH SOẠN THẢO CODE
+// ----------------------------------------------------
+function getRichEditorText(node) {
+    if (!node) return '';
+    let result = '';
+    for (let child of node.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) {
+            result += child.nodeValue;
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+            const tag = child.tagName;
+            // 1. Giữ nguyên khối ảnh (IMG) và bảng (TABLE) kèm toàn bộ style kích thước, căn lề
+            if (tag === 'IMG' || tag === 'TABLE' || (child.classList && (child.classList.contains('quiz-table') || child.classList.contains('quiz-table-wrapper')))) {
+                result += child.outerHTML;
+            } 
+            // 2. Bảo toàn các thẻ định dạng chữ chuẩn Word (In đậm, In nghiêng, Gạch chân, Gạch ngang, Chỉ số, Dạ quang)
+            else if (tag === 'B' || tag === 'STRONG' || tag === 'I' || tag === 'EM' || tag === 'U' || tag === 'S' || tag === 'STRIKE' || tag === 'DEL' || tag === 'SUB' || tag === 'SUP' || tag === 'MARK') {
+                let inner = getRichEditorText(child);
+                let openTag = tag.toLowerCase();
+                if (openTag === 'strong') openTag = 'b';
+                if (openTag === 'em') openTag = 'i';
+                if (openTag === 'strike' || openTag === 'del') openTag = 's';
+                result += `<${openTag}>${inner}</${openTag}>`;
+            } 
+            // 3. Thẻ SPAN hoặc FONT chứa màu sắc / nền chữ tùy biến
+            else if (tag === 'SPAN' || tag === 'FONT') {
+                const textContent = (child.textContent || '').trim();
+                const styleAttr = child.getAttribute ? (child.getAttribute('style') || '') : '';
+                const colorAttr = child.getAttribute ? (child.getAttribute('color') || '') : '';
+                const fullStyle = (styleAttr + ';' + colorAttr).toLowerCase();
+
+                // Nếu là thẻ syntax highlight do editor sinh ra (prefix câu, đáp án, lời giải, phần hoặc màu cú pháp),
+                // tháo bỏ thẻ wrapper để parser nhận diện chính xác 100%
+                const isPrefixSpan = /^(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?/i.test(textContent) ||
+                                     /^(?:\*\s*)?\(?\[?(?:\*?[A-Fa-f]|\*?[a-d])[\.\:\)\-\]\/]/.test(textContent) ||
+                                     /^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]/i.test(textContent) ||
+                                     /^(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]/i.test(textContent) ||
+                                     /^(?:PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i.test(textContent) ||
+                                     isSyntaxHighlightColor(fullStyle);
+
+                if (isPrefixSpan) {
+                    result += getRichEditorText(child);
+                } else if (styleAttr || colorAttr) {
+                    let finalStyle = styleAttr || '';
+                    if (colorAttr && !finalStyle.includes('color')) {
+                        finalStyle += `;color:${colorAttr};`;
+                    }
+                    result += `<span style="${finalStyle}">${getRichEditorText(child)}</span>`;
+                } else {
+                    result += getRichEditorText(child);
+                }
+            } 
+            else if (tag === 'BR') {
+                result += '\n';
+            } 
+            else if (tag === 'DIV' || tag === 'P') {
+                let inner = getRichEditorText(child);
+                result += (result.length > 0 && !result.endsWith('\n') ? '\n' : '') + inner + '\n';
+            } 
+            else {
+                result += getRichEditorText(child);
+            }
+        }
+    }
+    return result;
+}
+
+function setupEditorEvents() {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+
+    let editTimeout;
+    codeEditor.addEventListener('input', function() {
+        const indicator = document.getElementById('autosaveIndicator');
+        if (indicator) indicator.innerText = "⏳ Đang gõ...";
+
+        clearTimeout(editTimeout);
+        editTimeout = setTimeout(() => {
+            currentData = parseEditorText(getRichEditorText(codeEditor));
+            renderPreviewAll();
+            updateQCountBadge();
+            saveDraftToSession();
+        }, 300);
+    });
+
+    // Theo dõi và bảo toàn vùng chọn (Selection Range) của codeEditor
+    codeEditor.addEventListener('mouseup', saveCurrentEditorSelection);
+    codeEditor.addEventListener('keyup', saveCurrentEditorSelection);
+    codeEditor.addEventListener('touchend', saveCurrentEditorSelection);
+    document.addEventListener('selectionchange', function() {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const ed = document.getElementById('codeEditor');
+            if (ed && ed.contains(sel.anchorNode)) {
+                savedEditorSelection = sel.getRangeAt(0).cloneRange();
+            }
+        }
+    });
+
+    // Auto-complete bằng phím Tab
+    initEditorImageInteractions();
+
+    codeEditor.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            document.execCommand('insertText', false, '    ');
+        }
+    });
+}
+
+function setupTitleEvents() {
+    const titleInput = document.getElementById('studioQuizTitle');
+    if (!titleInput) return;
+
+    titleInput.addEventListener('input', function() {
+        editingQuizSettings.title = this.value.trim() || "Đề thi chưa đặt tên";
+        saveDraftToSession();
+    });
+}
+
+function syncDataToEditor() {
+    const codeEditor = document.getElementById('codeEditor');
+    if (codeEditor) {
+        codeEditor.innerHTML = dataToEditorText(currentData);
+    }
+}
+
+// ----------------------------------------------------
+// HÀM NHẬN DIỆN LOẠI CÂU HỎI CHUẨN XÁC 100% (CHUẨN GDPT 2018)
+// ----------------------------------------------------
+function getRealQuestionType(q) {
+    if (!q) return 'mcq';
+    const opts = Array.isArray(q.options) ? q.options : [];
+    const mcqCount = opts.filter(o => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\.\:\)]/.test(String(o).trim())).length;
+    const tfCount = opts.filter(o => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/.test(String(o).trim())).length;
+
+    // 1. Nếu có từ 2 phương án chữ in hoa A, B, C, D trở lên -> 100% BẮT BUỘC là MCQ
+    if (mcqCount >= 2 && mcqCount >= tfCount) return 'mcq';
+    // 2. Nếu có từ 2 ý chữ thường a), b), c), d) trở lên -> 100% BẮT BUỘC là Đúng / Sai
+    if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
+
+    // 3. Nếu KHÔNG có phương án nào: kiểm tra tiêu đề nhóm hoặc loại câu hỏi đã được xác định
+    const grp = String(q.group_title || '').toUpperCase();
+    if (opts.length === 0) {
+        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III')) {
+            return 'short_answer';
+        }
+        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
+            return 'true_false';
+        }
+        const t = String(q.type || '').toLowerCase();
+        if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') return 'short_answer';
+        if (t === 'true_false' || t === 'tf' || t === 'dung_sai') return 'true_false';
+        if (q.correct_answer !== null && q.correct_answer !== undefined && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+            return 'short_answer';
+        }
+    }
+
+    // 4. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
+    const t = String(q.type || '').toLowerCase();
+    if (t === 'true_false' || t === 'tf' || t === 'dung_sai') {
+        if (mcqCount === 0) return 'true_false';
+    }
+    if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') {
+        if (mcqCount === 0 && tfCount < 2) return 'short_answer';
+    }
+    if (t === 'mcq') return 'mcq';
+
+    // 5. Nếu có đáp án dạng object Đúng/Sai và không có phương án A-D
+    if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
+        if (mcqCount === 0) return 'true_false';
+    }
+
+    // 6. Nếu không có phương án nào và có đáp án chuỗi -> Trả lời ngắn
+    if (opts.length === 0 && q.correct_answer) return 'short_answer';
+
+    return 'mcq';
+}
+
+function dataToEditorText(data) {
+    let html = "";
+    data.forEach((q, i) => {
+        if (q.group_title && (i === 0 || q.group_title !== data[i-1].group_title)) {
+            html += `<div style="color: #b45309; font-weight: bold; margin-bottom: 5px;">${q.group_title.replace(/<br>/gi, '<br>')}</div>`;
+        }
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '').replace(/<br>/gi, '<br>');
+        html += `<div style="margin-top: 10px;"><span style="color: #2563eb; font-weight: bold;">Câu ${i + 1}: </span>${qClean}</div>`;
+        
+        let qType = getRealQuestionType(q);
+        if (qType === 'true_false') {
+            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
+            (q.options || []).forEach((opt, oIdx) => {
+                let optText = opt.replace(/<br>/gi, '<br>');
+                let charMatch = optText.match(/^[a-d]/);
+                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIdx);
+                let isTrue = (char && tfMap[char] === true) || /^\*[a-d]/.test(optText) || /\[ĐÚNG\]|\(Đúng\)/i.test(optText);
+                let cleanOpt = optText.replace(/^\*?[a-d][\)\.\:\-]\s*/, '');
+                cleanOpt = cleanOpt.replace(/\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)/gi, '').trim();
+                let prefix = isTrue ? `<span style="color: #059669; font-weight: bold;">*${char}) </span>` : `<span style="color: #0ea5e9; font-weight: bold;">${char}) </span>`;
+                html += `<div>${prefix}${cleanOpt}</div>`;
+            });
+        } else if (qType === 'short_answer') {
+            let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
+            if (ca) {
+                html += `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>${ca}</div>`;
+            }
+        } else {
+            // MCQ (4 lựa chọn)
+            (q.options || []).forEach((opt) => {
+                let isCorrect = (q.correct_answer === opt);
+                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
+                    let optLetter = (opt.trim().match(/^[A-F]/) || [])[0];
+                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
+                        isCorrect = true;
+                    }
+                }
+                let optText = opt.replace(/<br>/gi, '<br>');
+                if (isCorrect) {
+                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #059669; font-weight: bold;">*$1$2</span>');
+                } else {
+                    optText = optText.replace(/^([A-F])([\.\:\)])/, '<span style="color: #7c3aed; font-weight: bold;">$1$2</span>');
+                }
+                html += `<div>${optText}</div>`;
+            });
+        }
+        if (q.explain && q.explain.trim()) {
+            html += `<div><span style="color: #16a34a; font-style: italic;">Lời giải: </span>${q.explain.replace(/<br>/gi, '<br>')}</div>`;
+        }
+        html += `<br>`;
+    });
+    
+    // Nén thẻ ảnh vào placeholder [HÌNH_ẢNH_X] - BỎ VÌ DÙNG WYSIWYG
+    globalEditorImageStorage = {};
+    globalEditorImageCounter = 0;
+
+    return html;
+}
+
+function isLineInsideMath(accumulatedText) {
+    if (!accumulatedText) return false;
+    const doubleDollars = (accumulatedText.match(/\$\$/g) || []).length;
+    if (doubleDollars % 2 !== 0) return true;
+    const openDisplay = (accumulatedText.match(/\\\[/g) || []).length;
+    const closeDisplay = (accumulatedText.match(/\\\]/g) || []).length;
+    if (openDisplay > closeDisplay) return true;
+    const mathEnvs = 'array|matrix|pmatrix|bmatrix|cases|aligned|align';
+    const openEnvs = (accumulatedText.match(new RegExp(`\\\\begin\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
+    const closeEnvs = (accumulatedText.match(new RegExp(`\\\\end\\{(?:${mathEnvs})\\}`, 'gi')) || []).length;
+    if (openEnvs > closeEnvs) return true;
+    return false;
+}
+
+function parseEditorText(text) {
+    let restoredText = text;
+    restoredText = restoredText.replace(/([SĐD])\s*([a-d]\))/g, '$1\n$2');
+    if (typeof renderMarkdownTables === 'function') {
+        restoredText = renderMarkdownTables(restoredText);
+    }
+    
+    const data = [];
+    let currentQ = null;
+    const lines = restoredText.split('\n');
+    let sharedContext = "";
+    let currentSectionHeader = "";
+
+    // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
+    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d*[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
+
+    // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
+    const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
+    // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+
+    // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
+    const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Lời giải / Hướng dẫn giải
+    const explainRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
+    // Nhận diện Tiêu đề Phần / Nhóm (PHẦN I, PHẦN II, PHẦN III, BÀI TẬP...)
+    const groupRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        
+        if (trimmed === '') continue;
+
+        if (qRegex.test(line)) {
+            if (currentQ) data.push(currentQ);
+            let qText = cleanEditorClosingTags(line.replace(qRegex, '').trim());
+            
+            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
+            let defaultType = 'mcq';
+            const activeGroup = (currentSectionHeader || sharedContext || '').trim();
+            const grpUpper = activeGroup.toUpperCase();
+            if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
+                defaultType = 'short_answer';
+            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
+                defaultType = 'true_false';
+            }
+
+            currentQ = {
+                type: defaultType,
+                group_title: activeGroup,
+                question: qText,
+                options: [],
+                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' ? '' : null)),
+                explain: ''
+            };
+            sharedContext = ""; 
+        } else if (mcqOptRegex.test(line)) {
+            // 1. ƯU TIÊN TUYỆT ĐỐI CHO MCQ KHI PHƯƠNG ÁN LÀ CHỮ IN HOA A, B, C, D
+            if (!currentQ) {
+                currentQ = { type: 'mcq', group_title: sharedContext.trim(), question: '', options: [], correct_answer: null, explain: '' };
+                sharedContext = "";
+            }
+            // Nếu trước đó đã lỡ gom các bước/phát biểu a), b), c), d) vào options (do tưởng nhầm là câu Đúng/Sai),
+            // hãy hoàn trả toàn bộ về thân câu hỏi (question stem) vì đây là câu hỏi trắc nghiệm A, B, C, D
+            if (currentQ.options && currentQ.options.length > 0 && currentQ.options.some(opt => /^\s*\(?[a-d][\.\:\)\-]/.test(opt))) {
+                const restoredStem = currentQ.options.join('<br>');
+                currentQ.question = (currentQ.question ? currentQ.question + '<br>' : '') + restoredStem;
+                currentQ.options = [];
                 currentQ.correct_answer = null;
 
                 currentQ._rawOptions = [];
 
-            }
-            currentQ.type = 'mcq';
-
-            // Kiểm tra xem dòng này có chứa nhiều phương án A, B, C, D gộp chung không (ví dụ: "A. X.  B. Y.  C. Z.  D. T.")
-            const multiOptPat = /(?:^|\t|\s{2,}|(?<=[;\.\:\?!])\s+)(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/g;
-            const subMatches = [];
-            let subM;
-            while ((subM = multiOptPat.exec(line)) !== null) {
-                subMatches.push(subM);
-            }
-
-            if (subMatches.length > 1) {
-                subMatches.forEach((mItem, mIdx) => {
-                    const charRaw = mItem[1].trim().toUpperCase();
-                    const char = charRaw.replace('*', '').trim();
+            }
+            currentQ.type = 'mcq';
+
+            // Kiểm tra xem dòng này có chứa nhiều phương án A, B, C, D gộp chung không (ví dụ: "A. X.  B. Y.  C. Z.  D. T.")
+            const multiOptPat = /(?:^|\t|\s{2,}|(?<=[;\.\:\?!])\s+)(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/g;
+            const subMatches = [];
+            let subM;
+            while ((subM = multiOptPat.exec(line)) !== null) {
+                subMatches.push(subM);
+            }
+
+            if (subMatches.length > 1) {
+                subMatches.forEach((mItem, mIdx) => {
+                    const charRaw = mItem[1].trim().toUpperCase();
+                    const char = charRaw.replace('*', '').trim();
                     const start = mItem.index + mItem[0].length;
 
                     const end = (mIdx + 1 < subMatches.length) ? subMatches[mIdx + 1].index : line.length;
@@ -1144,7 +1144,7 @@ function parseEditorText(text) {
                         || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(mItem[0] + ' ' + optContent);
                     const isCorrect = isExplicit || isUPrefix;
 
-                    const fullOpt = ${char}. ;
+                    const fullOpt = `${char}. ${cleanContent}`;
 
                     currentQ.options.push(fullOpt);
 
@@ -1166,29 +1166,29 @@ function parseEditorText(text) {
 
                     if (isCorrect) currentQ.correct_answer = fullOpt;
 
-                });
-            } else {
-                const match = line.match(mcqOptRegex);
-                const charRaw = match[1].trim().toUpperCase();
-                const char = charRaw.replace('*', '').trim();
-                
-                // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
-                const isExplicit = charRaw.includes('*')
-                    || /^\s*\*/.test(line)
-                    || /<\/?MARK>/i.test(line)
-                    || /[✓✔☑]/i.test(line)
-                    || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
-                const isUPrefix = /^\s*(?:<[^>]+>\s*)*<u>\s*\*?[A-D][\.\:\)]/i.test(line)
-                    || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(line);
-                const isCorrect = isExplicit || isUPrefix;
-
-                let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
-                let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
-                                             .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
-                                             .trim();
-                
-                const fullOpt = `${char}. ${cleanContent}`;
-                currentQ.options.push(fullOpt);
+                });
+            } else {
+                const match = line.match(mcqOptRegex);
+                const charRaw = match[1].trim().toUpperCase();
+                const char = charRaw.replace('*', '').trim();
+                
+                // Nhận diện đáp án đúng MCQ: dấu *, thẻ <u>, thẻ <MARK>, tick, nhãn [ĐÚNG]
+                const isExplicit = charRaw.includes('*')
+                    || /^\s*\*/.test(line)
+                    || /<\/?MARK>/i.test(line)
+                    || /[✓✔☑]/i.test(line)
+                    || /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)/i.test(line);
+                const isUPrefix = /^\s*(?:<[^>]+>\s*)*<u>\s*\*?[A-D][\.\:\)]/i.test(line)
+                    || /^\s*\*?[A-D][\.\:\)]\s*<u>/i.test(line);
+                const isCorrect = isExplicit || isUPrefix;
+
+                let optContent = cleanEditorClosingTags(line.replace(mcqOptRegex, '').trim());
+                let cleanContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '')
+                                             .replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '')
+                                             .trim();
+                
+                const fullOpt = `${char}. ${cleanContent}`;
+                currentQ.options.push(fullOpt);
                 currentQ._rawOptions = currentQ._rawOptions || [];
 
                 currentQ._rawOptions.push({
@@ -1207,206 +1207,206 @@ function parseEditorText(text) {
 
                 if (isCorrect) currentQ.correct_answer = fullOpt;
 
-            }
-        } else if (tfOptRegex.test(line)) {
-            // 2. DẠNG ĐÚNG / SAI KHI PHƯƠNG ÁN LÀ CHỮ THƯỜNG a), b), c), d)
-            if (!currentQ) {
-                currentQ = { type: 'true_false', group_title: sharedContext.trim(), question: '', options: [], correct_answer: {}, explain: '' };
-                sharedContext = "";
-            }
-            currentQ.type = 'true_false';
-            if (typeof currentQ.correct_answer !== 'object' || currentQ.correct_answer === null) {
-                currentQ.correct_answer = {};
-            }
-            const match = line.match(tfOptRegex);
-            const charRaw = match[1].trim().toLowerCase();
-            const char = charRaw.replace('*', '').trim();
-            
-            // Nhận diện đánh dấu Đúng/Sai theo chuẩn HocNhanhTN Cách 3 (gạch chân, *, thẻ <MARK>, tick)
-            const isLeadingStar = charRaw.includes('*') || /^\s*[\(\[]?\s*\*\s*[a-d]/.test(line);
-            const isUnderlined = /<\/?u>/i.test(line);
-            const isMarked = /<\/?MARK>/i.test(line);
-            const hasCorrectTag = /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|[✓✔☑]/i.test(line);
-            const hasFalseTag = /\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|[✗✘]/i.test(line);
-            
-            let isTrue = isLeadingStar || isUnderlined || isMarked || hasCorrectTag;
-            if (hasFalseTag) isTrue = false;
-
-            const trailingTfMatch = line.match(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i);
-            if (trailingTfMatch) {
-                isTrue = /Đ|D|ĐÚNG|TRUE/i.test(trailingTfMatch[1]);
-            }
-
-            // Làm sạch nội dung phương án và giữ lại nhãn ma trận HocNhanhTN nếu có
-            let optContent = cleanEditorClosingTags(line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '').trim());
-            let azotaTag = "";
-            const mTag = optContent.match(/^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:<\/MARK>\s*|<\/u>\s*)*/i);
-            if (mTag) {
-                azotaTag = mTag[1].trim();
-                optContent = optContent.substring(mTag[0].length).trim();
-            }
-            optContent = optContent.replace(tfOptRegex, '').trim();
-            if (!azotaTag) {
-                const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
-                if (mTagPost) {
-                    azotaTag = mTagPost[1].trim();
-                    optContent = mTagPost[2].trim();
-                }
-            }
-            optContent = cleanEditorClosingTags(optContent.replace(/<\/?(?:MARK|u)>/gi, '').replace(/^\*+\s*/g, '').trim());
-
-            optContent = optContent.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i, '').trim();
-            if (azotaTag) {
-                optContent = `${azotaTag} ${optContent}`.trim();
-            }
-
-            const fullOpt = `${char}) ${optContent}`;
-            currentQ.options.push(fullOpt);
-            currentQ.correct_answer[char] = isTrue;
-        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
-            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN
-            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
-            ['a', 'b', 'c', 'd'].forEach((k, idx) => {
-                currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
-            });
-        } else if (shortAnsRegex.test(line)) {
-            if (currentQ) {
-                const ansMatch = line.match(shortAnsRegex);
-                const ansContent = cleanEditorClosingTags((ansMatch[1] || "").trim());
-
-                const mcqOptsCount = (currentQ.options || []).filter(opt => mcqOptRegex.test(opt)).length;
-                const tfOptsCount = (currentQ.options || []).filter(opt => tfOptRegex.test(opt)).length;
-
-                const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
-                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
-
-                if (mcqOptsCount >= 2 || (currentQ.type === 'mcq' && currentQ.options.length >= 2)) {
-                    // ƯU TIÊN TUYỆT ĐỐI CHO MCQ: KHÔNG BAO GIỜ CHUYỂN SANG ĐÚNG/SAI HAY TRẢ LỜI NGẮN
-                    currentQ.type = 'mcq';
-                    const letterM = ansContent.match(/(?:^|[\s\:\.\(\[\,])([A-F])(?:[\.\:\)\s\-\]\,]|$)/i);
-                    if (letterM) {
-                        const targetLetter = letterM[1].toUpperCase();
-                        const matchedOpt = currentQ.options.find(opt => opt.trim().toUpperCase().startsWith(targetLetter + '.') || opt.trim().toUpperCase().startsWith(targetLetter + ')'));
-                        if (matchedOpt) {
-                            currentQ.correct_answer = matchedOpt;
-                        }
-                    } else {
-                        const matchedOpt = currentQ.options.find(opt => opt.toLowerCase().includes(ansContent.toLowerCase()));
-                        if (matchedOpt) {
-                            currentQ.correct_answer = matchedOpt;
-                        }
-                    }
-                } else if (isTfAns || tfOptsCount >= 2 || currentQ.type === 'true_false') {
-                    currentQ.type = 'true_false';
-                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
-                    ['a', 'b', 'c', 'd'].forEach(k => {
-                        const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
-                        if (m) {
-                            const v = m[1].toLowerCase();
-                            tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
-                        }
-                    });
-                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
-                    if (seq && seq.length === 4) {
-                        ['a', 'b', 'c', 'd'].forEach((k, idx) => {
-                            tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
-                        });
-                    }
-                    currentQ.correct_answer = tfDict;
-                } else {
-                    currentQ.type = 'short_answer';
-                    currentQ.options = [];
-                    currentQ.correct_answer = ansContent;
-                }
-            }
-        } else if (explainRegex.test(line)) {
-            if (currentQ) {
-                const expMatch = line.match(explainRegex);
-                const expContent = cleanEditorClosingTags((expMatch[1] || "").trim());
-                currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expContent;
-            }
-        } else if (groupRegex.test(line)) {
-            const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-            currentSectionHeader = grpContent;
-            sharedContext = grpContent;
-        } else {
-            const isInsideMathOrTable = (textToCheck) => {
-                if (line.trim().startsWith('|') || (line.trim().endsWith('|') && line.includes('|'))) return true;
-                if (textToCheck) {
-                    let openTbl = (textToCheck.match(/<table\b/gi) || []).length;
-                    let closeTbl = (textToCheck.match(/<\/table>/gi) || []).length;
-                    if (openTbl > closeTbl) return true;
-                    let lastLine = textToCheck.split(/\r?\n|<br\s*\/?>/i).pop().trim();
-                    if (lastLine.startsWith('|')) return true;
-                }
-                if (line.includes('<table') || line.includes('</table>') || line.includes('<tr>') || line.includes('</tr>') || line.includes('<td>') || line.includes('<th>') || line.includes('<tbody>') || line.includes('<thead>')) return true;
-                return isLineInsideMath(textToCheck);
-            };
-
-            if (currentQ && currentQ.explain) {
-                const sep = isInsideMathOrTable(currentQ.explain) ? "\n" : "<br>";
-                currentQ.explain += sep + line;
-            } else if (currentQ && currentQ.options.length > 0) {
-                const lastIdx = currentQ.options.length - 1;
-                const sep = isInsideMathOrTable(currentQ.options[lastIdx]) ? "\n" : "<br>";
-                currentQ.options[lastIdx] += sep + line;
-            } else if (currentQ) {
-                const sep = isInsideMathOrTable(currentQ.question) ? "\n" : "<br>";
-                currentQ.question += (currentQ.question ? sep : "") + line;
-            } else {
-                sharedContext += (sharedContext ? "<br>" : "") + line;
-            }
-        }
-    }
-    if (currentQ) data.push(currentQ);
-    
-    // Chuẩn hóa loại câu hỏi và đáp án mặc định
-    data.forEach(q => {
-        // Cứu hộ câu hỏi Đúng / Sai không có nhãn a), b), c), d) nhưng các dòng kết thúc bằng Đ hoặc S
-        if ((!q.options || q.options.length === 0) && q.question) {
-            const rawLines = q.question.split(/<br\s*\/?>|\n/).map(l => l.trim()).filter(l => l);
-            if (rawLines.length >= 3) {
-                const tfPat = /(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i;
-                const tfIndices = [];
-                rawLines.forEach((l, idx) => {
-                    if (tfPat.test(l)) tfIndices.push(idx);
-                });
-                if (tfIndices.length >= 2) {
-                    const firstIdx = tfIndices[0];
-                    const stemLines = rawLines.slice(0, firstIdx);
-                    const optLines = rawLines.slice(firstIdx);
-                    const newOpts = [];
-                    const tfDict = {};
-                    let charCode = 97; // 'a'
-                    optLines.forEach(l => {
-                        const m = l.match(tfPat);
-                        if (m) {
-                            const char = String.fromCharCode(charCode);
-                            const isTrue = /Đ|D|ĐÚNG|TRUE/i.test(m[1]);
-                            const content = l.slice(0, m.index).trim();
-                            newOpts.push(`${char}) ${content}`);
-                            tfDict[char] = isTrue;
-                            charCode++;
-                        } else {
-                            if (newOpts.length > 0) {
-                                newOpts[newOpts.length - 1] += ' ' + l;
-                            } else {
-                                stemLines.push(l);
-                            }
-                        }
-                    });
-                    if (newOpts.length >= 2) {
-                        q.question = stemLines.join('<br>');
-                        q.options = newOpts;
-                        q.correct_answer = tfDict;
-                        q.type = 'true_false';
-                    }
-                }
-            }
-        }
-
-        const realType = getRealQuestionType(q);
-        q.type = realType;
+            }
+        } else if (tfOptRegex.test(line)) {
+            // 2. DẠNG ĐÚNG / SAI KHI PHƯƠNG ÁN LÀ CHỮ THƯỜNG a), b), c), d)
+            if (!currentQ) {
+                currentQ = { type: 'true_false', group_title: sharedContext.trim(), question: '', options: [], correct_answer: {}, explain: '' };
+                sharedContext = "";
+            }
+            currentQ.type = 'true_false';
+            if (typeof currentQ.correct_answer !== 'object' || currentQ.correct_answer === null) {
+                currentQ.correct_answer = {};
+            }
+            const match = line.match(tfOptRegex);
+            const charRaw = match[1].trim().toLowerCase();
+            const char = charRaw.replace('*', '').trim();
+            
+            // Nhận diện đánh dấu Đúng/Sai theo chuẩn HocNhanhTN Cách 3 (gạch chân, *, thẻ <MARK>, tick)
+            const isLeadingStar = charRaw.includes('*') || /^\s*[\(\[]?\s*\*\s*[a-d]/.test(line);
+            const isUnderlined = /<\/?u>/i.test(line);
+            const isMarked = /<\/?MARK>/i.test(line);
+            const hasCorrectTag = /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|[✓✔☑]/i.test(line);
+            const hasFalseTag = /\[(SAI|S|FALSE|F)\]|\((Sai|S|False|F)\)|[✗✘]/i.test(line);
+            
+            let isTrue = isLeadingStar || isUnderlined || isMarked || hasCorrectTag;
+            if (hasFalseTag) isTrue = false;
+
+            const trailingTfMatch = line.match(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i);
+            if (trailingTfMatch) {
+                isTrue = /Đ|D|ĐÚNG|TRUE/i.test(trailingTfMatch[1]);
+            }
+
+            // Làm sạch nội dung phương án và giữ lại nhãn ma trận HocNhanhTN nếu có
+            let optContent = cleanEditorClosingTags(line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '').trim());
+            let azotaTag = "";
+            const mTag = optContent.match(/^\s*(?:<MARK>\s*|<u>\s*)*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(?:<\/MARK>\s*|<\/u>\s*)*/i);
+            if (mTag) {
+                azotaTag = mTag[1].trim();
+                optContent = optContent.substring(mTag[0].length).trim();
+            }
+            optContent = optContent.replace(tfOptRegex, '').trim();
+            if (!azotaTag) {
+                const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
+                if (mTagPost) {
+                    azotaTag = mTagPost[1].trim();
+                    optContent = mTagPost[2].trim();
+                }
+            }
+            optContent = cleanEditorClosingTags(optContent.replace(/<\/?(?:MARK|u)>/gi, '').replace(/^\*+\s*/g, '').trim());
+
+            optContent = optContent.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i, '').trim();
+            if (azotaTag) {
+                optContent = `${azotaTag} ${optContent}`.trim();
+            }
+
+            const fullOpt = `${char}) ${optContent}`;
+            currentQ.options.push(fullOpt);
+            currentQ.correct_answer[char] = isTrue;
+        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
+            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN
+            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+            ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+            });
+        } else if (shortAnsRegex.test(line)) {
+            if (currentQ) {
+                const ansMatch = line.match(shortAnsRegex);
+                const ansContent = cleanEditorClosingTags((ansMatch[1] || "").trim());
+
+                const mcqOptsCount = (currentQ.options || []).filter(opt => mcqOptRegex.test(opt)).length;
+                const tfOptsCount = (currentQ.options || []).filter(opt => tfOptRegex.test(opt)).length;
+
+                const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
+                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
+
+                if (mcqOptsCount >= 2 || (currentQ.type === 'mcq' && currentQ.options.length >= 2)) {
+                    // ƯU TIÊN TUYỆT ĐỐI CHO MCQ: KHÔNG BAO GIỜ CHUYỂN SANG ĐÚNG/SAI HAY TRẢ LỜI NGẮN
+                    currentQ.type = 'mcq';
+                    const letterM = ansContent.match(/(?:^|[\s\:\.\(\[\,])([A-F])(?:[\.\:\)\s\-\]\,]|$)/i);
+                    if (letterM) {
+                        const targetLetter = letterM[1].toUpperCase();
+                        const matchedOpt = currentQ.options.find(opt => opt.trim().toUpperCase().startsWith(targetLetter + '.') || opt.trim().toUpperCase().startsWith(targetLetter + ')'));
+                        if (matchedOpt) {
+                            currentQ.correct_answer = matchedOpt;
+                        }
+                    } else {
+                        const matchedOpt = currentQ.options.find(opt => opt.toLowerCase().includes(ansContent.toLowerCase()));
+                        if (matchedOpt) {
+                            currentQ.correct_answer = matchedOpt;
+                        }
+                    }
+                } else if (isTfAns || tfOptsCount >= 2 || currentQ.type === 'true_false') {
+                    currentQ.type = 'true_false';
+                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
+                    ['a', 'b', 'c', 'd'].forEach(k => {
+                        const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
+                        if (m) {
+                            const v = m[1].toLowerCase();
+                            tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
+                        }
+                    });
+                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+                    if (seq && seq.length === 4) {
+                        ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                            tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
+                        });
+                    }
+                    currentQ.correct_answer = tfDict;
+                } else {
+                    currentQ.type = 'short_answer';
+                    currentQ.options = [];
+                    currentQ.correct_answer = ansContent;
+                }
+            }
+        } else if (explainRegex.test(line)) {
+            if (currentQ) {
+                const expMatch = line.match(explainRegex);
+                const expContent = cleanEditorClosingTags((expMatch[1] || "").trim());
+                currentQ.explain = (currentQ.explain ? currentQ.explain + "<br>" : "") + expContent;
+            }
+        } else if (groupRegex.test(line)) {
+            const grpContent = cleanEditorClosingTags(line.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+            currentSectionHeader = grpContent;
+            sharedContext = grpContent;
+        } else {
+            const isInsideMathOrTable = (textToCheck) => {
+                if (line.trim().startsWith('|') || (line.trim().endsWith('|') && line.includes('|'))) return true;
+                if (textToCheck) {
+                    let openTbl = (textToCheck.match(/<table\b/gi) || []).length;
+                    let closeTbl = (textToCheck.match(/<\/table>/gi) || []).length;
+                    if (openTbl > closeTbl) return true;
+                    let lastLine = textToCheck.split(/\r?\n|<br\s*\/?>/i).pop().trim();
+                    if (lastLine.startsWith('|')) return true;
+                }
+                if (line.includes('<table') || line.includes('</table>') || line.includes('<tr>') || line.includes('</tr>') || line.includes('<td>') || line.includes('<th>') || line.includes('<tbody>') || line.includes('<thead>')) return true;
+                return isLineInsideMath(textToCheck);
+            };
+
+            if (currentQ && currentQ.explain) {
+                const sep = isInsideMathOrTable(currentQ.explain) ? "\n" : "<br>";
+                currentQ.explain += sep + line;
+            } else if (currentQ && currentQ.options.length > 0) {
+                const lastIdx = currentQ.options.length - 1;
+                const sep = isInsideMathOrTable(currentQ.options[lastIdx]) ? "\n" : "<br>";
+                currentQ.options[lastIdx] += sep + line;
+            } else if (currentQ) {
+                const sep = isInsideMathOrTable(currentQ.question) ? "\n" : "<br>";
+                currentQ.question += (currentQ.question ? sep : "") + line;
+            } else {
+                sharedContext += (sharedContext ? "<br>" : "") + line;
+            }
+        }
+    }
+    if (currentQ) data.push(currentQ);
+    
+    // Chuẩn hóa loại câu hỏi và đáp án mặc định
+    data.forEach(q => {
+        // Cứu hộ câu hỏi Đúng / Sai không có nhãn a), b), c), d) nhưng các dòng kết thúc bằng Đ hoặc S
+        if ((!q.options || q.options.length === 0) && q.question) {
+            const rawLines = q.question.split(/<br\s*\/?>|\n/).map(l => l.trim()).filter(l => l);
+            if (rawLines.length >= 3) {
+                const tfPat = /(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$/i;
+                const tfIndices = [];
+                rawLines.forEach((l, idx) => {
+                    if (tfPat.test(l)) tfIndices.push(idx);
+                });
+                if (tfIndices.length >= 2) {
+                    const firstIdx = tfIndices[0];
+                    const stemLines = rawLines.slice(0, firstIdx);
+                    const optLines = rawLines.slice(firstIdx);
+                    const newOpts = [];
+                    const tfDict = {};
+                    let charCode = 97; // 'a'
+                    optLines.forEach(l => {
+                        const m = l.match(tfPat);
+                        if (m) {
+                            const char = String.fromCharCode(charCode);
+                            const isTrue = /Đ|D|ĐÚNG|TRUE/i.test(m[1]);
+                            const content = l.slice(0, m.index).trim();
+                            newOpts.push(`${char}) ${content}`);
+                            tfDict[char] = isTrue;
+                            charCode++;
+                        } else {
+                            if (newOpts.length > 0) {
+                                newOpts[newOpts.length - 1] += ' ' + l;
+                            } else {
+                                stemLines.push(l);
+                            }
+                        }
+                    });
+                    if (newOpts.length >= 2) {
+                        q.question = stemLines.join('<br>');
+                        q.options = newOpts;
+                        q.correct_answer = tfDict;
+                        q.type = 'true_false';
+                    }
+                }
+            }
+        }
+
+        const realType = getRealQuestionType(q);
+        q.type = realType;
         if (realType === 'mcq') {
             // Đánh giá đáp án đúng theo tương quan tín hiệu giữa các phương án
             if (q._rawOptions && q._rawOptions.length > 0) {
@@ -1503,3676 +1503,3914 @@ function parseEditorText(text) {
 
             delete q._rawOptions;
 
-                } else if (realType === 'true_false') {
-            if (typeof q.correct_answer !== 'object' || !q.correct_answer) {
-                q.correct_answer = { a: true, b: false, c: true, d: false };
-            }
-        } else if (realType === 'short_answer') {
-            q.options = [];
-            if (!q.correct_answer) q.correct_answer = "";
-        }
-    });
-    return data;
-}
-
-function updateSyntaxHighlight() {
-    // Đã loại bỏ do chuyển sang giao diện WYSIWYG
-}
-
-// Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
-function renderMarkdownTables(text) {
-    if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
-    let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
-    let lines = textNorm.split('\n');
-    let result = [];
-    let tableLines = [];
-    let inTable = false;
-
-    function processTable(tbl) {
-        let validRows = tbl.map(l => l.trim()).filter(l => l.includes('|'));
-        if (validRows.length < 2) return tbl.join('<br>');
-        let rowsData = [];
-        let hasSeparator = false;
-        for (let r of validRows) {
-            let cleaned = r.replace(/^\|/, '').replace(/\|$/, '');
-            let cells = cleaned.split('|').map(c => c.trim());
-            let isSep = cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
-            if (isSep) { hasSeparator = true; continue; }
-            rowsData.push(cells);
-        }
-        if (rowsData.length === 0) return tbl.join('<br>');
-        let maxCols = Math.max(...rowsData.map(r => r.length));
-        let html = '<div class="quiz-table-wrapper" style="overflow-x: auto; margin: 12px 0; display: block;"><table class="quiz-content-table" style="margin: 0 auto; border-collapse: collapse; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; text-align: center;">';
-        let startIdx = 0;
-        if (hasSeparator && rowsData.length > 0) {
-            html += '<thead><tr>';
-            for (let c of rowsData[0]) {
-                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc; font-weight: 600; text-align: center;">' + c + '</th>';
-            }
-            for (let i = rowsData[0].length; i < maxCols; i++) {
-                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc;"></th>';
-            }
-            html += '</tr></thead>';
-            startIdx = 1;
-        }
-        html += '<tbody>';
-        for (let i = startIdx; i < rowsData.length; i++) {
-            let row = rowsData[i];
-            html += '<tr>';
-            for (let c of row) {
-                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px; text-align: center;">' + c + '</td>';
-            }
-            for (let j = row.length; j < maxCols; j++) {
-                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px;"></td>';
-            }
-            html += '</tr>';
-        }
-        html += '</tbody></table></div>';
-        return html;
-    }
-
-    for (let line of lines) {
-        let stripped = line.trim();
-        if (stripped.startsWith('|') || (stripped.endsWith('|') && stripped.includes('|'))) {
-            tableLines.push(stripped);
-            inTable = true;
-        } else {
-            if (inTable) {
-                result.push(processTable(tableLines));
-                tableLines = [];
-                inTable = false;
-            }
-            result.push(line);
-        }
-    }
-    if (inTable) result.push(processTable(tableLines));
-    return result.join('\n');
-}
-
-const UNICODE_SUB_MAP = {
-    '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
-    '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
-    '₊': '+', '₋': '-', 'ₐ': 'a', 'ₑ': 'e', 'ₒ': 'o',
-    'ₓ': 'x', 'ₕ': 'h', 'ₖ': 'k', 'ₗ': 'l', 'ₘ': 'm',
-    'ₙ': 'n', 'ₚ': 'p', 'ₛ': 's', 'ₜ': 't'
-};
-const UNICODE_SUP_MAP = {
-    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
-    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
-    '⁺': '+', '⁻': '-'
-};
-
-const HNTN_CHEM_ELEMENTS = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
-const HNTN_CHEM_FORMULA_REGEX = new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g');
-const HNTN_UNITS_REGEX = /(?:^|[^a-zA-Z\u00C0-\u1EF90-9_])\d+(?:[.,]\d+)?\s*(?:[%‰]|M\b|mol(?:\/[Ll])?\b|gam\b|kg\b|mg\b|g(?:\/(?:mL|ml|cm3))?\b|mL\b|ml\b|l\b|lít\b|lit\b|atm\b|bar\b|mmHg\b|torr\b|ppm\b|ppb\b|V\b|W\b|J\b|kJ\b|cal\b|kcal\b|[°℃]|oC\b|độ\b)/g;
-const HNTN_CHEM_REPLACE_REGEX = new RegExp('(?:(' + HNTN_CHEM_ELEMENTS + ')|(\\)))\\s*(\\d+)', 'g');
-
-function formatSubscriptsAndFormulas(text, convertNewlines = false) {
-    if (!text || typeof text !== 'string') return text;
-    const placeholders = [];
-    let safe = text.replace(/(\[IMG_\d+\]|\[HÌNH_ẢNH_\d+\])/g, (m) => {
-        placeholders.push(m);
-        return `XYZPH${placeholders.length - 1}XYZ`;
-    });
-    safe = safe.replace(/(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$|\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\})/gi, (m) => {
-        placeholders.push(m);
-        return `XYZPH${placeholders.length - 1}XYZ`;
-    });
-    // Chuyển đổi bảng Markdown sang bảng HTML có cấu trúc
-    safe = renderMarkdownTables(safe);
-    safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<(?![\/]?(?:sub|sup)\b)[^>]+>)/gi, (m) => {
-        placeholders.push(m);
-        return `XYZPH${placeholders.length - 1}XYZ`;
-    });
-
-    // Bảo vệ đại lượng đo lường: nồng độ %, nồng độ mol, đơn vị đo (tránh nhầm số phần trăm thành chỉ số dưới hóa học, ví dụ: NaOH 30% -> không thành NaOH30)
-    safe = safe.replace(HNTN_UNITS_REGEX, (full) => {
-        const m = full.match(/^([^a-zA-Z\u00C0-\u1EF90-9_])(.*)$/);
-        if (m) {
-            placeholders.push(m[2]);
-            return m[1] + `XYZPH${placeholders.length - 1}XYZ`;
-        }
-        placeholders.push(full);
-        return `XYZPH${placeholders.length - 1}XYZ`;
-    });
-
-    // 1. Chuyển đổi chỉ số dưới / chỉ số trên Unicode sang <sub> / <sup>
-    safe = safe.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP[c] || c).join('') + '</sub>');
-    safe = safe.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP[c] || c).join('') + '</sup>');
-
-    // 2. Thu gọn khoảng trắng rời rạc trong công thức hóa học: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
-    safe = safe.replace(new RegExp('\\((?=[^)]*[A-Za-z])((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
-        return '(' + inner.replace(new RegExp('((?:' + HNTN_CHEM_ELEMENTS + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
-    });
-    safe = safe.replace(/\)\s+(\d+)/g, ')$1');
-    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')+)\\s+(\\d+)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
-    safe = safe.replace(new RegExp('(\\)\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + '))(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2');
-    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d*)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
-    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+(\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*)', 'g'), '$1$2$3');
-    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + '))\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
-
-    // 3. Chỉ số dưới dạng _{...} và _số thành <sub>
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
-    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([A-Z][a-z]?|[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1$2<sub>$3</sub>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
-    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
-
-    // 4. Nhận diện công thức hóa học dạng số thường (H2SO4, Fe2O3, CO2, H2O, (C17H35COO)3C3H5)
-    safe = safe.replace(HNTN_CHEM_FORMULA_REGEX, (full, pfx, tok) => {
-        if (tok.includes('<sub>') || tok.includes('<sup>')) return full;
-        return (pfx || '') + tok.replace(HNTN_CHEM_REPLACE_REGEX, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
-    });
-
-    // 5. Biến số toán/lý và đơn vị (tránh nhầm chữ tiếng Việt như 'Câu 4')
-    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([xyz])\s*([1-9])(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
-    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([uS])\s*([1-9]|n)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
-    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])(v)\s*(0)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
-    safe = safe.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
-
-    // 6. Xóa khoảng trắng thừa trong và xung quanh sub/sup
-    safe = safe.replace(/<sub>\s*([^<]+?)\s*<\/sub>/gi, '<sub>$1</sub>');
-    safe = safe.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
-    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
-    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
-    safe = safe.replace(/<\/sub>\s+([A-Z])(?!YZPH)/g, '</sub>$1');
-
-    if (convertNewlines) {
-        safe = safe.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
-    }
-
-    for (let i = placeholders.length - 1; i >= 0; i--) {
-        safe = safe.split(`XYZPH${i}XYZ`).join(placeholders[i]);
-    }
-    return safe;
-}
-
-// ----------------------------------------------------
-// RENDER KHUNG XEM TRƯỚC (GIAO DIỆN HỌC SINH)
-// ----------------------------------------------------
-function renderPreviewAll() {
-    const previewContent = document.getElementById('preview-content');
-    if (!previewContent) return;
-    previewContent.innerHTML = '';
-    
-    if (currentData.length === 0) {
-        previewContent.innerHTML = "<p style='text-align: center; color: var(--studio-text-muted);'>Chưa có câu hỏi nào trong đề thi.</p>";
-        return;
-    }
-
-    let stats = {
-        total: currentData.length,
-        mcq4: 0,
-        mcq3: 0,
-        mcqOther: 0,
-        tf: 0,
-        short: 0
-    };
-    
-    currentData.forEach(q => {
-        let qType = getRealQuestionType(q);
-        if (qType === 'true_false') stats.tf++;
-        else if (qType === 'short_answer') stats.short++;
-        else {
-            let optCount = (q.options || []).length;
-            if (optCount === 4) stats.mcq4++;
-            else if (optCount === 3) stats.mcq3++;
-            else stats.mcqOther++;
-        }
-    });
-
-    const statsBox = document.createElement('div');
-    statsBox.style.cssText = "background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;";
-    statsBox.innerHTML = `
-        <div style="font-weight: 700; color: #1e293b; width: 100%; margin-bottom: 4px;"><i class="ri-pie-chart-2-fill" style="color: #3b82f6;"></i> Thống kê đề thi</div>
-        <div style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #334155;">Tổng số: ${stats.total} câu</div>
-        ${stats.mcq4 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 4 ĐA: ${stats.mcq4}</div>` : ''}
-        ${stats.mcq3 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 3 ĐA: ${stats.mcq3}</div>` : ''}
-        ${stats.mcqOther > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm khác: ${stats.mcqOther}</div>` : ''}
-        ${stats.tf > 0 ? `<div style="background: #e0f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #0369a1;">Đúng/Sai: ${stats.tf}</div>` : ''}
-        ${stats.short > 0 ? `<div style="background: #fef3c7; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #92400e;">Trả lời ngắn: ${stats.short}</div>` : ''}
-    `;
-    previewContent.appendChild(statsBox);
-
-    currentData.forEach((q, qIndex) => {
-        const prevBox = document.createElement('div');
-        prevBox.className = 'question-box';
-        prevBox.id = `preview_q_${qIndex}`;
-        prevBox.style.marginBottom = '20px';
-        prevBox.style.cursor = 'pointer';
-        prevBox.title = 'Nhấn để cuộn đến mã Code của câu này';
-        prevBox.onclick = () => scrollToQuestionInEditor(qIndex);
-        
-        let hasError = window.activeAIFeedbacks && window.activeAIFeedbacks[qIndex];
-        if (hasError) {
-            prevBox.style.borderColor = '#c084fc';
-            prevBox.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.1)';
-        }
-
-        let html = "";
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
-        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
-        
-        let qType = getRealQuestionType(q);
-        let typeBadge = '';
-        if (qType === 'true_false') {
-            typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
-        } else if (qType === 'short_answer') {
-            typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
-        }
-
-        let aiSuggestedBadge = '';
-        const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false';
-        if (q.is_ai_suggested && !isAIExplicitlyDisabled) {
-            aiSuggestedBadge = `
-                <span class="badge-ai-suggested" style="background: #fffbeb; color: #b45309; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;" title="${escapeHtml(q.ai_suggestion_note || 'AI đề xuất, cần giáo viên xác nhận')}">
-                    <i class="ri-sparkling-fill" style="color: #d97706;"></i> AI đề xuất, cần giáo viên xác nhận
-                    <button type="button" onclick="confirmAISuggestedAnswer(${qIndex}, event)" style="margin-left: 6px; background: #d97706; color: #fff; border: none; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; cursor: pointer; font-weight: 600;" title="Xác nhận đáp án này đúng và gỡ cảnh báo">Xác nhận</button>
-                </span>
-            `;
-        }
-
-        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
-        
-        if (qType === 'true_false') {
-            // Giao diện xem trước cho câu hỏi Đúng / Sai
-            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
-            html += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">`;
-            (q.options || []).forEach((opt, oIndex) => {
-                let charMatch = opt.match(/^[a-d]/);
-                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
-                let isTrue = tfMap[char] === true;
-                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/, ''));
-                html += `
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
-                        <div style="display: flex; align-items: flex-start; gap: 8px; flex: 1;">
-                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #e2e8f0; color: #334155; font-weight: 700; border-radius: 6px; font-size: 0.85rem; flex-shrink: 0;">${char}</span>
-                            <span style="font-size: 0.95rem; color: #1e293b;">${optClean}</span>
-                        </div>
-                        <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', true); event.stopPropagation();" title="Chọn làm đáp án đúng">Đúng</span>
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', false); event.stopPropagation();" title="Chọn làm đáp án sai">Sai</span>
-                        </div>
-                    </div>`;
-            });
-            html += `</div>`;
-        } else if (qType === 'short_answer') {
-            // Giao diện xem trước cho câu hỏi Trả lời ngắn
-            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer) : 'Chưa nhập đáp án';
-            html += `
-                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
-                    <span style="font-weight: 700; color: #0284c7; font-size: 0.95rem;">✍️ Đáp án ngắn:</span>
-                    <span style="font-weight: 700; font-size: 1.05rem; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 6px; border: 1px solid #86efac;">${escapeHtml(caVal)}</span>
-                </div>`;
-        } else {
-            // MCQ (4 lựa chọn)
-            (q.options || []).forEach((opt, oIndex) => {
-                let isCorrect = q.correct_answer === opt;
-                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
-                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
-                    let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
-                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
-                        isCorrect = true;
-                    }
-                }
-                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
-                html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: pointer; padding: 10px 14px; margin-bottom: 8px;" onclick="changeCorrectAnswer(${qIndex}, ${oIndex}); event.stopPropagation();" title="Bấm để chọn làm đáp án đúng">
-                            <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
-                            <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
-                            <span class="opt-text">${optClean}</span>
-                        </label>`;
-            });
-        }
-
-        // Lời giải chi tiết
-        if (q.explain && q.explain.trim()) {
-            html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
-                <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain, true)}
-            </div>`;
-        }
-
-        // KIỂM TRA CHÉO ĐÁP ÁN: CẢNH BÁO NẾU AI GIẢI KHÁC ĐÁP ÁN GỐC
-        if (q.has_cross_check_warning && q.cross_check_info) {
-            let info = q.cross_check_info;
-            let tAns = typeof info.teacher_answer === 'object' ? JSON.stringify(info.teacher_answer) : String(info.teacher_answer || 'Chưa rõ');
-            let aiAns = typeof info.ai_answer === 'object' ? JSON.stringify(info.ai_answer) : String(info.ai_answer || 'Chưa rõ');
-            let aiExp = info.ai_explain || '';
-            
-            html += `
-                <div class="cross-check-warning-box" style="margin-top: 12px; margin-bottom: 8px; padding: 12px 14px; background: #fff7ed; border: 1.5px solid #fdba74; border-radius: 8px;" onclick="event.stopPropagation();">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                        <span style="font-weight: 700; color: #c2410c; display: flex; align-items: center; gap: 6px; font-size: 0.92rem;">
-                            <i class="ri-alert-fill" style="color: #ea580c; font-size: 1.15rem;"></i>
-                            CẢNH BÁO KIỂM TRA CHÉO: AI giải khác đáp án của Giáo viên!
-                        </span>
-                        <span style="font-size: 0.78rem; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Cần rà soát</span>
-                    </div>
-                    <div style="font-size: 0.88rem; color: #7c2d12; margin-bottom: 10px; line-height: 1.5;">
-                        <div><b>Đáp án hiện tại (Giáo viên / Gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
-                        <div style="margin-top: 5px;"><b>Đáp án do AI độc lập giải:</b> <span style="background: #bbf7d0; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(aiAns)}</span></div>
-                        ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp, true)}</div>` : ''}
-                    </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button type="button" class="btn-primary" style="padding: 5px 12px; font-size: 0.82rem; background: #ea580c; border: none; border-radius: 6px; cursor: pointer;" onclick="acceptAICrossCheckAnswer(${qIndex}); event.stopPropagation();">
-                            <i class="ri-check-line"></i> Dùng đáp án AI giải
-                        </button>
-                        <button type="button" class="btn-studio-outline" style="padding: 5px 12px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer;" onclick="dismissAICrossCheck(${qIndex}); event.stopPropagation();">
-                            <i class="ri-close-line"></i> Giữ đáp án Giáo viên & Bỏ qua
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        // TOOLBAR MỖI CÂU HỎI (SINH CÂU TƯƠNG TỰ)
-        html += `
-            <div class="q-card-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;" onclick="event.stopPropagation();">
-                <button type="button" class="btn-studio-outline" style="padding: 4px 10px; font-size: 0.82rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; color: #6366f1; border-color: #c7d2fe; background: #eef2ff;" onclick="openSimilarModal(${qIndex}); event.stopPropagation();" title="Sinh các câu hỏi tương tự từ câu này để luyện tập">
-                    <i class="ri-file-copy-2-line"></i> Sinh câu tương tự
-                </button>
-            </div>
-        `;
-        
-        prevBox.innerHTML = html;
-        
-        // Chèn thẻ AI gợi ý sửa lỗi / xóa câu / đổi kết cấu nếu có
-        if (hasError) {
-            const aiData = window.activeAIFeedbacks[qIndex];
-            const isDelete = aiData.action === 'delete' || aiData.category === 'delete';
-            const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
-
-            const isExplain = aiData.category === 'explanation';
-            const isLatex = aiData.category === 'latex';
-
-            const catClass = isDelete ? 'ai-cat-delete' :
-                             (isRestructure ? 'ai-cat-restructure' :
-                             (isExplain ? 'ai-cat-explain' :
-                             (isLatex ? 'ai-cat-latex' :
-                             (aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
-                             (aiData.category === 'answer' ? 'ai-cat-answer' :
-                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
-
-            const aiDiv = document.createElement('div');
-            aiDiv.onclick = (e) => e.stopPropagation();
-
-            if (isDelete) {
-                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; cursor: default;';
-                aiDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="ri-delete-bin-line" style="color: #dc2626; font-size: 1.15rem;"></i>
-                            <strong style="color: #dc2626;">Yêu cầu xóa câu hỏi:</strong>
-                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Yêu cầu xóa câu'}</span>
-                        </div>
-                    </div>
-                    <div style="color: #991b1b; font-size: 0.92rem; font-weight: 500; margin-bottom: 10px; line-height: 1.5;">
-                        ${escapeHtml(aiData.reason || 'Người làm đề yêu cầu loại bỏ câu hỏi này.')}
-                    </div>
-                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-ai-delete" onclick="applyAIDelete(${qIndex})">
-                            <i class="ri-delete-bin-line"></i> Xác nhận xóa câu này
-                        </button>
-                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
-                            Bỏ qua
-                        </button>
-                    </div>
-                `;
-            } else if (isRestructure) {
-                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
-                let corrected = aiData.corrected_data || {};
-                let targetType = corrected.type || 'true_false';
-                let targetTypeName = targetType === 'true_false' ? 'Đúng / Sai' : (targetType === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm 4 lựa chọn');
-
-                let previewRestructure = '';
-                if (targetType === 'true_false' && Array.isArray(corrected.options)) {
-                    let tfMap = typeof corrected.correct_answer === 'object' && corrected.correct_answer ? corrected.correct_answer : {};
-                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff; margin-bottom: 8px;">
-                        <div style="font-weight: 700; color: #7e22ce; margin-bottom: 6px;"><i class="ri-checkbox-multiple-line"></i> Kết cấu Đúng/Sai mới:</div>`;
-                    corrected.options.forEach((opt, oIdx) => {
-                        let ch = ['a', 'b', 'c', 'd'][oIdx] || 'a';
-                        let isT = tfMap[ch] === true;
-                        previewRestructure += `<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #f3e8ff;">
-                            <span>${escapeHtml(opt)}</span>
-                            <span style="font-weight: 700; color: ${isT ? '#16a34a' : '#dc2626'};">${isT ? 'Đúng' : 'Sai'}</span>
-                        </div>`;
-                    });
-                    previewRestructure += `</div>`;
-                } else if (targetType === 'short_answer') {
-                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e9d5ff; color: #7e22ce; margin-bottom: 8px;">
-                        <b>✍️ Đáp án ngắn mới:</b> <span style="font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">${escapeHtml(String(corrected.correct_answer || ''))}</span>
-                    </div>`;
-                }
-
-                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
-
-                aiDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="ri-swap-line" style="color: #7e22ce; font-size: 1.15rem;"></i>
-                            <strong style="color: #7e22ce;">Thay đổi kết cấu (${targetTypeName}):</strong>
-                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Thay đổi kết cấu'}</span>
-                        </div>
-                    </div>
-                    <div style="color: #6b21a8; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
-                        ${escapeHtml(aiData.reason)}
-                    </div>
-                    ${previewRestructure}
-                    ${explainText}
-                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-ai-restructure" onclick="applyAISuggestion(${qIndex})">
-                            <i class="ri-check-line"></i> Áp dụng đổi kết cấu
-                        </button>
-                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
-                            Bỏ qua
-                        </button>
-                    </div>
-                `;
-            } else if (isExplain) {
-                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; cursor: default;';
-                let corrected = aiData.corrected_data || {};
-                let explainText = (corrected.explain || aiData.reason || '').trim();
-
-                aiDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="ri-lightbulb-fill" style="color: #10b981; font-size: 1.25rem;"></i>
-                            <strong style="color: #15803d;">Đề xuất bổ sung lời giải chi tiết:</strong>
-                            <span class="ai-cat-chip ai-cat-explain" style="padding: 2px 8px; font-size: 0.75rem;">${escapeHtml(aiData.category_name || 'Bổ sung lời giải')}</span>
-                        </div>
-                    </div>
-                    <div style="color: #166534; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
-                        ${escapeHtml(aiData.reason)}
-                    </div>
-                    ${explainText ? `
-                        <div style="margin-top: 8px; padding: 10px 14px; background: #ffffff; border-radius: 8px; font-size: 0.9rem; color: #1e293b; line-height: 1.6; border: 1px solid #dcfce7; border-left: 4px solid #10b981;">
-                            <b style="color: #15803d;"><i class="ri-lightbulb-line"></i> Nội dung lời giải:</b><br>
-                            ${formatSubscriptsAndFormulas(explainText, true)}
-                        </div>
-                    ` : ''}
-                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-ai-explain" onclick="applyAISuggestion(${qIndex})">
-                            <i class="ri-lightbulb-line"></i> Xác nhận thêm lời giải này
-                        </button>
-                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
-                            Bỏ qua
-                        </button>
-                    </div>
-                `;
-            } else {
-                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
-                let corrected = aiData.corrected_data || {};
-                let correctedAnswerText = typeof corrected.correct_answer === 'object' ? JSON.stringify(corrected.correct_answer) : (corrected.correct_answer || '');
-                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
-
-                aiDiv.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="ri-sparkling-fill" style="color: #9333ea; font-size: 1.15rem;"></i>
-                            <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
-                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
-                        </div>
-                    </div>
-                    <div style="color: #dc2626; font-size: 0.92rem; font-weight: 600; margin-bottom: 8px;">
-                        ${escapeHtml(aiData.reason)}
-                    </div>
-                    ${correctedAnswerText ? `<div style="font-size: 0.88rem; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #bbf7d0; color: #166534; margin-bottom: 8px;">
-                        <i class="ri-checkbox-circle-line" style="vertical-align: middle;"></i> <b>Đề xuất đáp án đúng:</b> ${escapeHtml(correctedAnswerText)}
-                    </div>` : ''}
-                    ${explainText}
-                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem; background: #9333ea; border: none; border-radius: 6px;" onclick="applyAISuggestion(${qIndex})">
-                            <i class="ri-magic-line"></i> Tự động sửa câu này
-                        </button>
-                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
-                            Bỏ qua
-                        </button>
-                    </div>
-                `;
-            }
-            prevBox.appendChild(aiDiv);
-        }
-
-        previewContent.appendChild(prevBox);
-    });
-    
-    renderMathJax(previewContent);
-}
-
-function scrollToQuestionInEditor(qIndex) {
-    if (window.innerWidth <= 860) {
-        switchStudioMobileTab('code');
-    }
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    
-    const spans = editor.querySelectorAll('span');
-    let targetMatch = null;
-    let currentQ = 0;
-    
-    for (let span of spans) {
-        if (/Câu\s+\d+:/i.test(span.innerText)) {
-            if (currentQ === qIndex) {
-                targetMatch = span;
-                break;
-            }
-            currentQ++;
-        }
-    }
-    
-    if (targetMatch) {
-        targetMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        const parent = targetMatch.parentElement || targetMatch;
-        const origBg = parent.style.backgroundColor;
-        parent.style.transition = 'background-color 0.3s';
-        parent.style.backgroundColor = '#fef08a';
-        setTimeout(() => { 
-            parent.style.backgroundColor = origBg; 
-        }, 1500);
-    }
-}
-
-// Thay đổi đáp án từ giao diện Xem trước
-window.changeCorrectAnswer = function(qIndex, oIndex) {
-    if (!currentData[qIndex] || !currentData[qIndex].options) return;
-    currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex];
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    showToast("Đã cập nhật đáp án đúng!");
-};
-
-window.changeTfAnswer = function(qIndex, char, isTrue) {
-    if (!currentData[qIndex]) return;
-    if (typeof currentData[qIndex].correct_answer !== 'object' || currentData[qIndex].correct_answer === null) {
-        currentData[qIndex].correct_answer = {};
-    }
-    currentData[qIndex].correct_answer[char.toLowerCase()] = isTrue;
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    showToast("Đã cập nhật đáp án Đúng/Sai!");
-};
-
-function insertQuestionTemplate() {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    
-    const nextQNum = currentData.length + 1;
-    const template = `<br><br>Câu ${nextQNum}: Nội dung câu hỏi mới ở đây?<br>*A. Đáp án đúng thứ nhất<br>B. Đáp án thứ hai<br>C. Đáp án thứ ba<br>D. Đáp án thứ tư<br>`;
-    
-    editor.innerHTML += template;
-    editor.scrollTop = editor.scrollHeight;
-    editor.focus();
-    
-    currentData = parseEditorText(getRichEditorText(editor));
-    renderPreviewAll();
-    updateQCountBadge();
-    saveDraftToSession();
-    showToast(`Đã thêm Câu ${nextQNum}!`);
-}
-
-function formatEditorCode() {
-    syncDataToEditor();
-    renderPreviewAll();
-    showToast("Đã chuẩn hóa định dạng đề thi!");
-}
-
-// ----------------------------------------------------
-// TÍNH NĂNG AI RÀ SOÁT & THỐNG KÊ LỖI
-// ----------------------------------------------------
-function toggleAIPanel(forceState) {
-    const panel = document.getElementById('aiFeedbackBox');
-    if (!panel) return;
-    
-    if (forceState !== undefined) {
-        panel.style.display = forceState ? 'block' : 'none';
-    } else {
-        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
-    }
-    
-    if (panel.style.display === 'block') {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-}
-
-async function runAICheck() {
-    // 1. Kiểm tra nhanh (Fail-Fast) ngay tại client: Nếu offline hoặc đề rỗng, trả kết quả tức thì trong 0.1ms
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        showAIDiagnosticModal({
-            error_code: 'OFFLINE_NO_INTERNET',
-            error_name: 'Thiết bị mất kết nối Internet',
-            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
-            solution: 'Vui lòng kiểm tra lại kết nối WiFi / mạng dây trước khi gọi AI.',
-            technical_detail: 'navigator.onLine is false'
-        });
-        return;
-    }
-
-    if (!Array.isArray(currentData) || currentData.length === 0) {
-        showAIDiagnosticModal({
-            error_code: 'EMPTY_QUIZ_DATA',
-            error_name: 'Đề thi trống (0 câu hỏi)',
-            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để AI có thể rà soát hoặc phân tích.',
-            solution: 'Vui lòng thêm ít nhất một câu hỏi hoặc tải tệp đề thi lên trước khi chạy AI.',
-            technical_detail: 'currentData is empty or length is 0'
-        });
-        return;
-    }
-
-    const btn = document.getElementById('btnAICheck');
-    const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
-    
-    if (btn) {
-        btn.innerText = "⏳ Đang quét đề thi...";
-        btn.disabled = true;
-    }
-
-    let checkProgress = 15;
-    showStudioLoader({
-        title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
-        subtitle: `Đang chuẩn bị dữ liệu ${currentData.length} câu hỏi...`,
-        showProgress: true,
-        progress: checkProgress
-    });
-
-    const progressTimer = setInterval(() => {
-        if (checkProgress < 40) {
-            checkProgress += 8;
-            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kết nối mô hình Google Gemini..." });
-        } else if (checkProgress < 75) {
-            checkProgress += 5;
-            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kiểm tra chéo đáp án, công thức LaTeX và lời giải..." });
-        } else if (checkProgress < 92) {
-            checkProgress += 2;
-            updateStudioLoader({ progress: checkProgress, subtitle: "Đang tổng hợp khuyến nghị và tối ưu đề thi..." });
-        }
-    }, 600);
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                teacher_token: authToken,
-                quiz_data: currentData,
-                custom_prompt: customPrompt
-            })
-        });
-        const data = await res.json();
-        
-        if (res.ok && data.status === 'success') {
-            document.getElementById('aiFeedbackBox').style.display = 'block';
-            const statsContainer = document.getElementById('aiFeedbackStats');
-            const btnApplyAll = document.getElementById('btnApplyAllAI');
-
-            window.activeAIFeedbacks = {};
-            window.activeAINewQuizData = (Array.isArray(data.new_quiz_data) && data.new_quiz_data.length > 0) ? data.new_quiz_data : null;
-            window.activeAISummary = data.summary || "";
-
-            if (Array.isArray(data.feedback) && data.feedback.length > 0) {
-                data.feedback.forEach(item => {
-                    window.activeAIFeedbacks[item.question_index] = item;
-                });
-
-                const stats = data.stats || {
-                    total_questions: currentData.length,
-                    valid_questions: Math.max(0, currentData.length - data.feedback.length),
-                    error_count: data.feedback.length,
-                    accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
-                    category_counts: { delete: 0, restructure: 0, explanation: 0, latex: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
-                };
-
-                let summaryHtml = data.summary ? `
-                    <div class="ai-summary-banner">
-                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
-                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
-                    </div>
-                ` : '';
-
-                let catChipsHtml = '<div class="ai-cat-chips">';
-                if (stats.category_counts?.delete > 0) {
-                    catChipsHtml += `<span class="ai-cat-chip ai-cat-delete"><i class="ri-delete-bin-line"></i> Yêu cầu xóa: <b>${stats.category_counts.delete}</b></span>`;
-                }
-                if (stats.category_counts?.restructure > 0) {
-                    catChipsHtml += `<span class="ai-cat-chip ai-cat-restructure"><i class="ri-swap-line"></i> Đổi kết cấu: <b>${stats.category_counts.restructure}</b></span>`;
-                }
-                if (stats.category_counts?.explanation > 0) {
-                    catChipsHtml += `<span class="ai-cat-chip ai-cat-explain"><i class="ri-lightbulb-line"></i> Bổ sung lời giải: <b>${stats.category_counts.explanation}</b></span>`;
-                }
-                if (stats.category_counts?.latex > 0) {
-                    catChipsHtml += `<span class="ai-cat-chip ai-cat-latex"><i class="ri-functions"></i> Công thức LaTeX: <b>${stats.category_counts.latex}</b></span>`;
-                }
-                catChipsHtml += `
-                    <span class="ai-cat-chip ai-cat-knowledge"><i class="ri-brain-line"></i> Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
-                    <span class="ai-cat-chip ai-cat-answer"><i class="ri-close-circle-line"></i> Đáp án: <b>${stats.category_counts?.answer || 0}</b></span>
-                    <span class="ai-cat-chip ai-cat-grammar"><i class="ri-spell-check-line"></i> Chính tả / Diễn đạt: <b>${stats.category_counts?.grammar_typo || 0}</b></span>
-                    <span class="ai-cat-chip ai-cat-format"><i class="ri-ruler-line"></i> Định dạng: <b>${stats.category_counts?.format || 0}</b></span>
-                </div>`;
-
-                let statsHtml = `
-                    ${summaryHtml}
-                    <div class="ai-stat-grid">
-                        <div class="ai-stat-card">
-                            <span class="ai-stat-label">Số câu ban đầu</span>
-                            <span class="ai-stat-val" style="color: #2563eb;">${stats.total_questions}</span>
-                        </div>
-                        <div class="ai-stat-card">
-                            <span class="ai-stat-label">Số câu đạt chuẩn</span>
-                            <span class="ai-stat-val" style="color: #10b981;">${stats.valid_questions}</span>
-                        </div>
-                        <div class="ai-stat-card">
-                            <span class="ai-stat-label">Yêu cầu / Cần sửa</span>
-                            <span class="ai-stat-val" style="color: #ef4444;">${stats.error_count}</span>
-                        </div>
-                        <div class="ai-stat-card">
-                            <span class="ai-stat-label">Tỷ lệ chính xác</span>
-                            <span class="ai-stat-val" style="color: #9333ea;">${stats.accuracy_rate}%</span>
-                        </div>
-                    </div>
-                    ${catChipsHtml}
-                `;
-                statsContainer.innerHTML = statsHtml;
-
-                renderAIFeedbackList();
-
-                if (btnApplyAll) {
-                    btnApplyAll.style.display = 'inline-block';
-                    btnApplyAll.innerHTML = '<i class="ri-flashlight-line"></i> Áp dụng TẤT CẢ thay đổi';
-                }
-                renderPreviewAll();
-            } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
-                let summaryHtml = data.summary ? `
-                    <div class="ai-summary-banner" style="margin-bottom: 20px;">
-                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
-                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
-                    </div>
-                ` : '';
-
-                statsContainer.innerHTML = `
-                    ${summaryHtml}
-                    <div style="text-align: center; padding: 25px 10px;">
-                        <div style="font-size: 3rem; color: #10b981; margin-bottom: 10px;"><i class="ri-checkbox-circle-fill"></i></div>
-                        <h3 style="margin: 0; color: #059669;">Tuyệt vời! Đề thi đạt chuẩn 100% không phát hiện lỗi!</h3>
-                        <p style="margin: 6px 0 0 0; color: #64748b;">Toàn bộ câu hỏi, đáp án và định dạng đều hoàn hảo và sẵn sàng xuất bản.</p>
-                    </div>
-                `;
-                document.getElementById('aiFeedbackContent').innerHTML = '';
-                if (btnApplyAll) btnApplyAll.style.display = 'none';
-            }
-        } else {
-            showAIDiagnosticModal(data);
-        }
-    } catch(e) {
-        showAIDiagnosticModal({
-            error_code: 'NETWORK_ERROR',
-            error_name: 'Lỗi kết nối mạng tới máy chủ khi gọi AI',
-            cause: 'Trình duyệt không thể kết nối tới máy chủ API (do mất mạng, chập chờn hoặc máy chủ đang khởi động lại).',
-            solution: '1. Kiểm tra lại kết nối mạng Internet (WiFi/4G).\n2. Bấm thử lại sau vài giây.',
-            technical_detail: e.message || String(e)
-        });
-    } finally {
-        if (typeof progressTimer !== 'undefined') clearInterval(progressTimer);
-        hideStudioLoader();
-        if (btn) {
-            btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
-            btn.disabled = false;
-        }
-    }
-}
-
-function renderAIFeedbackList() {
-    const contentContainer = document.getElementById('aiFeedbackContent');
-    const btnApplyAll = document.getElementById('btnApplyAllAI');
-    if (!contentContainer) return;
-
-    const remainingKeys = Object.keys(window.activeAIFeedbacks || {});
-    if (remainingKeys.length === 0) {
-        contentContainer.innerHTML = `
-            <div style="text-align: center; padding: 20px 10px;">
-                <div style="font-size: 2.2rem; color: #10b981; margin-bottom: 6px;"><i class="ri-checkbox-circle-fill"></i></div>
-                <h3 style="margin: 0; color: #059669;">Tất cả yêu cầu và lỗi đã được xử lý hoàn tất!</h3>
-                <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi đã được cập nhật và đồng bộ toàn diện.</p>
-            </div>
-        `;
-        if (btnApplyAll) btnApplyAll.style.display = 'none';
-        return;
-    }
-
-    let errorListHtml = `
-        <h4 style="margin: 15px 0 10px 0; color: #475569; font-size: 0.95rem; text-transform: uppercase;">
-            <i class="ri-list-check-2" style="color: #9333ea;"></i> Danh sách các câu cần xử lý (${remainingKeys.length} câu):
-        </h4>
-        <div class="ai-error-list-container">
-    `;
-
-    // Sắp xếp danh sách câu tăng dần theo question_index
-    const sortedIndices = remainingKeys.map(Number).sort((a, b) => a - b);
-    sortedIndices.forEach(qIdx => {
-        const item = window.activeAIFeedbacks[qIdx];
-        if (!item) return;
-
-        const isDelete = item.action === 'delete' || item.category === 'delete';
-        const isRestructure = item.action === 'restructure' || item.category === 'restructure';
-        const isExplain = item.category === 'explanation';
-        const isLatex = item.category === 'latex';
-
-        const catClass = isDelete ? 'ai-cat-delete' :
-                         (isRestructure ? 'ai-cat-restructure' :
-                         (isExplain ? 'ai-cat-explain' :
-                         (isLatex ? 'ai-cat-latex' :
-                         (item.category === 'knowledge' ? 'ai-cat-knowledge' :
-                         (item.category === 'answer' ? 'ai-cat-answer' :
-                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
-
-        let actionBtnHtml = '';
-        if (isDelete) {
-            actionBtnHtml = `<button class="btn-ai-delete" onclick="applyAIDelete(${qIdx})"><i class="ri-delete-bin-line"></i> Xóa câu này</button>`;
-        } else if (isRestructure) {
-            actionBtnHtml = `<button class="btn-ai-restructure" onclick="applyAISuggestion(${qIdx})"><i class="ri-swap-line"></i> Đổi kết cấu</button>`;
-        } else if (isExplain) {
-            actionBtnHtml = `<button class="btn-ai-explain" onclick="applyAISuggestion(${qIdx})"><i class="ri-lightbulb-line"></i> Bổ sung lời giải</button>`;
-        } else {
-            actionBtnHtml = `<button class="btn-studio-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})"><i class="ri-magic-line"></i> Sửa câu này</button>`;
-        }
-
-        errorListHtml += `
-            <div class="ai-error-item" id="ai_summary_item_${qIdx}">
-                <div style="flex: 1; min-width: 260px;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span style="font-weight: 800; color: #6b21a8; font-size: 1rem;">Câu ${qIdx + 1}</span>
-                        <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${item.category_name || (isDelete ? 'Yêu cầu xóa câu' : 'Lỗi')}</span>
-                    </div>
-                    <div style="font-size: 0.9rem; color: ${isDelete ? '#dc2626; font-weight: 500;' : '#475569;'}">${escapeHtml(item.reason)}</div>
-                </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem;" onclick="jumpToQuestionCard(${qIdx})"><i class="ri-focus-2-line"></i> Tới Câu ${qIdx + 1}</button>
-                    ${actionBtnHtml}
-                </div>
-            </div>
-        `;
-    });
-
-    errorListHtml += `</div>`;
-    contentContainer.innerHTML = errorListHtml;
-    if (btnApplyAll) btnApplyAll.style.display = 'inline-block';
-}
-
-function jumpToQuestionCard(qIndex) {
-    const targetCard = document.getElementById(`preview_q_${qIndex}`);
-    if (targetCard) {
-        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        targetCard.classList.remove('ai-target-highlight');
-        void targetCard.offsetWidth;
-        targetCard.classList.add('ai-target-highlight');
-        setTimeout(() => {
-            targetCard.classList.remove('ai-target-highlight');
-        }, 3600);
-    }
-    scrollToQuestionInEditor(qIndex);
-}
-
-function applyAllAISuggestions() {
-    if (!window.activeAIFeedbacks || Object.keys(window.activeAIFeedbacks).length === 0) return;
-    const count = Object.keys(window.activeAIFeedbacks).length;
-    if (!confirm(`Bạn có chắc muốn áp dụng TẤT CẢ ${count} thay đổi từ AI (xóa câu, đổi kết cấu, sửa nội dung)?`)) return;
-
-    if (Array.isArray(window.activeAINewQuizData) && window.activeAINewQuizData.length > 0) {
-        currentData = JSON.parse(JSON.stringify(window.activeAINewQuizData));
-    } else {
-        // Áp dụng từ dưới lên (chỉ số cao xuống thấp) để tránh lệch index khi xóa câu
-        const sortedIndices = Object.keys(window.activeAIFeedbacks).map(Number).sort((a, b) => b - a);
-        for (const qIdx of sortedIndices) {
-            const fb = window.activeAIFeedbacks[qIdx];
-            if (!fb) continue;
-            if (fb.action === 'delete' || fb.category === 'delete') {
-                currentData.splice(qIdx, 1);
-            } else if (fb.corrected_data && currentData[qIdx]) {
-                const origGroup = currentData[qIdx].group_title;
-                currentData[qIdx] = {
-                    ...fb.corrected_data,
-                    group_title: fb.corrected_data.group_title !== undefined ? fb.corrected_data.group_title : origGroup
-                };
-            }
-        }
-    }
-
-    window.activeAIFeedbacks = {};
-    window.activeAINewQuizData = null;
-
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    renderAIFeedbackList();
-
-    const btnApplyAll = document.getElementById('btnApplyAllAI');
-    if (btnApplyAll) btnApplyAll.style.display = 'none';
-
-    document.getElementById('aiFeedbackStats').innerHTML = `
-        <div style="text-align: center; padding: 20px 10px;">
-            <div style="font-size: 2.5rem; color: #9333ea; margin-bottom: 8px;"><i class="ri-sparkling-fill"></i></div>
-            <h3 style="margin: 0; color: #9333ea;">Đã áp dụng thành công tất cả thay đổi!</h3>
-            <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo Code đã được cập nhật hoàn tất.</p>
-        </div>
-    `;
-    showToast(`Đã áp dụng tất cả thay đổi thành công!`);
-}
-
-function applyAIDelete(question_index) {
-    if (!confirm(`Bạn có chắc chắn muốn XÓA Câu ${question_index + 1}? Câu hỏi này sẽ bị loại bỏ khỏi đề thi.`)) return;
-
-    currentData.splice(question_index, 1);
-
-    // Cập nhật lại chỉ số các câu hỏi còn lại trong activeAIFeedbacks
-    delete window.activeAIFeedbacks[question_index];
-    const newFeedbacks = {};
-    for (const key in window.activeAIFeedbacks) {
-        const k = parseInt(key);
-        if (k > question_index) {
-            const item = window.activeAIFeedbacks[k];
-            item.question_index = k - 1;
-            newFeedbacks[k - 1] = item;
-        } else {
-            newFeedbacks[k] = window.activeAIFeedbacks[k];
-        }
-    }
-    window.activeAIFeedbacks = newFeedbacks;
-    window.activeAINewQuizData = null; // Huỷ bỏ snapshot hàng loạt vì dữ liệu đã thay đổi cục bộ
-
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    renderAIFeedbackList();
-
-    showToast(`Đã xóa Câu ${question_index + 1}!`);
-}
-
-function applyAISuggestion(question_index) {
-    const aiData = window.activeAIFeedbacks[question_index];
-    if (!aiData) return;
-
-    if (aiData.action === 'delete' || aiData.category === 'delete') {
-        return applyAIDelete(question_index);
-    }
-
-    const corrected = aiData.corrected_data;
-    if (!corrected) return;
-
-    const origGroup = currentData[question_index] ? currentData[question_index].group_title : "";
-    
-    currentData[question_index] = {
-        ...corrected,
-        group_title: corrected.group_title !== undefined ? corrected.group_title : origGroup
-    };
-
-    delete window.activeAIFeedbacks[question_index];
-    window.activeAINewQuizData = null;
-
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    renderAIFeedbackList();
-
-    const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
-    showToast(`Đã ${isRestructure ? 'đổi kết cấu' : 'sửa'} xong Câu ${question_index + 1}!`);
-}
-
-function dismissAISuggestion(question_index) {
-    delete window.activeAIFeedbacks[question_index];
-    window.activeAINewQuizData = null;
-    renderPreviewAll();
-    renderAIFeedbackList();
-}
-
-// ----------------------------------------------------
-// MOBILE SEGMENTED TABS (SOẠN THẢO CODE / XEM TRƯỚC)
-// ----------------------------------------------------
-function switchStudioMobileTab(tab) {
-    const tabCode = document.getElementById('mTabCode');
-    const tabPreview = document.getElementById('mTabPreview');
-    const splitView = document.getElementById('splitEditorView');
-    const floatBtn = document.getElementById('studioMobileFloatToggle');
-    if (!splitView) return;
-
-    if (tab === 'preview') {
-        splitView.classList.remove('mobile-tab-code');
-        splitView.classList.add('mobile-tab-preview');
-        if (tabCode) tabCode.classList.remove('active');
-        if (tabPreview) tabPreview.classList.add('active');
-        if (floatBtn) floatBtn.innerHTML = '<i class="ri-code-s-slash-line"></i> <span>Soạn thảo</span>';
-        renderPreviewAll();
-    } else {
-        splitView.classList.remove('mobile-tab-preview');
-        splitView.classList.add('mobile-tab-code');
-        if (tabCode) tabCode.classList.add('active');
-        if (tabPreview) tabPreview.classList.remove('active');
-        if (floatBtn) floatBtn.innerHTML = '<i class="ri-eye-line"></i> <span>Xem trước</span>';
-    }
-}
-
-function toggleStudioMobileTab() {
-    const splitView = document.getElementById('splitEditorView');
-    if (!splitView) return;
-    if (splitView.classList.contains('mobile-tab-preview')) {
-        switchStudioMobileTab('code');
-    } else {
-        switchStudioMobileTab('preview');
-    }
-}
-
-// ----------------------------------------------------
-// CHẾ ĐỘ LÀM THỬ (PRACTICE / EXAM TEST)
-// ----------------------------------------------------
-function switchStudioMode(mode) {
-    currentStudioMode = mode;
-
-    document.getElementById('pillModeEdit').className = mode === 'edit' ? 'studio-mode-pill active' : 'studio-mode-pill';
-    document.getElementById('pillModePractice').className = mode === 'practice' ? 'studio-mode-pill active' : 'studio-mode-pill';
-    document.getElementById('pillModeExam').className = mode === 'exam' ? 'studio-mode-pill active' : 'studio-mode-pill';
-
-    const splitView = document.getElementById('splitEditorView');
-    const testView = document.getElementById('interactiveTestView');
-    const mobileTabs = document.getElementById('studioMobileViewTabs');
-    const floatBtn = document.getElementById('studioMobileFloatToggle');
-
-    if (mode === 'edit') {
-        splitView.style.display = '';
-        testView.style.display = 'none';
-        if (mobileTabs) mobileTabs.style.display = '';
-        if (floatBtn && window.innerWidth <= 860) floatBtn.style.display = 'inline-flex';
-        renderPreviewAll();
-    } else {
-        splitView.style.display = 'none';
-        testView.style.display = 'block';
-        if (mobileTabs) mobileTabs.style.display = 'none';
-        if (floatBtn) floatBtn.style.display = 'none';
-        renderInteractiveTest(mode);
-    }
-}
-
-function renderInteractiveTest(mode) {
-    const container = document.getElementById('testQuizContainer');
-    const titleElem = document.getElementById('testViewTitle');
-    const submitArea = document.getElementById('testExamSubmitArea');
-    if (!container) return;
-
-    testPracticeAnswers = {};
-    testExamAnswers = {};
-
-    titleElem.innerText = mode === 'practice' ? "🎯 Chế độ Luyện tập thử nghiệm" : "📝 Chế độ Thi thử nghiệm";
-    submitArea.style.display = mode === 'exam' ? 'block' : 'none';
-
-    let html = "";
-    currentData.forEach((q, qIndex) => {
-        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
-        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
-
-        html += `
-            <div class="question-box" id="test_q_box_${qIndex}" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); border: 1px solid var(--border);">
-                ${groupTitleHtml}
-                <div class="question-title" style="font-size: 1.1rem; font-weight: 700; margin-bottom: 15px;">
-                    Câu ${qIndex + 1}: ${formattedQ}
-                </div>
-                <div class="options-container">
-        `;
-
-        const qType = getRealQuestionType(q);
-        if (qType === 'true_false') {
-            (q.options || []).forEach((opt, oIndex) => {
-                const charMatch = opt.match(/^[a-d]/);
-                const char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
-                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/, ''));
-                html += `
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;">
-                        <div style="flex: 1; margin-right: 12px; font-size: 0.95rem;"><b>${char})</b> ${optContent}</div>
-                        <div style="display: flex; gap: 6px;">
-                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_t" onclick="handleTestTFSelect(${qIndex}, '${char}', true, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Đúng</button>
-                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_f" onclick="handleTestTFSelect(${qIndex}, '${char}', false, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Sai</button>
-                        </div>
-                    </div>`;
-            });
-        } else if (qType === 'short_answer') {
-            html += `
-                <div style="display: flex; gap: 8px; margin-top: 8px;">
-                    <input type="text" id="test_sa_${qIndex}" placeholder="Nhập câu trả lời..." style="flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;" onchange="handleTestSAChange(${qIndex}, this.value)">
-                    ${mode === 'practice' ? `<button class="btn-primary" style="margin: 0; padding: 8px 16px;" onclick="handleTestSAPracticeCheck(${qIndex})">Kiểm tra</button>` : ''}
-                </div>
-                <div id="test_sa_feedback_${qIndex}" style="margin-top: 6px; font-weight: 600;"></div>`;
-        } else {
-            (q.options || []).forEach((opt, oIndex) => {
-                const optChar = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
-                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
-
-                if (mode === 'practice') {
-                    html += `
-                        <div class="option-practice" id="test_opt_${qIndex}_${oIndex}" onclick="handleTestPracticeSelect(${qIndex}, ${oIndex})">
-                            <span class="opt-badge">${optChar}</span>
-                            <span class="opt-text">${optContent}</span>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <label class="option-wrapper" style="display: flex; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;" id="test_exam_opt_${qIndex}_${oIndex}">
-                            <input type="radio" name="test_exam_radio_${qIndex}" style="width: 20px; height: 20px; margin-right: 12px;" onchange="handleTestExamSelect(${qIndex}, ${oIndex})">
-                            <span style="font-weight: 700; margin-right: 8px; color: var(--primary);">${optChar}.</span>
-                            <span>${optContent}</span>
-                        </label>
-                    `;
-                }
-            });
-        }
-
-        html += `</div></div>`;
-    });
-
-    container.innerHTML = html;
-
-    renderMathJax(container);
-}
-
-function handleTestTFSelect(qIndex, char, isTrue, mode) {
-    if (mode === 'practice') {
-        const q = currentData[qIndex];
-        const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
-        const isMatched = (Boolean(correctMap[char]) === isTrue);
-        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
-        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
-        if (btnT && btnF) {
-            btnT.style.background = (isTrue && isMatched) ? '#dcfce7' : (isTrue && !isMatched ? '#fee2e2' : 'white');
-            btnF.style.background = (!isTrue && isMatched) ? '#dcfce7' : (!isTrue && !isMatched ? '#fee2e2' : 'white');
-        }
-    } else {
-        if (!testExamAnswers[qIndex] || typeof testExamAnswers[qIndex] !== 'object') {
-            testExamAnswers[qIndex] = {};
-        }
-        testExamAnswers[qIndex][char] = isTrue;
-        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
-        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
-        if (btnT && btnF) {
-            btnT.style.background = isTrue ? '#dbeafe' : 'white';
-            btnT.style.borderColor = isTrue ? '#3b82f6' : '#cbd5e1';
-            btnF.style.background = !isTrue ? '#dbeafe' : 'white';
-            btnF.style.borderColor = !isTrue ? '#3b82f6' : '#cbd5e1';
-        }
-    }
-}
-
-function handleTestSAChange(qIndex, val) {
-    testExamAnswers[qIndex] = val;
-}
-
-function handleTestSAPracticeCheck(qIndex) {
-    const q = currentData[qIndex];
-    const inputEl = document.getElementById(`test_sa_${qIndex}`);
-    const feedbackEl = document.getElementById(`test_sa_feedback_${qIndex}`);
-    const uStr = inputEl ? inputEl.value.trim().toLowerCase().replace(',', '.').replace(/\s+/g, '') : '';
-    const cStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
-    const isCorrect = Boolean(uStr && uStr === cStr);
-    
-    if (feedbackEl) {
-        feedbackEl.innerHTML = isCorrect ? 
-            `<span style="color: #16a34a;">✅ Chính xác!</span>` : 
-            `<span style="color: #dc2626;">❌ Sai rồi. Đáp án đúng là: ${escapeHtml(String(q.correct_answer || ''))}</span>`;
-    }
-}
-
-function handleTestPracticeSelect(qIndex, oIndex) {
-    if (testPracticeAnswers[qIndex] !== undefined) return;
-    testPracticeAnswers[qIndex] = oIndex;
-
-    const q = currentData[qIndex];
-    if (!q || !q.options) return;
-    const selectedOpt = q.options[oIndex];
-    const isCorrect = (selectedOpt === q.correct_answer);
-
-    const clickedEl = document.getElementById(`test_opt_${qIndex}_${oIndex}`);
-    if (clickedEl) {
-        if (isCorrect) {
-            clickedEl.classList.add('correct');
-        } else {
-            clickedEl.classList.add('incorrect');
-            // Tìm và highlight đáp án đúng
-            q.options.forEach((opt, idx) => {
-                if (opt === q.correct_answer) {
-                    const corrEl = document.getElementById(`test_opt_${qIndex}_${idx}`);
-                    if (corrEl) corrEl.classList.add('correct');
-                }
-            });
-        }
-    }
-}
-
-function handleTestExamSelect(qIndex, oIndex) {
-    testExamAnswers[qIndex] = oIndex;
-}
-
-function handleTestExamSubmit() {
-    let earnedTotal = 0;
-    currentData.forEach((q, qIndex) => {
-        const qType = getRealQuestionType(q);
-        if (qType === 'true_false') {
-            const chosen = testExamAnswers[qIndex] || {};
-            const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
-            let matches = 0;
-            ['a', 'b', 'c', 'd'].forEach(char => {
-                if (chosen[char] !== undefined && Boolean(chosen[char]) === Boolean(correctMap[char])) matches++;
-            });
-            const tfScale = [0.0, 0.1, 0.25, 0.5, 1.0];
-            earnedTotal += (tfScale[matches] !== undefined ? tfScale[matches] : 0.0);
-        } else if (qType === 'short_answer') {
-            const userStr = String(testExamAnswers[qIndex] || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
-            const corrStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
-            if (userStr && userStr === corrStr) earnedTotal += 1;
-        } else {
-            const chosenIdx = testExamAnswers[qIndex];
-            if (chosenIdx !== undefined && q.options && q.options[chosenIdx] === q.correct_answer) {
-                earnedTotal += 1;
-            }
-        }
-    });
-
-    const score = currentData.length > 0 ? ((earnedTotal / currentData.length) * 10).toFixed(1) : "0.0";
-    alert(`🎉 KẾT QUẢ THI THỬ:\n\n- Điểm đạt được: ${earnedTotal.toFixed(2)} / ${currentData.length}\n- Điểm quy đổi: ${score} / 10`);
-}
-
-// ----------------------------------------------------
-// XUẤT FILE WORD (.DOCX)
-// ----------------------------------------------------
-let currentExportQuizId = null;
-
-async function exportWordDocument() {
-    let quizTitle = "Đề thi Studio";
-    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
-    if (titleEl && titleEl.value) quizTitle = titleEl.value;
-    else if (editingQuizSettings && editingQuizSettings.title) quizTitle = editingQuizSettings.title;
-
-    const exportData = {
-        title: quizTitle,
-        questions: currentData || [],
-        time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0
-    };
-
-    try {
-        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
-        if (editingQuizId) {
-            sessionStorage.setItem(`export_quiz_${editingQuizId}`, JSON.stringify(exportData));
-        }
-    } catch(e) {}
-
-    if (editingQuizId) {
-        try {
-            const payload = {
-                quiz_id: editingQuizId,
-                title: quizTitle,
-                data: currentData,
-                mode: (editingQuizSettings && editingQuizSettings.mode) || "practice",
-                time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0,
-                is_shuffle: (editingQuizSettings && editingQuizSettings.isShuffle) || false,
-                creator_id: authToken,
-                status: "published"
-            };
-            fetch(`${API_BASE_URL}/api/save_quiz`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).catch(() => {});
-        } catch(e) {}
-    }
-
-    const targetUrl = editingQuizId ? `/export/${encodeURIComponent(editingQuizId)}` : '/export';
-    window.location.href = targetUrl;
-}
-
-function openExportDocxModal(quizId, quizTitle = "") {
-    currentExportQuizId = quizId;
-    const modal = document.getElementById('exportDocxModal');
-    if (!modal) {
-        window.open(`${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(quizId)}?teacher_token=${encodeURIComponent(authToken)}`, '_blank');
-        return;
-    }
-    
-    const titleEl = document.getElementById('exportDocxQuizTitle');
-    if (titleEl) {
-        titleEl.textContent = quizTitle || editingQuizSettings.title || "Đề thi trắc nghiệm";
-    }
-    
-    setDocxAudienceUI('teacher');
-    setDocxLayoutUI('compact');
-    const optSelect = document.getElementById('docxOptionsLayout');
-    if (optSelect) optSelect.value = 'auto';
-
-    modal.style.display = 'flex';
-}
-
-function closeExportDocxModal() {
-    const modal = document.getElementById('exportDocxModal');
-    if (modal) modal.style.display = 'none';
-    currentExportQuizId = null;
-}
-
-function onDocxAudienceChange(audience) {
-    setDocxAudienceUI(audience);
-}
-
-function setDocxAudienceUI(audience) {
-    const cardTeacher = document.getElementById('cardAudienceTeacher');
-    const cardStudent = document.getElementById('cardAudienceStudent');
-    const chkAnswers = document.getElementById('docxShowAnswers');
-    const chkKeyTable = document.getElementById('docxShowKeyTable');
-    const chkExplains = document.getElementById('docxShowExplains');
-    const lblGrid = document.getElementById('lblDocxStudentGrid');
-    const chkGrid = document.getElementById('docxStudentGrid');
-
-    if (audience === 'student') {
-        if (cardStudent) {
-            cardStudent.style.borderColor = '#2563eb';
-            cardStudent.style.background = '#eff6ff';
-            const sTitle = cardStudent.querySelector('span');
-            if (sTitle) sTitle.style.color = '#1e40af';
-        }
-        if (cardTeacher) {
-            cardTeacher.style.borderColor = '#e2e8f0';
-            cardTeacher.style.background = '#f8fafc';
-            const tTitle = cardTeacher.querySelector('span');
-            if (tTitle) tTitle.style.color = '#334155';
-        }
-        const radio = document.querySelector('input[name="docxAudience"][value="student"]');
-        if (radio) radio.checked = true;
-
-        if (chkAnswers) { chkAnswers.checked = false; chkAnswers.disabled = true; }
-        if (chkKeyTable) { chkKeyTable.checked = false; chkKeyTable.disabled = true; }
-        if (chkExplains) { chkExplains.checked = false; chkExplains.disabled = true; }
-        if (lblGrid) lblGrid.style.display = 'flex';
-        if (chkGrid) chkGrid.checked = false;
-    } else {
-        if (cardTeacher) {
-            cardTeacher.style.borderColor = '#2563eb';
-            cardTeacher.style.background = '#eff6ff';
-            const tTitle = cardTeacher.querySelector('span');
-            if (tTitle) tTitle.style.color = '#1e40af';
-        }
-        if (cardStudent) {
-            cardStudent.style.borderColor = '#e2e8f0';
-            cardStudent.style.background = '#f8fafc';
-            const sTitle = cardStudent.querySelector('span');
-            if (sTitle) sTitle.style.color = '#334155';
-        }
-        const radio = document.querySelector('input[name="docxAudience"][value="teacher"]');
-        if (radio) radio.checked = true;
-
-        if (chkAnswers) { chkAnswers.checked = true; chkAnswers.disabled = false; }
-        if (chkKeyTable) { chkKeyTable.checked = true; chkKeyTable.disabled = false; }
-        if (chkExplains) { chkExplains.checked = true; chkExplains.disabled = false; }
-        if (lblGrid) lblGrid.style.display = 'none';
-        if (chkGrid) chkGrid.checked = false;
-    }
-}
-
-function onDocxLayoutChange(layout) {
-    setDocxLayoutUI(layout);
-}
-
-function setDocxLayoutUI(layout) {
-    const cardCompact = document.getElementById('cardLayoutCompact');
-    const cardStandard = document.getElementById('cardLayoutStandard');
-    
-    if (layout === 'compact') {
-        if (cardCompact) {
-            cardCompact.style.borderColor = '#16a34a';
-            cardCompact.style.background = '#f0fdf4';
-            const cTitle = cardCompact.querySelector('span');
-            if (cTitle) cTitle.style.color = '#15803d';
-        }
-        if (cardStandard) {
-            cardStandard.style.borderColor = '#e2e8f0';
-            cardStandard.style.background = '#f8fafc';
-            const sTitle = cardStandard.querySelector('span');
-            if (sTitle) sTitle.style.color = '#334155';
-        }
-        const radio = document.querySelector('input[name="docxLayoutMode"][value="compact"]');
-        if (radio) radio.checked = true;
-    } else {
-        if (cardStandard) {
-            cardStandard.style.borderColor = '#16a34a';
-            cardStandard.style.background = '#f0fdf4';
-            const sTitle = cardStandard.querySelector('span');
-            if (sTitle) sTitle.style.color = '#15803d';
-        }
-        if (cardCompact) {
-            cardCompact.style.borderColor = '#e2e8f0';
-            cardCompact.style.background = '#f8fafc';
-            const cTitle = cardCompact.querySelector('span');
-            if (cTitle) cTitle.style.color = '#334155';
-        }
-        const radio = document.querySelector('input[name="docxLayoutMode"][value="standard"]');
-        if (radio) radio.checked = true;
-    }
-}
-
-async function confirmDownloadDocx() {
-    if (!currentExportQuizId) {
-        closeExportDocxModal();
-        return;
-    }
-    
-    const audienceRadio = document.querySelector('input[name="docxAudience"]:checked');
-    const audience = audienceRadio ? audienceRadio.value : 'teacher';
-    
-    const layoutRadio = document.querySelector('input[name="docxLayoutMode"]:checked');
-    const layout = layoutRadio ? layoutRadio.value : 'compact';
-    
-    const optLayoutSelect = document.getElementById('docxOptionsLayout');
-    const optionsLayout = optLayoutSelect ? optLayoutSelect.value : 'auto';
-    
-    const showAnswers = document.getElementById('docxShowAnswers')?.checked ?? (audience === 'teacher');
-    const showKeyTable = document.getElementById('docxShowKeyTable')?.checked ?? (audience === 'teacher');
-    const showExplains = document.getElementById('docxShowExplains')?.checked ?? (audience === 'teacher');
-    const studentGrid = document.getElementById('docxStudentGrid')?.checked ?? false;
-    
-    const token = typeof authToken !== 'undefined' ? authToken : '';
-    const url = `${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(currentExportQuizId)}?teacher_token=${encodeURIComponent(token)}`
-        + `&target_audience=${encodeURIComponent(audience)}`
-        + `&layout_mode=${encodeURIComponent(layout)}`
-        + `&options_layout=${encodeURIComponent(optionsLayout)}`
-        + `&show_answers=${showAnswers}`
-        + `&show_key_table=${showKeyTable}`
-        + `&show_explains=${showExplains}`
-        + `&include_student_answer_grid=${studentGrid}`;
-
-    const btnSubmit = document.querySelector('#exportDocxModal .btn-primary');
-    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
-    if (btnSubmit) {
-        btnSubmit.disabled = true;
-        btnSubmit.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang tạo file Word...';
-    }
-
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        let filename = `de_thi_${audience}.docx`;
-        const disp = response.headers.get('content-disposition');
-        if (disp && disp.includes('filename=')) {
-            const m = disp.match(/filename=["']?([^"';]+)["']?/);
-            if (m && m[1]) filename = m[1];
-        }
-
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(blobUrl);
-
-        if (typeof showToast === 'function') {
-            showToast("Đã xuất file Word (.docx) thành công!", "success");
-        } else {
-            alert("Đã xuất file Word (.docx) thành công!");
-        }
-        closeExportDocxModal();
-    } catch (err) {
-        console.warn("Lỗi fetch blob docx, fallback sang mở link trực tiếp:", err);
-        window.open(url, '_blank');
-        closeExportDocxModal();
-    } finally {
-        if (btnSubmit) {
-            btnSubmit.disabled = false;
-            btnSubmit.innerHTML = originalBtnHtml;
-        }
-    }
-}
-
-// ----------------------------------------------------
-// MODAL CẤU HÌNH VÀ LƯU XUẤT BẢN
-// ----------------------------------------------------
-function openPublishModal() {
-    const modal = document.getElementById('publishModal');
-    if (!modal) return;
-    
-    document.getElementById('modalQuizTitle').value = editingQuizSettings.title || "";
-    document.getElementById('modalQuizMode').value = editingQuizSettings.mode || "practice";
-    document.getElementById('modalQuizTime').value = editingQuizSettings.timeLimit || "";
-    document.getElementById('modalQuizShuffle').checked = editingQuizSettings.isShuffle || false;
-
-    modal.style.display = 'flex';
-}
-
-function closePublishModal() {
-    const modal = document.getElementById('publishModal');
-    if (modal) modal.style.display = 'none';
-}
-
-async function confirmPublishQuiz() {
-    const title = document.getElementById('modalQuizTitle').value.trim();
-    if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
-
-    if (!authToken) {
-        alert("Vui lòng đăng nhập tài khoản Giáo viên để lưu và xuất bản đề thi!");
-        window.location.href = "/dang-nhap";
-        return;
-    }
-
-    const mode = document.getElementById('modalQuizMode').value;
-    const timeLimit = parseInt(document.getElementById('modalQuizTime').value) || 0;
-    const isShuffle = document.getElementById('modalQuizShuffle').checked;
-
-    const btn = document.getElementById('btnConfirmPublish');
-    if (btn) {
-        btn.innerText = "⏳ Đang lưu đề thi...";
-        btn.disabled = true;
-    }
-
-    closePublishModal();
-    showStudioLoader({
-        title: "🚀 Đang lưu & xuất bản đề thi...",
-        subtitle: "Đang đồng bộ dữ liệu câu hỏi, hình ảnh và công thức lên máy chủ..."
-    });
-
-    try {
-        const payload = {
-            title: title,
-            data: currentData,
-            mode: mode,
-            time_limit: timeLimit,
-            is_shuffle: isShuffle,
-            creator_id: authToken,
-            status: "published"
-        };
-        if (editingQuizId) payload.quiz_id = editingQuizId;
-
-        const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            editingQuizId = result.quiz_id;
-            window.isCurrentQuizPublished = true;
-            window.draftImageKeys = [];
-            sessionStorage.removeItem('editor_draft_images');
-            sessionStorage.removeItem('editor_pending_task_id');
-            editingQuizSettings = { title, mode, timeLimit, isShuffle };
-            document.getElementById('studioQuizTitle').value = title;
-            saveDraftToSession();
-
-            hideStudioLoader();
-
-            // Hiển thị nút Copy Link trên Studio navbar
-            const btnCopy = document.getElementById('btnStudioCopyLink');
-            if (btnCopy) btnCopy.style.display = 'inline-flex';
-            const deleteLabel = document.getElementById('discardOrDeleteLabel');
-            if (deleteLabel) deleteLabel.innerText = "Xóa đề";
-            const btnDiscard = document.getElementById('btnDiscardOrDelete');
-            if (btnDiscard) btnDiscard.title = "Xóa đề thi này khỏi hệ thống";
-
-            showSuccessModal(result.quiz_id);
-        } else {
-            hideStudioLoader();
-            alert("Lỗi lưu đề thi: " + (result.detail || "Không rõ nguyên nhân"));
-        }
-    } catch(e) {
-        hideStudioLoader();
-        console.error(e);
-        alert("Lỗi khi kết nối với máy chủ!");
-    } finally {
-        hideStudioLoader();
-        if (btn) {
-            btn.innerText = "🚀 Lưu & Xuất bản ngay";
-            btn.disabled = false;
-        }
-    }
-}
-
-function slugifyVietnamese(text) {
-    if (!text || typeof text !== 'string') return '';
-    return text
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[đĐ]/g, 'd')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .trim()
-        .replace(/[\s_]+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-+|-+$/g, '');
-}
-
-function showSuccessModal(quizId) {
-    const modal = document.getElementById('successModal');
-    if (!modal) return;
-
-    document.getElementById('successQuizCode').innerText = quizId;
-    const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
-    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
-    const slug = slugifyVietnamese(title);
-    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(quizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(quizId)}`;
-    
-    document.getElementById('successShareLink').value = fullShareUrl;
-    modal.style.display = 'flex';
-}
-
-function closeSuccessModal() {
-    const modal = document.getElementById('successModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function copyShareLink() {
-    const input = document.getElementById('successShareLink');
-    if (!input) return;
-    input.select();
-    navigator.clipboard.writeText(input.value);
-    
-    const copyBtn = document.getElementById('btnCopyShareLink');
-    const origText = copyBtn.innerText;
-    copyBtn.innerText = "✓ Đã copy!";
-    copyBtn.style.background = "#10b981";
-    setTimeout(() => {
-        copyBtn.innerText = origText;
-        copyBtn.style.background = "";
-    }, 2000);
-    showToast("Đã sao chép link chia sẻ!");
-}
-
-function copyCurrentStudioLink() {
-    if (!editingQuizId) {
-        alert("Đề thi này chưa được lưu hoặc xuất bản. Vui lòng bấm 'Lưu & Xuất bản' trước!");
-        return;
-    }
-    const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
-    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
-    const slug = slugifyVietnamese(title);
-    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(editingQuizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(editingQuizId)}`;
-    
-    navigator.clipboard.writeText(fullShareUrl).then(() => {
-        showToast("✓ Đã sao chép link đề thi!");
-    }).catch(() => {
-        prompt("Link làm bài của học sinh:", fullShareUrl);
-    });
-}
-
-function openTestQuizLink() {
-    const input = document.getElementById('successShareLink');
-    if (input && input.value) {
-        window.open(input.value, '_blank');
-    }
-}
-
-// ----------------------------------------------------
-// ĐIỀU HƯỚNG QUAY LẠI & DỌN DẸP DỮ LIỆU
-// ----------------------------------------------------
-function extractImageKeysFromClient(data) {
-    if (!data) return [];
-    try {
-        const str = JSON.stringify(data);
-        const matches = str.match(/(?:quizzes|temp)\/images\/[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|webp|svg)/gi);
-        return matches ? Array.from(new Set(matches)) : [];
-    } catch(e) {
-        return [];
-    }
-}
-
-async function discardCurrentDraft() {
-    try {
-        const storedImages = JSON.parse(sessionStorage.getItem('editor_draft_images') || '[]');
-        const currentImages = extractImageKeysFromClient(currentData);
-        const allImages = Array.from(new Set([...(window.draftImageKeys || []), ...storedImages, ...currentImages]));
-        
-        await fetch(`${API_BASE_URL}/api/discard_draft`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ images: allImages, quiz_data: currentData })
-        });
-    } catch(e) {
-        console.warn("Lỗi khi hủy draft:", e);
-    } finally {
-        sessionStorage.removeItem('editor_quiz_id');
-        sessionStorage.removeItem('editor_quiz_data');
-        sessionStorage.removeItem('editor_quiz_title');
-        sessionStorage.removeItem('editor_quiz_settings');
-        sessionStorage.removeItem('editor_draft_images');
-        sessionStorage.removeItem('editor_pending_task_id');
-        window.draftImageKeys = [];
-        window.isCurrentQuizPublished = true;
-    }
-}
-
-async function handleDiscardOrDelete() {
-    if (editingQuizId) {
-        const confirmDel = confirm(
-            "🗑️ XÁC NHẬN XÓA ĐỀ THI:\n\n" +
-            "Bạn có chắc chắn muốn đưa đề thi này vào Thùng rác không?\n" +
-            "Học sinh sẽ không thể tiếp tục truy cập bài thi này."
-        );
-        if (!confirmDel) return;
-
-        showStudioLoader({
-            title: "🗑️ Đang chuyển đề thi vào thùng rác...",
-            subtitle: "Đang cập nhật trạng thái đề thi trên máy chủ..."
-        });
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_action`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ teacher_token: authToken, quiz_id: editingQuizId, action: 'trash' })
-            });
-            const data = await res.json();
-            if (res.ok && data.status === 'success') {
-                alert("Đã đưa đề thi vào thùng rác!");
-                window.location.href = "/giao-vien";
-            } else {
-                hideStudioLoader();
-                alert("Lỗi khi xóa: " + (data.detail || "Không thể xóa đề thi"));
-            }
-        } catch(e) {
-            hideStudioLoader();
-            alert("Lỗi kết nối máy chủ");
-        }
-        return;
-    }
-
-    const confirmDiscard = confirm(
-        "⚠️ XÁC NHẬN HỦY BỎ BẢN NHÁP:\n\n" +
-        "Toàn bộ câu hỏi và hình ảnh vừa phân tích sẽ bị XÓA VĨNH VIỄN khỏi hệ thống (Database và Cloudflare R2).\n" +
-        "Hành động này giúp giải phóng hoàn toàn dung lượng lưu trữ.\n\n" +
-        "Bạn có chắc chắn muốn hủy bỏ không?"
-    );
-    if (!confirmDiscard) return;
-
-    showStudioLoader({
-        title: "🧹 Đang dọn sạch dữ liệu và hình ảnh tạm...",
-        subtitle: "Đang giải phóng dung lượng bộ nhớ và Cloudflare R2..."
-    });
-    await discardCurrentDraft();
-    window.location.href = "/giao-vien";
-}
-
-async function handleDiscardAndExit() {
-    return handleDiscardOrDelete();
-}
-
-async function handleBackToDashboard() {
-    // Nếu là đề thi mới tải lên chưa xuất bản vào cơ sở dữ liệu
-    if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
-        const confirmExit = confirm(
-            "⚠️ BẠN CHƯA XUẤT BẢN ĐỀ THI!\n\n" +
-            "Nếu quay lại bây giờ mà không xuất bản, toàn bộ câu hỏi và hình ảnh tạm thời sẽ được HỦY BỎ HOÀN TOÀN để tránh làm đầy dữ liệu hệ thống (Database và Cloudflare R2).\n\n" +
-            "• Chọn [OK]: Hủy đề & dọn sạch dung lượng để về trang chủ.\n" +
-            "• Chọn [Cancel]: Ở lại Studio để tiếp tục chỉnh sửa hoặc xuất bản."
-        );
-        if (!confirmExit) return;
-
-        showStudioLoader({
-            title: "🧹 Đang dọn sạch dữ liệu tạm thời...",
-            subtitle: "Đang chuẩn bị đưa bạn quay lại bảng điều khiển..."
-        });
-        await discardCurrentDraft();
-        window.location.href = "/giao-vien";
-        return;
-    }
-    
-    window.location.href = "/giao-vien";
-}
-
-// Tự động dọn dẹp R2 nếu người dùng đóng tab / tắt trình duyệt khi chưa xuất bản
-window.addEventListener('beforeunload', () => {
-    if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
-        const storedImages = JSON.parse(sessionStorage.getItem('editor_draft_images') || '[]');
-        const currentImages = extractImageKeysFromClient(currentData);
-        const allImages = Array.from(new Set([...(window.draftImageKeys || []), ...storedImages, ...currentImages]));
-        if (allImages.length > 0) {
-            const payload = JSON.stringify({ images: allImages, quiz_data: currentData });
-            const blob = new Blob([payload], { type: 'application/json' });
-            navigator.sendBeacon(`${API_BASE_URL}/api/discard_draft`, blob);
-        }
-    }
-});
-
-// ----------------------------------------------------
-// TIỆN ÍCH HIỂN THỊ THÔNG BÁO (TOAST)
-// ----------------------------------------------------
-function showToast(message) {
-    const toast = document.getElementById('studioToast');
-    if (!toast) return;
-    toast.innerText = message;
-    toast.style.display = 'block';
-    
-    setTimeout(() => {
-        toast.style.display = 'none';
-    }, 2500);
-}
-
-function escapeHtml(text) {
-    if (!text) return "";
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-
-// Gán nhanh câu lệnh mẫu cho AI rà soát
-function setAIQuickPrompt(text) {
-    const input = document.getElementById('aiCustomPrompt');
-    if (input) {
-        input.value = text;
-        input.focus();
-    }
-}
-
-// ----------------------------------------------------
-// TÍNH NĂNG AI THÔNG MINH: GỢI Ý ĐÁP ÁN, KIỂM TRA CHÉO & SINH CÂU TƯƠNG TỰ
-// ----------------------------------------------------
-
-window.confirmAISuggestedAnswer = function(qIndex, event) {
-    if (event) event.stopPropagation();
-    if (!currentData[qIndex]) return;
-    delete currentData[qIndex].is_ai_suggested;
-    delete currentData[qIndex].ai_suggestion_note;
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    showToast("Đã xác nhận đáp án do AI đề xuất!");
-};
-
-window.runCrossCheckAI = async function() {
-    // Fail-fast client check
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        showAIDiagnosticModal({
-            error_code: 'OFFLINE_NO_INTERNET',
-            error_name: 'Thiết bị mất kết nối Internet',
-            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
-            solution: 'Vui lòng kiểm tra lại kết nối mạng trước khi kiểm tra chéo.',
-            technical_detail: 'navigator.onLine is false'
-        });
-        return;
-    }
-    if (!currentData || currentData.length === 0) {
-        showAIDiagnosticModal({
-            error_code: 'EMPTY_QUIZ_DATA',
-            error_name: 'Đề thi trống (0 câu hỏi)',
-            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để kiểm tra chéo.',
-            solution: 'Vui lòng thêm ít nhất một câu hỏi trước khi chạy kiểm tra chéo.',
-            technical_detail: 'currentData is empty'
-        });
-        return;
-    }
-    const btn = document.getElementById('btnCrossCheckAI');
-    const origHtml = btn ? btn.innerHTML : '';
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang đối chiếu...';
-    }
-    let crossProgress = 15;
-    if (typeof showStudioLoader === 'function') {
-        showStudioLoader({
-            title: "⚖️ AI đang giải độc lập & kiểm tra chéo đáp án...",
-            subtitle: "Đang nạp câu hỏi và chuẩn bị giải độc lập...",
-            showProgress: true,
-            progress: crossProgress
-        });
-    }
-    const crossTimer = setInterval(() => {
-        if (crossProgress < 45) {
-            crossProgress += 9;
-            updateStudioLoader({ progress: crossProgress, subtitle: "AI đang tự tính toán và giải từng câu hỏi..." });
-        } else if (crossProgress < 85) {
-            crossProgress += 5;
-            updateStudioLoader({ progress: crossProgress, subtitle: "Đang so khớp kết quả AI với đáp án ban đầu..." });
-        }
-    }, 600);
-    try {
-        const res = await fetch(`${API_BASE_URL}/api/teacher/cross_check_answers`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                teacher_token: authToken,
-                quiz_data: currentData
-            })
-        });
-        const data = await res.json();
-        if (typeof hideStudioLoader === 'function') hideStudioLoader();
-        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
-
-        if (res.ok && data.status === 'success') {
-            const rawQuiz = data.quiz_data || data.data || [];
-            if (Array.isArray(rawQuiz) && rawQuiz.length > 0) {
-                currentData = rawQuiz;
-            }
-            const totalChecked = data.total_checked || data.total_questions || currentData.length;
-            const mismatches = (data.mismatches_found !== undefined) ? data.mismatches_found : ((data.mismatch_count !== undefined) ? data.mismatch_count : (data.mismatches ? data.mismatches.length : 0));
-            syncDataToEditor();
-            renderPreviewAll();
-            saveDraftToSession();
-            if (mismatches > 0) {
-                setTimeout(() => {
-                    const firstWarn = document.querySelector('.cross-check-warning-box');
-                    if (firstWarn) {
-                        firstWarn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }, 300);
-                alert(`⚠️ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát xong ${totalChecked} câu hỏi.\nPhát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu!\n\nHệ thống đã đánh dấu các khung cảnh báo MÀU CAM tại từng câu hỏi tương ứng trong Studio để bạn rà soát và quyết định cập nhật.`);
-            } else {
-                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của Giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
-            }
-        } else {
-            showAIDiagnosticModal(data);
-        }
-    } catch(err) {
-        console.error("Cross-check error:", err);
-        showAIDiagnosticModal({
-            error_code: 'NETWORK_ERROR',
-            error_name: 'Lỗi mạng khi kiểm tra chéo đáp án',
-            cause: 'Không thể gửi yêu cầu kiểm tra chéo tới máy chủ do lỗi kết nối mạng.',
-            solution: '1. Kiểm tra đường truyền Internet.\n2. Bấm thử lại thao tác.',
-            technical_detail: err.message || String(err)
-        });
-    } finally {
-        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = origHtml || '<i class="ri-scales-3-line"></i> Kiểm tra chéo đáp án';
-        }
-        if (typeof hideStudioLoader === 'function') hideStudioLoader();
-    }
-};
-
-window.acceptAICrossCheckAnswer = function(qIndex) {
-    if (!currentData[qIndex] || !currentData[qIndex].cross_check_info) return;
-    const info = currentData[qIndex].cross_check_info;
-    const aiAns = info.ai_answer;
-    if (aiAns !== undefined && aiAns !== null) {
-        const qType = getRealQuestionType(currentData[qIndex]);
-        if (qType === 'mcq' && Array.isArray(currentData[qIndex].options)) {
-            let foundOpt = currentData[qIndex].options.find(opt => {
-                let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
-                return opt === aiAns || (optLetter && optLetter.toUpperCase() === String(aiAns).trim().toUpperCase());
-            });
-            currentData[qIndex].correct_answer = foundOpt || aiAns;
-        } else {
-            currentData[qIndex].correct_answer = aiAns;
-        }
-        if (info.ai_explain && (!currentData[qIndex].explain || currentData[qIndex].explain.trim().length === 0)) {
-            currentData[qIndex].explain = info.ai_explain;
-        }
-    }
-    delete currentData[qIndex].has_cross_check_warning;
-    delete currentData[qIndex].cross_check_info;
-    syncDataToEditor();
-    renderPreviewAll();
-    saveDraftToSession();
-    showToast("Đã cập nhật sang đáp án do AI giải!");
-};
-
-window.dismissAICrossCheck = function(qIndex) {
-    if (!currentData[qIndex]) return;
-    delete currentData[qIndex].has_cross_check_warning;
-    delete currentData[qIndex].cross_check_info;
-    renderPreviewAll();
-    saveDraftToSession();
-    showToast("Đã giữ lại đáp án của Giáo viên.");
-};
-
-let activeSimilarBaseIndex = null;
-let activeGeneratedSimilarQuestions = [];
-
-window.openSimilarModal = function(qIndex) {
-    if (!currentData[qIndex]) return;
-    activeSimilarBaseIndex = qIndex;
-    activeGeneratedSimilarQuestions = [];
-    
-    const modal = document.getElementById('similarQuestionModal');
-    const preview = document.getElementById('similarBaseQPreview');
-    const resContainer = document.getElementById('simResultsContainer');
-    const addBtn = document.getElementById('btnAddSimilarToQuiz');
-    const runBtn = document.getElementById('btnRunGenerateSimilar');
-
-    const baseQ = currentData[qIndex];
-    let qClean = (baseQ.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
-    let optsHtml = '';
-    if (Array.isArray(baseQ.options)) {
-        optsHtml = `<div style="margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.85rem; color: #475569;">
-            ${baseQ.options.map(o => `<div>• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('')}
-        </div>`;
-    }
-    let ansHtml = baseQ.correct_answer ? `<div style="margin-top: 6px; font-size: 0.85rem; font-weight: 600; color: #16a34a;">Đáp án: ${escapeHtml(typeof baseQ.correct_answer === 'object' ? JSON.stringify(baseQ.correct_answer) : String(baseQ.correct_answer))}</div>` : '';
-
-    if (preview) {
-        preview.innerHTML = `
-            <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">Câu gốc (Câu ${qIndex + 1}):</div>
-            <div style="color: #334155; line-height: 1.4;">${formatSubscriptsAndFormulas(escapeHtml(qClean))}</div>
-            ${optsHtml}
-            ${ansHtml}
-        `;
-    }
-
-    if (resContainer) resContainer.style.display = 'none';
-    if (addBtn) addBtn.style.display = 'none';
-    if (runBtn) {
-        runBtn.disabled = false;
-        runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo ngay với AI';
-    }
-
-    if (modal) {
-        modal.style.display = 'flex';
-        if (typeof renderMathJax === 'function') renderMathJax(preview);
-    }
-};
-
-window.closeSimilarModal = function() {
-    const modal = document.getElementById('similarQuestionModal');
-    if (modal) modal.style.display = 'none';
-};
-
-window.submitGenerateSimilar = async function() {
-    if (activeSimilarBaseIndex === null || !currentData[activeSimilarBaseIndex]) {
-        alert("Không tìm thấy câu hỏi gốc để sinh tương tự.");
-        return;
-    }
-    const modeRadio = document.querySelector('input[name="simMode"]:checked');
-    const mode = modeRadio ? modeRadio.value : 'change_numbers';
-    const count = parseInt(document.getElementById('simCountSelect')?.value || '3', 10);
-    const difficulty = document.getElementById('simDifficultySelect')?.value || 'keep';
-
-    const runBtn = document.getElementById('btnRunGenerateSimilar');
-    const resContainer = document.getElementById('simResultsContainer');
-    const genList = document.getElementById('simGeneratedList');
-    const addBtn = document.getElementById('btnAddSimilarToQuiz');
-
-    if (runBtn) {
-        runBtn.disabled = true;
-        runBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang sinh câu hỏi...';
-    }
-
-    try {
-        const payload = {
-            teacher_token: authToken || '',
-            base_question: currentData[activeSimilarBaseIndex],
-            question: currentData[activeSimilarBaseIndex],
-            count: count,
-            mode: mode,
-            difficulty: difficulty
-        };
-        const res = await fetch(`${API_BASE_URL}/api/teacher/generate_similar_questions`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        const similarList = (Array.isArray(data.similar_questions) && data.similar_questions) || (Array.isArray(data.data) && data.data);
-        if (res.ok && data.status === 'success' && similarList) {
-            activeGeneratedSimilarQuestions = similarList;
-            if (genList) {
-                genList.innerHTML = '';
-                activeGeneratedSimilarQuestions.forEach((sq, idx) => {
-                    let sqCard = document.createElement('div');
-                    sqCard.style.cssText = 'padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;';
-                    let opts = Array.isArray(sq.options) ? sq.options.map(o => `<div style="padding: 2px 0;">• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('') : '';
-                    let ans = sq.correct_answer ? `<div style="margin-top: 6px; font-weight: 700; color: #16a34a;">Đáp án: ${escapeHtml(typeof sq.correct_answer === 'object' ? JSON.stringify(sq.correct_answer) : String(sq.correct_answer))}</div>` : '';
-                    let exp = sq.explain ? `<div style="margin-top: 4px; font-size: 0.85rem; color: #64748b;"><b>Lời giải:</b> ${formatSubscriptsAndFormulas(escapeHtml(sq.explain))}</div>` : '';
-                    
-                    sqCard.innerHTML = `
-                        <div style="font-weight: 700; color: #7c3aed; margin-bottom: 4px;">Câu tương tự #${idx + 1}:</div>
-                        <div style="color: #1e293b; margin-bottom: 6px;">${formatSubscriptsAndFormulas(escapeHtml(sq.question || ''))}</div>
-                        ${opts ? `<div style="margin-left: 8px; color: #475569;">${opts}</div>` : ''}
-                        ${ans}
-                        ${exp}
-                    `;
-                    genList.appendChild(sqCard);
-                });
-                if (typeof renderMathJax === 'function') renderMathJax(genList);
-            }
-            if (resContainer) resContainer.style.display = 'block';
-            if (addBtn) addBtn.style.display = 'inline-flex';
-            showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
-        } else {
-            showAIDiagnosticModal(data);
-        }
-    } catch(err) {
-        console.error("Generate similar error:", err);
-        showAIDiagnosticModal({
-            error_code: 'NETWORK_ERROR',
-            error_name: 'Lỗi kết nối khi sinh câu hỏi tương tự',
-            cause: 'Không thể kết nối tới máy chủ để sinh câu hỏi tương tự.',
-            solution: '1. Kiểm tra lại kết nối mạng.\n2. Bấm thử lại.',
-            technical_detail: err.message || String(err)
-        });
-    } finally {
-        if (runBtn) {
-            runBtn.disabled = false;
-            runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo lại';
-        }
-    }
-};
-
-window.applySimilarQuestionsToQuiz = function() {
-    if (!activeGeneratedSimilarQuestions || activeGeneratedSimilarQuestions.length === 0) {
-        alert("Chưa có câu hỏi tương tự nào được sinh.");
-        return;
-    }
-    let insertIndex = activeSimilarBaseIndex !== null ? activeSimilarBaseIndex + 1 : currentData.length;
-    currentData.splice(insertIndex, 0, ...activeGeneratedSimilarQuestions);
-    
-    syncDataToEditor();
-    renderPreviewAll();
-    updateQCountBadge();
-    saveDraftToSession();
-    closeSimilarModal();
-    showToast(`Đã thêm ${activeGeneratedSimilarQuestions.length} câu hỏi mới vào đề thi!`);
-};
-
-window.openDedicatedExportPage = function() {
-    let quizTitle = "Đề thi trắc nghiệm";
-    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
-    if (titleEl && titleEl.value) quizTitle = titleEl.value;
-    else if (window.currentQuizTitle) quizTitle = window.currentQuizTitle;
-
-    let questions = [];
-    if (typeof window.getParsedQuestions === 'function') {
-        try { questions = window.getParsedQuestions(); } catch(e){}
-    }
-    if (!questions || !questions.length) {
-        questions = window.currentQuizData || window.currentData || [];
-    }
-
-    const exportData = {
-        title: quizTitle,
-        questions: questions,
-        time_limit: parseInt(document.getElementById('quizTimeLimit')?.value || '45', 10) || 45
-    };
-
-    try {
-        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
-        if (window.currentQuizId) {
-            sessionStorage.setItem(`export_quiz_${window.currentQuizId}`, JSON.stringify(exportData));
-        }
-    } catch (e) {}
-
-    const targetUrl = window.currentQuizId ? `/export/${encodeURIComponent(window.currentQuizId)}` : '/export';
-    window.open(targetUrl, '_blank');
-    if (typeof closeExportDocxModal === 'function') closeExportDocxModal();
-};
-
-// Hàm chèn Bảng chuẩn / Bảng biến thiên trực tiếp vào Code Editor như Word
-function insertTableToEditor(type) {
-    const codeEditor = document.getElementById('codeEditor');
-    if (!codeEditor) return;
-    codeEditor.focus();
-    
-    let tableHtml = '';
-    if (type === 'bbt') {
-        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 380px;">
-  <thead>
-    <tr style="background: #f8fafc;">
-      <th style="width: 50px; padding: 6px 12px;">x</th>
-      <th style="padding: 6px 12px;">$-\\infty$</th>
-      <th style="padding: 6px 12px;"></th>
-      <th style="padding: 6px 12px;">-1</th>
-      <th style="padding: 6px 12px;"></th>
-      <th style="padding: 6px 12px;">1</th>
-      <th style="padding: 6px 12px;"></th>
-      <th style="padding: 6px 12px;">$+\\infty$</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="font-weight: bold; padding: 6px 12px;">y'</td>
-      <td style="padding: 6px 12px;"></td>
-      <td style="padding: 6px 12px;">+</td>
-      <td style="padding: 6px 12px;">0</td>
-      <td style="padding: 6px 12px;">-</td>
-      <td style="padding: 6px 12px;">0</td>
-      <td style="padding: 6px 12px;">+</td>
-      <td style="padding: 6px 12px;"></td>
-    </tr>
-    <tr>
-      <td style="font-weight: bold; padding: 6px 12px;">y</td>
-      <td style="padding: 6px 12px;">$-\\infty$</td>
-      <td style="padding: 6px 12px;">$\\nearrow$</td>
-      <td style="padding: 6px 12px; font-weight: bold;">2</td>
-      <td style="padding: 6px 12px;">$\\searrow$</td>
-      <td style="padding: 6px 12px; font-weight: bold;">-2</td>
-      <td style="padding: 6px 12px;">$\\nearrow$</td>
-      <td style="padding: 6px 12px;">$+\\infty$</td>
-    </tr>
-  </tbody>
-</table>\n`;
-    } else {
-        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 320px;">
-  <thead>
-    <tr style="background: #f8fafc;">
-      <th style="padding: 6px 14px;">Tiêu đề 1</th>
-      <th style="padding: 6px 14px;">Tiêu đề 2</th>
-      <th style="padding: 6px 14px;">Tiêu đề 3</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 6px 14px;">Dữ liệu 1</td>
-      <td style="padding: 6px 14px;">Dữ liệu 2</td>
-      <td style="padding: 6px 14px;">Dữ liệu 3</td>
-    </tr>
-    <tr>
-      <td style="padding: 6px 14px;">Dữ liệu 4</td>
-      <td style="padding: 6px 14px;">Dữ liệu 5</td>
-      <td style="padding: 6px 14px;">Dữ liệu 6</td>
-    </tr>
-  </tbody>
-</table>\n`;
-    }
-    
-    document.execCommand('insertHTML', false, tableHtml);
-    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
-    if (typeof showToast === 'function') {
-        showToast(type === 'bbt' ? 'Đã chèn khung Bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
-    }
-}
-
-
-// ==========================================================================
-// STUDIO WORD-STYLE FORMATTING ENGINE, IMAGE RESIZER & CANVAS CROPPER
-// ==========================================================================
-
-// Biến toàn cục lưu giữ vùng chọn (Selection Range) trong #codeEditor tránh mất dấu khi click thanh công cụ
-let savedEditorSelection = null;
-
-function saveCurrentEditorSelection() {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-        const editor = document.getElementById('codeEditor');
-        if (editor && editor.contains(sel.anchorNode)) {
-            savedEditorSelection = sel.getRangeAt(0).cloneRange();
-        }
-    }
-}
-
-function restoreEditorSelection() {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    editor.focus();
-    if (savedEditorSelection) {
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(savedEditorSelection);
-    }
-}
-
-// --------------------------------------------------------------------------
-// --------------------------------------------------------------------------
-// 1. WORD FORMATTING TOOLS (In đậm, In nghiêng, Gạch chân, Căn lề, Hoàn tác)
-// --------------------------------------------------------------------------
-function formatDoc(cmd, value = null) {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    restoreEditorSelection();
-    try {
-        document.execCommand('styleWithCSS', false, true);
-        document.execCommand(cmd, false, value);
-    } catch (e) {
-        console.warn('execCommand failed for:', cmd, e);
-    }
-    saveCurrentEditorSelection();
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function toggleColorPalette(type, event) {
-    if (event) {
-        event.stopPropagation();
-    }
-    saveCurrentEditorSelection();
-    const textPal = document.getElementById('textColorPalette');
-    const bgPal = document.getElementById('bgColorPalette');
-    const imgMenu = document.getElementById('imageInsertMenu');
-    if (imgMenu) imgMenu.style.display = 'none';
-
-    if (type === 'text') {
-        if (bgPal) bgPal.style.display = 'none';
-        if (textPal) {
-            textPal.style.display = (textPal.style.display === 'none' || !textPal.style.display) ? 'block' : 'none';
-        }
-    } else if (type === 'bg') {
-        if (textPal) textPal.style.display = 'none';
-        if (bgPal) {
-            bgPal.style.display = (bgPal.style.display === 'none' || !bgPal.style.display) ? 'block' : 'none';
-        }
-    }
-}
-
-function applyTextColor(color) {
-    const ind = document.getElementById('textColorIndicator');
-    if (ind) ind.style.backgroundColor = color;
-    const pal = document.getElementById('textColorPalette');
-    if (pal) pal.style.display = 'none';
-
-    applyColorToEditorSelection('color', color);
-}
-
-function applyBgColor(color) {
-    const ind = document.getElementById('bgColorIndicator');
-    if (ind) ind.style.backgroundColor = color === 'transparent' ? '#f8fafc' : color;
-    const pal = document.getElementById('bgColorPalette');
-    if (pal) pal.style.display = 'none';
-
-    applyColorToEditorSelection('backgroundColor', color);
-}
-
-function applyColorToEditorSelection(styleProp, color) {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    restoreEditorSelection();
-
-    const sel = window.getSelection();
-    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
-
-    if (range && !range.collapsed) {
-        try {
-            document.execCommand('styleWithCSS', false, true);
-            if (styleProp === 'color') {
-                document.execCommand('foreColor', false, color);
-            } else if (styleProp === 'backgroundColor') {
-                document.execCommand('hiliteColor', false, color === 'transparent' ? 'inherit' : color);
-            }
-        } catch (e) {
-            console.warn('execCommand color failed, fallback to wrap:', e);
-            try {
-                const span = document.createElement('span');
-                if (styleProp === 'color') span.style.color = color;
-                if (styleProp === 'backgroundColor') span.style.backgroundColor = color;
-                const contents = range.extractContents();
-                span.appendChild(contents);
-                range.insertNode(span);
-                range.selectNodeContents(span);
-            } catch(err) {}
-        }
-        if (typeof showToast === 'function') {
-            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
-            showToast('✓ Đã áp dụng ' + actionName + '!');
-        }
-    } else {
-        try {
-            document.execCommand('styleWithCSS', false, true);
-            if (styleProp === 'color') {
-                document.execCommand('foreColor', false, color);
-            } else if (styleProp === 'backgroundColor') {
-                document.execCommand('hiliteColor', false, color);
-            }
-        } catch(e) {}
-        if (typeof showToast === 'function') {
-            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
-            showToast('✓ Đã chọn ' + actionName + '. Bôi đen chữ để đổi màu hoặc gõ tiếp.');
-        }
-    }
-
-    saveCurrentEditorSelection();
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function clearEditorFormatting() {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    restoreEditorSelection();
-
-    const sel = window.getSelection();
-    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
-
-    if (!range || range.collapsed) {
-        try {
-            document.execCommand('removeFormat', false, null);
-            document.execCommand('unlink', false, null);
-        } catch (e) {}
-        if (typeof showToast === 'function') {
-            showToast('ℹ Vui lòng bôi đen đoạn văn bản cần xóa định dạng');
-        }
-        return;
-    }
-
-    try {
-        document.execCommand('removeFormat', false, null);
-        document.execCommand('unlink', false, null);
-        
-        const text = range.toString();
-        if (text) {
-            range.deleteContents();
-            const textNode = document.createTextNode(text);
-            range.insertNode(textNode);
-            range.selectNodeContents(textNode);
-            if (sel) {
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
-            savedEditorSelection = range.cloneRange();
-        }
-        
-        saveCurrentEditorSelection();
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        if (typeof showToast === 'function') {
-            showToast('✓ Đã xóa toàn bộ định dạng!');
-        }
-    } catch (e) {
-        console.error('Error clearing format:', e);
-    }
-}
-
-// --------------------------------------------------------------------------
-// --------------------------------------------------------------------------
-// 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE TRỰC QUAN
-// --------------------------------------------------------------------------
-let __mathtype_typeset_done = false;
-
-function openLatexMathModal() {
-    try {
-        saveCurrentEditorSelection();
-    } catch (_) {}
-
-    const modal = document.getElementById('latexMathModal');
-    if (!modal) {
-        console.warn("Không tìm thấy modal latexMathModal");
-        return;
-    }
-
-    // 1. Luôn hiển thị modal ngay lập tức để người dùng có phản hồi thị giác
-    modal.style.display = 'flex';
-
-    // 2. Điền trước công thức nếu người dùng đang bôi đen một đoạn text trong editor
-    let prefill = '';
-    try {
-        if (savedEditorSelection && !savedEditorSelection.collapsed) {
-            const selectedText = savedEditorSelection.toString().trim();
-            if (selectedText) {
-                prefill = selectedText.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
-            }
-        }
-    } catch (_) {}
-
-    const mf = document.getElementById('mathLiveEditor');
-    if (mf) {
-        try {
-            if (typeof mf.setValue === 'function') {
-                mf.setValue(prefill || '', { format: 'latex' });
-            } else {
-                mf.value = prefill || '';
-            }
-        } catch (e) {
-            console.warn("Lỗi set value mathLiveEditor:", e);
-            try { mf.value = prefill || ''; } catch (_) {}
-        }
-    }
-
-    // 3. Typeset MathJax duy nhất 1 lần cho modal để chống lỗi lồng mjx-container
-    try {
-        if (!__mathtype_typeset_done && window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-            window.MathJax.typesetPromise([modal]).then(() => {
-                __mathtype_typeset_done = true;
-            }).catch(() => {});
-        }
-    } catch (_) {}
-
-    // 4. Focus vào ô nhập công thức
-    setTimeout(() => {
-        try {
-            if (mf && typeof mf.focus === 'function') {
-                mf.focus();
-            }
-        } catch (_) {}
-    }, 100);
-}
-
-function closeLatexMathModal() {
-    const modal = document.getElementById('latexMathModal');
-    if (modal) modal.style.display = 'none';
-}
-
-function switchMathTypeTab(tabId, btn) {
-    const nav = document.getElementById('mathTypeTabsNav');
-    if (nav) {
-        nav.querySelectorAll('.mathtype-tab-btn').forEach(b => b.classList.remove('active'));
-    }
-    if (btn) {
-        btn.classList.add('active');
-    }
-
-    const panes = document.querySelectorAll('.mathtype-pane');
-    panes.forEach(p => p.style.display = 'none');
-
-    const targetPane = document.getElementById('mathPane-' + tabId);
-    if (targetPane) {
-        targetPane.style.display = 'flex';
-    }
-
-    const mf = document.getElementById('mathLiveEditor');
-    if (mf && typeof mf.focus === 'function') mf.focus();
-}
-
-function insertMathSnippet(snippet) {
-    const mf = document.getElementById('mathLiveEditor');
-    if (!mf) return;
-    try {
-        if (typeof mf.executeCommand === 'function') {
-            mf.executeCommand(['insert', snippet]);
-        } else if (typeof mf.insert === 'function') {
-            mf.insert(snippet);
-        } else {
-            mf.value = (mf.value || '') + snippet;
-        }
-        if (typeof mf.focus === 'function') mf.focus();
-    } catch (e) {
-        console.warn("Lỗi chèn công thức math snippet:", e);
-        try { mf.value = (mf.value || '') + snippet; } catch (_) {}
-    }
-}
-
-// Bắt sự kiện click vào các phím ảo chứa data-snippet chuẩn xác 100%
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('button.mathtype-key');
-    if (btn && btn.hasAttribute('data-snippet')) {
-        e.preventDefault();
-        const snip = btn.getAttribute('data-snippet');
-        if (snip) {
-            insertMathSnippet(snip);
-        }
-    }
-});
-
-// Ngăn cướp tiêu điểm (focus) khi click các nút phím ảo
-document.addEventListener('mousedown', function(e) {
-    const btn = e.target.closest('button.mathtype-key, .mathtype-tab-btn, .mathtype-action-btn');
-    if (btn) {
-        e.preventDefault();
-    }
-});
-
-function clearMathField() {
-    const mf = document.getElementById('mathLiveEditor');
-    if (mf) {
-        try {
-            if (typeof mf.setValue === 'function') {
-                mf.setValue('', { format: 'latex' });
-            } else {
-                mf.value = '';
-            }
-            if (typeof mf.focus === 'function') mf.focus();
-        } catch (_) {
-            mf.value = '';
-        }
-    }
-    if (typeof showToast === 'function') {
-        showToast('Đã xóa trắng công thức');
-    }
-}
-
-function backspaceMathField() {
-    const mf = document.getElementById('mathLiveEditor');
-    if (mf) {
-        try {
-            if (typeof mf.executeCommand === 'function') {
-                mf.executeCommand(['deleteBackward']);
-            } else {
-                mf.value = (mf.value || '').slice(0, -1);
-            }
-            if (typeof mf.focus === 'function') mf.focus();
-        } catch (_) {
-            mf.value = (mf.value || '').slice(0, -1);
-        }
-    }
-}
-
-function copyMathField() {
-    const mf = document.getElementById('mathLiveEditor');
-    const val = mf ? ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim() : '';
-    if (!val) {
-        if (typeof showToast === 'function') showToast('ℹ Chưa có công thức để sao chép!');
-        return;
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(val).then(() => {
-            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
-        }).catch(() => {
-            fallbackCopy(val);
-        });
-    } else {
-        fallbackCopy(val);
-    }
-
-    function fallbackCopy(text) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
-    }
-}
-
-// Aliases cho tương thích ngược
-function clearLatexFormula() { clearMathField(); }
-function backspaceLatexFormula() { backspaceMathField(); }
-function copyLatexFormula() { copyMathField(); }
-function insertLatexSnippet(s) { insertMathSnippet(s); }
-function updateLatexLivePreview() {}
-
-function confirmInsertLatexFormula() {
-    const mf = document.getElementById('mathLiveEditor');
-    if (!mf) return;
-    let raw = ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim();
-    if (!raw) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
-        return;
-    }
-
-    let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
-    if (!clean) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
-        return;
-    }
-
-    const isDisplay = document.querySelector('input[name="latexDisplayType"]:checked')?.value === 'display';
-    const formula = isDisplay ? ('$$' + clean + '$$') : ('$' + clean + '$');
-
-    const editor = document.getElementById('codeEditor');
-    if (editor) {
-        restoreEditorSelection();
-        editor.focus();
-
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode(formula);
-            range.insertNode(textNode);
-
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            savedEditorSelection = range.cloneRange();
-        } else {
-            document.execCommand('insertText', false, formula);
-            saveCurrentEditorSelection();
-        }
-
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-
-    closeLatexMathModal();
-    if (typeof showToast === 'function') {
-        showToast('✓ Đã chèn công thức Toán học!');
-    }
-}
-
-// Alias tương thích
-function insertLatexMathFormula() {
-    openLatexMathModal();
-}
-
-// Expose toàn bộ các hàm ra window để inline onclick luôn gọi được
-window.openLatexMathModal = openLatexMathModal;
-window.closeLatexMathModal = closeLatexMathModal;
-window.switchMathTypeTab = switchMathTypeTab;
-window.insertMathSnippet = insertMathSnippet;
-window.clearMathField = clearMathField;
-window.backspaceMathField = backspaceMathField;
-window.copyMathField = copyMathField;
-window.confirmInsertLatexFormula = confirmInsertLatexFormula;
-window.insertLatexMathFormula = insertLatexMathFormula;
-window.clearLatexFormula = clearLatexFormula;
-window.backspaceLatexFormula = backspaceLatexFormula;
-window.copyLatexFormula = copyLatexFormula;
-window.insertLatexSnippet = insertLatexSnippet;
-window.updateLatexLivePreview = updateLatexLivePreview;
-
-// Gắn trực tiếp event listener dự phòng cho nút #btnInsertLatex
-document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('btnInsertLatex');
-    if (btn) {
-        btn.addEventListener('click', function(e) {
-            openLatexMathModal();
-        });
-    }
-});
-
-function toggleImageMenu() {
-    const textPal = document.getElementById('textColorPalette');
-    const bgPal = document.getElementById('bgColorPalette');
-    if (textPal) textPal.style.display = 'none';
-    if (bgPal) bgPal.style.display = 'none';
-
-    const menu = document.getElementById('imageInsertMenu');
-    if (menu) menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
-}
-
-function triggerImageUpload() {
-    const input = document.getElementById('editorHiddenImageInput');
-    const menu = document.getElementById('imageInsertMenu');
-    if (menu) menu.style.display = 'none';
-    if (input) {
-        input.value = '';
-        input.click();
-    }
-}
-
-function handleImageFileSelected(input) {
-    if (!input || !input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    if (!file.type.startsWith('image/')) {
-        showToast('Vui lòng chọn một tệp hình ảnh hợp lệ (PNG, JPG, WEBP, ...)!');
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const dataUrl = e.target.result;
-        insertImageToEditor(dataUrl);
-    };
-    reader.readAsDataURL(file);
-}
-
-function promptImageUrl() {
-    const menu = document.getElementById('imageInsertMenu');
-    if (menu) menu.style.display = 'none';
-    const url = prompt('Nhập đường dẫn liên kết (URL) của hình ảnh:');
-    if (url && url.trim()) {
-        insertImageToEditor(url.trim());
-    }
-}
-
-function insertImageToEditor(srcUrl) {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    restoreEditorSelection();
-    editor.focus();
-    const imgHtml = `<img src="${srcUrl}" draggable="true" style="max-width: 100%; height: auto; border-radius: 6px; margin: 8px auto; display: block;" alt="hình minh họa">`;
-    document.execCommand('insertHTML', false, imgHtml);
-    saveCurrentEditorSelection();
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-    showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
-}
-
-function insertImageAtRange(srcUrl, range) {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-    editor.focus();
-
-    let targetRange = range;
-    if (!targetRange || !editor.contains(targetRange.startContainer)) {
-        restoreEditorSelection();
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
-            targetRange = sel.getRangeAt(0);
-        }
-    }
-
-    const img = document.createElement('img');
-    img.src = srcUrl;
-    img.setAttribute('draggable', 'true');
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    img.style.borderRadius = '6px';
-    img.style.margin = '8px auto';
-    img.style.display = 'block';
-    img.alt = 'hình minh họa';
-
-    if (targetRange && editor.contains(targetRange.startContainer)) {
-        targetRange.insertNode(img);
-        const newRange = document.createRange();
-        newRange.setStartAfter(img);
-        newRange.collapse(true);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        saveCurrentEditorSelection();
-    } else {
-        editor.appendChild(img);
-    }
-
-    selectEditorImage(img);
-    editor.dispatchEvent(new Event('input', { bubbles: true }));
-    saveDraftToSession();
-
-    if (typeof showToast === 'function') {
-        showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
-    }
-}
-
-// --------------------------------------------------------------------------
-// 2. IN-EDITOR IMAGE INTERACTIVE RESIZE & FLOATING BAR
-// --------------------------------------------------------------------------
-let activeEditorImg = null;
-let isResizingImage = false;
-let resizeHandleDir = '';
-let resizeStartX = 0, resizeStartY = 0;
-let resizeStartWidth = 0, resizeStartHeight = 0, resizeAspect = 1;
-let draggedEditorImg = null;
-let currentDropRange = null;
-
-function getCaretRangeFromPoint(clientX, clientY) {
-    if (document.caretRangeFromPoint) {
-        return document.caretRangeFromPoint(clientX, clientY);
-    } else if (document.caretPositionFromPoint) {
-        const pos = document.caretPositionFromPoint(clientX, clientY);
-        if (pos) {
-            const range = document.createRange();
-            range.setStart(pos.offsetNode, pos.offset);
-            range.collapse(true);
-            return range;
-        }
-    }
-    return null;
-}
-
-function updateEditorDropCaret(clientX, clientY) {
-    const editor = document.getElementById('codeEditor');
-    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
-    const caret = document.getElementById('editorDropCaret');
-    if (!editor || !wrapper || !caret) return;
-
-    const range = getCaretRangeFromPoint(clientX, clientY);
-    if (!range || !editor.contains(range.startContainer)) {
-        hideEditorDropCaret();
-        return;
-    }
-
-    currentDropRange = range;
-
-    // Cập nhật vùng chọn hệ thống để con trỏ chuột cũng định vị tại đây
-    try {
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    } catch (e) {}
-
-    const wrapperRect = wrapper.getBoundingClientRect();
-    let rect = null;
-
-    const rects = range.getClientRects();
-    if (rects.length > 0 && rects[0].height > 0) {
-        rect = rects[0];
-    } else {
-        const bRect = range.getBoundingClientRect();
-        if (bRect && bRect.height > 0) {
-            rect = bRect;
-        }
-    }
-
-    // Nếu range bị collapsed trong khối rỗng hoặc cuối dòng, chèn span ẩn tạm thời để đo vị trí chính xác 100%
-    if (!rect || rect.height === 0) {
-        try {
-            const marker = document.createElement('span');
-            marker.textContent = '\uFEFF';
-            marker.style.cssText = 'display:inline-block; width:0; height:1.4em; padding:0; margin:0; border:0; line-height:inherit; font-size:inherit;';
-            const clone = range.cloneRange();
-            clone.insertNode(marker);
-            const mRect = marker.getBoundingClientRect();
-            marker.remove();
-            if (mRect && mRect.height > 0) {
-                rect = mRect;
-            }
-        } catch (e) {}
-    }
-
-    // Fallback nếu vẫn chưa lấy được rect
-    if (!rect || rect.height === 0) {
-        let node = range.startContainer;
-        if (node.nodeType === Node.TEXT_NODE) {
-            node = node.parentNode;
-        }
-        if (node && node.getBoundingClientRect) {
-            const nodeRect = node.getBoundingClientRect();
-            rect = {
-                top: nodeRect.top,
-                left: clientX,
-                bottom: nodeRect.bottom,
-                right: clientX + 2,
-                height: Math.min(26, Math.max(18, nodeRect.height))
-            };
-        }
-    }
-
-    if (!rect) {
-        hideEditorDropCaret();
-        return;
-    }
-
-    const top = rect.top - wrapperRect.top + wrapper.scrollTop;
-    const left = rect.left - wrapperRect.left + wrapper.scrollLeft;
-    const height = Math.max(18, Math.min(36, rect.height || 22));
-
-    caret.style.display = 'block';
-    caret.style.top = top + 'px';
-    caret.style.left = left + 'px';
-    caret.style.height = height + 'px';
-}
-
-function hideEditorDropCaret() {
-    const caret = document.getElementById('editorDropCaret');
-    if (caret) caret.style.display = 'none';
-    currentDropRange = null;
-}
-
-function initEditorImageInteractions() {
-    const editor = document.getElementById('codeEditor');
-    if (!editor) return;
-
-    // Single click: Select image & show resizer overlay
-    editor.addEventListener('click', function(e) {
-        if (e.target && e.target.tagName === 'IMG') {
-            e.stopPropagation();
-            selectEditorImage(e.target);
-        } else {
-            // Click outside image inside editor -> hide overlay if not clicking overlay
-            if (!isResizingImage) {
-                hideEditorImageResizer();
-            }
-        }
-    });
-
-    // Double click: Open cropper directly
-    editor.addEventListener('dblclick', function(e) {
-        if (e.target && e.target.tagName === 'IMG') {
-            e.stopPropagation();
-            selectEditorImage(e.target);
-            openCropperForActiveImage();
-        }
-    });
-
-    // Scroll editor -> update overlay position
-    editor.addEventListener('scroll', function() {
-        if (activeEditorImg && !isResizingImage) {
-            updateResizerOverlayPosition();
-        }
-    });
-
-    // Support Paste image directly from clipboard (Ctrl + V)
-    editor.addEventListener('paste', function(e) {
-        if (e.clipboardData && e.clipboardData.items) {
-            const items = e.clipboardData.items;
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].type.indexOf('image') !== -1) {
-                    const file = items[i].getAsFile();
-                    if (file) {
-                        e.preventDefault();
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            insertImageToEditor(evt.target.result);
-                        };
-                        reader.readAsDataURL(file);
-                        return;
-                    }
-                }
-            }
-        }
-    });
-
-    // Tự động gán draggable="true" cho mọi ảnh khi rê chuột vào trong editor
-    editor.addEventListener('mouseenter', function(e) {
-        if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
-            e.target.setAttribute('draggable', 'true');
-        }
-    }, true);
-
-    // 1. Kéo bắt đầu từ ảnh trong editor (Drag Start)
-    editor.addEventListener('dragstart', function(e) {
-        if (e.target && e.target.tagName === 'IMG') {
-            draggedEditorImg = e.target;
-            hideEditorImageResizer();
-            e.dataTransfer.effectAllowed = 'move';
-            try {
-                e.dataTransfer.setData('text/plain', e.target.src || '');
-                e.dataTransfer.setData('text/html', e.target.outerHTML || '');
-            } catch (err) {}
-
-            setTimeout(() => {
-                if (draggedEditorImg) {
-                    draggedEditorImg.classList.add('editor-img-dragging');
-                }
-            }, 0);
-        }
-    });
-
-    // 2. Kéo kết thúc (Drag End)
-    editor.addEventListener('dragend', function(e) {
-        if (draggedEditorImg) {
-            draggedEditorImg.classList.remove('editor-img-dragging');
-            draggedEditorImg = null;
-        }
-        hideEditorDropCaret();
-    });
-
-    // 3. Rê chuột khi đang kéo (Drag Over) - hiển thị dấu nháy chuột định vị chính xác vị trí thả
-    editor.addEventListener('dragover', function(e) {
-        const isInternalImg = !!draggedEditorImg;
-        const isFiles = e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files');
-        const isHtml = e.dataTransfer && e.dataTransfer.types && (
-            Array.from(e.dataTransfer.types).includes('text/html') || 
-            Array.from(e.dataTransfer.types).includes('text/uri-list') ||
-            Array.from(e.dataTransfer.types).includes('text/plain')
-        );
-
-        if (isInternalImg || isFiles || isHtml) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = isInternalImg ? 'move' : 'copy';
-            updateEditorDropCaret(e.clientX, e.clientY);
-        }
-    });
-
-    // 4. Rời khỏi editor khi đang kéo
-    editor.addEventListener('dragleave', function(e) {
-        if (!editor.contains(e.relatedTarget)) {
-            hideEditorDropCaret();
-        }
-    });
-
-    // 5. Thả ảnh vào vị trí dấu nháy (Drop)
-    editor.addEventListener('drop', function(e) {
-        const targetDropRange = getCaretRangeFromPoint(e.clientX, e.clientY) || currentDropRange;
-        hideEditorDropCaret();
-
-        // TRƯỜNG HỢP 1: Kéo ảnh có sẵn trong bài sang vị trí mới
-        if (draggedEditorImg) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const targetImg = draggedEditorImg;
-            draggedEditorImg = null;
-            targetImg.classList.remove('editor-img-dragging');
-
-            if (!targetDropRange || !editor.contains(targetDropRange.startContainer)) {
-                return;
-            }
-
-            // Tránh thả ảnh vào chính nó
-            if (targetImg.contains(targetDropRange.startContainer)) {
-                return;
-            }
-
-            // Chèn ảnh vào đúng vị trí dấu nháy
-            targetDropRange.insertNode(targetImg);
-
-            // Đặt con trỏ chuột ngay sau ảnh vừa thả
-            const newRange = document.createRange();
-            newRange.setStartAfter(targetImg);
-            newRange.collapse(true);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-            saveCurrentEditorSelection();
-
-            // Hiển thị khung chọn và nút điều khiển cho ảnh tại vị trí mới
-            selectEditorImage(targetImg);
-
-            // Kích hoạt re-parse đề thi và cập nhật xem trước ngay lập tức
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-            saveDraftToSession();
-
-            if (typeof showToast === 'function') {
-                showToast('✓ Đã di chuyển hình ảnh đến vị trí mới!');
-            }
-            return;
-        }
-
-        // TRƯỜNG HỢP 2: Thả tệp ảnh từ máy tính vào đúng vị trí dấu nháy
-        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    insertImageAtRange(evt.target.result, targetDropRange);
-                };
-                reader.readAsDataURL(file);
-                return;
-            }
-        }
-
-        // TRƯỜNG HỢP 3: Kéo ảnh từ khung Xem trước (Giao diện học sinh) hoặc web khác vào
-        if (e.dataTransfer) {
-            const html = e.dataTransfer.getData('text/html');
-            if (html && /<img\b[^>]*>/i.test(html)) {
-                e.preventDefault();
-                e.stopPropagation();
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
-                const img = temp.querySelector('img');
-                if (img && img.src) {
-                    insertImageAtRange(img.src, targetDropRange);
-                    return;
-                }
-            }
-        }
-    });
-
-    // Global click listener to close dropdowns & overlay
-    document.addEventListener('click', function(e) {
-        const overlay = document.getElementById('editorImgResizerOverlay');
-        const isClickInsideOverlay = overlay && overlay.contains(e.target);
-        const isClickEditor = editor && editor.contains(e.target);
-
-        if (!isClickInsideOverlay && !isClickEditor && !isResizingImage) {
-            hideEditorImageResizer();
-        }
-
-        // Close palettes if clicked outside
-        const textPal = document.getElementById('textColorPalette');
-        const bgPal = document.getElementById('bgColorPalette');
-        const imgMenu = document.getElementById('imageInsertMenu');
-        if (textPal && !e.target.closest('#textColorPalette') && !e.target.closest('#btnTextColorPicker') && !e.target.closest('.toolbar-btn-color')) {
-            textPal.style.display = 'none';
-        }
-        if (bgPal && !e.target.closest('#bgColorPalette') && !e.target.closest('#btnBgColorPicker') && !e.target.closest('.toolbar-btn-color')) {
-            bgPal.style.display = 'none';
-        }
-        if (imgMenu && !e.target.closest('#imageInsertMenu') && !e.target.closest('.toolbar-btn-highlighted')) {
-            imgMenu.style.display = 'none';
-        }
-    });
-
-    // Setup drag events for 4 resize handles
-    const overlay = document.getElementById('editorImgResizerOverlay');
-    if (overlay) {
-        const handles = overlay.querySelectorAll('.img-resize-handle');
-        handles.forEach(handle => {
-            handle.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!activeEditorImg) return;
-
-                isResizingImage = true;
-                resizeHandleDir = this.dataset.handle;
-                resizeStartX = e.clientX;
-                resizeStartY = e.clientY;
-                resizeStartWidth = activeEditorImg.offsetWidth;
-                resizeStartHeight = activeEditorImg.offsetHeight;
-                resizeAspect = resizeStartWidth / (resizeStartHeight || 1);
-
-                document.body.style.cursor = window.getComputedStyle(this).cursor;
-
-                function onMouseMove(moveEvent) {
-                    if (!isResizingImage || !activeEditorImg) return;
-                    const dx = moveEvent.clientX - resizeStartX;
-                    let newWidth = resizeStartWidth;
-
-                    if (resizeHandleDir === 'se' || resizeHandleDir === 'ne') {
-                        newWidth = Math.max(50, resizeStartWidth + dx);
-                    } else if (resizeHandleDir === 'sw' || resizeHandleDir === 'nw') {
-                        newWidth = Math.max(50, resizeStartWidth - dx);
-                    }
-
-                    // Giới hạn max-width theo container editor
-                    const maxAllowed = editor.clientWidth - 40;
-                    if (newWidth > maxAllowed) newWidth = maxAllowed;
-
-                    activeEditorImg.style.width = Math.round(newWidth) + 'px';
-                    activeEditorImg.style.height = 'auto';
-
-                    updateResizerOverlayPosition();
-                    const tooltip = document.getElementById('imgDimTooltip');
-                    if (tooltip) {
-                        tooltip.innerText = `${Math.round(activeEditorImg.offsetWidth)} × ${Math.round(activeEditorImg.offsetHeight)} px`;
-                    }
-                }
-
-                function onMouseUp() {
-                    if (isResizingImage) {
-                        isResizingImage = false;
-                        document.body.style.cursor = '';
-                        window.removeEventListener('mousemove', onMouseMove);
-                        window.removeEventListener('mouseup', onMouseUp);
-                        editor.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                }
-
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-            });
-        });
-    }
-}
-
-function selectEditorImage(img) {
-    if (!img) return;
-    if (activeEditorImg && activeEditorImg !== img) {
-        activeEditorImg.classList.remove('editor-img-active');
-    }
-    activeEditorImg = img;
-    activeEditorImg.classList.add('editor-img-active');
-    updateResizerOverlayPosition();
-}
-
-function updateResizerOverlayPosition() {
-    const overlay = document.getElementById('editorImgResizerOverlay');
-    const editor = document.getElementById('codeEditor');
-    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
-    if (!overlay || !activeEditorImg || !editor || !wrapper) return;
-
-    const imgRect = activeEditorImg.getBoundingClientRect();
-    const wrapperRect = wrapper.getBoundingClientRect();
-
-    const top = imgRect.top - wrapperRect.top + wrapper.scrollTop;
-    const left = imgRect.left - wrapperRect.left + wrapper.scrollLeft;
-    const width = imgRect.width;
-    const height = imgRect.height;
-
-    overlay.style.display = 'block';
-    overlay.style.top = top + 'px';
-    overlay.style.left = left + 'px';
-    overlay.style.width = width + 'px';
-    overlay.style.height = height + 'px';
-
-    const tooltip = document.getElementById('imgDimTooltip');
-    if (tooltip) {
-        tooltip.innerText = `${Math.round(width)} × ${Math.round(height)} px`;
-    }
-}
-
-function hideEditorImageResizer() {
-    const overlay = document.getElementById('editorImgResizerOverlay');
-    if (overlay) overlay.style.display = 'none';
-    if (activeEditorImg) {
-        activeEditorImg.classList.remove('editor-img-active');
-        activeEditorImg = null;
-    }
-}
-
-function setImgWidthPreset(preset) {
-    if (!activeEditorImg) return;
-    activeEditorImg.style.width = preset;
-    activeEditorImg.style.height = 'auto';
-    updateResizerOverlayPosition();
-    const editor = document.getElementById('codeEditor');
-    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function setImgAlign(align) {
-    if (!activeEditorImg) return;
-    if (align === 'left') {
-        activeEditorImg.style.display = 'inline-block';
-        activeEditorImg.style.float = 'left';
-        activeEditorImg.style.margin = '8px 16px 8px 0';
-    } else if (align === 'center') {
-        activeEditorImg.style.display = 'block';
-        activeEditorImg.style.float = 'none';
-        activeEditorImg.style.margin = '10px auto';
-    } else if (align === 'right') {
-        activeEditorImg.style.display = 'inline-block';
-        activeEditorImg.style.float = 'right';
-        activeEditorImg.style.margin = '8px 0 8px 16px';
-    }
-    updateResizerOverlayPosition();
-    const editor = document.getElementById('codeEditor');
-    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function deleteActiveEditorImage() {
-    if (!activeEditorImg) return;
-    const confirmDelete = confirm('Bạn có chắc chắn muốn xóa hình ảnh này khỏi bài không?');
-    if (confirmDelete) {
-        const editor = document.getElementById('codeEditor');
-        activeEditorImg.remove();
-        hideEditorImageResizer();
-        if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
-        showToast('Đã xóa hình ảnh.');
-    }
-}
-
-// --------------------------------------------------------------------------
-// 3. CANVAS-BASED IMAGE CROPPER MODAL ENGINE
-// --------------------------------------------------------------------------
-let cropperTargetImg = null;
-let cropperRotation = 0; // 0, 90, 180, 270
-let cropperFlipH = 1;
-let cropperCropRatio = 'free'; // 'free', 1, 4/3, 16/9
-let cropperBox = { x: 0, y: 0, w: 100, h: 100 };
-let isDraggingCrop = false;
-let isResizingCrop = false;
-let cropResizeDir = '';
-let cropDragStartX = 0, cropDragStartY = 0;
-let cropBoxStart = { x: 0, y: 0, w: 0, h: 0 };
-
-function openCropperForActiveImage(img = null) {
-    cropperTargetImg = img || activeEditorImg;
-    if (!cropperTargetImg) {
-        showToast('Vui lòng chọn một hình ảnh cần cắt!');
-        return;
-    }
-
-    const modal = document.getElementById('imageCropperModal');
-    const sourceImg = document.getElementById('cropperSourceImg');
-    if (!modal || !sourceImg) return;
-
-    cropperRotation = 0;
-    cropperFlipH = 1;
-    cropperCropRatio = 'free';
-
-    modal.style.display = 'flex';
-    sourceImg.style.transform = 'none';
-    sourceImg.src = cropperTargetImg.src;
-
-    sourceImg.onload = function() {
-        initCropBox();
-    };
-
-    if (sourceImg.complete && sourceImg.naturalWidth > 0) {
-        initCropBox();
-    }
-}
-
-function closeImageCropperModal() {
-    const modal = document.getElementById('imageCropperModal');
-    if (modal) modal.style.display = 'none';
-    cropperTargetImg = null;
-}
-
-function initCropBox() {
-    const sourceImg = document.getElementById('cropperSourceImg');
-    const boxEl = document.getElementById('cropperBox');
-    if (!sourceImg || !boxEl) return;
-
-    const imgW = sourceImg.clientWidth || 300;
-    const imgH = sourceImg.clientHeight || 200;
-
-    // Default crop box: centered, 80% of image
-    const w = Math.round(imgW * 0.8);
-    const h = Math.round(imgH * 0.8);
-    const x = Math.round((imgW - w) / 2);
-    const y = Math.round((imgH - h) / 2);
-
-    cropperBox = { x, y, w, h };
-    renderCropBox();
-    setupCropBoxInteractions();
-}
-
-function renderCropBox() {
-    const boxEl = document.getElementById('cropperBox');
-    if (!boxEl) return;
-    boxEl.style.left = cropperBox.x + 'px';
-    boxEl.style.top = cropperBox.y + 'px';
-    boxEl.style.width = cropperBox.w + 'px';
-    boxEl.style.height = cropperBox.h + 'px';
-}
-
-function setupCropBoxInteractions() {
-    const boxEl = document.getElementById('cropperBox');
-    const sourceImg = document.getElementById('cropperSourceImg');
-    if (!boxEl || !sourceImg) return;
-
-    // 1. Move Crop Box by dragging inside
-    boxEl.onmousedown = function(e) {
-        if (e.target.classList.contains('crop-h')) return; // handled by handle mousedown
-        e.preventDefault();
-        isDraggingCrop = true;
-        cropDragStartX = e.clientX;
-        cropDragStartY = e.clientY;
-        cropBoxStart = { ...cropperBox };
-
-        function onBoxMouseMove(evt) {
-            if (!isDraggingCrop) return;
-            const dx = evt.clientX - cropDragStartX;
-            const dy = evt.clientY - cropDragStartY;
-
-            const maxW = sourceImg.clientWidth;
-            const maxH = sourceImg.clientHeight;
-
-            let nx = Math.max(0, Math.min(maxW - cropBoxStart.w, cropBoxStart.x + dx));
-            let ny = Math.max(0, Math.min(maxH - cropBoxStart.h, cropBoxStart.y + dy));
-
-            cropperBox.x = nx;
-            cropperBox.y = ny;
-            renderCropBox();
-        }
-
-        function onBoxMouseUp() {
-            isDraggingCrop = false;
-            window.removeEventListener('mousemove', onBoxMouseMove);
-            window.removeEventListener('mouseup', onBoxMouseUp);
-        }
-
-        window.addEventListener('mousemove', onBoxMouseMove);
-        window.addEventListener('mouseup', onBoxMouseUp);
-    };
-
-    // 2. Resize Crop Box by dragging handles
-    const handles = boxEl.querySelectorAll('.crop-h');
-    handles.forEach(h => {
-        h.onmousedown = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            isResizingCrop = true;
-            cropResizeDir = this.dataset.dir;
-            cropDragStartX = e.clientX;
-            cropDragStartY = e.clientY;
-            cropBoxStart = { ...cropperBox };
-
-            function onHandleMouseMove(evt) {
-                if (!isResizingCrop) return;
-                const dx = evt.clientX - cropDragStartX;
-                const dy = evt.clientY - cropDragStartY;
-                const maxW = sourceImg.clientWidth;
-                const maxH = sourceImg.clientHeight;
-
-                let { x, y, w, h } = cropBoxStart;
-
-                if (cropResizeDir.includes('e')) {
-                    w = Math.min(maxW - x, Math.max(30, cropBoxStart.w + dx));
-                }
-                if (cropResizeDir.includes('s')) {
-                    h = Math.min(maxH - y, Math.max(30, cropBoxStart.h + dy));
-                }
-                if (cropResizeDir.includes('w')) {
-                    const proposedW = cropBoxStart.w - dx;
-                    if (proposedW >= 30 && (cropBoxStart.x + dx) >= 0) {
-                        x = cropBoxStart.x + dx;
-                        w = proposedW;
-                    }
-                }
-                if (cropResizeDir.includes('n')) {
-                    const proposedH = cropBoxStart.h - dy;
-                    if (proposedH >= 30 && (cropBoxStart.y + dy) >= 0) {
-                        y = cropBoxStart.y + dy;
-                        h = proposedH;
-                    }
-                }
-
-                // Enforce fixed ratio if selected
-                if (cropperCropRatio !== 'free' && typeof cropperCropRatio === 'number') {
-                    h = Math.round(w / cropperCropRatio);
-                    if (y + h > maxH) {
-                        h = maxH - y;
-                        w = Math.round(h * cropperCropRatio);
-                    }
-                }
-
-                cropperBox = { x, y, w, h };
-                renderCropBox();
-            }
-
-            function onHandleMouseUp() {
-                isResizingCrop = false;
-                window.removeEventListener('mousemove', onHandleMouseMove);
-                window.removeEventListener('mouseup', onHandleMouseUp);
-            }
-
-            window.addEventListener('mousemove', onHandleMouseMove);
-            window.addEventListener('mouseup', onHandleMouseUp);
-        };
-    });
-}
-
-function setCropRatio(ratio, btn) {
-    cropperCropRatio = ratio;
-    const btns = document.querySelectorAll('.cropper-ctrl-btn[data-ratio]');
-    btns.forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-
-    const sourceImg = document.getElementById('cropperSourceImg');
-    if (!sourceImg) return;
-    const maxW = sourceImg.clientWidth;
-    const maxH = sourceImg.clientHeight;
-
-    if (ratio !== 'free' && typeof ratio === 'number') {
-        let w = cropperBox.w;
-        let h = Math.round(w / ratio);
-        if (h > maxH) {
-            h = maxH * 0.8;
-            w = Math.round(h * ratio);
-        }
-        if (cropperBox.x + w > maxW) cropperBox.x = Math.max(0, maxW - w);
-        if (cropperBox.y + h > maxH) cropperBox.y = Math.max(0, maxH - h);
-        cropperBox.w = w;
-        cropperBox.h = h;
-        renderCropBox();
-    }
-}
-
-function rotateCropper(deg) {
-    cropperRotation = (cropperRotation + deg + 360) % 360;
-    applyImgTransform();
-}
-
-function flipCropper(dir) {
-    if (dir === 'h') {
-        cropperFlipH = cropperFlipH * -1;
-    }
-    applyImgTransform();
-}
-
-function applyImgTransform() {
-    const sourceImg = document.getElementById('cropperSourceImg');
-    if (!sourceImg) return;
-    sourceImg.style.transform = `rotate(${cropperRotation}deg) scaleX(${cropperFlipH})`;
-}
-
-function resetCropBox() {
-    cropperRotation = 0;
-    cropperFlipH = 1;
-    applyImgTransform();
-    initCropBox();
-}
-
-function applyImageCrop() {
-    if (!cropperTargetImg) return;
-    const sourceImg = document.getElementById('cropperSourceImg');
-    if (!sourceImg || !sourceImg.naturalWidth) return;
-
-    // Tỷ lệ giữa kích thước thật và kích thước hiển thị trên màn hình
-    const scaleX = sourceImg.naturalWidth / sourceImg.clientWidth;
-    const scaleY = sourceImg.naturalHeight / sourceImg.clientHeight;
-
-    const realCropX = Math.round(cropperBox.x * scaleX);
-    const realCropY = Math.round(cropperBox.y * scaleY);
-    const realCropW = Math.round(cropperBox.w * scaleX);
-    const realCropH = Math.round(cropperBox.h * scaleY);
-
-    if (realCropW <= 0 || realCropH <= 0) {
-        showToast('Vùng cắt không hợp lệ!');
-        return;
-    }
-
-    // 1. Tạo canvas offscreen để cắt ảnh và áp dụng biến đổi
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    if (cropperRotation === 90 || cropperRotation === 270) {
-        canvas.width = realCropH;
-        canvas.height = realCropW;
-    } else {
-        canvas.width = realCropW;
-        canvas.height = realCropH;
-    }
-
-    ctx.save();
-
-    // Di chuyển tâm canvas và xoay/lật
-    if (cropperRotation === 90) {
-        ctx.translate(canvas.width, 0);
-        ctx.rotate(Math.PI / 2);
-        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
-    } else if (cropperRotation === 180) {
-        ctx.translate(canvas.width, canvas.height);
-        ctx.rotate(Math.PI);
-        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
-    } else if (cropperRotation === 270) {
-        ctx.translate(0, canvas.height);
-        ctx.rotate((3 * Math.PI) / 2);
-        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
-    } else {
-        if (cropperFlipH === -1) {
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-        }
-        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
-    }
-
-    ctx.restore();
-
-    // 2. Xuất ảnh đã cắt sang Data URL
-    const croppedDataUrl = canvas.toDataURL('image/png');
-
-    // 3. Cập nhật trực tiếp vào thẻ IMG đang chọn trong editor
-    cropperTargetImg.src = croppedDataUrl;
-    cropperTargetImg.style.maxWidth = '100%';
-    cropperTargetImg.style.height = 'auto';
-
-    closeImageCropperModal();
-    updateResizerOverlayPosition();
-
-    // 4. Báo cho editor biết nội dung đã thay đổi để lưu draft & render preview
-    const editor = document.getElementById('codeEditor');
-    if (editor) {
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    showToast('✓ Đã cắt và cập nhật ảnh thành công!');
-}
-
-
-window.insertSampleDemoImage = function() {
-    const svgSample = '<svg xmlns="http://www.w3.org/2000/svg" width="380" height="220" viewBox="0 0 380 220">' +
-        '<rect width="100%" height="100%" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" rx="8"/>' +
-        '<line x1="30" y1="180" x2="350" y2="180" stroke="#475569" stroke-width="2"/>' +
-        '<line x1="190" y1="20" x2="190" y2="200" stroke="#475569" stroke-width="2"/>' +
-        '<path d="M 50 170 Q 190 30 330 170" fill="none" stroke="#2563eb" stroke-width="3"/>' +
-        '<text x="340" y="174" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">x</text>' +
-        '<text x="198" y="34" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">y</text>' +
-        '<text x="190" y="120" font-family="sans-serif" font-size="13" fill="#2563eb" text-anchor="middle" font-weight="bold">y = f(x)</text>' +
-    '</svg>';
-    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSample);
-    insertImageToEditor(dataUri);
-    showToast('✓ Đã chèn ảnh mẫu! Bấm vào ảnh để kéo góc giãn ảnh hoặc bấm "Cắt ảnh".');
-};
-
-// Lắng nghe sự kiện click / double-click ảnh ở khung XEM TRƯỚC (Giao diện học sinh)
-document.addEventListener('DOMContentLoaded', function() {
-    const previewContent = document.getElementById('preview-content');
-    if (previewContent) {
-        previewContent.addEventListener('mouseenter', function(e) {
-            if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
-                e.target.setAttribute('draggable', 'true');
-            }
-        }, true);
-        previewContent.addEventListener('dblclick', function(e) {
-            if (e.target && e.target.tagName === 'IMG') {
-                const targetSrc = e.target.getAttribute('src');
-                const editorImgs = document.querySelectorAll('#codeEditor img');
-                let matchImg = null;
-                for (let img of editorImgs) {
-                    if (img.getAttribute('src') === targetSrc) {
-                        matchImg = img;
-                        break;
-                    }
-                }
-                if (matchImg) {
-                    selectEditorImage(matchImg);
-                    openCropperForActiveImage(matchImg);
-                } else {
-                    openCropperForActiveImage(e.target);
-                }
-            }
-        });
-    }
-});
+                } else if (realType === 'true_false') {
+            if (typeof q.correct_answer !== 'object' || !q.correct_answer) {
+                q.correct_answer = { a: true, b: false, c: true, d: false };
+            }
+        } else if (realType === 'short_answer') {
+            q.options = [];
+            if (!q.correct_answer) q.correct_answer = "";
+        }
+    });
+    return data;
+}
+
+function updateSyntaxHighlight() {
+    // Đã loại bỏ do chuyển sang giao diện WYSIWYG
+}
+
+// Hàm chuyển đổi bảng Markdown (| ... | ... |) thành bảng HTML chuyên nghiệp
+function renderMarkdownTables(text) {
+    if (!text || typeof text !== 'string' || text.indexOf('|') === -1) return text;
+    let textNorm = text.replace(/\\n/g, '\n').replace(/<br\s*\/?>/gi, '\n');
+    let lines = textNorm.split('\n');
+    let result = [];
+    let tableLines = [];
+    let inTable = false;
+
+    function processTable(tbl) {
+        let validRows = tbl.map(l => l.trim()).filter(l => l.includes('|'));
+        if (validRows.length < 2) return tbl.join('<br>');
+        let rowsData = [];
+        let hasSeparator = false;
+        for (let r of validRows) {
+            let cleaned = r.replace(/^\|/, '').replace(/\|$/, '');
+            let cells = cleaned.split('|').map(c => c.trim());
+            let isSep = cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+            if (isSep) { hasSeparator = true; continue; }
+            rowsData.push(cells);
+        }
+        if (rowsData.length === 0) return tbl.join('<br>');
+        let maxCols = Math.max(...rowsData.map(r => r.length));
+        let html = '<div class="quiz-table-wrapper" style="overflow-x: auto; margin: 12px 0; display: block;"><table class="quiz-content-table" style="margin: 0 auto; border-collapse: collapse; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; text-align: center;">';
+        let startIdx = 0;
+        if (hasSeparator && rowsData.length > 0) {
+            html += '<thead><tr>';
+            for (let c of rowsData[0]) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc; font-weight: 600; text-align: center;">' + c + '</th>';
+            }
+            for (let i = rowsData[0].length; i < maxCols; i++) {
+                html += '<th style="border: 1px solid #cbd5e1; padding: 6px 14px; background: #f8fafc;"></th>';
+            }
+            html += '</tr></thead>';
+            startIdx = 1;
+        }
+        html += '<tbody>';
+        for (let i = startIdx; i < rowsData.length; i++) {
+            let row = rowsData[i];
+            html += '<tr>';
+            for (let c of row) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px; text-align: center;">' + c + '</td>';
+            }
+            for (let j = row.length; j < maxCols; j++) {
+                html += '<td style="border: 1px solid #cbd5e1; padding: 6px 14px;"></td>';
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    for (let line of lines) {
+        let stripped = line.trim();
+        if (stripped.startsWith('|') || (stripped.endsWith('|') && stripped.includes('|'))) {
+            tableLines.push(stripped);
+            inTable = true;
+        } else {
+            if (inTable) {
+                result.push(processTable(tableLines));
+                tableLines = [];
+                inTable = false;
+            }
+            result.push(line);
+        }
+    }
+    if (inTable) result.push(processTable(tableLines));
+    return result.join('\n');
+}
+
+const UNICODE_SUB_MAP = {
+    '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+    '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+    '₊': '+', '₋': '-', 'ₐ': 'a', 'ₑ': 'e', 'ₒ': 'o',
+    'ₓ': 'x', 'ₕ': 'h', 'ₖ': 'k', 'ₗ': 'l', 'ₘ': 'm',
+    'ₙ': 'n', 'ₚ': 'p', 'ₛ': 's', 'ₜ': 't'
+};
+const UNICODE_SUP_MAP = {
+    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+    '⁺': '+', '⁻': '-'
+};
+
+const HNTN_CHEM_ELEMENTS = 'He|Li|Be|Ne|Na|Mg|Al|Si|Cl|Ar|Ca|Sc|Ti|Cr|Mn|Fe|Co|Ni|Cu|Zn|Ga|Ge|As|Se|Br|Kr|Rb|Sr|Zr|Nb|Mo|Tc|Ru|Rh|Pd|Ag|Cd|In|Sn|Sb|Te|Xe|Cs|Ba|Pt|Au|Hg|Pb|Bi|H|B|C|N|O|F|P|S|K|I|U|V|Y|W';
+const HNTN_CHEM_FORMULA_REGEX = new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*|(?:' + HNTN_CHEM_ELEMENTS + ')\\d*)*(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d+|\\)\\d+)(?:(?:' + HNTN_CHEM_ELEMENTS + ')\\d*|\\\\)*)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g');
+const HNTN_UNITS_REGEX = /(?:^|[^a-zA-Z\u00C0-\u1EF90-9_])\d+(?:[.,]\d+)?\s*(?:[%‰]|M\b|mol(?:\/[Ll])?\b|gam\b|kg\b|mg\b|g(?:\/(?:mL|ml|cm3))?\b|mL\b|ml\b|l\b|lít\b|lit\b|atm\b|bar\b|mmHg\b|torr\b|ppm\b|ppb\b|V\b|W\b|J\b|kJ\b|cal\b|kcal\b|[°℃]|oC\b|độ\b)/g;
+const HNTN_CHEM_REPLACE_REGEX = new RegExp('(?:(' + HNTN_CHEM_ELEMENTS + ')|(\\)))\\s*(\\d+)', 'g');
+
+function formatSubscriptsAndFormulas(text, convertNewlines = false) {
+    if (!text || typeof text !== 'string') return text;
+    const placeholders = [];
+    let safe = text.replace(/(\[IMG_\d+\]|\[HÌNH_ẢNH_\d+\])/g, (m) => {
+        placeholders.push(m);
+        return `XYZPH${placeholders.length - 1}XYZ`;
+    });
+    safe = safe.replace(/(\\\[[\s\S]*?\\\]|\\\(.*?\\\)|\$\$[\s\S]*?\$\$|\$[^\$]+?\$|\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\})/gi, (m) => {
+        placeholders.push(m);
+        return `XYZPH${placeholders.length - 1}XYZ`;
+    });
+    // Chuyển đổi bảng Markdown sang bảng HTML có cấu trúc
+    safe = renderMarkdownTables(safe);
+    safe = safe.replace(/(<table\b[\s\S]*?<\/table>|<(?![\/]?(?:sub|sup)\b)[^>]+>)/gi, (m) => {
+        placeholders.push(m);
+        return `XYZPH${placeholders.length - 1}XYZ`;
+    });
+
+    // Bảo vệ đại lượng đo lường: nồng độ %, nồng độ mol, đơn vị đo (tránh nhầm số phần trăm thành chỉ số dưới hóa học, ví dụ: NaOH 30% -> không thành NaOH30)
+    safe = safe.replace(HNTN_UNITS_REGEX, (full) => {
+        const m = full.match(/^([^a-zA-Z\u00C0-\u1EF90-9_])(.*)$/);
+        if (m) {
+            placeholders.push(m[2]);
+            return m[1] + `XYZPH${placeholders.length - 1}XYZ`;
+        }
+        placeholders.push(full);
+        return `XYZPH${placeholders.length - 1}XYZ`;
+    });
+
+    // 1. Chuyển đổi chỉ số dưới / chỉ số trên Unicode sang <sub> / <sup>
+    safe = safe.replace(/[₀₁₂₃₄₅₆₇₈₉₊₋ₐₑₒₓₕₖₗₘₙₚₛₜ]+/g, m => '<sub>' + m.split('').map(c => UNICODE_SUB_MAP[c] || c).join('') + '</sub>');
+    safe = safe.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+/g, m => '<sup>' + m.split('').map(c => UNICODE_SUP_MAP[c] || c).join('') + '</sup>');
+
+    // 2. Thu gọn khoảng trắng rời rạc trong công thức hóa học: (C 17 H 35 COO) 3 C 3 H 5 -> (C17H35COO)3C3H5
+    safe = safe.replace(new RegExp('\\((?=[^)]*[A-Za-z])((?:' + HNTN_CHEM_ELEMENTS + '|\\d+|\\s)+)\\)(?=\\s*\\d)', 'g'), (m, inner) => {
+        return '(' + inner.replace(new RegExp('((?:' + HNTN_CHEM_ELEMENTS + '))\\s+(\\d+)', 'g'), '$1$2').replace(/\s+/g, '') + ')';
+    });
+    safe = safe.replace(/\)\s+(\d+)/g, ')$1');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')+)\\s+(\\d+)(?![a-zA-Z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(\\)\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + '))(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d*)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)\\s+(\\((?:' + HNTN_CHEM_ELEMENTS + '|\\d+)+\\)\\d*)', 'g'), '$1$2$3');
+    safe = safe.replace(new RegExp('(^|[^a-zA-Z\\u00C0-\\u1EF90-9_])((?:' + HNTN_CHEM_ELEMENTS + '))\\s+((?:' + HNTN_CHEM_ELEMENTS + ')\\d+)(?![a-z\\u00C0-\\u1EF9])', 'g'), '$1$2$3');
+
+    // 3. Chỉ số dưới dạng _{...} và _số thành <sub>
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*\{([^}]+)\}/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*_\s*([0-9]+)/g, '$1<sub>$2</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([A-Z][a-z]?|[uvxyzmkn])\s*_\s*([a-z0-9]+)/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*\{([^}]+)\}/g, '$1<sup>$2</sup>');
+    safe = safe.replace(/([A-Za-z0-9\)\>\]])\s*\^\s*([0-9\+\-]+)/g, '$1<sup>$2</sup>');
+
+    // 4. Nhận diện công thức hóa học dạng số thường (H2SO4, Fe2O3, CO2, H2O, (C17H35COO)3C3H5)
+    safe = safe.replace(HNTN_CHEM_FORMULA_REGEX, (full, pfx, tok) => {
+        if (tok.includes('<sub>') || tok.includes('<sup>')) return full;
+        return (pfx || '') + tok.replace(HNTN_CHEM_REPLACE_REGEX, (m, el, par, num) => (el || par) + '<sub>' + num + '</sub>');
+    });
+
+    // 5. Biến số toán/lý và đơn vị (tránh nhầm chữ tiếng Việt như 'Câu 4')
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([xyz])\s*([1-9])(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])([uS])\s*([1-9]|n)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/(^|[^a-zA-Z\u00C0-\u1EF90-9_])(v)\s*(0)(?![a-zA-Z\u00C0-\u1EF90-9])/g, '$1$2<sub>$3</sub>');
+    safe = safe.replace(/\b(cm|dm|mm|m|km)\s*([23])\b/g, '$1<sup>$2</sup>');
+
+    // 6. Xóa khoảng trắng thừa trong và xung quanh sub/sup
+    safe = safe.replace(/<sub>\s*([^<]+?)\s*<\/sub>/gi, '<sub>$1</sub>');
+    safe = safe.replace(/<sup>\s*([^<]+?)\s*<\/sup>/gi, '<sup>$1</sup>');
+    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sub>/gi, '$1<sub>');
+    safe = safe.replace(/([A-Za-z\)\>\]])\s+<sup>/gi, '$1<sup>');
+    safe = safe.replace(/<\/sub>\s+([A-Z])(?!YZPH)/g, '</sub>$1');
+
+    if (convertNewlines) {
+        safe = safe.replace(/(?:\r\n|\r|\n|\\n)/g, '<br>');
+    }
+
+    for (let i = placeholders.length - 1; i >= 0; i--) {
+        safe = safe.split(`XYZPH${i}XYZ`).join(placeholders[i]);
+    }
+    return safe;
+}
+
+// ----------------------------------------------------
+// RENDER KHUNG XEM TRƯỚC (GIAO DIỆN HỌC SINH)
+// ----------------------------------------------------
+function renderPreviewAll() {
+    const previewContent = document.getElementById('preview-content');
+    if (!previewContent) return;
+    previewContent.innerHTML = '';
+    
+    if (currentData.length === 0) {
+        previewContent.innerHTML = "<p style='text-align: center; color: var(--studio-text-muted);'>Chưa có câu hỏi nào trong đề thi.</p>";
+        return;
+    }
+
+    let stats = {
+        total: currentData.length,
+        mcq4: 0,
+        mcq3: 0,
+        mcqOther: 0,
+        tf: 0,
+        short: 0
+    };
+    
+    currentData.forEach(q => {
+        let qType = getRealQuestionType(q);
+        if (qType === 'true_false') stats.tf++;
+        else if (qType === 'short_answer') stats.short++;
+        else {
+            let optCount = (q.options || []).length;
+            if (optCount === 4) stats.mcq4++;
+            else if (optCount === 3) stats.mcq3++;
+            else stats.mcqOther++;
+        }
+    });
+
+    const statsBox = document.createElement('div');
+    statsBox.style.cssText = "background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;";
+    statsBox.innerHTML = `
+        <div style="font-weight: 700; color: #1e293b; width: 100%; margin-bottom: 4px;"><i class="ri-pie-chart-2-fill" style="color: #3b82f6;"></i> Thống kê đề thi</div>
+        <div style="background: #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #334155;">Tổng số: ${stats.total} câu</div>
+        ${stats.mcq4 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 4 ĐA: ${stats.mcq4}</div>` : ''}
+        ${stats.mcq3 > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm 3 ĐA: ${stats.mcq3}</div>` : ''}
+        ${stats.mcqOther > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm khác: ${stats.mcqOther}</div>` : ''}
+        ${stats.tf > 0 ? `<div style="background: #e0f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #0369a1;">Đúng/Sai: ${stats.tf}</div>` : ''}
+        ${stats.short > 0 ? `<div style="background: #fef3c7; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #92400e;">Trả lời ngắn: ${stats.short}</div>` : ''}
+    `;
+    previewContent.appendChild(statsBox);
+
+    currentData.forEach((q, qIndex) => {
+        const prevBox = document.createElement('div');
+        prevBox.className = 'question-box';
+        prevBox.id = `preview_q_${qIndex}`;
+        prevBox.style.marginBottom = '20px';
+        prevBox.style.cursor = 'pointer';
+        prevBox.title = 'Nhấn để cuộn đến mã Code của câu này';
+        prevBox.onclick = () => scrollToQuestionInEditor(qIndex);
+        
+        let hasError = window.activeAIFeedbacks && window.activeAIFeedbacks[qIndex];
+        if (hasError) {
+            prevBox.style.borderColor = '#c084fc';
+            prevBox.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.1)';
+        }
+
+        let html = "";
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
+        
+        let qType = getRealQuestionType(q);
+        let typeBadge = '';
+        if (qType === 'true_false') {
+            typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
+        } else if (qType === 'short_answer') {
+            typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
+        }
+
+        let aiSuggestedBadge = '';
+        const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false';
+        if (q.is_ai_suggested && !isAIExplicitlyDisabled) {
+            aiSuggestedBadge = `
+                <span class="badge-ai-suggested" style="background: #fffbeb; color: #b45309; border: 1px solid #f59e0b; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px;" title="${escapeHtml(q.ai_suggestion_note || 'AI đề xuất, cần giáo viên xác nhận')}">
+                    <i class="ri-sparkling-fill" style="color: #d97706;"></i> AI đề xuất, cần giáo viên xác nhận
+                    <button type="button" onclick="confirmAISuggestedAnswer(${qIndex}, event)" style="margin-left: 6px; background: #d97706; color: #fff; border: none; border-radius: 4px; padding: 1px 6px; font-size: 0.72rem; cursor: pointer; font-weight: 600;" title="Xác nhận đáp án này đúng và gỡ cảnh báo">Xác nhận</button>
+                </span>
+            `;
+        }
+
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        
+        if (qType === 'true_false') {
+            // Giao diện xem trước cho câu hỏi Đúng / Sai
+            let tfMap = (typeof q.correct_answer === 'object' && q.correct_answer !== null) ? q.correct_answer : {};
+            html += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">`;
+            (q.options || []).forEach((opt, oIndex) => {
+                let charMatch = opt.match(/^[a-d]/);
+                let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+                let isTrue = tfMap[char] === true;
+                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/, ''));
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <div style="display: flex; align-items: flex-start; gap: 8px; flex: 1;">
+                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #e2e8f0; color: #334155; font-weight: 700; border-radius: 6px; font-size: 0.85rem; flex-shrink: 0;">${char}</span>
+                            <span style="font-size: 0.95rem; color: #1e293b;">${optClean}</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', true); event.stopPropagation();" title="Chọn làm đáp án đúng">Đúng</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', false); event.stopPropagation();" title="Chọn làm đáp án sai">Sai</span>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>`;
+        } else if (qType === 'short_answer') {
+            // Giao diện xem trước cho câu hỏi Trả lời ngắn
+            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer) : 'Chưa nhập đáp án';
+            html += `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
+                    <span style="font-weight: 700; color: #0284c7; font-size: 0.95rem;">✍️ Đáp án ngắn:</span>
+                    <span style="font-weight: 700; font-size: 1.05rem; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 6px; border: 1px solid #86efac;">${escapeHtml(caVal)}</span>
+                </div>`;
+        } else {
+            // MCQ (4 lựa chọn)
+            (q.options || []).forEach((opt, oIndex) => {
+                let isCorrect = q.correct_answer === opt;
+                if (!isCorrect && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
+                    let caLetter = (q.correct_answer.trim().match(/\b([A-F])\b/i) || [])[1];
+                    let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
+                    if (caLetter && optLetter && caLetter.toUpperCase() === optLetter.toUpperCase()) {
+                        isCorrect = true;
+                    }
+                }
+                let optClean = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
+                html += `<label class="option-practice ${isCorrect ? 'correct selected' : ''}" style="cursor: pointer; padding: 10px 14px; margin-bottom: 8px;" onclick="changeCorrectAnswer(${qIndex}, ${oIndex}); event.stopPropagation();" title="Bấm để chọn làm đáp án đúng">
+                            <input type="radio" disabled ${isCorrect ? 'checked' : ''}>
+                            <span class="opt-badge">${opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex)}</span>
+                            <span class="opt-text">${optClean}</span>
+                        </label>`;
+            });
+        }
+
+        // Lời giải chi tiết
+        if (q.explain && q.explain.trim()) {
+            html += `<div style="margin-top: 8px; padding: 8px 12px; background: #f1f5f9; border-left: 3px solid #64748b; border-radius: 6px; font-size: 0.9rem; color: #334155;">
+                <b>💡 Lời giải:</b> ${formatSubscriptsAndFormulas(q.explain, true)}
+            </div>`;
+        }
+
+        // KIỂM TRA CHÉO ĐÁP ÁN: CẢNH BÁO NẾU AI GIẢI KHÁC ĐÁP ÁN GỐC
+        if (q.has_cross_check_warning && q.cross_check_info) {
+            let info = q.cross_check_info;
+            let tAns = typeof info.teacher_answer === 'object' ? JSON.stringify(info.teacher_answer) : String(info.teacher_answer || 'Chưa rõ');
+            let aiAns = typeof info.ai_answer === 'object' ? JSON.stringify(info.ai_answer) : String(info.ai_answer || 'Chưa rõ');
+            let aiExp = info.ai_explain || '';
+            
+            html += `
+                <div class="cross-check-warning-box" style="margin-top: 12px; margin-bottom: 8px; padding: 12px 14px; background: #fff7ed; border: 1.5px solid #fdba74; border-radius: 8px;" onclick="event.stopPropagation();">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #c2410c; display: flex; align-items: center; gap: 6px; font-size: 0.92rem;">
+                            <i class="ri-alert-fill" style="color: #ea580c; font-size: 1.15rem;"></i>
+                            CẢNH BÁO KIỂM TRA CHÉO: AI giải khác đáp án của Giáo viên!
+                        </span>
+                        <span style="font-size: 0.78rem; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Cần rà soát</span>
+                    </div>
+                    <div style="font-size: 0.88rem; color: #7c2d12; margin-bottom: 10px; line-height: 1.5;">
+                        <div><b>Đáp án hiện tại (Giáo viên / Gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
+                        <div style="margin-top: 5px;"><b>Đáp án do AI độc lập giải:</b> <span style="background: #bbf7d0; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(aiAns)}</span></div>
+                        ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp, true)}</div>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn-primary" style="padding: 5px 12px; font-size: 0.82rem; background: #ea580c; border: none; border-radius: 6px; cursor: pointer;" onclick="acceptAICrossCheckAnswer(${qIndex}); event.stopPropagation();">
+                            <i class="ri-check-line"></i> Dùng đáp án AI giải
+                        </button>
+                        <button type="button" class="btn-studio-outline" style="padding: 5px 12px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer;" onclick="dismissAICrossCheck(${qIndex}); event.stopPropagation();">
+                            <i class="ri-close-line"></i> Giữ đáp án Giáo viên & Bỏ qua
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // TOOLBAR MỖI CÂU HỎI (SINH CÂU TƯƠNG TỰ)
+        html += `
+            <div class="q-card-footer" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;" onclick="event.stopPropagation();">
+                <button type="button" class="btn-studio-outline" style="padding: 4px 10px; font-size: 0.82rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; color: #6366f1; border-color: #c7d2fe; background: #eef2ff;" onclick="openSimilarModal(${qIndex}); event.stopPropagation();" title="Sinh các câu hỏi tương tự từ câu này để luyện tập">
+                    <i class="ri-file-copy-2-line"></i> Sinh câu tương tự
+                </button>
+            </div>
+        `;
+        
+        prevBox.innerHTML = html;
+        
+        // Chèn thẻ AI gợi ý sửa lỗi / xóa câu / đổi kết cấu nếu có
+        if (hasError) {
+            const aiData = window.activeAIFeedbacks[qIndex];
+            const isDelete = aiData.action === 'delete' || aiData.category === 'delete';
+            const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
+
+            const isExplain = aiData.category === 'explanation';
+            const isLatex = aiData.category === 'latex';
+
+            const catClass = isDelete ? 'ai-cat-delete' :
+                             (isRestructure ? 'ai-cat-restructure' :
+                             (isExplain ? 'ai-cat-explain' :
+                             (isLatex ? 'ai-cat-latex' :
+                             (aiData.category === 'knowledge' ? 'ai-cat-knowledge' :
+                             (aiData.category === 'answer' ? 'ai-cat-answer' :
+                             (aiData.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
+
+            const aiDiv = document.createElement('div');
+            aiDiv.onclick = (e) => e.stopPropagation();
+
+            if (isDelete) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; cursor: default;';
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-delete-bin-line" style="color: #dc2626; font-size: 1.15rem;"></i>
+                            <strong style="color: #dc2626;">Yêu cầu xóa câu hỏi:</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Yêu cầu xóa câu'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #991b1b; font-size: 0.92rem; font-weight: 500; margin-bottom: 10px; line-height: 1.5;">
+                        ${escapeHtml(aiData.reason || 'Người làm đề yêu cầu loại bỏ câu hỏi này.')}
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-delete" onclick="applyAIDelete(${qIndex})">
+                            <i class="ri-delete-bin-line"></i> Xác nhận xóa câu này
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else if (isRestructure) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let targetType = corrected.type || 'true_false';
+                let targetTypeName = targetType === 'true_false' ? 'Đúng / Sai' : (targetType === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm 4 lựa chọn');
+
+                let previewRestructure = '';
+                if (targetType === 'true_false' && Array.isArray(corrected.options)) {
+                    let tfMap = typeof corrected.correct_answer === 'object' && corrected.correct_answer ? corrected.correct_answer : {};
+                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff; margin-bottom: 8px;">
+                        <div style="font-weight: 700; color: #7e22ce; margin-bottom: 6px;"><i class="ri-checkbox-multiple-line"></i> Kết cấu Đúng/Sai mới:</div>`;
+                    corrected.options.forEach((opt, oIdx) => {
+                        let ch = ['a', 'b', 'c', 'd'][oIdx] || 'a';
+                        let isT = tfMap[ch] === true;
+                        previewRestructure += `<div style="display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed #f3e8ff;">
+                            <span>${escapeHtml(opt)}</span>
+                            <span style="font-weight: 700; color: ${isT ? '#16a34a' : '#dc2626'};">${isT ? 'Đúng' : 'Sai'}</span>
+                        </div>`;
+                    });
+                    previewRestructure += `</div>`;
+                } else if (targetType === 'short_answer') {
+                    previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e9d5ff; color: #7e22ce; margin-bottom: 8px;">
+                        <b>✍️ Đáp án ngắn mới:</b> <span style="font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 4px;">${escapeHtml(String(corrected.correct_answer || ''))}</span>
+                    </div>`;
+                }
+
+                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-swap-line" style="color: #7e22ce; font-size: 1.15rem;"></i>
+                            <strong style="color: #7e22ce;">Thay đổi kết cấu (${targetTypeName}):</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Thay đổi kết cấu'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #6b21a8; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${previewRestructure}
+                    ${explainText}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-restructure" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-check-line"></i> Áp dụng đổi kết cấu
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else if (isExplain) {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let explainText = (corrected.explain || aiData.reason || '').trim();
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-lightbulb-fill" style="color: #10b981; font-size: 1.25rem;"></i>
+                            <strong style="color: #15803d;">Đề xuất bổ sung lời giải chi tiết:</strong>
+                            <span class="ai-cat-chip ai-cat-explain" style="padding: 2px 8px; font-size: 0.75rem;">${escapeHtml(aiData.category_name || 'Bổ sung lời giải')}</span>
+                        </div>
+                    </div>
+                    <div style="color: #166534; font-size: 0.92rem; font-weight: 500; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${explainText ? `
+                        <div style="margin-top: 8px; padding: 10px 14px; background: #ffffff; border-radius: 8px; font-size: 0.9rem; color: #1e293b; line-height: 1.6; border: 1px solid #dcfce7; border-left: 4px solid #10b981;">
+                            <b style="color: #15803d;"><i class="ri-lightbulb-line"></i> Nội dung lời giải:</b><br>
+                            ${formatSubscriptsAndFormulas(explainText, true)}
+                        </div>
+                    ` : ''}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-ai-explain" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-lightbulb-line"></i> Xác nhận thêm lời giải này
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            } else {
+                aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
+                let corrected = aiData.corrected_data || {};
+                let correctedAnswerText = typeof corrected.correct_answer === 'object' ? JSON.stringify(corrected.correct_answer) : (corrected.correct_answer || '');
+                let explainText = corrected.explain ? `<div style="margin-top: 6px; font-size: 0.88rem; color: #475569;"><b>💡 Giải thích:</b> ${escapeHtml(corrected.explain)}</div>` : '';
+
+                aiDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ri-sparkling-fill" style="color: #9333ea; font-size: 1.15rem;"></i>
+                            <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
+                            <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
+                        </div>
+                    </div>
+                    <div style="color: #dc2626; font-size: 0.92rem; font-weight: 600; margin-bottom: 8px;">
+                        ${escapeHtml(aiData.reason)}
+                    </div>
+                    ${correctedAnswerText ? `<div style="font-size: 0.88rem; background: #f0fdf4; padding: 6px 10px; border-radius: 6px; border: 1px solid #bbf7d0; color: #166534; margin-bottom: 8px;">
+                        <i class="ri-checkbox-circle-line" style="vertical-align: middle;"></i> <b>Đề xuất đáp án đúng:</b> ${escapeHtml(correctedAnswerText)}
+                    </div>` : ''}
+                    ${explainText}
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button class="btn-primary" style="padding: 6px 14px; font-size: 0.85rem; background: #9333ea; border: none; border-radius: 6px;" onclick="applyAISuggestion(${qIndex})">
+                            <i class="ri-magic-line"></i> Tự động sửa câu này
+                        </button>
+                        <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem; border-radius: 6px;" onclick="dismissAISuggestion(${qIndex})">
+                            Bỏ qua
+                        </button>
+                    </div>
+                `;
+            }
+            prevBox.appendChild(aiDiv);
+        }
+
+        previewContent.appendChild(prevBox);
+    });
+    
+    renderMathJax(previewContent);
+}
+
+function scrollToQuestionInEditor(qIndex) {
+    if (window.innerWidth <= 860) {
+        switchStudioMobileTab('code');
+    }
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    
+    const spans = editor.querySelectorAll('span');
+    let targetMatch = null;
+    let currentQ = 0;
+    
+    for (let span of spans) {
+        if (/Câu\s+\d+:/i.test(span.innerText)) {
+            if (currentQ === qIndex) {
+                targetMatch = span;
+                break;
+            }
+            currentQ++;
+        }
+    }
+    
+    if (targetMatch) {
+        targetMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        const parent = targetMatch.parentElement || targetMatch;
+        const origBg = parent.style.backgroundColor;
+        parent.style.transition = 'background-color 0.3s';
+        parent.style.backgroundColor = '#fef08a';
+        setTimeout(() => { 
+            parent.style.backgroundColor = origBg; 
+        }, 1500);
+    }
+}
+
+// Thay đổi đáp án từ giao diện Xem trước
+window.changeCorrectAnswer = function(qIndex, oIndex) {
+    if (!currentData[qIndex] || !currentData[qIndex].options) return;
+    currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex];
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật đáp án đúng!");
+};
+
+window.changeTfAnswer = function(qIndex, char, isTrue) {
+    if (!currentData[qIndex]) return;
+    if (typeof currentData[qIndex].correct_answer !== 'object' || currentData[qIndex].correct_answer === null) {
+        currentData[qIndex].correct_answer = {};
+    }
+    currentData[qIndex].correct_answer[char.toLowerCase()] = isTrue;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật đáp án Đúng/Sai!");
+};
+
+function insertQuestionTemplate() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    
+    const nextQNum = currentData.length + 1;
+    const template = `<br><br>Câu ${nextQNum}: Nội dung câu hỏi mới ở đây?<br>*A. Đáp án đúng thứ nhất<br>B. Đáp án thứ hai<br>C. Đáp án thứ ba<br>D. Đáp án thứ tư<br>`;
+    
+    editor.innerHTML += template;
+    editor.scrollTop = editor.scrollHeight;
+    editor.focus();
+    
+    currentData = parseEditorText(getRichEditorText(editor));
+    renderPreviewAll();
+    updateQCountBadge();
+    saveDraftToSession();
+    showToast(`Đã thêm Câu ${nextQNum}!`);
+}
+
+function formatEditorCode() {
+    syncDataToEditor();
+    renderPreviewAll();
+    showToast("Đã chuẩn hóa định dạng đề thi!");
+}
+
+// ----------------------------------------------------
+// TÍNH NĂNG AI RÀ SOÁT & THỐNG KÊ LỖI
+// ----------------------------------------------------
+function toggleAIPanel(forceState) {
+    const panel = document.getElementById('aiFeedbackBox');
+    if (!panel) return;
+    
+    if (forceState !== undefined) {
+        panel.style.display = forceState ? 'block' : 'none';
+    } else {
+        panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+    }
+    
+    if (panel.style.display === 'block') {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+async function runAICheck() {
+    // 1. Kiểm tra nhanh (Fail-Fast) ngay tại client: Nếu offline hoặc đề rỗng, trả kết quả tức thì trong 0.1ms
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showAIDiagnosticModal({
+            error_code: 'OFFLINE_NO_INTERNET',
+            error_name: 'Thiết bị mất kết nối Internet',
+            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
+            solution: 'Vui lòng kiểm tra lại kết nối WiFi / mạng dây trước khi gọi AI.',
+            technical_detail: 'navigator.onLine is false'
+        });
+        return;
+    }
+
+    if (!Array.isArray(currentData) || currentData.length === 0) {
+        showAIDiagnosticModal({
+            error_code: 'EMPTY_QUIZ_DATA',
+            error_name: 'Đề thi trống (0 câu hỏi)',
+            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để AI có thể rà soát hoặc phân tích.',
+            solution: 'Vui lòng thêm ít nhất một câu hỏi hoặc tải tệp đề thi lên trước khi chạy AI.',
+            technical_detail: 'currentData is empty or length is 0'
+        });
+        return;
+    }
+
+    const btn = document.getElementById('btnAICheck');
+    const customPrompt = document.getElementById('aiCustomPrompt').value.trim();
+    
+    if (btn) {
+        btn.innerText = "⏳ Đang quét đề thi...";
+        btn.disabled = true;
+    }
+
+    let checkProgress = 15;
+    showStudioLoader({
+        title: "🤖 AI đang rà soát & chuẩn hóa đề thi...",
+        subtitle: `Đang chuẩn bị dữ liệu ${currentData.length} câu hỏi...`,
+        showProgress: true,
+        progress: checkProgress
+    });
+
+    const progressTimer = setInterval(() => {
+        if (checkProgress < 40) {
+            checkProgress += 8;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kết nối mô hình Google Gemini..." });
+        } else if (checkProgress < 75) {
+            checkProgress += 5;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang kiểm tra chéo đáp án, công thức LaTeX và lời giải..." });
+        } else if (checkProgress < 92) {
+            checkProgress += 2;
+            updateStudioLoader({ progress: checkProgress, subtitle: "Đang tổng hợp khuyến nghị và tối ưu đề thi..." });
+        }
+    }, 600);
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                teacher_token: authToken,
+                quiz_data: currentData,
+                custom_prompt: customPrompt
+            })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.status === 'success') {
+            document.getElementById('aiFeedbackBox').style.display = 'block';
+            const statsContainer = document.getElementById('aiFeedbackStats');
+            const btnApplyAll = document.getElementById('btnApplyAllAI');
+
+            window.activeAIFeedbacks = {};
+            window.activeAINewQuizData = (Array.isArray(data.new_quiz_data) && data.new_quiz_data.length > 0) ? data.new_quiz_data : null;
+            window.activeAISummary = data.summary || "";
+
+            if (Array.isArray(data.feedback) && data.feedback.length > 0) {
+                data.feedback.forEach(item => {
+                    window.activeAIFeedbacks[item.question_index] = item;
+                });
+
+                const stats = data.stats || {
+                    total_questions: currentData.length,
+                    valid_questions: Math.max(0, currentData.length - data.feedback.length),
+                    error_count: data.feedback.length,
+                    accuracy_rate: Math.round(((currentData.length - data.feedback.length) / currentData.length) * 100),
+                    category_counts: { delete: 0, restructure: 0, explanation: 0, latex: 0, knowledge: 0, answer: 0, grammar_typo: 0, format: 0 }
+                };
+
+                let summaryHtml = data.summary ? `
+                    <div class="ai-summary-banner">
+                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
+                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
+                    </div>
+                ` : '';
+
+                let catChipsHtml = '<div class="ai-cat-chips">';
+                if (stats.category_counts?.delete > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-delete"><i class="ri-delete-bin-line"></i> Yêu cầu xóa: <b>${stats.category_counts.delete}</b></span>`;
+                }
+                if (stats.category_counts?.restructure > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-restructure"><i class="ri-swap-line"></i> Đổi kết cấu: <b>${stats.category_counts.restructure}</b></span>`;
+                }
+                if (stats.category_counts?.explanation > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-explain"><i class="ri-lightbulb-line"></i> Bổ sung lời giải: <b>${stats.category_counts.explanation}</b></span>`;
+                }
+                if (stats.category_counts?.latex > 0) {
+                    catChipsHtml += `<span class="ai-cat-chip ai-cat-latex"><i class="ri-functions"></i> Công thức LaTeX: <b>${stats.category_counts.latex}</b></span>`;
+                }
+                catChipsHtml += `
+                    <span class="ai-cat-chip ai-cat-knowledge"><i class="ri-brain-line"></i> Kiến thức: <b>${stats.category_counts?.knowledge || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-answer"><i class="ri-close-circle-line"></i> Đáp án: <b>${stats.category_counts?.answer || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-grammar"><i class="ri-spell-check-line"></i> Chính tả / Diễn đạt: <b>${stats.category_counts?.grammar_typo || 0}</b></span>
+                    <span class="ai-cat-chip ai-cat-format"><i class="ri-ruler-line"></i> Định dạng: <b>${stats.category_counts?.format || 0}</b></span>
+                </div>`;
+
+                let statsHtml = `
+                    ${summaryHtml}
+                    <div class="ai-stat-grid">
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Số câu ban đầu</span>
+                            <span class="ai-stat-val" style="color: #2563eb;">${stats.total_questions}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Số câu đạt chuẩn</span>
+                            <span class="ai-stat-val" style="color: #10b981;">${stats.valid_questions}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Yêu cầu / Cần sửa</span>
+                            <span class="ai-stat-val" style="color: #ef4444;">${stats.error_count}</span>
+                        </div>
+                        <div class="ai-stat-card">
+                            <span class="ai-stat-label">Tỷ lệ chính xác</span>
+                            <span class="ai-stat-val" style="color: #9333ea;">${stats.accuracy_rate}%</span>
+                        </div>
+                    </div>
+                    ${catChipsHtml}
+                `;
+                statsContainer.innerHTML = statsHtml;
+
+                renderAIFeedbackList();
+
+                if (btnApplyAll) {
+                    btnApplyAll.style.display = 'inline-block';
+                    btnApplyAll.innerHTML = '<i class="ri-flashlight-line"></i> Áp dụng TẤT CẢ thay đổi';
+                }
+                renderPreviewAll();
+            } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
+                let summaryHtml = data.summary ? `
+                    <div class="ai-summary-banner" style="margin-bottom: 20px;">
+                        <div class="ai-summary-title"><i class="ri-sparkling-fill"></i> Tóm tắt phản hồi từ AI:</div>
+                        <div class="ai-summary-text">${escapeHtml(data.summary)}</div>
+                    </div>
+                ` : '';
+
+                statsContainer.innerHTML = `
+                    ${summaryHtml}
+                    <div style="text-align: center; padding: 25px 10px;">
+                        <div style="font-size: 3rem; color: #10b981; margin-bottom: 10px;"><i class="ri-checkbox-circle-fill"></i></div>
+                        <h3 style="margin: 0; color: #059669;">Tuyệt vời! Đề thi đạt chuẩn 100% không phát hiện lỗi!</h3>
+                        <p style="margin: 6px 0 0 0; color: #64748b;">Toàn bộ câu hỏi, đáp án và định dạng đều hoàn hảo và sẵn sàng xuất bản.</p>
+                    </div>
+                `;
+                document.getElementById('aiFeedbackContent').innerHTML = '';
+                if (btnApplyAll) btnApplyAll.style.display = 'none';
+            }
+        } else {
+            showAIDiagnosticModal(data);
+        }
+    } catch(e) {
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối mạng tới máy chủ khi gọi AI',
+            cause: 'Trình duyệt không thể kết nối tới máy chủ API (do mất mạng, chập chờn hoặc máy chủ đang khởi động lại).',
+            solution: '1. Kiểm tra lại kết nối mạng Internet (WiFi/4G).\n2. Bấm thử lại sau vài giây.',
+            technical_detail: e.message || String(e)
+        });
+    } finally {
+        if (typeof progressTimer !== 'undefined') clearInterval(progressTimer);
+        hideStudioLoader();
+        if (btn) {
+            btn.innerHTML = '<i class="ri-search-eye-line"></i> Chạy AI Quét lỗi';
+            btn.disabled = false;
+        }
+    }
+}
+
+function renderAIFeedbackList() {
+    const contentContainer = document.getElementById('aiFeedbackContent');
+    const btnApplyAll = document.getElementById('btnApplyAllAI');
+    if (!contentContainer) return;
+
+    const remainingKeys = Object.keys(window.activeAIFeedbacks || {});
+    if (remainingKeys.length === 0) {
+        contentContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px 10px;">
+                <div style="font-size: 2.2rem; color: #10b981; margin-bottom: 6px;"><i class="ri-checkbox-circle-fill"></i></div>
+                <h3 style="margin: 0; color: #059669;">Tất cả yêu cầu và lỗi đã được xử lý hoàn tất!</h3>
+                <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi đã được cập nhật và đồng bộ toàn diện.</p>
+            </div>
+        `;
+        if (btnApplyAll) btnApplyAll.style.display = 'none';
+        return;
+    }
+
+    let errorListHtml = `
+        <h4 style="margin: 15px 0 10px 0; color: #475569; font-size: 0.95rem; text-transform: uppercase;">
+            <i class="ri-list-check-2" style="color: #9333ea;"></i> Danh sách các câu cần xử lý (${remainingKeys.length} câu):
+        </h4>
+        <div class="ai-error-list-container">
+    `;
+
+    // Sắp xếp danh sách câu tăng dần theo question_index
+    const sortedIndices = remainingKeys.map(Number).sort((a, b) => a - b);
+    sortedIndices.forEach(qIdx => {
+        const item = window.activeAIFeedbacks[qIdx];
+        if (!item) return;
+
+        const isDelete = item.action === 'delete' || item.category === 'delete';
+        const isRestructure = item.action === 'restructure' || item.category === 'restructure';
+        const isExplain = item.category === 'explanation';
+        const isLatex = item.category === 'latex';
+
+        const catClass = isDelete ? 'ai-cat-delete' :
+                         (isRestructure ? 'ai-cat-restructure' :
+                         (isExplain ? 'ai-cat-explain' :
+                         (isLatex ? 'ai-cat-latex' :
+                         (item.category === 'knowledge' ? 'ai-cat-knowledge' :
+                         (item.category === 'answer' ? 'ai-cat-answer' :
+                         (item.category === 'grammar_typo' ? 'ai-cat-grammar' : 'ai-cat-format'))))));
+
+        let actionBtnHtml = '';
+        if (isDelete) {
+            actionBtnHtml = `<button class="btn-ai-delete" onclick="applyAIDelete(${qIdx})"><i class="ri-delete-bin-line"></i> Xóa câu này</button>`;
+        } else if (isRestructure) {
+            actionBtnHtml = `<button class="btn-ai-restructure" onclick="applyAISuggestion(${qIdx})"><i class="ri-swap-line"></i> Đổi kết cấu</button>`;
+        } else if (isExplain) {
+            actionBtnHtml = `<button class="btn-ai-explain" onclick="applyAISuggestion(${qIdx})"><i class="ri-lightbulb-line"></i> Bổ sung lời giải</button>`;
+        } else {
+            actionBtnHtml = `<button class="btn-studio-primary" style="padding: 6px 12px; font-size: 0.85rem; background: #9333ea;" onclick="applyAISuggestion(${qIdx})"><i class="ri-magic-line"></i> Sửa câu này</button>`;
+        }
+
+        errorListHtml += `
+            <div class="ai-error-item" id="ai_summary_item_${qIdx}">
+                <div style="flex: 1; min-width: 260px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-weight: 800; color: #6b21a8; font-size: 1rem;">Câu ${qIdx + 1}</span>
+                        <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${item.category_name || (isDelete ? 'Yêu cầu xóa câu' : 'Lỗi')}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: ${isDelete ? '#dc2626; font-weight: 500;' : '#475569;'}">${escapeHtml(item.reason)}</div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn-studio-outline" style="padding: 6px 12px; font-size: 0.85rem;" onclick="jumpToQuestionCard(${qIdx})"><i class="ri-focus-2-line"></i> Tới Câu ${qIdx + 1}</button>
+                    ${actionBtnHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    errorListHtml += `</div>`;
+    contentContainer.innerHTML = errorListHtml;
+    if (btnApplyAll) btnApplyAll.style.display = 'inline-block';
+}
+
+function jumpToQuestionCard(qIndex) {
+    const targetCard = document.getElementById(`preview_q_${qIndex}`);
+    if (targetCard) {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetCard.classList.remove('ai-target-highlight');
+        void targetCard.offsetWidth;
+        targetCard.classList.add('ai-target-highlight');
+        setTimeout(() => {
+            targetCard.classList.remove('ai-target-highlight');
+        }, 3600);
+    }
+    scrollToQuestionInEditor(qIndex);
+}
+
+function applyAllAISuggestions() {
+    if (!window.activeAIFeedbacks || Object.keys(window.activeAIFeedbacks).length === 0) return;
+    const count = Object.keys(window.activeAIFeedbacks).length;
+    if (!confirm(`Bạn có chắc muốn áp dụng TẤT CẢ ${count} thay đổi từ AI (xóa câu, đổi kết cấu, sửa nội dung)?`)) return;
+
+    if (Array.isArray(window.activeAINewQuizData) && window.activeAINewQuizData.length > 0) {
+        currentData = JSON.parse(JSON.stringify(window.activeAINewQuizData));
+    } else {
+        // Áp dụng từ dưới lên (chỉ số cao xuống thấp) để tránh lệch index khi xóa câu
+        const sortedIndices = Object.keys(window.activeAIFeedbacks).map(Number).sort((a, b) => b - a);
+        for (const qIdx of sortedIndices) {
+            const fb = window.activeAIFeedbacks[qIdx];
+            if (!fb) continue;
+            if (fb.action === 'delete' || fb.category === 'delete') {
+                currentData.splice(qIdx, 1);
+            } else if (fb.corrected_data && currentData[qIdx]) {
+                const origGroup = currentData[qIdx].group_title;
+                currentData[qIdx] = {
+                    ...fb.corrected_data,
+                    group_title: fb.corrected_data.group_title !== undefined ? fb.corrected_data.group_title : origGroup
+                };
+            }
+        }
+    }
+
+    window.activeAIFeedbacks = {};
+    window.activeAINewQuizData = null;
+
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    renderAIFeedbackList();
+
+    const btnApplyAll = document.getElementById('btnApplyAllAI');
+    if (btnApplyAll) btnApplyAll.style.display = 'none';
+
+    document.getElementById('aiFeedbackStats').innerHTML = `
+        <div style="text-align: center; padding: 20px 10px;">
+            <div style="font-size: 2.5rem; color: #9333ea; margin-bottom: 8px;"><i class="ri-sparkling-fill"></i></div>
+            <h3 style="margin: 0; color: #9333ea;">Đã áp dụng thành công tất cả thay đổi!</h3>
+            <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo Code đã được cập nhật hoàn tất.</p>
+        </div>
+    `;
+    showToast(`Đã áp dụng tất cả thay đổi thành công!`);
+}
+
+function applyAIDelete(question_index) {
+    if (!confirm(`Bạn có chắc chắn muốn XÓA Câu ${question_index + 1}? Câu hỏi này sẽ bị loại bỏ khỏi đề thi.`)) return;
+
+    currentData.splice(question_index, 1);
+
+    // Cập nhật lại chỉ số các câu hỏi còn lại trong activeAIFeedbacks
+    delete window.activeAIFeedbacks[question_index];
+    const newFeedbacks = {};
+    for (const key in window.activeAIFeedbacks) {
+        const k = parseInt(key);
+        if (k > question_index) {
+            const item = window.activeAIFeedbacks[k];
+            item.question_index = k - 1;
+            newFeedbacks[k - 1] = item;
+        } else {
+            newFeedbacks[k] = window.activeAIFeedbacks[k];
+        }
+    }
+    window.activeAIFeedbacks = newFeedbacks;
+    window.activeAINewQuizData = null; // Huỷ bỏ snapshot hàng loạt vì dữ liệu đã thay đổi cục bộ
+
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    renderAIFeedbackList();
+
+    showToast(`Đã xóa Câu ${question_index + 1}!`);
+}
+
+function applyAISuggestion(question_index) {
+    const aiData = window.activeAIFeedbacks[question_index];
+    if (!aiData) return;
+
+    if (aiData.action === 'delete' || aiData.category === 'delete') {
+        return applyAIDelete(question_index);
+    }
+
+    const corrected = aiData.corrected_data;
+    if (!corrected) return;
+
+    const origGroup = currentData[question_index] ? currentData[question_index].group_title : "";
+    
+    currentData[question_index] = {
+        ...corrected,
+        group_title: corrected.group_title !== undefined ? corrected.group_title : origGroup
+    };
+
+    delete window.activeAIFeedbacks[question_index];
+    window.activeAINewQuizData = null;
+
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    renderAIFeedbackList();
+
+    const isRestructure = aiData.action === 'restructure' || aiData.category === 'restructure';
+    showToast(`Đã ${isRestructure ? 'đổi kết cấu' : 'sửa'} xong Câu ${question_index + 1}!`);
+}
+
+function dismissAISuggestion(question_index) {
+    delete window.activeAIFeedbacks[question_index];
+    window.activeAINewQuizData = null;
+    renderPreviewAll();
+    renderAIFeedbackList();
+}
+
+// ----------------------------------------------------
+// MOBILE SEGMENTED TABS (SOẠN THẢO CODE / XEM TRƯỚC)
+// ----------------------------------------------------
+function switchStudioMobileTab(tab) {
+    const tabCode = document.getElementById('mTabCode');
+    const tabPreview = document.getElementById('mTabPreview');
+    const splitView = document.getElementById('splitEditorView');
+    const floatBtn = document.getElementById('studioMobileFloatToggle');
+    if (!splitView) return;
+
+    if (tab === 'preview') {
+        splitView.classList.remove('mobile-tab-code');
+        splitView.classList.add('mobile-tab-preview');
+        if (tabCode) tabCode.classList.remove('active');
+        if (tabPreview) tabPreview.classList.add('active');
+        if (floatBtn) floatBtn.innerHTML = '<i class="ri-code-s-slash-line"></i> <span>Soạn thảo</span>';
+        renderPreviewAll();
+    } else {
+        splitView.classList.remove('mobile-tab-preview');
+        splitView.classList.add('mobile-tab-code');
+        if (tabCode) tabCode.classList.add('active');
+        if (tabPreview) tabPreview.classList.remove('active');
+        if (floatBtn) floatBtn.innerHTML = '<i class="ri-eye-line"></i> <span>Xem trước</span>';
+    }
+}
+
+function toggleStudioMobileTab() {
+    const splitView = document.getElementById('splitEditorView');
+    if (!splitView) return;
+    if (splitView.classList.contains('mobile-tab-preview')) {
+        switchStudioMobileTab('code');
+    } else {
+        switchStudioMobileTab('preview');
+    }
+}
+
+// ----------------------------------------------------
+// CHẾ ĐỘ LÀM THỬ (PRACTICE / EXAM TEST)
+// ----------------------------------------------------
+function switchStudioMode(mode) {
+    currentStudioMode = mode;
+
+    document.getElementById('pillModeEdit').className = mode === 'edit' ? 'studio-mode-pill active' : 'studio-mode-pill';
+    document.getElementById('pillModePractice').className = mode === 'practice' ? 'studio-mode-pill active' : 'studio-mode-pill';
+    document.getElementById('pillModeExam').className = mode === 'exam' ? 'studio-mode-pill active' : 'studio-mode-pill';
+
+    const splitView = document.getElementById('splitEditorView');
+    const testView = document.getElementById('interactiveTestView');
+    const mobileTabs = document.getElementById('studioMobileViewTabs');
+    const floatBtn = document.getElementById('studioMobileFloatToggle');
+
+    if (mode === 'edit') {
+        splitView.style.display = '';
+        testView.style.display = 'none';
+        if (mobileTabs) mobileTabs.style.display = '';
+        if (floatBtn && window.innerWidth <= 860) floatBtn.style.display = 'inline-flex';
+        renderPreviewAll();
+    } else {
+        splitView.style.display = 'none';
+        testView.style.display = 'block';
+        if (mobileTabs) mobileTabs.style.display = 'none';
+        if (floatBtn) floatBtn.style.display = 'none';
+        renderInteractiveTest(mode);
+    }
+}
+
+function renderInteractiveTest(mode) {
+    const container = document.getElementById('testQuizContainer');
+    const titleElem = document.getElementById('testViewTitle');
+    const submitArea = document.getElementById('testExamSubmitArea');
+    if (!container) return;
+
+    testPracticeAnswers = {};
+    testExamAnswers = {};
+
+    titleElem.innerText = mode === 'practice' ? "🎯 Chế độ Luyện tập thử nghiệm" : "📝 Chế độ Thi thử nghiệm";
+    submitArea.style.display = mode === 'exam' ? 'block' : 'none';
+
+    let html = "";
+    currentData.forEach((q, qIndex) => {
+        let groupTitleHtml = q.group_title ? `<div style="background: #fef9c3; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; color: #854d0e;">${formatSubscriptsAndFormulas(q.group_title, true)}</div>` : '';
+        let qClean = (q.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+        let formattedQ = formatSubscriptsAndFormulas(qClean, true);
+
+        html += `
+            <div class="question-box" id="test_q_box_${qIndex}" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow); border: 1px solid var(--border);">
+                ${groupTitleHtml}
+                <div class="question-title" style="font-size: 1.1rem; font-weight: 700; margin-bottom: 15px;">
+                    Câu ${qIndex + 1}: ${formattedQ}
+                </div>
+                <div class="options-container">
+        `;
+
+        const qType = getRealQuestionType(q);
+        if (qType === 'true_false') {
+            (q.options || []).forEach((opt, oIndex) => {
+                const charMatch = opt.match(/^[a-d]/);
+                const char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/, ''));
+                html += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;">
+                        <div style="flex: 1; margin-right: 12px; font-size: 0.95rem;"><b>${char})</b> ${optContent}</div>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_t" onclick="handleTestTFSelect(${qIndex}, '${char}', true, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Đúng</button>
+                            <button type="button" class="studio-tf-btn" id="test_tf_${qIndex}_${char}_f" onclick="handleTestTFSelect(${qIndex}, '${char}', false, '${mode}')" style="padding: 4px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600;">Sai</button>
+                        </div>
+                    </div>`;
+            });
+        } else if (qType === 'short_answer') {
+            html += `
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <input type="text" id="test_sa_${qIndex}" placeholder="Nhập câu trả lời..." style="flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px;" onchange="handleTestSAChange(${qIndex}, this.value)">
+                    ${mode === 'practice' ? `<button class="btn-primary" style="margin: 0; padding: 8px 16px;" onclick="handleTestSAPracticeCheck(${qIndex})">Kiểm tra</button>` : ''}
+                </div>
+                <div id="test_sa_feedback_${qIndex}" style="margin-top: 6px; font-weight: 600;"></div>`;
+        } else {
+            (q.options || []).forEach((opt, oIndex) => {
+                const optChar = opt.match(/^[A-F]/i) ? opt.match(/^[A-F]/i)[0].toUpperCase() : String.fromCharCode(65 + oIndex);
+                const optContent = formatSubscriptsAndFormulas(opt.replace(/^[A-F][\.\:\)]\s*/i, ''));
+
+                if (mode === 'practice') {
+                    html += `
+                        <div class="option-practice" id="test_opt_${qIndex}_${oIndex}" onclick="handleTestPracticeSelect(${qIndex}, ${oIndex})">
+                            <span class="opt-badge">${optChar}</span>
+                            <span class="opt-text">${optContent}</span>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <label class="option-wrapper" style="display: flex; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;" id="test_exam_opt_${qIndex}_${oIndex}">
+                            <input type="radio" name="test_exam_radio_${qIndex}" style="width: 20px; height: 20px; margin-right: 12px;" onchange="handleTestExamSelect(${qIndex}, ${oIndex})">
+                            <span style="font-weight: 700; margin-right: 8px; color: var(--primary);">${optChar}.</span>
+                            <span>${optContent}</span>
+                        </label>
+                    `;
+                }
+            });
+        }
+
+        html += `</div></div>`;
+    });
+
+    container.innerHTML = html;
+
+    renderMathJax(container);
+}
+
+function handleTestTFSelect(qIndex, char, isTrue, mode) {
+    if (mode === 'practice') {
+        const q = currentData[qIndex];
+        const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
+        const isMatched = (Boolean(correctMap[char]) === isTrue);
+        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
+        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
+        if (btnT && btnF) {
+            btnT.style.background = (isTrue && isMatched) ? '#dcfce7' : (isTrue && !isMatched ? '#fee2e2' : 'white');
+            btnF.style.background = (!isTrue && isMatched) ? '#dcfce7' : (!isTrue && !isMatched ? '#fee2e2' : 'white');
+        }
+    } else {
+        if (!testExamAnswers[qIndex] || typeof testExamAnswers[qIndex] !== 'object') {
+            testExamAnswers[qIndex] = {};
+        }
+        testExamAnswers[qIndex][char] = isTrue;
+        const btnT = document.getElementById(`test_tf_${qIndex}_${char}_t`);
+        const btnF = document.getElementById(`test_tf_${qIndex}_${char}_f`);
+        if (btnT && btnF) {
+            btnT.style.background = isTrue ? '#dbeafe' : 'white';
+            btnT.style.borderColor = isTrue ? '#3b82f6' : '#cbd5e1';
+            btnF.style.background = !isTrue ? '#dbeafe' : 'white';
+            btnF.style.borderColor = !isTrue ? '#3b82f6' : '#cbd5e1';
+        }
+    }
+}
+
+function handleTestSAChange(qIndex, val) {
+    testExamAnswers[qIndex] = val;
+}
+
+function handleTestSAPracticeCheck(qIndex) {
+    const q = currentData[qIndex];
+    const inputEl = document.getElementById(`test_sa_${qIndex}`);
+    const feedbackEl = document.getElementById(`test_sa_feedback_${qIndex}`);
+    const uStr = inputEl ? inputEl.value.trim().toLowerCase().replace(',', '.').replace(/\s+/g, '') : '';
+    const cStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+    const isCorrect = Boolean(uStr && uStr === cStr);
+    
+    if (feedbackEl) {
+        feedbackEl.innerHTML = isCorrect ? 
+            `<span style="color: #16a34a;">✅ Chính xác!</span>` : 
+            `<span style="color: #dc2626;">❌ Sai rồi. Đáp án đúng là: ${escapeHtml(String(q.correct_answer || ''))}</span>`;
+    }
+}
+
+function handleTestPracticeSelect(qIndex, oIndex) {
+    if (testPracticeAnswers[qIndex] !== undefined) return;
+    testPracticeAnswers[qIndex] = oIndex;
+
+    const q = currentData[qIndex];
+    if (!q || !q.options) return;
+    const selectedOpt = q.options[oIndex];
+    const isCorrect = (selectedOpt === q.correct_answer);
+
+    const clickedEl = document.getElementById(`test_opt_${qIndex}_${oIndex}`);
+    if (clickedEl) {
+        if (isCorrect) {
+            clickedEl.classList.add('correct');
+        } else {
+            clickedEl.classList.add('incorrect');
+            // Tìm và highlight đáp án đúng
+            q.options.forEach((opt, idx) => {
+                if (opt === q.correct_answer) {
+                    const corrEl = document.getElementById(`test_opt_${qIndex}_${idx}`);
+                    if (corrEl) corrEl.classList.add('correct');
+                }
+            });
+        }
+    }
+}
+
+function handleTestExamSelect(qIndex, oIndex) {
+    testExamAnswers[qIndex] = oIndex;
+}
+
+function handleTestExamSubmit() {
+    let earnedTotal = 0;
+    currentData.forEach((q, qIndex) => {
+        const qType = getRealQuestionType(q);
+        if (qType === 'true_false') {
+            const chosen = testExamAnswers[qIndex] || {};
+            const correctMap = (typeof q.correct_answer === 'object' && q.correct_answer) ? q.correct_answer : {};
+            let matches = 0;
+            ['a', 'b', 'c', 'd'].forEach(char => {
+                if (chosen[char] !== undefined && Boolean(chosen[char]) === Boolean(correctMap[char])) matches++;
+            });
+            const tfScale = [0.0, 0.1, 0.25, 0.5, 1.0];
+            earnedTotal += (tfScale[matches] !== undefined ? tfScale[matches] : 0.0);
+        } else if (qType === 'short_answer') {
+            const userStr = String(testExamAnswers[qIndex] || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+            const corrStr = String(q.correct_answer || '').trim().toLowerCase().replace(',', '.').replace(/\s+/g, '');
+            if (userStr && userStr === corrStr) earnedTotal += 1;
+        } else {
+            const chosenIdx = testExamAnswers[qIndex];
+            if (chosenIdx !== undefined && q.options && q.options[chosenIdx] === q.correct_answer) {
+                earnedTotal += 1;
+            }
+        }
+    });
+
+    const score = currentData.length > 0 ? ((earnedTotal / currentData.length) * 10).toFixed(1) : "0.0";
+    alert(`🎉 KẾT QUẢ THI THỬ:\n\n- Điểm đạt được: ${earnedTotal.toFixed(2)} / ${currentData.length}\n- Điểm quy đổi: ${score} / 10`);
+}
+
+// ----------------------------------------------------
+// XUẤT FILE WORD (.DOCX)
+// ----------------------------------------------------
+let currentExportQuizId = null;
+
+async function exportWordDocument() {
+    let quizTitle = "Đề thi Studio";
+    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
+    if (titleEl && titleEl.value) quizTitle = titleEl.value;
+    else if (editingQuizSettings && editingQuizSettings.title) quizTitle = editingQuizSettings.title;
+
+    const exportData = {
+        title: quizTitle,
+        questions: currentData || [],
+        time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0
+    };
+
+    try {
+        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
+        if (editingQuizId) {
+            sessionStorage.setItem(`export_quiz_${editingQuizId}`, JSON.stringify(exportData));
+        }
+    } catch(e) {}
+
+    if (editingQuizId) {
+        try {
+            const payload = {
+                quiz_id: editingQuizId,
+                title: quizTitle,
+                data: currentData,
+                mode: (editingQuizSettings && editingQuizSettings.mode) || "practice",
+                time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0,
+                is_shuffle: (editingQuizSettings && editingQuizSettings.isShuffle) || false,
+                creator_id: authToken,
+                status: "published"
+            };
+            fetch(`${API_BASE_URL}/api/save_quiz`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
+        } catch(e) {}
+    }
+
+    const targetUrl = editingQuizId ? `/export/${encodeURIComponent(editingQuizId)}` : '/export';
+    window.location.href = targetUrl;
+}
+
+function openExportDocxModal(quizId, quizTitle = "") {
+    currentExportQuizId = quizId;
+    const modal = document.getElementById('exportDocxModal');
+    if (!modal) {
+        window.open(`${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(quizId)}?teacher_token=${encodeURIComponent(authToken)}`, '_blank');
+        return;
+    }
+    
+    const titleEl = document.getElementById('exportDocxQuizTitle');
+    if (titleEl) {
+        titleEl.textContent = quizTitle || editingQuizSettings.title || "Đề thi trắc nghiệm";
+    }
+    
+    setDocxAudienceUI('teacher');
+    setDocxLayoutUI('compact');
+    const optSelect = document.getElementById('docxOptionsLayout');
+    if (optSelect) optSelect.value = 'auto';
+
+    modal.style.display = 'flex';
+}
+
+function closeExportDocxModal() {
+    const modal = document.getElementById('exportDocxModal');
+    if (modal) modal.style.display = 'none';
+    currentExportQuizId = null;
+}
+
+function onDocxAudienceChange(audience) {
+    setDocxAudienceUI(audience);
+}
+
+function setDocxAudienceUI(audience) {
+    const cardTeacher = document.getElementById('cardAudienceTeacher');
+    const cardStudent = document.getElementById('cardAudienceStudent');
+    const chkAnswers = document.getElementById('docxShowAnswers');
+    const chkKeyTable = document.getElementById('docxShowKeyTable');
+    const chkExplains = document.getElementById('docxShowExplains');
+    const lblGrid = document.getElementById('lblDocxStudentGrid');
+    const chkGrid = document.getElementById('docxStudentGrid');
+
+    if (audience === 'student') {
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#2563eb';
+            cardStudent.style.background = '#eff6ff';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#1e40af';
+        }
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#e2e8f0';
+            cardTeacher.style.background = '#f8fafc';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="student"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = false; chkAnswers.disabled = true; }
+        if (chkKeyTable) { chkKeyTable.checked = false; chkKeyTable.disabled = true; }
+        if (chkExplains) { chkExplains.checked = false; chkExplains.disabled = true; }
+        if (lblGrid) lblGrid.style.display = 'flex';
+        if (chkGrid) chkGrid.checked = false;
+    } else {
+        if (cardTeacher) {
+            cardTeacher.style.borderColor = '#2563eb';
+            cardTeacher.style.background = '#eff6ff';
+            const tTitle = cardTeacher.querySelector('span');
+            if (tTitle) tTitle.style.color = '#1e40af';
+        }
+        if (cardStudent) {
+            cardStudent.style.borderColor = '#e2e8f0';
+            cardStudent.style.background = '#f8fafc';
+            const sTitle = cardStudent.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxAudience"][value="teacher"]');
+        if (radio) radio.checked = true;
+
+        if (chkAnswers) { chkAnswers.checked = true; chkAnswers.disabled = false; }
+        if (chkKeyTable) { chkKeyTable.checked = true; chkKeyTable.disabled = false; }
+        if (chkExplains) { chkExplains.checked = true; chkExplains.disabled = false; }
+        if (lblGrid) lblGrid.style.display = 'none';
+        if (chkGrid) chkGrid.checked = false;
+    }
+}
+
+function onDocxLayoutChange(layout) {
+    setDocxLayoutUI(layout);
+}
+
+function setDocxLayoutUI(layout) {
+    const cardCompact = document.getElementById('cardLayoutCompact');
+    const cardStandard = document.getElementById('cardLayoutStandard');
+    
+    if (layout === 'compact') {
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#16a34a';
+            cardCompact.style.background = '#f0fdf4';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#15803d';
+        }
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#e2e8f0';
+            cardStandard.style.background = '#f8fafc';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="compact"]');
+        if (radio) radio.checked = true;
+    } else {
+        if (cardStandard) {
+            cardStandard.style.borderColor = '#16a34a';
+            cardStandard.style.background = '#f0fdf4';
+            const sTitle = cardStandard.querySelector('span');
+            if (sTitle) sTitle.style.color = '#15803d';
+        }
+        if (cardCompact) {
+            cardCompact.style.borderColor = '#e2e8f0';
+            cardCompact.style.background = '#f8fafc';
+            const cTitle = cardCompact.querySelector('span');
+            if (cTitle) cTitle.style.color = '#334155';
+        }
+        const radio = document.querySelector('input[name="docxLayoutMode"][value="standard"]');
+        if (radio) radio.checked = true;
+    }
+}
+
+async function confirmDownloadDocx() {
+    if (!currentExportQuizId) {
+        closeExportDocxModal();
+        return;
+    }
+    
+    const audienceRadio = document.querySelector('input[name="docxAudience"]:checked');
+    const audience = audienceRadio ? audienceRadio.value : 'teacher';
+    
+    const layoutRadio = document.querySelector('input[name="docxLayoutMode"]:checked');
+    const layout = layoutRadio ? layoutRadio.value : 'compact';
+    
+    const optLayoutSelect = document.getElementById('docxOptionsLayout');
+    const optionsLayout = optLayoutSelect ? optLayoutSelect.value : 'auto';
+    
+    const showAnswers = document.getElementById('docxShowAnswers')?.checked ?? (audience === 'teacher');
+    const showKeyTable = document.getElementById('docxShowKeyTable')?.checked ?? (audience === 'teacher');
+    const showExplains = document.getElementById('docxShowExplains')?.checked ?? (audience === 'teacher');
+    const studentGrid = document.getElementById('docxStudentGrid')?.checked ?? false;
+    
+    const token = typeof authToken !== 'undefined' ? authToken : '';
+    const url = `${API_BASE_URL}/api/teacher/export_docx/${encodeURIComponent(currentExportQuizId)}?teacher_token=${encodeURIComponent(token)}`
+        + `&target_audience=${encodeURIComponent(audience)}`
+        + `&layout_mode=${encodeURIComponent(layout)}`
+        + `&options_layout=${encodeURIComponent(optionsLayout)}`
+        + `&show_answers=${showAnswers}`
+        + `&show_key_table=${showKeyTable}`
+        + `&show_explains=${showExplains}`
+        + `&include_student_answer_grid=${studentGrid}`;
+
+    const btnSubmit = document.querySelector('#exportDocxModal .btn-primary');
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : '';
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang tạo file Word...';
+    }
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        let filename = `de_thi_${audience}.docx`;
+        const disp = response.headers.get('content-disposition');
+        if (disp && disp.includes('filename=')) {
+            const m = disp.match(/filename=["']?([^"';]+)["']?/);
+            if (m && m[1]) filename = m[1];
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+
+        if (typeof showToast === 'function') {
+            showToast("Đã xuất file Word (.docx) thành công!", "success");
+        } else {
+            alert("Đã xuất file Word (.docx) thành công!");
+        }
+        closeExportDocxModal();
+    } catch (err) {
+        console.warn("Lỗi fetch blob docx, fallback sang mở link trực tiếp:", err);
+        window.open(url, '_blank');
+        closeExportDocxModal();
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = originalBtnHtml;
+        }
+    }
+}
+
+// ----------------------------------------------------
+// MODAL CẤU HÌNH VÀ LƯU XUẤT BẢN
+// ----------------------------------------------------
+function openPublishModal() {
+    const dock = document.getElementById('publishDockBar');
+    if (dock) dock.style.display = 'none';
+
+    const modal = document.getElementById('publishModal');
+    if (!modal) return;
+
+    // 1. Lấy dữ liệu câu hỏi hiện tại trong Studio Editor
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    let mcqList = [];
+    let tfList = [];
+    let saList = [];
+
+    questions.forEach((q, idx) => {
+        const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
+        if (type === 'true_false' || type === 'tf') tfList.push(idx);
+        else if (type === 'short_answer' || type === 'sa') saList.push(idx);
+        else mcqList.push(idx);
+    });
+
+    // 2. Cập nhật thẻ số lượng
+    const totalEl = document.getElementById('statTotalCount');
+    if (totalEl) totalEl.textContent = questions.length;
+    const mcqEl = document.getElementById('statMcqCount');
+    if (mcqEl) mcqEl.textContent = mcqList.length;
+    const tfEl = document.getElementById('statTfCount');
+    if (tfEl) tfEl.textContent = tfList.length;
+    const saEl = document.getElementById('statSaCount');
+    if (saEl) saEl.textContent = saList.length;
+
+    // 3. Cập nhật tiêu đề & tùy chọn
+    const titleInput = document.getElementById('modalQuizTitle');
+    const studioTitleEl = document.getElementById('studioQuizTitle');
+    const existingTitle = (editingQuizSettings && editingQuizSettings.title) || (studioTitleEl && studioTitleEl.value) || "";
+    if (titleInput) {
+        titleInput.value = existingTitle || "Đề thi trắc nghiệm";
+    }
+
+    if (editingQuizSettings) {
+        const modeEl = document.getElementById('modalQuizMode');
+        if (modeEl && editingQuizSettings.mode) modeEl.value = editingQuizSettings.mode;
+        const timeEl = document.getElementById('modalQuizTime');
+        if (timeEl && editingQuizSettings.timeLimit) timeEl.value = editingQuizSettings.timeLimit;
+        const shuffleEl = document.getElementById('modalQuizShuffle');
+        if (shuffleEl && editingQuizSettings.isShuffle !== undefined) shuffleEl.checked = editingQuizSettings.isShuffle;
+    }
+
+    // 4. Lưu danh sách phân loại & render ma trận số câu
+    window.currentPublishMcqList = mcqList;
+    window.currentPublishTfList = tfList;
+    window.currentPublishSaList = saList;
+    publishAuditFilter = 'all';
+    filterPublishType('all');
+
+    modal.style.display = 'flex';
+}
+
+function filterPublishType(type) {
+    publishAuditFilter = type;
+    document.querySelectorAll('.pub-type-card').forEach(card => card.classList.remove('active'));
+    
+    if (type === 'mcq') {
+        const c = document.getElementById('cardStatMcq');
+        if (c) c.classList.add('active');
+        const l = document.getElementById('pubFilterLabel');
+        if (l) l.textContent = '(Trắc nghiệm nhiều lựa chọn)';
+    } else if (type === 'true_false') {
+        const c = document.getElementById('cardStatTf');
+        if (c) c.classList.add('active');
+        const l = document.getElementById('pubFilterLabel');
+        if (l) l.textContent = '(Đúng / Sai 4 ý a,b,c,d)';
+    } else if (type === 'short_answer') {
+        const c = document.getElementById('cardStatSa');
+        if (c) c.classList.add('active');
+        const l = document.getElementById('pubFilterLabel');
+        if (l) l.textContent = '(Trả lời ngắn điền số)';
+    } else {
+        const c = document.getElementById('cardStatTotal');
+        if (c) c.classList.add('active');
+        const l = document.getElementById('pubFilterLabel');
+        if (l) l.textContent = '(Tất cả các câu)';
+    }
+
+    renderPublishQuestionsGrid(type);
+}
+
+function renderPublishQuestionsGrid(filter) {
+    const grid = document.getElementById('pubQuestionsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    if (!questions.length) {
+        grid.innerHTML = '<div style="padding: 12px; color: #64748b; font-size: 0.88rem; font-style: italic;">Chưa có câu hỏi nào trong đề thi.</div>';
+        return;
+    }
+
+    const mcqSet = new Set(window.currentPublishMcqList || []);
+    const tfSet = new Set(window.currentPublishTfList || []);
+    const saSet = new Set(window.currentPublishSaList || []);
+
+    questions.forEach((q, idx) => {
+        let isMatch = true;
+        let typeClass = 'btn-q-mcq';
+        let typeName = 'Trắc nghiệm';
+
+        if (tfSet.has(idx)) {
+            typeClass = 'btn-q-tf';
+            typeName = 'Đúng/Sai';
+            if (filter !== 'all' && filter !== 'true_false') isMatch = false;
+        } else if (saSet.has(idx)) {
+            typeClass = 'btn-q-sa';
+            typeName = 'Trả lời ngắn';
+            if (filter !== 'all' && filter !== 'short_answer') isMatch = false;
+        } else {
+            typeClass = 'btn-q-mcq';
+            typeName = 'Trắc nghiệm';
+            if (filter !== 'all' && filter !== 'mcq') isMatch = false;
+        }
+
+        if (isMatch) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `pub-q-btn ${typeClass}`;
+            btn.dataset.idx = idx;
+            btn.textContent = idx + 1;
+            btn.title = `Câu ${idx + 1} (${typeName}) - Bấm để nhảy đến câu này`;
+            btn.onclick = () => jumpToQuestionFromPublishModal(idx);
+            grid.appendChild(btn);
+        }
+    });
+}
+
+function jumpToQuestionFromPublishModal(qIndex) {
+    currentAuditViewingIndex = qIndex;
+    
+    // Gọi hàm nhảy tới câu hỏi trong Studio Editor
+    if (typeof jumpToQuestionCard === 'function') {
+        jumpToQuestionCard(qIndex);
+    } else {
+        const targetCard = document.getElementById(`preview_q_${qIndex}`) || document.getElementById(`card_${qIndex}`);
+        if (targetCard) {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.remove('publish-audit-highlight');
+            void targetCard.offsetWidth;
+            targetCard.classList.add('publish-audit-highlight');
+            setTimeout(() => {
+                targetCard.classList.remove('publish-audit-highlight');
+            }, 4000);
+        }
+    }
+
+    // Đánh dấu active trên chip
+    document.querySelectorAll('.pub-q-btn').forEach(btn => {
+        btn.classList.toggle('active-viewing', parseInt(btn.dataset.idx) === qIndex);
+    });
+
+    // Thu nhỏ modal vào thanh dock nổi
+    dockPublishModalToCorner(qIndex);
+}
+
+function dockPublishModalToCorner(qIndex) {
+    const modal = document.getElementById('publishModal');
+    if (modal) modal.style.display = 'none';
+
+    if (qIndex === undefined) qIndex = currentAuditViewingIndex || 0;
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    const q = questions[qIndex];
+    let typeName = 'Trắc nghiệm';
+    if (q) {
+        const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
+        if (type === 'true_false' || type === 'tf') typeName = 'Đúng/Sai';
+        else if (type === 'short_answer' || type === 'sa') typeName = 'Trả lời ngắn';
+    }
+
+    const dock = document.getElementById('publishDockBar');
+    if (dock) {
+        const label = document.getElementById('dockQuestionText');
+        if (label) label.textContent = `Đang xem câu ${qIndex + 1} (${typeName})`;
+        dock.style.display = 'flex';
+    }
+}
+
+function expandPublishModal() {
+    const dock = document.getElementById('publishDockBar');
+    if (dock) dock.style.display = 'none';
+    const modal = document.getElementById('publishModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function jumpToAdjacentQuestion(delta) {
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    if (!questions.length) return;
+    let nextIdx = (currentAuditViewingIndex || 0) + delta;
+    if (nextIdx < 0) nextIdx = 0;
+    if (nextIdx >= questions.length) nextIdx = questions.length - 1;
+    jumpToQuestionFromPublishModal(nextIdx);
+}
+
+function proceedToPublishPage() {
+    const titleInput = document.getElementById('modalQuizTitle');
+    const studioTitleEl = document.getElementById('studioQuizTitle');
+    const title = (titleInput && titleInput.value.trim()) 
+        || (studioTitleEl && studioTitleEl.value.trim())
+        || (editingQuizSettings && editingQuizSettings.title)
+        || 'Đề thi trắc nghiệm';
+
+    const mode = (document.getElementById('modalQuizMode') && document.getElementById('modalQuizMode').value) || (editingQuizSettings && editingQuizSettings.mode) || 'exam';
+    const timeLimit = parseInt(document.getElementById('modalQuizTime') && document.getElementById('modalQuizTime').value) || (editingQuizSettings && editingQuizSettings.timeLimit) || 0;
+    const isShuffle = document.getElementById('modalQuizShuffle') ? document.getElementById('modalQuizShuffle').checked : (editingQuizSettings ? !!editingQuizSettings.isShuffle : true);
+
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    
+    const payload = {
+        title: title,
+        data: questions,
+        questions: questions,
+        mode: mode,
+        time_limit: timeLimit,
+        is_shuffle: isShuffle,
+        creator_id: (typeof authToken !== 'undefined') ? authToken : '',
+        status: 'published'
+    };
+
+    const targetId = (typeof editingQuizId !== 'undefined' && editingQuizId) ? editingQuizId : null;
+    if (targetId) payload.quiz_id = targetId;
+
+    try {
+        sessionStorage.setItem('pending_publish_quiz', JSON.stringify(payload));
+        sessionStorage.setItem('export_quiz_data', JSON.stringify(payload));
+        if (targetId) {
+            sessionStorage.setItem(`publish_quiz_${targetId}`, JSON.stringify(payload));
+        }
+    } catch (e) {
+        console.warn('Could not save to sessionStorage:', e);
+    }
+
+    closePublishModal();
+    const dock = document.getElementById('publishDockBar');
+    if (dock) dock.style.display = 'none';
+
+    if (targetId) {
+        window.location.href = `/publish?id=${encodeURIComponent(targetId)}`;
+    } else {
+        window.location.href = `/publish`;
+    }
+}
+
+function closePublishModal() {
+    const modal = document.getElementById('publishModal');
+    if (modal) modal.style.display = 'none';
+    const dock = document.getElementById('publishDockBar');
+    if (dock) dock.style.display = 'none';
+}
+
+async function confirmPublishQuiz() {
+    const title = document.getElementById('modalQuizTitle').value.trim();
+    if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
+
+    if (!authToken) {
+        alert("Vui lòng đăng nhập tài khoản Giáo viên để lưu và xuất bản đề thi!");
+        window.location.href = "/dang-nhap";
+        return;
+    }
+
+    const mode = document.getElementById('modalQuizMode').value;
+    const timeLimit = parseInt(document.getElementById('modalQuizTime').value) || 0;
+    const isShuffle = document.getElementById('modalQuizShuffle').checked;
+
+    const btn = document.getElementById('btnConfirmPublish');
+    if (btn) {
+        btn.innerText = "⏳ Đang lưu đề thi...";
+        btn.disabled = true;
+    }
+
+    closePublishModal();
+    showStudioLoader({
+        title: "🚀 Đang lưu & xuất bản đề thi...",
+        subtitle: "Đang đồng bộ dữ liệu câu hỏi, hình ảnh và công thức lên máy chủ..."
+    });
+
+    try {
+        const payload = {
+            title: title,
+            data: currentData,
+            mode: mode,
+            time_limit: timeLimit,
+            is_shuffle: isShuffle,
+            creator_id: authToken,
+            status: "published"
+        };
+        if (editingQuizId) payload.quiz_id = editingQuizId;
+
+        const response = await fetch(`${API_BASE_URL}/api/save_quiz`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            editingQuizId = result.quiz_id;
+            window.isCurrentQuizPublished = true;
+            window.draftImageKeys = [];
+            sessionStorage.removeItem('editor_draft_images');
+            sessionStorage.removeItem('editor_pending_task_id');
+            editingQuizSettings = { title, mode, timeLimit, isShuffle };
+            document.getElementById('studioQuizTitle').value = title;
+            saveDraftToSession();
+
+            hideStudioLoader();
+
+            // Hiển thị nút Copy Link trên Studio navbar
+            const btnCopy = document.getElementById('btnStudioCopyLink');
+            if (btnCopy) btnCopy.style.display = 'inline-flex';
+            const deleteLabel = document.getElementById('discardOrDeleteLabel');
+            if (deleteLabel) deleteLabel.innerText = "Xóa đề";
+            const btnDiscard = document.getElementById('btnDiscardOrDelete');
+            if (btnDiscard) btnDiscard.title = "Xóa đề thi này khỏi hệ thống";
+
+            showSuccessModal(result.quiz_id);
+        } else {
+            hideStudioLoader();
+            alert("Lỗi lưu đề thi: " + (result.detail || "Không rõ nguyên nhân"));
+        }
+    } catch(e) {
+        hideStudioLoader();
+        console.error(e);
+        alert("Lỗi khi kết nối với máy chủ!");
+    } finally {
+        hideStudioLoader();
+        if (btn) {
+            btn.innerText = "🚀 Lưu & Xuất bản ngay";
+            btn.disabled = false;
+        }
+    }
+}
+
+function slugifyVietnamese(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
+function showSuccessModal(quizId) {
+    const modal = document.getElementById('successModal');
+    if (!modal) return;
+
+    document.getElementById('successQuizCode').innerText = quizId;
+    const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
+    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
+    const slug = slugifyVietnamese(title);
+    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(quizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(quizId)}`;
+    
+    document.getElementById('successShareLink').value = fullShareUrl;
+    modal.style.display = 'flex';
+}
+
+function closeSuccessModal() {
+    const modal = document.getElementById('successModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function copyShareLink() {
+    const input = document.getElementById('successShareLink');
+    if (!input) return;
+    input.select();
+    navigator.clipboard.writeText(input.value);
+    
+    const copyBtn = document.getElementById('btnCopyShareLink');
+    const origText = copyBtn.innerText;
+    copyBtn.innerText = "✓ Đã copy!";
+    copyBtn.style.background = "#10b981";
+    setTimeout(() => {
+        copyBtn.innerText = origText;
+        copyBtn.style.background = "";
+    }, 2000);
+    showToast("Đã sao chép link chia sẻ!");
+}
+
+function copyCurrentStudioLink() {
+    if (!editingQuizId) {
+        alert("Đề thi này chưa được lưu hoặc xuất bản. Vui lòng bấm 'Lưu & Xuất bản' trước!");
+        return;
+    }
+    const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
+    const title = (document.getElementById('studioQuizTitle')?.value || '').trim();
+    const slug = slugifyVietnamese(title);
+    const fullShareUrl = slug ? `${origin}/thi/${encodeURIComponent(editingQuizId)}/${slug}` : `${origin}/thi/${encodeURIComponent(editingQuizId)}`;
+    
+    navigator.clipboard.writeText(fullShareUrl).then(() => {
+        showToast("✓ Đã sao chép link đề thi!");
+    }).catch(() => {
+        prompt("Link làm bài của học sinh:", fullShareUrl);
+    });
+}
+
+function openTestQuizLink() {
+    const input = document.getElementById('successShareLink');
+    if (input && input.value) {
+        window.open(input.value, '_blank');
+    }
+}
+
+// ----------------------------------------------------
+// ĐIỀU HƯỚNG QUAY LẠI & DỌN DẸP DỮ LIỆU
+// ----------------------------------------------------
+function extractImageKeysFromClient(data) {
+    if (!data) return [];
+    try {
+        const str = JSON.stringify(data);
+        const matches = str.match(/(?:quizzes|temp)\/images\/[a-zA-Z0-9\-_.]+\.(?:png|jpg|jpeg|gif|webp|svg)/gi);
+        return matches ? Array.from(new Set(matches)) : [];
+    } catch(e) {
+        return [];
+    }
+}
+
+async function discardCurrentDraft() {
+    try {
+        const storedImages = JSON.parse(sessionStorage.getItem('editor_draft_images') || '[]');
+        const currentImages = extractImageKeysFromClient(currentData);
+        const allImages = Array.from(new Set([...(window.draftImageKeys || []), ...storedImages, ...currentImages]));
+        
+        await fetch(`${API_BASE_URL}/api/discard_draft`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: allImages, quiz_data: currentData })
+        });
+    } catch(e) {
+        console.warn("Lỗi khi hủy draft:", e);
+    } finally {
+        sessionStorage.removeItem('editor_quiz_id');
+        sessionStorage.removeItem('editor_quiz_data');
+        sessionStorage.removeItem('editor_quiz_title');
+        sessionStorage.removeItem('editor_quiz_settings');
+        sessionStorage.removeItem('editor_draft_images');
+        sessionStorage.removeItem('editor_pending_task_id');
+        window.draftImageKeys = [];
+        window.isCurrentQuizPublished = true;
+    }
+}
+
+async function handleDiscardOrDelete() {
+    if (editingQuizId) {
+        const confirmDel = confirm(
+            "🗑️ XÁC NHẬN XÓA ĐỀ THI:\n\n" +
+            "Bạn có chắc chắn muốn đưa đề thi này vào Thùng rác không?\n" +
+            "Học sinh sẽ không thể tiếp tục truy cập bài thi này."
+        );
+        if (!confirmDel) return;
+
+        showStudioLoader({
+            title: "🗑️ Đang chuyển đề thi vào thùng rác...",
+            subtitle: "Đang cập nhật trạng thái đề thi trên máy chủ..."
+        });
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/teacher/quiz_action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ teacher_token: authToken, quiz_id: editingQuizId, action: 'trash' })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                alert("Đã đưa đề thi vào thùng rác!");
+                window.location.href = "/giao-vien";
+            } else {
+                hideStudioLoader();
+                alert("Lỗi khi xóa: " + (data.detail || "Không thể xóa đề thi"));
+            }
+        } catch(e) {
+            hideStudioLoader();
+            alert("Lỗi kết nối máy chủ");
+        }
+        return;
+    }
+
+    const confirmDiscard = confirm(
+        "⚠️ XÁC NHẬN HỦY BỎ BẢN NHÁP:\n\n" +
+        "Toàn bộ câu hỏi và hình ảnh vừa phân tích sẽ bị XÓA VĨNH VIỄN khỏi hệ thống (Database và Cloudflare R2).\n" +
+        "Hành động này giúp giải phóng hoàn toàn dung lượng lưu trữ.\n\n" +
+        "Bạn có chắc chắn muốn hủy bỏ không?"
+    );
+    if (!confirmDiscard) return;
+
+    showStudioLoader({
+        title: "🧹 Đang dọn sạch dữ liệu và hình ảnh tạm...",
+        subtitle: "Đang giải phóng dung lượng bộ nhớ và Cloudflare R2..."
+    });
+    await discardCurrentDraft();
+    window.location.href = "/giao-vien";
+}
+
+async function handleDiscardAndExit() {
+    return handleDiscardOrDelete();
+}
+
+async function handleBackToDashboard() {
+    // Nếu là đề thi mới tải lên chưa xuất bản vào cơ sở dữ liệu
+    if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
+        const confirmExit = confirm(
+            "⚠️ BẠN CHƯA XUẤT BẢN ĐỀ THI!\n\n" +
+            "Nếu quay lại bây giờ mà không xuất bản, toàn bộ câu hỏi và hình ảnh tạm thời sẽ được HỦY BỎ HOÀN TOÀN để tránh làm đầy dữ liệu hệ thống (Database và Cloudflare R2).\n\n" +
+            "• Chọn [OK]: Hủy đề & dọn sạch dung lượng để về trang chủ.\n" +
+            "• Chọn [Cancel]: Ở lại Studio để tiếp tục chỉnh sửa hoặc xuất bản."
+        );
+        if (!confirmExit) return;
+
+        showStudioLoader({
+            title: "🧹 Đang dọn sạch dữ liệu tạm thời...",
+            subtitle: "Đang chuẩn bị đưa bạn quay lại bảng điều khiển..."
+        });
+        await discardCurrentDraft();
+        window.location.href = "/giao-vien";
+        return;
+    }
+    
+    window.location.href = "/giao-vien";
+}
+
+// Tự động dọn dẹp R2 nếu người dùng đóng tab / tắt trình duyệt khi chưa xuất bản
+window.addEventListener('beforeunload', () => {
+    if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
+        const storedImages = JSON.parse(sessionStorage.getItem('editor_draft_images') || '[]');
+        const currentImages = extractImageKeysFromClient(currentData);
+        const allImages = Array.from(new Set([...(window.draftImageKeys || []), ...storedImages, ...currentImages]));
+        if (allImages.length > 0) {
+            const payload = JSON.stringify({ images: allImages, quiz_data: currentData });
+            const blob = new Blob([payload], { type: 'application/json' });
+            navigator.sendBeacon(`${API_BASE_URL}/api/discard_draft`, blob);
+        }
+    }
+});
+
+// ----------------------------------------------------
+// TIỆN ÍCH HIỂN THỊ THÔNG BÁO (TOAST)
+// ----------------------------------------------------
+function showToast(message) {
+    const toast = document.getElementById('studioToast');
+    if (!toast) return;
+    toast.innerText = message;
+    toast.style.display = 'block';
+    
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, 2500);
+}
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+
+// Gán nhanh câu lệnh mẫu cho AI rà soát
+function setAIQuickPrompt(text) {
+    const input = document.getElementById('aiCustomPrompt');
+    if (input) {
+        input.value = text;
+        input.focus();
+    }
+}
+
+// ----------------------------------------------------
+// TÍNH NĂNG AI THÔNG MINH: GỢI Ý ĐÁP ÁN, KIỂM TRA CHÉO & SINH CÂU TƯƠNG TỰ
+// ----------------------------------------------------
+
+window.confirmAISuggestedAnswer = function(qIndex, event) {
+    if (event) event.stopPropagation();
+    if (!currentData[qIndex]) return;
+    delete currentData[qIndex].is_ai_suggested;
+    delete currentData[qIndex].ai_suggestion_note;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã xác nhận đáp án do AI đề xuất!");
+};
+
+window.runCrossCheckAI = async function() {
+    // Fail-fast client check
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        showAIDiagnosticModal({
+            error_code: 'OFFLINE_NO_INTERNET',
+            error_name: 'Thiết bị mất kết nối Internet',
+            cause: 'Máy tính hoặc điện thoại của bạn đang bị ngắt kết nối mạng Internet.',
+            solution: 'Vui lòng kiểm tra lại kết nối mạng trước khi kiểm tra chéo.',
+            technical_detail: 'navigator.onLine is false'
+        });
+        return;
+    }
+    if (!currentData || currentData.length === 0) {
+        showAIDiagnosticModal({
+            error_code: 'EMPTY_QUIZ_DATA',
+            error_name: 'Đề thi trống (0 câu hỏi)',
+            cause: 'Hiện tại chưa có câu hỏi nào trong đề thi để kiểm tra chéo.',
+            solution: 'Vui lòng thêm ít nhất một câu hỏi trước khi chạy kiểm tra chéo.',
+            technical_detail: 'currentData is empty'
+        });
+        return;
+    }
+    const btn = document.getElementById('btnCrossCheckAI');
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang đối chiếu...';
+    }
+    let crossProgress = 15;
+    if (typeof showStudioLoader === 'function') {
+        showStudioLoader({
+            title: "⚖️ AI đang giải độc lập & kiểm tra chéo đáp án...",
+            subtitle: "Đang nạp câu hỏi và chuẩn bị giải độc lập...",
+            showProgress: true,
+            progress: crossProgress
+        });
+    }
+    const crossTimer = setInterval(() => {
+        if (crossProgress < 45) {
+            crossProgress += 9;
+            updateStudioLoader({ progress: crossProgress, subtitle: "AI đang tự tính toán và giải từng câu hỏi..." });
+        } else if (crossProgress < 85) {
+            crossProgress += 5;
+            updateStudioLoader({ progress: crossProgress, subtitle: "Đang so khớp kết quả AI với đáp án ban đầu..." });
+        }
+    }, 600);
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/teacher/cross_check_answers`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                teacher_token: authToken,
+                quiz_data: currentData
+            })
+        });
+        const data = await res.json();
+        if (typeof hideStudioLoader === 'function') hideStudioLoader();
+        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
+
+        if (res.ok && data.status === 'success') {
+            const rawQuiz = data.quiz_data || data.data || [];
+            if (Array.isArray(rawQuiz) && rawQuiz.length > 0) {
+                currentData = rawQuiz;
+            }
+            const totalChecked = data.total_checked || data.total_questions || currentData.length;
+            const mismatches = (data.mismatches_found !== undefined) ? data.mismatches_found : ((data.mismatch_count !== undefined) ? data.mismatch_count : (data.mismatches ? data.mismatches.length : 0));
+            syncDataToEditor();
+            renderPreviewAll();
+            saveDraftToSession();
+            if (mismatches > 0) {
+                setTimeout(() => {
+                    const firstWarn = document.querySelector('.cross-check-warning-box');
+                    if (firstWarn) {
+                        firstWarn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
+                alert(`⚠️ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát xong ${totalChecked} câu hỏi.\nPhát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu!\n\nHệ thống đã đánh dấu các khung cảnh báo MÀU CAM tại từng câu hỏi tương ứng trong Studio để bạn rà soát và quyết định cập nhật.`);
+            } else {
+                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của Giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
+            }
+        } else {
+            showAIDiagnosticModal(data);
+        }
+    } catch(err) {
+        console.error("Cross-check error:", err);
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi mạng khi kiểm tra chéo đáp án',
+            cause: 'Không thể gửi yêu cầu kiểm tra chéo tới máy chủ do lỗi kết nối mạng.',
+            solution: '1. Kiểm tra đường truyền Internet.\n2. Bấm thử lại thao tác.',
+            technical_detail: err.message || String(err)
+        });
+    } finally {
+        if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml || '<i class="ri-scales-3-line"></i> Kiểm tra chéo đáp án';
+        }
+        if (typeof hideStudioLoader === 'function') hideStudioLoader();
+    }
+};
+
+window.acceptAICrossCheckAnswer = function(qIndex) {
+    if (!currentData[qIndex] || !currentData[qIndex].cross_check_info) return;
+    const info = currentData[qIndex].cross_check_info;
+    const aiAns = info.ai_answer;
+    if (aiAns !== undefined && aiAns !== null) {
+        const qType = getRealQuestionType(currentData[qIndex]);
+        if (qType === 'mcq' && Array.isArray(currentData[qIndex].options)) {
+            let foundOpt = currentData[qIndex].options.find(opt => {
+                let optLetter = (opt.trim().match(/^[A-F]/i) || [])[0];
+                return opt === aiAns || (optLetter && optLetter.toUpperCase() === String(aiAns).trim().toUpperCase());
+            });
+            currentData[qIndex].correct_answer = foundOpt || aiAns;
+        } else {
+            currentData[qIndex].correct_answer = aiAns;
+        }
+        if (info.ai_explain && (!currentData[qIndex].explain || currentData[qIndex].explain.trim().length === 0)) {
+            currentData[qIndex].explain = info.ai_explain;
+        }
+    }
+    delete currentData[qIndex].has_cross_check_warning;
+    delete currentData[qIndex].cross_check_info;
+    syncDataToEditor();
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã cập nhật sang đáp án do AI giải!");
+};
+
+window.dismissAICrossCheck = function(qIndex) {
+    if (!currentData[qIndex]) return;
+    delete currentData[qIndex].has_cross_check_warning;
+    delete currentData[qIndex].cross_check_info;
+    renderPreviewAll();
+    saveDraftToSession();
+    showToast("Đã giữ lại đáp án của Giáo viên.");
+};
+
+let activeSimilarBaseIndex = null;
+let activeGeneratedSimilarQuestions = [];
+
+window.openSimilarModal = function(qIndex) {
+    if (!currentData[qIndex]) return;
+    activeSimilarBaseIndex = qIndex;
+    activeGeneratedSimilarQuestions = [];
+    
+    const modal = document.getElementById('similarQuestionModal');
+    const preview = document.getElementById('similarBaseQPreview');
+    const resContainer = document.getElementById('simResultsContainer');
+    const addBtn = document.getElementById('btnAddSimilarToQuiz');
+    const runBtn = document.getElementById('btnRunGenerateSimilar');
+
+    const baseQ = currentData[qIndex];
+    let qClean = (baseQ.question || '').replace(/^(?:(?:\[|\()?\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*(?:\]|\))?|\d+[\.\:\)\/])\s*/i, '');
+    let optsHtml = '';
+    if (Array.isArray(baseQ.options)) {
+        optsHtml = `<div style="margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.85rem; color: #475569;">
+            ${baseQ.options.map(o => `<div>• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('')}
+        </div>`;
+    }
+    let ansHtml = baseQ.correct_answer ? `<div style="margin-top: 6px; font-size: 0.85rem; font-weight: 600; color: #16a34a;">Đáp án: ${escapeHtml(typeof baseQ.correct_answer === 'object' ? JSON.stringify(baseQ.correct_answer) : String(baseQ.correct_answer))}</div>` : '';
+
+    if (preview) {
+        preview.innerHTML = `
+            <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">Câu gốc (Câu ${qIndex + 1}):</div>
+            <div style="color: #334155; line-height: 1.4;">${formatSubscriptsAndFormulas(escapeHtml(qClean))}</div>
+            ${optsHtml}
+            ${ansHtml}
+        `;
+    }
+
+    if (resContainer) resContainer.style.display = 'none';
+    if (addBtn) addBtn.style.display = 'none';
+    if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo ngay với AI';
+    }
+
+    if (modal) {
+        modal.style.display = 'flex';
+        if (typeof renderMathJax === 'function') renderMathJax(preview);
+    }
+};
+
+window.closeSimilarModal = function() {
+    const modal = document.getElementById('similarQuestionModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitGenerateSimilar = async function() {
+    if (activeSimilarBaseIndex === null || !currentData[activeSimilarBaseIndex]) {
+        alert("Không tìm thấy câu hỏi gốc để sinh tương tự.");
+        return;
+    }
+    const modeRadio = document.querySelector('input[name="simMode"]:checked');
+    const mode = modeRadio ? modeRadio.value : 'change_numbers';
+    const count = parseInt(document.getElementById('simCountSelect')?.value || '3', 10);
+    const difficulty = document.getElementById('simDifficultySelect')?.value || 'keep';
+
+    const runBtn = document.getElementById('btnRunGenerateSimilar');
+    const resContainer = document.getElementById('simResultsContainer');
+    const genList = document.getElementById('simGeneratedList');
+    const addBtn = document.getElementById('btnAddSimilarToQuiz');
+
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang sinh câu hỏi...';
+    }
+
+    try {
+        const payload = {
+            teacher_token: authToken || '',
+            base_question: currentData[activeSimilarBaseIndex],
+            question: currentData[activeSimilarBaseIndex],
+            count: count,
+            mode: mode,
+            difficulty: difficulty
+        };
+        const res = await fetch(`${API_BASE_URL}/api/teacher/generate_similar_questions`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const similarList = (Array.isArray(data.similar_questions) && data.similar_questions) || (Array.isArray(data.data) && data.data);
+        if (res.ok && data.status === 'success' && similarList) {
+            activeGeneratedSimilarQuestions = similarList;
+            if (genList) {
+                genList.innerHTML = '';
+                activeGeneratedSimilarQuestions.forEach((sq, idx) => {
+                    let sqCard = document.createElement('div');
+                    sqCard.style.cssText = 'padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem;';
+                    let opts = Array.isArray(sq.options) ? sq.options.map(o => `<div style="padding: 2px 0;">• ${formatSubscriptsAndFormulas(escapeHtml(o))}</div>`).join('') : '';
+                    let ans = sq.correct_answer ? `<div style="margin-top: 6px; font-weight: 700; color: #16a34a;">Đáp án: ${escapeHtml(typeof sq.correct_answer === 'object' ? JSON.stringify(sq.correct_answer) : String(sq.correct_answer))}</div>` : '';
+                    let exp = sq.explain ? `<div style="margin-top: 4px; font-size: 0.85rem; color: #64748b;"><b>Lời giải:</b> ${formatSubscriptsAndFormulas(escapeHtml(sq.explain))}</div>` : '';
+                    
+                    sqCard.innerHTML = `
+                        <div style="font-weight: 700; color: #7c3aed; margin-bottom: 4px;">Câu tương tự #${idx + 1}:</div>
+                        <div style="color: #1e293b; margin-bottom: 6px;">${formatSubscriptsAndFormulas(escapeHtml(sq.question || ''))}</div>
+                        ${opts ? `<div style="margin-left: 8px; color: #475569;">${opts}</div>` : ''}
+                        ${ans}
+                        ${exp}
+                    `;
+                    genList.appendChild(sqCard);
+                });
+                if (typeof renderMathJax === 'function') renderMathJax(genList);
+            }
+            if (resContainer) resContainer.style.display = 'block';
+            if (addBtn) addBtn.style.display = 'inline-flex';
+            showToast(`Đã sinh xong ${activeGeneratedSimilarQuestions.length} câu hỏi tương tự!`);
+        } else {
+            showAIDiagnosticModal(data);
+        }
+    } catch(err) {
+        console.error("Generate similar error:", err);
+        showAIDiagnosticModal({
+            error_code: 'NETWORK_ERROR',
+            error_name: 'Lỗi kết nối khi sinh câu hỏi tương tự',
+            cause: 'Không thể kết nối tới máy chủ để sinh câu hỏi tương tự.',
+            solution: '1. Kiểm tra lại kết nối mạng.\n2. Bấm thử lại.',
+            technical_detail: err.message || String(err)
+        });
+    } finally {
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<i class="ri-sparkling-fill"></i> Tạo lại';
+        }
+    }
+};
+
+window.applySimilarQuestionsToQuiz = function() {
+    if (!activeGeneratedSimilarQuestions || activeGeneratedSimilarQuestions.length === 0) {
+        alert("Chưa có câu hỏi tương tự nào được sinh.");
+        return;
+    }
+    let insertIndex = activeSimilarBaseIndex !== null ? activeSimilarBaseIndex + 1 : currentData.length;
+    currentData.splice(insertIndex, 0, ...activeGeneratedSimilarQuestions);
+    
+    syncDataToEditor();
+    renderPreviewAll();
+    updateQCountBadge();
+    saveDraftToSession();
+    closeSimilarModal();
+    showToast(`Đã thêm ${activeGeneratedSimilarQuestions.length} câu hỏi mới vào đề thi!`);
+};
+
+window.openDedicatedExportPage = function() {
+    let quizTitle = "Đề thi trắc nghiệm";
+    const titleEl = document.getElementById('quizTitle') || document.getElementById('studioQuizTitle');
+    if (titleEl && titleEl.value) quizTitle = titleEl.value;
+    else if (window.currentQuizTitle) quizTitle = window.currentQuizTitle;
+
+    let questions = [];
+    if (typeof window.getParsedQuestions === 'function') {
+        try { questions = window.getParsedQuestions(); } catch(e){}
+    }
+    if (!questions || !questions.length) {
+        questions = window.currentQuizData || window.currentData || [];
+    }
+
+    const exportData = {
+        title: quizTitle,
+        questions: questions,
+        time_limit: parseInt(document.getElementById('quizTimeLimit')?.value || '45', 10) || 45
+    };
+
+    try {
+        sessionStorage.setItem('export_quiz_data', JSON.stringify(exportData));
+        if (window.currentQuizId) {
+            sessionStorage.setItem(`export_quiz_${window.currentQuizId}`, JSON.stringify(exportData));
+        }
+    } catch (e) {}
+
+    const targetUrl = window.currentQuizId ? `/export/${encodeURIComponent(window.currentQuizId)}` : '/export';
+    window.open(targetUrl, '_blank');
+    if (typeof closeExportDocxModal === 'function') closeExportDocxModal();
+};
+
+// Hàm chèn Bảng chuẩn / Bảng biến thiên trực tiếp vào Code Editor như Word
+function insertTableToEditor(type) {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+    codeEditor.focus();
+    
+    let tableHtml = '';
+    if (type === 'bbt') {
+        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 380px;">
+  <thead>
+    <tr style="background: #f8fafc;">
+      <th style="width: 50px; padding: 6px 12px;">x</th>
+      <th style="padding: 6px 12px;">$-\\infty$</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">-1</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">1</th>
+      <th style="padding: 6px 12px;"></th>
+      <th style="padding: 6px 12px;">$+\\infty$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight: bold; padding: 6px 12px;">y'</td>
+      <td style="padding: 6px 12px;"></td>
+      <td style="padding: 6px 12px;">+</td>
+      <td style="padding: 6px 12px;">0</td>
+      <td style="padding: 6px 12px;">-</td>
+      <td style="padding: 6px 12px;">0</td>
+      <td style="padding: 6px 12px;">+</td>
+      <td style="padding: 6px 12px;"></td>
+    </tr>
+    <tr>
+      <td style="font-weight: bold; padding: 6px 12px;">y</td>
+      <td style="padding: 6px 12px;">$-\\infty$</td>
+      <td style="padding: 6px 12px;">$\\nearrow$</td>
+      <td style="padding: 6px 12px; font-weight: bold;">2</td>
+      <td style="padding: 6px 12px;">$\\searrow$</td>
+      <td style="padding: 6px 12px; font-weight: bold;">-2</td>
+      <td style="padding: 6px 12px;">$\\nearrow$</td>
+      <td style="padding: 6px 12px;">$+\\infty$</td>
+    </tr>
+  </tbody>
+</table>\n`;
+    } else {
+        tableHtml = `\n<table class="quiz-table" border="1" style="border-collapse: collapse; margin: 12px auto; text-align: center; min-width: 320px;">
+  <thead>
+    <tr style="background: #f8fafc;">
+      <th style="padding: 6px 14px;">Tiêu đề 1</th>
+      <th style="padding: 6px 14px;">Tiêu đề 2</th>
+      <th style="padding: 6px 14px;">Tiêu đề 3</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 6px 14px;">Dữ liệu 1</td>
+      <td style="padding: 6px 14px;">Dữ liệu 2</td>
+      <td style="padding: 6px 14px;">Dữ liệu 3</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 14px;">Dữ liệu 4</td>
+      <td style="padding: 6px 14px;">Dữ liệu 5</td>
+      <td style="padding: 6px 14px;">Dữ liệu 6</td>
+    </tr>
+  </tbody>
+</table>\n`;
+    }
+    
+    document.execCommand('insertHTML', false, tableHtml);
+    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    if (typeof showToast === 'function') {
+        showToast(type === 'bbt' ? 'Đã chèn khung Bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
+    }
+}
+
+
+// ==========================================================================
+// STUDIO WORD-STYLE FORMATTING ENGINE, IMAGE RESIZER & CANVAS CROPPER
+// ==========================================================================
+
+// Biến toàn cục lưu giữ vùng chọn (Selection Range) trong #codeEditor tránh mất dấu khi click thanh công cụ
+let savedEditorSelection = null;
+
+function saveCurrentEditorSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        const editor = document.getElementById('codeEditor');
+        if (editor && editor.contains(sel.anchorNode)) {
+            savedEditorSelection = sel.getRangeAt(0).cloneRange();
+        }
+    }
+}
+
+function restoreEditorSelection() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    editor.focus();
+    if (savedEditorSelection) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(savedEditorSelection);
+    }
+}
+
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// 1. WORD FORMATTING TOOLS (In đậm, In nghiêng, Gạch chân, Căn lề, Hoàn tác)
+// --------------------------------------------------------------------------
+function formatDoc(cmd, value = null) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+    try {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand(cmd, false, value);
+    } catch (e) {
+        console.warn('execCommand failed for:', cmd, e);
+    }
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function toggleColorPalette(type, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    saveCurrentEditorSelection();
+    const textPal = document.getElementById('textColorPalette');
+    const bgPal = document.getElementById('bgColorPalette');
+    const imgMenu = document.getElementById('imageInsertMenu');
+    if (imgMenu) imgMenu.style.display = 'none';
+
+    if (type === 'text') {
+        if (bgPal) bgPal.style.display = 'none';
+        if (textPal) {
+            textPal.style.display = (textPal.style.display === 'none' || !textPal.style.display) ? 'block' : 'none';
+        }
+    } else if (type === 'bg') {
+        if (textPal) textPal.style.display = 'none';
+        if (bgPal) {
+            bgPal.style.display = (bgPal.style.display === 'none' || !bgPal.style.display) ? 'block' : 'none';
+        }
+    }
+}
+
+function applyTextColor(color) {
+    const ind = document.getElementById('textColorIndicator');
+    if (ind) ind.style.backgroundColor = color;
+    const pal = document.getElementById('textColorPalette');
+    if (pal) pal.style.display = 'none';
+
+    applyColorToEditorSelection('color', color);
+}
+
+function applyBgColor(color) {
+    const ind = document.getElementById('bgColorIndicator');
+    if (ind) ind.style.backgroundColor = color === 'transparent' ? '#f8fafc' : color;
+    const pal = document.getElementById('bgColorPalette');
+    if (pal) pal.style.display = 'none';
+
+    applyColorToEditorSelection('backgroundColor', color);
+}
+
+function applyColorToEditorSelection(styleProp, color) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+
+    const sel = window.getSelection();
+    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
+
+    if (range && !range.collapsed) {
+        try {
+            document.execCommand('styleWithCSS', false, true);
+            if (styleProp === 'color') {
+                document.execCommand('foreColor', false, color);
+            } else if (styleProp === 'backgroundColor') {
+                document.execCommand('hiliteColor', false, color === 'transparent' ? 'inherit' : color);
+            }
+        } catch (e) {
+            console.warn('execCommand color failed, fallback to wrap:', e);
+            try {
+                const span = document.createElement('span');
+                if (styleProp === 'color') span.style.color = color;
+                if (styleProp === 'backgroundColor') span.style.backgroundColor = color;
+                const contents = range.extractContents();
+                span.appendChild(contents);
+                range.insertNode(span);
+                range.selectNodeContents(span);
+            } catch(err) {}
+        }
+        if (typeof showToast === 'function') {
+            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
+            showToast('✓ Đã áp dụng ' + actionName + '!');
+        }
+    } else {
+        try {
+            document.execCommand('styleWithCSS', false, true);
+            if (styleProp === 'color') {
+                document.execCommand('foreColor', false, color);
+            } else if (styleProp === 'backgroundColor') {
+                document.execCommand('hiliteColor', false, color);
+            }
+        } catch(e) {}
+        if (typeof showToast === 'function') {
+            const actionName = styleProp === 'color' ? 'Màu chữ' : 'Màu dạ quang';
+            showToast('✓ Đã chọn ' + actionName + '. Bôi đen chữ để đổi màu hoặc gõ tiếp.');
+        }
+    }
+
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function clearEditorFormatting() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+
+    const sel = window.getSelection();
+    let range = (sel && sel.rangeCount > 0 && !sel.isCollapsed) ? sel.getRangeAt(0) : savedEditorSelection;
+
+    if (!range || range.collapsed) {
+        try {
+            document.execCommand('removeFormat', false, null);
+            document.execCommand('unlink', false, null);
+        } catch (e) {}
+        if (typeof showToast === 'function') {
+            showToast('ℹ Vui lòng bôi đen đoạn văn bản cần xóa định dạng');
+        }
+        return;
+    }
+
+    try {
+        document.execCommand('removeFormat', false, null);
+        document.execCommand('unlink', false, null);
+        
+        const text = range.toString();
+        if (text) {
+            range.deleteContents();
+            const textNode = document.createTextNode(text);
+            range.insertNode(textNode);
+            range.selectNodeContents(textNode);
+            if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            savedEditorSelection = range.cloneRange();
+        }
+        
+        saveCurrentEditorSelection();
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof showToast === 'function') {
+            showToast('✓ Đã xóa toàn bộ định dạng!');
+        }
+    } catch (e) {
+        console.error('Error clearing format:', e);
+    }
+}
+
+// --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE TRỰC QUAN
+// --------------------------------------------------------------------------
+let __mathtype_typeset_done = false;
+
+function openLatexMathModal() {
+    try {
+        saveCurrentEditorSelection();
+    } catch (_) {}
+
+    const modal = document.getElementById('latexMathModal');
+    if (!modal) {
+        console.warn("Không tìm thấy modal latexMathModal");
+        return;
+    }
+
+    // 1. Luôn hiển thị modal ngay lập tức để người dùng có phản hồi thị giác
+    modal.style.display = 'flex';
+
+    // 2. Điền trước công thức nếu người dùng đang bôi đen một đoạn text trong editor
+    let prefill = '';
+    try {
+        if (savedEditorSelection && !savedEditorSelection.collapsed) {
+            const selectedText = savedEditorSelection.toString().trim();
+            if (selectedText) {
+                prefill = selectedText.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+            }
+        }
+    } catch (_) {}
+
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        try {
+            if (typeof mf.setValue === 'function') {
+                mf.setValue(prefill || '', { format: 'latex' });
+            } else {
+                mf.value = prefill || '';
+            }
+        } catch (e) {
+            console.warn("Lỗi set value mathLiveEditor:", e);
+            try { mf.value = prefill || ''; } catch (_) {}
+        }
+    }
+
+    // 3. Typeset MathJax duy nhất 1 lần cho modal để chống lỗi lồng mjx-container
+    try {
+        if (!__mathtype_typeset_done && window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+            window.MathJax.typesetPromise([modal]).then(() => {
+                __mathtype_typeset_done = true;
+            }).catch(() => {});
+        }
+    } catch (_) {}
+
+    // 4. Focus vào ô nhập công thức
+    setTimeout(() => {
+        try {
+            if (mf && typeof mf.focus === 'function') {
+                mf.focus();
+            }
+        } catch (_) {}
+    }, 100);
+}
+
+function closeLatexMathModal() {
+    const modal = document.getElementById('latexMathModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function switchMathTypeTab(tabId, btn) {
+    const nav = document.getElementById('mathTypeTabsNav');
+    if (nav) {
+        nav.querySelectorAll('.mathtype-tab-btn').forEach(b => b.classList.remove('active'));
+    }
+    if (btn) {
+        btn.classList.add('active');
+    }
+
+    const panes = document.querySelectorAll('.mathtype-pane');
+    panes.forEach(p => p.style.display = 'none');
+
+    const targetPane = document.getElementById('mathPane-' + tabId);
+    if (targetPane) {
+        targetPane.style.display = 'flex';
+    }
+
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf && typeof mf.focus === 'function') mf.focus();
+}
+
+function insertMathSnippet(snippet) {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+    try {
+        if (typeof mf.executeCommand === 'function') {
+            mf.executeCommand(['insert', snippet]);
+        } else if (typeof mf.insert === 'function') {
+            mf.insert(snippet);
+        } else {
+            mf.value = (mf.value || '') + snippet;
+        }
+        if (typeof mf.focus === 'function') mf.focus();
+    } catch (e) {
+        console.warn("Lỗi chèn công thức math snippet:", e);
+        try { mf.value = (mf.value || '') + snippet; } catch (_) {}
+    }
+}
+
+// Bắt sự kiện click vào các phím ảo chứa data-snippet chuẩn xác 100%
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('button.mathtype-key');
+    if (btn && btn.hasAttribute('data-snippet')) {
+        e.preventDefault();
+        const snip = btn.getAttribute('data-snippet');
+        if (snip) {
+            insertMathSnippet(snip);
+        }
+    }
+});
+
+// Ngăn cướp tiêu điểm (focus) khi click các nút phím ảo
+document.addEventListener('mousedown', function(e) {
+    const btn = e.target.closest('button.mathtype-key, .mathtype-tab-btn, .mathtype-action-btn');
+    if (btn) {
+        e.preventDefault();
+    }
+});
+
+function clearMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        try {
+            if (typeof mf.setValue === 'function') {
+                mf.setValue('', { format: 'latex' });
+            } else {
+                mf.value = '';
+            }
+            if (typeof mf.focus === 'function') mf.focus();
+        } catch (_) {
+            mf.value = '';
+        }
+    }
+    if (typeof showToast === 'function') {
+        showToast('Đã xóa trắng công thức');
+    }
+}
+
+function backspaceMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        try {
+            if (typeof mf.executeCommand === 'function') {
+                mf.executeCommand(['deleteBackward']);
+            } else {
+                mf.value = (mf.value || '').slice(0, -1);
+            }
+            if (typeof mf.focus === 'function') mf.focus();
+        } catch (_) {
+            mf.value = (mf.value || '').slice(0, -1);
+        }
+    }
+}
+
+function copyMathField() {
+    const mf = document.getElementById('mathLiveEditor');
+    const val = mf ? ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim() : '';
+    if (!val) {
+        if (typeof showToast === 'function') showToast('ℹ Chưa có công thức để sao chép!');
+        return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val).then(() => {
+            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
+        }).catch(() => {
+            fallbackCopy(val);
+        });
+    } else {
+        fallbackCopy(val);
+    }
+
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
+    }
+}
+
+// Aliases cho tương thích ngược
+function clearLatexFormula() { clearMathField(); }
+function backspaceLatexFormula() { backspaceMathField(); }
+function copyLatexFormula() { copyMathField(); }
+function insertLatexSnippet(s) { insertMathSnippet(s); }
+function updateLatexLivePreview() {}
+
+function confirmInsertLatexFormula() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+    let raw = ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim();
+    if (!raw) {
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
+        return;
+    }
+
+    let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+    if (!clean) {
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
+        return;
+    }
+
+    const isDisplay = document.querySelector('input[name="latexDisplayType"]:checked')?.value === 'display';
+    const formula = isDisplay ? ('$$' + clean + '$$') : ('$' + clean + '$');
+
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        restoreEditorSelection();
+        editor.focus();
+
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode(formula);
+            range.insertNode(textNode);
+
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            savedEditorSelection = range.cloneRange();
+        } else {
+            document.execCommand('insertText', false, formula);
+            saveCurrentEditorSelection();
+        }
+
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    closeLatexMathModal();
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã chèn công thức Toán học!');
+    }
+}
+
+// Alias tương thích
+function insertLatexMathFormula() {
+    openLatexMathModal();
+}
+
+// Expose toàn bộ các hàm ra window để inline onclick luôn gọi được
+window.openLatexMathModal = openLatexMathModal;
+window.closeLatexMathModal = closeLatexMathModal;
+window.switchMathTypeTab = switchMathTypeTab;
+window.insertMathSnippet = insertMathSnippet;
+window.clearMathField = clearMathField;
+window.backspaceMathField = backspaceMathField;
+window.copyMathField = copyMathField;
+window.confirmInsertLatexFormula = confirmInsertLatexFormula;
+window.insertLatexMathFormula = insertLatexMathFormula;
+window.clearLatexFormula = clearLatexFormula;
+window.backspaceLatexFormula = backspaceLatexFormula;
+window.copyLatexFormula = copyLatexFormula;
+window.insertLatexSnippet = insertLatexSnippet;
+window.updateLatexLivePreview = updateLatexLivePreview;
+
+// Gắn trực tiếp event listener dự phòng cho nút #btnInsertLatex
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('btnInsertLatex');
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            openLatexMathModal();
+        });
+    }
+});
+
+function toggleImageMenu() {
+    const textPal = document.getElementById('textColorPalette');
+    const bgPal = document.getElementById('bgColorPalette');
+    if (textPal) textPal.style.display = 'none';
+    if (bgPal) bgPal.style.display = 'none';
+
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+}
+
+function triggerImageUpload() {
+    const input = document.getElementById('editorHiddenImageInput');
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = 'none';
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+function handleImageFileSelected(input) {
+    if (!input || !input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    if (!file.type.startsWith('image/')) {
+        showToast('Vui lòng chọn một tệp hình ảnh hợp lệ (PNG, JPG, WEBP, ...)!');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        insertImageToEditor(dataUrl);
+    };
+    reader.readAsDataURL(file);
+}
+
+function promptImageUrl() {
+    const menu = document.getElementById('imageInsertMenu');
+    if (menu) menu.style.display = 'none';
+    const url = prompt('Nhập đường dẫn liên kết (URL) của hình ảnh:');
+    if (url && url.trim()) {
+        insertImageToEditor(url.trim());
+    }
+}
+
+function insertImageToEditor(srcUrl) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    restoreEditorSelection();
+    editor.focus();
+    const imgHtml = `<img src="${srcUrl}" draggable="true" style="max-width: 100%; height: auto; border-radius: 6px; margin: 8px auto; display: block;" alt="hình minh họa">`;
+    document.execCommand('insertHTML', false, imgHtml);
+    saveCurrentEditorSelection();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
+}
+
+function insertImageAtRange(srcUrl, range) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+    editor.focus();
+
+    let targetRange = range;
+    if (!targetRange || !editor.contains(targetRange.startContainer)) {
+        restoreEditorSelection();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+            targetRange = sel.getRangeAt(0);
+        }
+    }
+
+    const img = document.createElement('img');
+    img.src = srcUrl;
+    img.setAttribute('draggable', 'true');
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.borderRadius = '6px';
+    img.style.margin = '8px auto';
+    img.style.display = 'block';
+    img.alt = 'hình minh họa';
+
+    if (targetRange && editor.contains(targetRange.startContainer)) {
+        targetRange.insertNode(img);
+        const newRange = document.createRange();
+        newRange.setStartAfter(img);
+        newRange.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        saveCurrentEditorSelection();
+    } else {
+        editor.appendChild(img);
+    }
+
+    selectEditorImage(img);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    saveDraftToSession();
+
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã chèn ảnh vào bài! Bấm vào ảnh để kéo thả, co giãn hoặc cắt ảnh.');
+    }
+}
+
+// --------------------------------------------------------------------------
+// 2. IN-EDITOR IMAGE INTERACTIVE RESIZE & FLOATING BAR
+// --------------------------------------------------------------------------
+let activeEditorImg = null;
+let isResizingImage = false;
+let resizeHandleDir = '';
+let resizeStartX = 0, resizeStartY = 0;
+let resizeStartWidth = 0, resizeStartHeight = 0, resizeAspect = 1;
+let draggedEditorImg = null;
+let currentDropRange = null;
+
+function getCaretRangeFromPoint(clientX, clientY) {
+    if (document.caretRangeFromPoint) {
+        return document.caretRangeFromPoint(clientX, clientY);
+    } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(clientX, clientY);
+        if (pos) {
+            const range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+            return range;
+        }
+    }
+    return null;
+}
+
+function updateEditorDropCaret(clientX, clientY) {
+    const editor = document.getElementById('codeEditor');
+    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
+    const caret = document.getElementById('editorDropCaret');
+    if (!editor || !wrapper || !caret) return;
+
+    const range = getCaretRangeFromPoint(clientX, clientY);
+    if (!range || !editor.contains(range.startContainer)) {
+        hideEditorDropCaret();
+        return;
+    }
+
+    currentDropRange = range;
+
+    // Cập nhật vùng chọn hệ thống để con trỏ chuột cũng định vị tại đây
+    try {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } catch (e) {}
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    let rect = null;
+
+    const rects = range.getClientRects();
+    if (rects.length > 0 && rects[0].height > 0) {
+        rect = rects[0];
+    } else {
+        const bRect = range.getBoundingClientRect();
+        if (bRect && bRect.height > 0) {
+            rect = bRect;
+        }
+    }
+
+    // Nếu range bị collapsed trong khối rỗng hoặc cuối dòng, chèn span ẩn tạm thời để đo vị trí chính xác 100%
+    if (!rect || rect.height === 0) {
+        try {
+            const marker = document.createElement('span');
+            marker.textContent = '\uFEFF';
+            marker.style.cssText = 'display:inline-block; width:0; height:1.4em; padding:0; margin:0; border:0; line-height:inherit; font-size:inherit;';
+            const clone = range.cloneRange();
+            clone.insertNode(marker);
+            const mRect = marker.getBoundingClientRect();
+            marker.remove();
+            if (mRect && mRect.height > 0) {
+                rect = mRect;
+            }
+        } catch (e) {}
+    }
+
+    // Fallback nếu vẫn chưa lấy được rect
+    if (!rect || rect.height === 0) {
+        let node = range.startContainer;
+        if (node.nodeType === Node.TEXT_NODE) {
+            node = node.parentNode;
+        }
+        if (node && node.getBoundingClientRect) {
+            const nodeRect = node.getBoundingClientRect();
+            rect = {
+                top: nodeRect.top,
+                left: clientX,
+                bottom: nodeRect.bottom,
+                right: clientX + 2,
+                height: Math.min(26, Math.max(18, nodeRect.height))
+            };
+        }
+    }
+
+    if (!rect) {
+        hideEditorDropCaret();
+        return;
+    }
+
+    const top = rect.top - wrapperRect.top + wrapper.scrollTop;
+    const left = rect.left - wrapperRect.left + wrapper.scrollLeft;
+    const height = Math.max(18, Math.min(36, rect.height || 22));
+
+    caret.style.display = 'block';
+    caret.style.top = top + 'px';
+    caret.style.left = left + 'px';
+    caret.style.height = height + 'px';
+}
+
+function hideEditorDropCaret() {
+    const caret = document.getElementById('editorDropCaret');
+    if (caret) caret.style.display = 'none';
+    currentDropRange = null;
+}
+
+function initEditorImageInteractions() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+
+    // Single click: Select image & show resizer overlay
+    editor.addEventListener('click', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            e.stopPropagation();
+            selectEditorImage(e.target);
+        } else {
+            // Click outside image inside editor -> hide overlay if not clicking overlay
+            if (!isResizingImage) {
+                hideEditorImageResizer();
+            }
+        }
+    });
+
+    // Double click: Open cropper directly
+    editor.addEventListener('dblclick', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            e.stopPropagation();
+            selectEditorImage(e.target);
+            openCropperForActiveImage();
+        }
+    });
+
+    // Scroll editor -> update overlay position
+    editor.addEventListener('scroll', function() {
+        if (activeEditorImg && !isResizingImage) {
+            updateResizerOverlayPosition();
+        }
+    });
+
+    // Support Paste image directly from clipboard (Ctrl + V)
+    editor.addEventListener('paste', function(e) {
+        if (e.clipboardData && e.clipboardData.items) {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            insertImageToEditor(evt.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    // Tự động gán draggable="true" cho mọi ảnh khi rê chuột vào trong editor
+    editor.addEventListener('mouseenter', function(e) {
+        if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
+            e.target.setAttribute('draggable', 'true');
+        }
+    }, true);
+
+    // 1. Kéo bắt đầu từ ảnh trong editor (Drag Start)
+    editor.addEventListener('dragstart', function(e) {
+        if (e.target && e.target.tagName === 'IMG') {
+            draggedEditorImg = e.target;
+            hideEditorImageResizer();
+            e.dataTransfer.effectAllowed = 'move';
+            try {
+                e.dataTransfer.setData('text/plain', e.target.src || '');
+                e.dataTransfer.setData('text/html', e.target.outerHTML || '');
+            } catch (err) {}
+
+            setTimeout(() => {
+                if (draggedEditorImg) {
+                    draggedEditorImg.classList.add('editor-img-dragging');
+                }
+            }, 0);
+        }
+    });
+
+    // 2. Kéo kết thúc (Drag End)
+    editor.addEventListener('dragend', function(e) {
+        if (draggedEditorImg) {
+            draggedEditorImg.classList.remove('editor-img-dragging');
+            draggedEditorImg = null;
+        }
+        hideEditorDropCaret();
+    });
+
+    // 3. Rê chuột khi đang kéo (Drag Over) - hiển thị dấu nháy chuột định vị chính xác vị trí thả
+    editor.addEventListener('dragover', function(e) {
+        const isInternalImg = !!draggedEditorImg;
+        const isFiles = e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files');
+        const isHtml = e.dataTransfer && e.dataTransfer.types && (
+            Array.from(e.dataTransfer.types).includes('text/html') || 
+            Array.from(e.dataTransfer.types).includes('text/uri-list') ||
+            Array.from(e.dataTransfer.types).includes('text/plain')
+        );
+
+        if (isInternalImg || isFiles || isHtml) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = isInternalImg ? 'move' : 'copy';
+            updateEditorDropCaret(e.clientX, e.clientY);
+        }
+    });
+
+    // 4. Rời khỏi editor khi đang kéo
+    editor.addEventListener('dragleave', function(e) {
+        if (!editor.contains(e.relatedTarget)) {
+            hideEditorDropCaret();
+        }
+    });
+
+    // 5. Thả ảnh vào vị trí dấu nháy (Drop)
+    editor.addEventListener('drop', function(e) {
+        const targetDropRange = getCaretRangeFromPoint(e.clientX, e.clientY) || currentDropRange;
+        hideEditorDropCaret();
+
+        // TRƯỜNG HỢP 1: Kéo ảnh có sẵn trong bài sang vị trí mới
+        if (draggedEditorImg) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const targetImg = draggedEditorImg;
+            draggedEditorImg = null;
+            targetImg.classList.remove('editor-img-dragging');
+
+            if (!targetDropRange || !editor.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Tránh thả ảnh vào chính nó
+            if (targetImg.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Chèn ảnh vào đúng vị trí dấu nháy
+            targetDropRange.insertNode(targetImg);
+
+            // Đặt con trỏ chuột ngay sau ảnh vừa thả
+            const newRange = document.createRange();
+            newRange.setStartAfter(targetImg);
+            newRange.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            saveCurrentEditorSelection();
+
+            // Hiển thị khung chọn và nút điều khiển cho ảnh tại vị trí mới
+            selectEditorImage(targetImg);
+
+            // Kích hoạt re-parse đề thi và cập nhật xem trước ngay lập tức
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            saveDraftToSession();
+
+            if (typeof showToast === 'function') {
+                showToast('✓ Đã di chuyển hình ảnh đến vị trí mới!');
+            }
+            return;
+        }
+
+        // TRƯỜNG HỢP 2: Thả tệp ảnh từ máy tính vào đúng vị trí dấu nháy
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    insertImageAtRange(evt.target.result, targetDropRange);
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+        }
+
+        // TRƯỜNG HỢP 3: Kéo ảnh từ khung Xem trước (Giao diện học sinh) hoặc web khác vào
+        if (e.dataTransfer) {
+            const html = e.dataTransfer.getData('text/html');
+            if (html && /<img\b[^>]*>/i.test(html)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const img = temp.querySelector('img');
+                if (img && img.src) {
+                    insertImageAtRange(img.src, targetDropRange);
+                    return;
+                }
+            }
+        }
+    });
+
+    // Global click listener to close dropdowns & overlay
+    document.addEventListener('click', function(e) {
+        const overlay = document.getElementById('editorImgResizerOverlay');
+        const isClickInsideOverlay = overlay && overlay.contains(e.target);
+        const isClickEditor = editor && editor.contains(e.target);
+
+        if (!isClickInsideOverlay && !isClickEditor && !isResizingImage) {
+            hideEditorImageResizer();
+        }
+
+        // Close palettes if clicked outside
+        const textPal = document.getElementById('textColorPalette');
+        const bgPal = document.getElementById('bgColorPalette');
+        const imgMenu = document.getElementById('imageInsertMenu');
+        if (textPal && !e.target.closest('#textColorPalette') && !e.target.closest('#btnTextColorPicker') && !e.target.closest('.toolbar-btn-color')) {
+            textPal.style.display = 'none';
+        }
+        if (bgPal && !e.target.closest('#bgColorPalette') && !e.target.closest('#btnBgColorPicker') && !e.target.closest('.toolbar-btn-color')) {
+            bgPal.style.display = 'none';
+        }
+        if (imgMenu && !e.target.closest('#imageInsertMenu') && !e.target.closest('.toolbar-btn-highlighted')) {
+            imgMenu.style.display = 'none';
+        }
+    });
+
+    // Setup drag events for 4 resize handles
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    if (overlay) {
+        const handles = overlay.querySelectorAll('.img-resize-handle');
+        handles.forEach(handle => {
+            handle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!activeEditorImg) return;
+
+                isResizingImage = true;
+                resizeHandleDir = this.dataset.handle;
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                resizeStartWidth = activeEditorImg.offsetWidth;
+                resizeStartHeight = activeEditorImg.offsetHeight;
+                resizeAspect = resizeStartWidth / (resizeStartHeight || 1);
+
+                document.body.style.cursor = window.getComputedStyle(this).cursor;
+
+                function onMouseMove(moveEvent) {
+                    if (!isResizingImage || !activeEditorImg) return;
+                    const dx = moveEvent.clientX - resizeStartX;
+                    let newWidth = resizeStartWidth;
+
+                    if (resizeHandleDir === 'se' || resizeHandleDir === 'ne') {
+                        newWidth = Math.max(50, resizeStartWidth + dx);
+                    } else if (resizeHandleDir === 'sw' || resizeHandleDir === 'nw') {
+                        newWidth = Math.max(50, resizeStartWidth - dx);
+                    }
+
+                    // Giới hạn max-width theo container editor
+                    const maxAllowed = editor.clientWidth - 40;
+                    if (newWidth > maxAllowed) newWidth = maxAllowed;
+
+                    activeEditorImg.style.width = Math.round(newWidth) + 'px';
+                    activeEditorImg.style.height = 'auto';
+
+                    updateResizerOverlayPosition();
+                    const tooltip = document.getElementById('imgDimTooltip');
+                    if (tooltip) {
+                        tooltip.innerText = `${Math.round(activeEditorImg.offsetWidth)} × ${Math.round(activeEditorImg.offsetHeight)} px`;
+                    }
+                }
+
+                function onMouseUp() {
+                    if (isResizingImage) {
+                        isResizingImage = false;
+                        document.body.style.cursor = '';
+                        window.removeEventListener('mousemove', onMouseMove);
+                        window.removeEventListener('mouseup', onMouseUp);
+                        editor.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                }
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+}
+
+function selectEditorImage(img) {
+    if (!img) return;
+    if (activeEditorImg && activeEditorImg !== img) {
+        activeEditorImg.classList.remove('editor-img-active');
+    }
+    activeEditorImg = img;
+    activeEditorImg.classList.add('editor-img-active');
+    updateResizerOverlayPosition();
+}
+
+function updateResizerOverlayPosition() {
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    const editor = document.getElementById('codeEditor');
+    const wrapper = editor ? editor.closest('.studio-editor-wrapper') : null;
+    if (!overlay || !activeEditorImg || !editor || !wrapper) return;
+
+    const imgRect = activeEditorImg.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
+
+    const top = imgRect.top - wrapperRect.top + wrapper.scrollTop;
+    const left = imgRect.left - wrapperRect.left + wrapper.scrollLeft;
+    const width = imgRect.width;
+    const height = imgRect.height;
+
+    overlay.style.display = 'block';
+    overlay.style.top = top + 'px';
+    overlay.style.left = left + 'px';
+    overlay.style.width = width + 'px';
+    overlay.style.height = height + 'px';
+
+    const tooltip = document.getElementById('imgDimTooltip');
+    if (tooltip) {
+        tooltip.innerText = `${Math.round(width)} × ${Math.round(height)} px`;
+    }
+}
+
+function hideEditorImageResizer() {
+    const overlay = document.getElementById('editorImgResizerOverlay');
+    if (overlay) overlay.style.display = 'none';
+    if (activeEditorImg) {
+        activeEditorImg.classList.remove('editor-img-active');
+        activeEditorImg = null;
+    }
+}
+
+function setImgWidthPreset(preset) {
+    if (!activeEditorImg) return;
+    activeEditorImg.style.width = preset;
+    activeEditorImg.style.height = 'auto';
+    updateResizerOverlayPosition();
+    const editor = document.getElementById('codeEditor');
+    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function setImgAlign(align) {
+    if (!activeEditorImg) return;
+    if (align === 'left') {
+        activeEditorImg.style.display = 'inline-block';
+        activeEditorImg.style.float = 'left';
+        activeEditorImg.style.margin = '8px 16px 8px 0';
+    } else if (align === 'center') {
+        activeEditorImg.style.display = 'block';
+        activeEditorImg.style.float = 'none';
+        activeEditorImg.style.margin = '10px auto';
+    } else if (align === 'right') {
+        activeEditorImg.style.display = 'inline-block';
+        activeEditorImg.style.float = 'right';
+        activeEditorImg.style.margin = '8px 0 8px 16px';
+    }
+    updateResizerOverlayPosition();
+    const editor = document.getElementById('codeEditor');
+    if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function deleteActiveEditorImage() {
+    if (!activeEditorImg) return;
+    const confirmDelete = confirm('Bạn có chắc chắn muốn xóa hình ảnh này khỏi bài không?');
+    if (confirmDelete) {
+        const editor = document.getElementById('codeEditor');
+        activeEditorImg.remove();
+        hideEditorImageResizer();
+        if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
+        showToast('Đã xóa hình ảnh.');
+    }
+}
+
+// --------------------------------------------------------------------------
+// 3. CANVAS-BASED IMAGE CROPPER MODAL ENGINE
+// --------------------------------------------------------------------------
+let cropperTargetImg = null;
+let cropperRotation = 0; // 0, 90, 180, 270
+let cropperFlipH = 1;
+let cropperCropRatio = 'free'; // 'free', 1, 4/3, 16/9
+let cropperBox = { x: 0, y: 0, w: 100, h: 100 };
+let isDraggingCrop = false;
+let isResizingCrop = false;
+let cropResizeDir = '';
+let cropDragStartX = 0, cropDragStartY = 0;
+let cropBoxStart = { x: 0, y: 0, w: 0, h: 0 };
+
+function openCropperForActiveImage(img = null) {
+    cropperTargetImg = img || activeEditorImg;
+    if (!cropperTargetImg) {
+        showToast('Vui lòng chọn một hình ảnh cần cắt!');
+        return;
+    }
+
+    const modal = document.getElementById('imageCropperModal');
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!modal || !sourceImg) return;
+
+    cropperRotation = 0;
+    cropperFlipH = 1;
+    cropperCropRatio = 'free';
+
+    modal.style.display = 'flex';
+    sourceImg.style.transform = 'none';
+    sourceImg.src = cropperTargetImg.src;
+
+    sourceImg.onload = function() {
+        initCropBox();
+    };
+
+    if (sourceImg.complete && sourceImg.naturalWidth > 0) {
+        initCropBox();
+    }
+}
+
+function closeImageCropperModal() {
+    const modal = document.getElementById('imageCropperModal');
+    if (modal) modal.style.display = 'none';
+    cropperTargetImg = null;
+}
+
+function initCropBox() {
+    const sourceImg = document.getElementById('cropperSourceImg');
+    const boxEl = document.getElementById('cropperBox');
+    if (!sourceImg || !boxEl) return;
+
+    const imgW = sourceImg.clientWidth || 300;
+    const imgH = sourceImg.clientHeight || 200;
+
+    // Default crop box: centered, 80% of image
+    const w = Math.round(imgW * 0.8);
+    const h = Math.round(imgH * 0.8);
+    const x = Math.round((imgW - w) / 2);
+    const y = Math.round((imgH - h) / 2);
+
+    cropperBox = { x, y, w, h };
+    renderCropBox();
+    setupCropBoxInteractions();
+}
+
+function renderCropBox() {
+    const boxEl = document.getElementById('cropperBox');
+    if (!boxEl) return;
+    boxEl.style.left = cropperBox.x + 'px';
+    boxEl.style.top = cropperBox.y + 'px';
+    boxEl.style.width = cropperBox.w + 'px';
+    boxEl.style.height = cropperBox.h + 'px';
+}
+
+function setupCropBoxInteractions() {
+    const boxEl = document.getElementById('cropperBox');
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!boxEl || !sourceImg) return;
+
+    // 1. Move Crop Box by dragging inside
+    boxEl.onmousedown = function(e) {
+        if (e.target.classList.contains('crop-h')) return; // handled by handle mousedown
+        e.preventDefault();
+        isDraggingCrop = true;
+        cropDragStartX = e.clientX;
+        cropDragStartY = e.clientY;
+        cropBoxStart = { ...cropperBox };
+
+        function onBoxMouseMove(evt) {
+            if (!isDraggingCrop) return;
+            const dx = evt.clientX - cropDragStartX;
+            const dy = evt.clientY - cropDragStartY;
+
+            const maxW = sourceImg.clientWidth;
+            const maxH = sourceImg.clientHeight;
+
+            let nx = Math.max(0, Math.min(maxW - cropBoxStart.w, cropBoxStart.x + dx));
+            let ny = Math.max(0, Math.min(maxH - cropBoxStart.h, cropBoxStart.y + dy));
+
+            cropperBox.x = nx;
+            cropperBox.y = ny;
+            renderCropBox();
+        }
+
+        function onBoxMouseUp() {
+            isDraggingCrop = false;
+            window.removeEventListener('mousemove', onBoxMouseMove);
+            window.removeEventListener('mouseup', onBoxMouseUp);
+        }
+
+        window.addEventListener('mousemove', onBoxMouseMove);
+        window.addEventListener('mouseup', onBoxMouseUp);
+    };
+
+    // 2. Resize Crop Box by dragging handles
+    const handles = boxEl.querySelectorAll('.crop-h');
+    handles.forEach(h => {
+        h.onmousedown = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            isResizingCrop = true;
+            cropResizeDir = this.dataset.dir;
+            cropDragStartX = e.clientX;
+            cropDragStartY = e.clientY;
+            cropBoxStart = { ...cropperBox };
+
+            function onHandleMouseMove(evt) {
+                if (!isResizingCrop) return;
+                const dx = evt.clientX - cropDragStartX;
+                const dy = evt.clientY - cropDragStartY;
+                const maxW = sourceImg.clientWidth;
+                const maxH = sourceImg.clientHeight;
+
+                let { x, y, w, h } = cropBoxStart;
+
+                if (cropResizeDir.includes('e')) {
+                    w = Math.min(maxW - x, Math.max(30, cropBoxStart.w + dx));
+                }
+                if (cropResizeDir.includes('s')) {
+                    h = Math.min(maxH - y, Math.max(30, cropBoxStart.h + dy));
+                }
+                if (cropResizeDir.includes('w')) {
+                    const proposedW = cropBoxStart.w - dx;
+                    if (proposedW >= 30 && (cropBoxStart.x + dx) >= 0) {
+                        x = cropBoxStart.x + dx;
+                        w = proposedW;
+                    }
+                }
+                if (cropResizeDir.includes('n')) {
+                    const proposedH = cropBoxStart.h - dy;
+                    if (proposedH >= 30 && (cropBoxStart.y + dy) >= 0) {
+                        y = cropBoxStart.y + dy;
+                        h = proposedH;
+                    }
+                }
+
+                // Enforce fixed ratio if selected
+                if (cropperCropRatio !== 'free' && typeof cropperCropRatio === 'number') {
+                    h = Math.round(w / cropperCropRatio);
+                    if (y + h > maxH) {
+                        h = maxH - y;
+                        w = Math.round(h * cropperCropRatio);
+                    }
+                }
+
+                cropperBox = { x, y, w, h };
+                renderCropBox();
+            }
+
+            function onHandleMouseUp() {
+                isResizingCrop = false;
+                window.removeEventListener('mousemove', onHandleMouseMove);
+                window.removeEventListener('mouseup', onHandleMouseUp);
+            }
+
+            window.addEventListener('mousemove', onHandleMouseMove);
+            window.addEventListener('mouseup', onHandleMouseUp);
+        };
+    });
+}
+
+function setCropRatio(ratio, btn) {
+    cropperCropRatio = ratio;
+    const btns = document.querySelectorAll('.cropper-ctrl-btn[data-ratio]');
+    btns.forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg) return;
+    const maxW = sourceImg.clientWidth;
+    const maxH = sourceImg.clientHeight;
+
+    if (ratio !== 'free' && typeof ratio === 'number') {
+        let w = cropperBox.w;
+        let h = Math.round(w / ratio);
+        if (h > maxH) {
+            h = maxH * 0.8;
+            w = Math.round(h * ratio);
+        }
+        if (cropperBox.x + w > maxW) cropperBox.x = Math.max(0, maxW - w);
+        if (cropperBox.y + h > maxH) cropperBox.y = Math.max(0, maxH - h);
+        cropperBox.w = w;
+        cropperBox.h = h;
+        renderCropBox();
+    }
+}
+
+function rotateCropper(deg) {
+    cropperRotation = (cropperRotation + deg + 360) % 360;
+    applyImgTransform();
+}
+
+function flipCropper(dir) {
+    if (dir === 'h') {
+        cropperFlipH = cropperFlipH * -1;
+    }
+    applyImgTransform();
+}
+
+function applyImgTransform() {
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg) return;
+    sourceImg.style.transform = `rotate(${cropperRotation}deg) scaleX(${cropperFlipH})`;
+}
+
+function resetCropBox() {
+    cropperRotation = 0;
+    cropperFlipH = 1;
+    applyImgTransform();
+    initCropBox();
+}
+
+function applyImageCrop() {
+    if (!cropperTargetImg) return;
+    const sourceImg = document.getElementById('cropperSourceImg');
+    if (!sourceImg || !sourceImg.naturalWidth) return;
+
+    // Tỷ lệ giữa kích thước thật và kích thước hiển thị trên màn hình
+    const scaleX = sourceImg.naturalWidth / sourceImg.clientWidth;
+    const scaleY = sourceImg.naturalHeight / sourceImg.clientHeight;
+
+    const realCropX = Math.round(cropperBox.x * scaleX);
+    const realCropY = Math.round(cropperBox.y * scaleY);
+    const realCropW = Math.round(cropperBox.w * scaleX);
+    const realCropH = Math.round(cropperBox.h * scaleY);
+
+    if (realCropW <= 0 || realCropH <= 0) {
+        showToast('Vùng cắt không hợp lệ!');
+        return;
+    }
+
+    // 1. Tạo canvas offscreen để cắt ảnh và áp dụng biến đổi
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (cropperRotation === 90 || cropperRotation === 270) {
+        canvas.width = realCropH;
+        canvas.height = realCropW;
+    } else {
+        canvas.width = realCropW;
+        canvas.height = realCropH;
+    }
+
+    ctx.save();
+
+    // Di chuyển tâm canvas và xoay/lật
+    if (cropperRotation === 90) {
+        ctx.translate(canvas.width, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else if (cropperRotation === 180) {
+        ctx.translate(canvas.width, canvas.height);
+        ctx.rotate(Math.PI);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else if (cropperRotation === 270) {
+        ctx.translate(0, canvas.height);
+        ctx.rotate((3 * Math.PI) / 2);
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    } else {
+        if (cropperFlipH === -1) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(sourceImg, realCropX, realCropY, realCropW, realCropH, 0, 0, realCropW, realCropH);
+    }
+
+    ctx.restore();
+
+    // 2. Xuất ảnh đã cắt sang Data URL
+    const croppedDataUrl = canvas.toDataURL('image/png');
+
+    // 3. Cập nhật trực tiếp vào thẻ IMG đang chọn trong editor
+    cropperTargetImg.src = croppedDataUrl;
+    cropperTargetImg.style.maxWidth = '100%';
+    cropperTargetImg.style.height = 'auto';
+
+    closeImageCropperModal();
+    updateResizerOverlayPosition();
+
+    // 4. Báo cho editor biết nội dung đã thay đổi để lưu draft & render preview
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    showToast('✓ Đã cắt và cập nhật ảnh thành công!');
+}
+
+
+window.insertSampleDemoImage = function() {
+    const svgSample = '<svg xmlns="http://www.w3.org/2000/svg" width="380" height="220" viewBox="0 0 380 220">' +
+        '<rect width="100%" height="100%" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" rx="8"/>' +
+        '<line x1="30" y1="180" x2="350" y2="180" stroke="#475569" stroke-width="2"/>' +
+        '<line x1="190" y1="20" x2="190" y2="200" stroke="#475569" stroke-width="2"/>' +
+        '<path d="M 50 170 Q 190 30 330 170" fill="none" stroke="#2563eb" stroke-width="3"/>' +
+        '<text x="340" y="174" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">x</text>' +
+        '<text x="198" y="34" font-family="sans-serif" font-size="14" fill="#1e293b" font-weight="bold">y</text>' +
+        '<text x="190" y="120" font-family="sans-serif" font-size="13" fill="#2563eb" text-anchor="middle" font-weight="bold">y = f(x)</text>' +
+    '</svg>';
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSample);
+    insertImageToEditor(dataUri);
+    showToast('✓ Đã chèn ảnh mẫu! Bấm vào ảnh để kéo góc giãn ảnh hoặc bấm "Cắt ảnh".');
+};
+
+// Lắng nghe sự kiện click / double-click ảnh ở khung XEM TRƯỚC (Giao diện học sinh)
+document.addEventListener('DOMContentLoaded', function() {
+    const previewContent = document.getElementById('preview-content');
+    if (previewContent) {
+        previewContent.addEventListener('mouseenter', function(e) {
+            if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
+                e.target.setAttribute('draggable', 'true');
+            }
+        }, true);
+        previewContent.addEventListener('dblclick', function(e) {
+            if (e.target && e.target.tagName === 'IMG') {
+                const targetSrc = e.target.getAttribute('src');
+                const editorImgs = document.querySelectorAll('#codeEditor img');
+                let matchImg = null;
+                for (let img of editorImgs) {
+                    if (img.getAttribute('src') === targetSrc) {
+                        matchImg = img;
+                        break;
+                    }
+                }
+                if (matchImg) {
+                    selectEditorImage(matchImg);
+                    openCropperForActiveImage(matchImg);
+                } else {
+                    openCropperForActiveImage(e.target);
+                }
+            }
+        });
+    }
+});

@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter
 
-from app.schemas.quiz import DiscardDraftRequest, SaveQuizRequest
+from app.schemas.quiz import DiscardDraftRequest, SaveQuizRequest, VerifyQuizPasswordRequest
 from app.services.quiz_service import quiz_service
 from services.firebase_service import get_db  # noqa: F401 (for test mocking compatibility)
 
@@ -40,6 +40,9 @@ async def save_quiz(request: SaveQuizRequest):
         creator_id=request.creator_id,
         status=request.status,
         quiz_id=request.quiz_id,
+        description=request.description,
+        password=request.password,
+        settings=request.settings,
     )
 
 
@@ -47,3 +50,9 @@ async def save_quiz(request: SaveQuizRequest):
 async def get_quiz(quiz_id: str, teacher_token: Optional[str] = None):
     """Truy vấn đề thi theo ID với cơ chế bảo mật chống xem trước đáp án."""
     return quiz_service.get_quiz(quiz_id=quiz_id, teacher_token=teacher_token)
+
+
+@router.post("/verify_quiz_password", summary="Xác thực mật khẩu đề thi của học sinh")
+async def verify_quiz_password(req: VerifyQuizPasswordRequest):
+    """Kiểm tra mật khẩu đề thi trước khi học sinh bắt đầu làm bài."""
+    return quiz_service.verify_password(quiz_id=req.quiz_id, password=req.password)

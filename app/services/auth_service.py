@@ -300,6 +300,8 @@ class AuthService:
             "token": jwt_token,
             "role": final_role,
             "full_name": final_name,
+            "class_name": user_data.get('class_name', '') if ('user_data' in locals() and user_data) else '',
+            "school": (user_data.get('school', '') or user_data.get('school_name', '')) if ('user_data' in locals() and user_data) else '',
             "email": email,
             "avatar": picture
         }
@@ -616,6 +618,8 @@ class AuthService:
             "role": role,
             "full_name": user_data.get('full_name', ''),
             "avatar": user_data.get('avatar', ''),
+            "class_name": user_data.get('class_name', ''),
+            "school": user_data.get('school', '') or user_data.get('school_name', ''),
             "message": "Đăng nhập thành công!"
         }
 

@@ -168,6 +168,47 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             ak.set_answer(2, q_num, tf_dict)
                     continue
 
+            # Dạng E: Bảng phân tách 2 cột riêng biệt [Đúng] và [Sai] (VD: [Câu, Ý, Đúng, Sai] hoặc [Câu, Lệnh hỏi, Đúng, Sai])
+            has_col_dung = any(h in ['đúng', 'đ', 'true', 't'] for h in header_cells)
+            has_col_sai = any(h in ['sai', 's', 'false', 'f'] for h in header_cells)
+            if has_col_dung and has_col_sai and num_rows >= 2:
+                idx_dung = next((i for i, h in enumerate(header_cells) if h in ['đúng', 'đ', 'true', 't']), None)
+                idx_sai = next((i for i, h in enumerate(header_cells) if h in ['sai', 's', 'false', 'f']), None)
+                cur_q_num = None
+                matched_dang_e = False
+                for r in table.rows[1:]:
+                    cells = r.cells
+                    row_txt = [c.text.strip() for c in cells]
+                    for c_txt in row_txt[:2]:
+                        qm = re.search(r'\b(?:câu\s*)?(\d+)\b', c_txt, re.I)
+                        if qm:
+                            cur_q_num = int(qm.group(1))
+                            break
+                    sub_char = None
+                    for c_txt in row_txt[:3]:
+                        sm = re.search(r'\b([a-d])[\.\:\)\/]?\b', c_txt, re.I)
+                        if sm:
+                            sub_char = sm.group(1).lower()
+                            break
+                    if cur_q_num and sub_char and idx_dung is not None and idx_sai is not None:
+                        cell_d = cells[idx_dung].text.strip().lower() if idx_dung < len(cells) else ""
+                        cell_s = cells[idx_sai].text.strip().lower() if idx_sai < len(cells) else ""
+                        is_t = any(k in cell_d for k in ['x', '✓', '✔', '1', 'đ', 'true', 't']) or (bool(cell_d) and not bool(cell_s))
+                        is_f = any(k in cell_s for k in ['x', '✓', '✔', '1', 's', 'sai', 'false', '0']) or (bool(cell_s) and not bool(cell_d))
+                        if is_t and not is_f:
+                            is_true = True
+                        elif is_f and not is_t:
+                            is_true = False
+                        else:
+                            is_true = bool(is_t)
+                        if cur_q_num not in ak.part2:
+                            ak.part2[cur_q_num] = {}
+                        ak.part2[cur_q_num][sub_char] = is_true
+                        ak[cur_q_num] = ak.part2[cur_q_num]
+                        matched_dang_e = True
+                if matched_dang_e:
+                    continue
+
                         # Dạng D: Bảng đáp án Đúng/Sai dạng nhiều bộ ba cột: [Câu, Lệnh hỏi, Đáp án (Đ/S)]
             if num_cols >= 3 and num_cols % 3 == 0 and num_rows >= 2:
                 r0 = [c.text.strip().lower() for c in table.rows[0].cells]
@@ -278,14 +319,14 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                         q_num = int(num_m.group(1))
 
                         tf_m = re.search(r'(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))', c1, re.IGNORECASE)
-                        if tf_m or len(re.findall(r'(Đ|S|ĐÚNG|SAI)', c1, re.IGNORECASE)) >= 3:
+                        if tf_m or len(re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)) >= 3:
                             from services.ai_service import parse_tf_answer
                             tf_dict = parse_tf_answer(c1)
                             if tf_dict and any(tf_dict.values()):
                                 ak.set_answer(2, q_num, tf_dict)
                                 continue
 
-                        seq_tf = re.findall(r'(Đ|S|ĐÚNG|SAI)', c1, re.IGNORECASE)
+                        seq_tf = re.findall(r'\b(Đ|S|ĐÚNG|SAI)\b', c1, re.IGNORECASE)
                         if len(seq_tf) == 4:
                             ak.set_answer(2, q_num, {
                                 'a': seq_tf[0].lower() in ['đ', 'đúng'],
@@ -295,7 +336,7 @@ def extract_answer_key_from_doc(doc, full_text: str = "") -> AnswerKeyMap:
                             })
                             continue
 
-                        ans_m = re.match(r'^\s*([A-F])', c1, re.IGNORECASE)
+                        ans_m = re.match(r'^\s*([A-F])\b', c1, re.IGNORECASE)
                         if ans_m and len(c1.strip()) <= 3:
                             ak.set_answer(1, q_num, ans_m.group(1).upper())
                             continue

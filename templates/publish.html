@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tùy chọn xuất bản đề thi - HocNhanhTN</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- RemixIcon -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <!-- MathJax for rendering formulas if any -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+/* ==========================================================================
+   HocNhanhTN - Responsive Publish Studio Stylesheet
+   Chuẩn Senior UI: Hoàn hảo trên Desktop, Tablet & Mobile (Mobile-First)
+   ========================================================================== */
+
+:root {
+    --pub-primary: #2563eb;
+    --pub-primary-hover: #1d4ed8;
+    --pub-primary-light: #eff6ff;
+    --pub-primary-border: #bfdbfe;
+    
+    --pub-success: #16a34a;
+    --pub-success-light: #dcfce7;
+    --pub-success-border: #bbf7d0;
+
+    --pub-warning: #d97706;
+    --pub-warning-light: #fef3c7;
+    --pub-warning-border: #fde68a;
+
+    --pub-danger: #dc2626;
+    --pub-danger-light: #fee2e2;
+
+    --pub-mcq: #2563eb;
+    --pub-mcq-bg: #eff6ff;
+    --pub-mcq-border: #bfdbfe;
+
+    --pub-tf: #059669;
+    --pub-tf-bg: #ecfdf5;
+    --pub-tf-border: #a7f3d0;
+
+    --pub-sa: #d97706;
+    --pub-sa-bg: #fffbeb;
+    --pub-sa-border: #fde68a;
+
+    --pub-bg: #f8fafc;
+    --pub-surface: #ffffff;
+    --pub-surface-alt: #f1f5f9;
+    --pub-border: #e2e8f0;
+    --pub-border-focus: #3b82f6;
+    --pub-text-main: #0f172a;
+    --pub-text-muted: #64748b;
+    --pub-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --pub-radius: 14px;
+    --pub-radius-sm: 8px;
+    --pub-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --pub-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    --pub-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--pub-bg);
+    color: var(--pub-text-main);
+    font-family: var(--pub-font);
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 76px; /* Chừa chỗ cho mobile sticky action bar */
+}
+
+@media (min-width: 992px) {
+    body {
+        padding-bottom: 30px;
+    }
+}
+
+/* NAVBAR */
+.pub-navbar {
+    height: 64px;
+    background: var(--pub-surface);
+    border-bottom: 1px solid var(--pub-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--pub-shadow-sm);
+}
+
+.pub-navbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.btn-nav-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 12px;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-nav-back:hover {
+    background: #e2e8f0;
+    color: var(--pub-text-main);
+}
+
+.btn-nav-home {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    background: #0f172a;
+    color: #ffffff;
+    border: 1px solid #0f172a;
+    border-radius: var(--pub-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-nav-home:hover {
+    background: #1e293b;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.pub-title-block {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.pub-doc-name {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--pub-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pub-doc-meta {
+    font-size: 0.76rem;
+    color: var(--pub-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.badge-ready {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    background: var(--pub-success-light);
+    color: var(--pub-success);
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px solid var(--pub-success-border);
+    flex-shrink: 0;
+}
+
+.pub-navbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.btn-pub-header {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: var(--pub-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-pub-preview {
+    background: #ffffff;
+    color: #334155;
+    border: 1.5px solid var(--pub-border);
+}
+
+.btn-pub-preview:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.btn-pub-primary {
+    background: var(--pub-primary);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+}
+
+.btn-pub-primary:hover {
+    background: var(--pub-primary-hover);
+    transform: translateY(-1px);
+}
+
+/* Ẩn bớt text nút trên màn hình nhỏ */
+@media (max-width: 640px) {
+    .pub-navbar {
+        padding: 0 12px;
+    }
+    .pub-navbar-right .btn-pub-preview span,
+    .pub-navbar-right .btn-pub-primary span {
+        display: none;
+    }
+    .btn-nav-back span {
+        display: none;
+    }
+    .btn-pub-header {
+        padding: 0 10px;
+    }
+}
+
+/* MAIN CONTAINER */
+.pub-container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 16px 40px;
+    flex: 1;
+}
+
+@media (min-width: 768px) {
+    .pub-container {
+        padding: 24px 20px 40px;
+    }
+}
+
+/* HERO SUMMARY BANNER */
+.pub-hero-banner {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    border-radius: var(--pub-radius);
+    padding: 20px;
+    color: #ffffff;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (min-width: 768px) {
+    .pub-hero-banner {
+        padding: 26px 30px;
+        gap: 20px;
+    }
+}
+
+.hero-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.hero-title-area {
+    flex: 1;
+    min-width: 240px;
+}
+
+.hero-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    margin-bottom: 8px;
+}
+
+.hero-main-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.3;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+@media (min-width: 768px) {
+    .hero-main-title {
+        font-size: 1.6rem;
+    }
+}
+
+.hero-subtitle {
+    font-size: 0.84rem;
+    color: #bfdbfe;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* STATS METRIC CARDS */
+.stats-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+@media (min-width: 640px) {
+    .stats-cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.stat-card:hover, .stat-card:active {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.stat-card.active {
+    background: #ffffff;
+    color: var(--pub-text-main);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card.active .stat-card-title {
+    color: var(--pub-text-muted);
+}
+
+.stat-card.active .stat-card-desc {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.stat-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.stat-card-title {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #dbeafe;
+    text-transform: uppercase;
+}
+
+.stat-card-icon {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.stat-card-val {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.stat-card-desc {
+    font-size: 0.7rem;
+    color: #bfdbfe;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* TWO COLUMNS LAYOUT */
+.pub-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 992px) {
+    .pub-layout {
+        grid-template-columns: 1fr 370px;
+        gap: 24px;
+    }
+}
+
+/* SECTION CARDS */
+.pub-card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius);
+    padding: 18px;
+    box-shadow: var(--pub-shadow-sm);
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .pub-card {
+        padding: 22px;
+    }
+}
+
+.pub-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--pub-border);
+}
+
+.pub-card-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--pub-text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pub-card-title i {
+    color: var(--pub-primary);
+    font-size: 1.2rem;
+}
+
+.pub-badge-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+/* FORM CONTROLS & CHIPS */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+
+.form-input, .form-select, .form-textarea {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--pub-border);
+    border-radius: var(--pub-radius-sm);
+    font-family: inherit;
+    font-size: 0.9rem;
+    color: var(--pub-text-main);
+    outline: none;
+    transition: all 0.2s;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--pub-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 600px) {
+    .form-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+}
+
+/* QUICK TIME PILLS */
+.quick-time-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.time-chip {
+    padding: 5px 11px;
+    background: #f1f5f9;
+    border: 1px solid var(--pub-border);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.time-chip:hover, .time-chip.active {
+    background: var(--pub-primary-light);
+    border-color: var(--pub-primary-border);
+    color: var(--pub-primary);
+}
+
+/* RADIO CARDS (Chế độ thi) */
+.radio-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+@media (min-width: 600px) {
+    .radio-cards-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.radio-card {
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    background: #ffffff;
+    border: 1.5px solid var(--pub-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.radio-card:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+.radio-card.active {
+    border-color: var(--pub-primary);
+    background: var(--pub-primary-light);
+}
+
+.radio-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.radio-card-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--pub-text-main);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.radio-card.active .radio-card-title {
+    color: var(--pub-primary);
+}
+
+.radio-card-desc {
+    font-size: 0.8rem;
+    color: var(--pub-text-muted);
+    line-height: 1.4;
+}
+
+/* SWITCH ITEMS */
+.switch-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid var(--pub-border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.switch-item:hover {
+    background: #f1f5f9;
+}
+
+.switch-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 12px;
+}
+
+.switch-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.switch-desc {
+    font-size: 0.76rem;
+    color: var(--pub-text-muted);
+    line-height: 1.35;
+}
+
+.switch-toggle {
+    width: 44px;
+    height: 24px;
+    background: #cbd5e1;
+    border-radius: 9999px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.switch-toggle::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+
+input[type="checkbox"]:checked + .switch-toggle {
+    background: var(--pub-primary);
+}
+
+input[type="checkbox"]:checked + .switch-toggle::after {
+    transform: translateX(20px);
+}
+
+/* ACCORDION ADVANCED SECTION */
+.accordion-wrapper {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: var(--pub-radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.accordion-wrapper.open {
+    border-color: var(--pub-primary);
+    box-shadow: var(--pub-shadow-sm);
+}
+
+.accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #f8fafc;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.accordion-header:hover {
+    background: #f1f5f9;
+}
+
+.accordion-title {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.accordion-chevron {
+    font-size: 1.25rem;
+    color: #64748b;
+    transition: transform 0.25s ease;
+}
+
+.accordion-wrapper.open .accordion-chevron {
+    transform: rotate(180deg);
+}
+
+.accordion-body {
+    display: none;
+    padding: 20px;
+    background: #ffffff;
+    border-top: 1px solid var(--pub-border);
+}
+
+.accordion-wrapper.open .accordion-body {
+    display: block;
+}
+
+.sub-section-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--pub-border);
+}
+
+.sub-section-title:first-child {
+    margin-top: 0;
+}
+
+/* SIDEBAR & MA TRẬN CHIPS */
+.q-chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.q-chip {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--pub-radius-sm);
+    font-size: 0.82rem;
+    font-weight: 700;
+    border: 1.5px solid var(--pub-border);
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.q-chip:hover {
+    border-color: var(--pub-primary);
+    background: var(--pub-primary-light);
+    color: var(--pub-primary);
+    transform: translateY(-1px);
+}
+
+.q-chip.chip-mcq {
+    border-color: var(--pub-mcq-border);
+    color: var(--pub-mcq);
+    background: var(--pub-mcq-bg);
+}
+
+.q-chip.chip-tf {
+    border-color: var(--pub-tf-border);
+    color: var(--pub-tf);
+    background: var(--pub-tf-bg);
+}
+
+.q-chip.chip-sa {
+    border-color: var(--pub-sa-border);
+    color: var(--pub-sa);
+    background: var(--pub-sa-bg);
+}
+
+/* SIDEBAR ACTIONS */
+.action-box {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-sidebar-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.btn-sidebar-primary {
+    background: var(--pub-primary);
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.25);
+}
+
+.btn-sidebar-primary:hover {
+    background: var(--pub-primary-hover);
+}
+
+.btn-sidebar-outline {
+    background: #ffffff;
+    color: #334155;
+    border: 1.5px solid var(--pub-border);
+}
+
+.btn-sidebar-outline:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+/* QR CODE & SHARE BOX IN SIDEBAR */
+.share-preview-card {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.qr-display-box {
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 12px;
+    background: #ffffff;
+    border: 1px solid var(--pub-border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.qr-display-box img {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
+
+.share-copy-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.share-mini-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #334155;
+    outline: none;
+}
+
+.btn-mini-copy {
+    padding: 8px 12px;
+    background: var(--pub-primary);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* MOBILE STICKY BOTTOM ACTION BAR */
+.mobile-sticky-action-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--pub-border);
+    padding: 10px 16px;
+    gap: 10px;
+    z-index: 999;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.06);
+}
+
+@media (min-width: 992px) {
+    .mobile-sticky-action-bar {
+        display: none;
+    }
+}
+
+.btn-mobile-act {
+    flex: 1;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-mobile-preview {
+    background: #ffffff;
+    border: 1.5px solid var(--pub-border);
+    color: #334155;
+}
+
+.btn-mobile-publish {
+    background: var(--pub-primary);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+/* MODAL OVERLAY & SUCCESS BOX */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+}
+
+.modal-card {
+    background: #ffffff;
+    border-radius: 18px;
+    max-width: 540px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+    box-shadow: var(--pub-shadow-lg);
+    text-align: center;
+    animation: popIn 0.25s ease-out;
+}
+
+@media (min-width: 600px) {
+    .modal-card {
+        padding: 32px;
+    }
+}
+
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.success-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--pub-success-light);
+    color: var(--pub-success);
+    font-size: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.share-channels-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.btn-share-channel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--pub-border);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+}
+
+.btn-share-channel:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+/* TOAST */
+.pub-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: #0f172a;
+    color: #ffffff;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+}
+
+.pub-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+    </style>
+</head>
+<body>
+
+    <!-- TOP NAVBAR -->
+    <header class="pub-navbar">
+        <div class="pub-navbar-left">
+            <a href="/" class="btn-nav-home" title="Về trang chủ HocNhanhTN">
+                <i class="ri-home-4-line"></i> <span>Trang chủ</span>
+            </a>
+            <a href="javascript:history.back()" class="btn-nav-back" title="Quay lại bước trước">
+                <i class="ri-arrow-left-line"></i> <span>Quay lại</span>
+            </a>
+            <div class="pub-title-block">
+                <div class="pub-doc-name" id="navbarQuizTitle">Đang nạp dữ liệu đề thi...</div>
+                <div class="pub-doc-meta">
+                    <span class="badge-ready"><i class="ri-checkbox-circle-fill"></i> Đã kiểm tra cấu trúc</span>
+                    <span>&bull;</span>
+                    <span id="navbarQuizMeta"><i class="ri-loader-4-line"></i> Đang tính toán...</span>
+                </div>
+            </div>
+        </div>
+        <div class="pub-navbar-right">
+            <!-- Nút chức năng bên phải đã được chuyển tối giản theo yêu cầu -->
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="pub-container">
+        
+        <!-- HERO SUMMARY BANNER -->
+        <section class="pub-hero-banner">
+            <div class="hero-header-row">
+                <div class="hero-title-area">
+                    <div class="hero-badge-pill">
+                        <i class="ri-shield-check-line"></i> Trung tâm tùy chọn xuất bản HocNhanhTN
+                    </div>
+                    <h1 class="hero-main-title" id="heroExamTitle">Tùy chọn xuất bản đề thi</h1>
+                    <div class="hero-subtitle">
+                        <span><i class="ri-fingerprint-line"></i> Mã đề: <code id="lblQuizId" style="background: rgba(0,0,0,0.25); padding: 2px 7px; border-radius: 4px; font-weight: 700;">TẠO MỚI</code></span>
+                        <span><i class="ri-calendar-line"></i> <span id="lblCreatedAt">Hôm nay</span></span>
+                        <span><i class="ri-user-star-line"></i> Chuẩn GDPT 2018</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- METRIC CARDS GRID -->
+            <div class="stats-cards-grid">
+                <div class="stat-card active" onclick="filterQuestionCategory('all')">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">TỔNG SỐ CÂU</span>
+                        <i class="ri-questionnaire-line stat-card-icon"></i>
+                    </div>
+                    <div class="stat-card-val" id="valTotalQ">0</div>
+                    <div class="stat-card-desc">Toàn bộ đề thi</div>
+                </div>
+
+                <div class="stat-card" onclick="filterQuestionCategory('mcq')">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">TRẮC NGHIỆM</span>
+                        <i class="ri-checkbox-multiple-line stat-card-icon" style="color: #93c5fd;"></i>
+                    </div>
+                    <div class="stat-card-val" id="valMcqQ">0</div>
+                    <div class="stat-card-desc">Nhiều lựa chọn (A,B,C,D)</div>
+                </div>
+
+                <div class="stat-card" onclick="filterQuestionCategory('true_false')">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">ĐÚNG / SAI</span>
+                        <i class="ri-check-double-line stat-card-icon" style="color: #6ee7b7;"></i>
+                    </div>
+                    <div class="stat-card-val" id="valTfQ">0</div>
+                    <div class="stat-card-desc">4 ý a,b,c,d GDPT 2018</div>
+                </div>
+
+                <div class="stat-card" onclick="filterQuestionCategory('short_answer')">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">TRẢ LỜI NGẮN</span>
+                        <i class="ri-edit-line stat-card-icon" style="color: #fde68a;"></i>
+                    </div>
+                    <div class="stat-card-val" id="valSaQ">0</div>
+                    <div class="stat-card-desc">Điền số / đáp số</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TWO COLUMNS LAYOUT -->
+        <div class="pub-layout">
+            
+            <!-- LEFT MAIN COLUMN (CÁC TÙY CHỌN CƠ BẢN VÀ CHUYÊN SÂU) -->
+            <div class="pub-main-col">
+
+                <!-- 1. CẤU HÌNH CƠ BẢN (ĐANG CÓ SẴN) -->
+                <div class="pub-card">
+                    <div class="pub-card-header">
+                        <h2 class="pub-card-title">
+                            <i class="ri-settings-3-line"></i> 1. Cấu hình cơ bản
+                        </h2>
+                        <span class="pub-badge-tag">Thiết yếu</span>
+                    </div>
+
+                    <!-- Tên bài thi -->
+                    <div class="form-group">
+                        <label class="form-label" for="txtQuizTitle">Tên bài kiểm tra / đề thi <span style="color: var(--pub-danger);">*</span></label>
+                        <input type="text" id="txtQuizTitle" class="form-input" placeholder="VD: Đề kiểm tra 45 phút - Giữa học kỳ môn Toán">
+                    </div>
+
+                    <!-- Lời dặn / Ghi chú -->
+                    <div class="form-group">
+                        <label class="form-label" for="txtQuizDescription">Lời dặn của giáo viên / Hướng dẫn làm bài</label>
+                        <textarea id="txtQuizDescription" class="form-textarea" rows="2" placeholder="VD: Học sinh không được sử dụng tài liệu, chuẩn bị sẵn giấy nháp và máy tính cầm tay..."></textarea>
+                    </div>
+
+                    <!-- Hình thức thi (Radio Cards) -->
+                    <div class="form-group">
+                        <label class="form-label">Hình thức tổ chức bài thi <span style="color: var(--pub-danger);">*</span></label>
+                        <div class="radio-cards-grid">
+                            <div class="radio-card" id="cardModePractice" onclick="setQuizMode('practice')">
+                                <div class="radio-card-head">
+                                    <span class="radio-card-title"><i class="ri-focus-3-line"></i> Luyện tập tự do</span>
+                                    <input type="radio" name="rdQuizMode" value="practice" style="accent-color: var(--pub-primary);">
+                                </div>
+                                <div class="radio-card-desc">Học sinh biết ngay kết quả đúng/sai và xem lời giải chi tiết ngay sau khi chọn đáp án từng câu.</div>
+                            </div>
+
+                            <div class="radio-card active" id="cardModeExam" onclick="setQuizMode('exam')">
+                                <div class="radio-card-head">
+                                    <span class="radio-card-title"><i class="ri-timer-flash-line"></i> Thi thử / Kiểm tra</span>
+                                    <input type="radio" name="rdQuizMode" value="exam" checked style="accent-color: var(--pub-primary);">
+                                </div>
+                                <div class="radio-card-desc">Có đồng hồ bấm giờ đếm ngược. Làm xong hết toàn bài mới nộp và chấm điểm tổng kết.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thời gian làm bài & Chips chọn nhanh -->
+                    <div class="form-group">
+                        <label class="form-label" for="numTimeLimit">Thời gian làm bài (Phút)</label>
+                        <input type="number" id="numTimeLimit" class="form-input" placeholder="0 = Không giới hạn thời gian" min="0" max="360" value="45">
+                        <div class="quick-time-chips">
+                            <span class="time-chip" onclick="setTimeChip(15)">15 phút</span>
+                            <span class="time-chip active" onclick="setTimeChip(45)">45 phút</span>
+                            <span class="time-chip" onclick="setTimeChip(60)">60 phút</span>
+                            <span class="time-chip" onclick="setTimeChip(90)">90 phút</span>
+                            <span class="time-chip" onclick="setTimeChip(120)">120 phút</span>
+                            <span class="time-chip" onclick="setTimeChip(0)">Không giới hạn</span>
+                        </div>
+                    </div>
+
+                    <!-- Tự động đảo đề -->
+                    <label class="switch-item">
+                        <div class="switch-info">
+                            <span class="switch-title"><i class="ri-shuffle-line" style="color: var(--pub-primary);"></i> Tự động trộn câu hỏi &amp; phương án</span>
+                            <span class="switch-desc">Mỗi thí sinh nhận một mã đề với thứ tự câu hỏi và phương án A, B, C, D được xáo trộn ngẫu nhiên.</span>
+                        </div>
+                        <input type="checkbox" id="chkShuffle" style="display: none;" checked>
+                        <span class="switch-toggle"></span>
+                    </label>
+
+                    <!-- Mật khẩu phòng thi -->
+                    <div class="form-group" style="margin-top: 14px;">
+                        <label class="form-label" for="txtQuizPassword">Mật khẩu vào phòng thi (Tùy chọn)</label>
+                        <div style="position: relative;">
+                            <input type="text" id="txtQuizPassword" class="form-input" placeholder="Để trống nếu cho phép học sinh vào tự do...">
+                            <span style="position: absolute; right: 12px; top: 11px; color: #94a3b8; font-size: 0.9rem;"><i class="ri-lock-line"></i></span>
+                        </div>
+                        <small style="color: var(--pub-text-muted); font-size: 0.76rem; display: block; margin-top: 4px;">Chỉ những học sinh có mật khẩu này mới có thể bắt đầu làm bài.</small>
+                    </div>
+
+                    <!-- Cam kết bản quyền -->
+                    <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 10px 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; line-height: 1.45; margin-top: 14px;">
+                        <input type="checkbox" id="chkLegalCommit" checked style="width: 16px; height: 16px; margin-top: 2px; accent-color: var(--pub-primary); flex-shrink: 0;">
+                        <span><b>Cam kết bản quyền học liệu:</b> Tôi xác nhận tài liệu đề thi này thuộc quyền biên soạn/sử dụng hợp pháp của tôi (Luật SHTT 2022) và không thuộc danh mục đề thi bí mật nhà nước chưa công bố.</span>
+                    </label>
+                </div>
+
+                <!-- 2. CẤU HÌNH CHUYÊN SÂU & NÂNG CAO (ACCORDION NÂNG CAO) -->
+                <div class="accordion-wrapper" id="accordionAdvanced">
+                    <div class="accordion-header" onclick="toggleAccordion('accordionAdvanced')">
+                        <div class="accordion-title">
+                            <i class="ri-equalizer-line"></i> 2. Tùy chọn nâng cao &amp; quản lý ca thi chuyên sâu
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="pub-badge-tag" id="badgeAdvCount" style="color: var(--pub-primary); background: var(--pub-primary-light);">Bấm mở rộng</span>
+                            <i class="ri-arrow-down-s-line accordion-chevron"></i>
+                        </div>
+                    </div>
+
+                    <div class="accordion-body">
+                        
+                        <!-- A. LỊCH THI & CA THI CÓ THỜI HẠN -->
+                        <div class="sub-section-title">
+                            <i class="ri-calendar-event-line" style="color: #2563eb;"></i> A. Giới hạn ca thi &amp; lượt làm bài
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="dtStartTime">Thời gian mở ca thi (Cho phép vào từ)</label>
+                                <input type="datetime-local" id="dtStartTime" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="dtEndTime">Thời gian đóng ca thi (Khóa đề thi sau)</label>
+                                <input type="datetime-local" id="dtEndTime" class="form-input">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="selMaxAttempts">Số lượt làm bài tối đa cho mỗi học sinh</label>
+                            <select id="selMaxAttempts" class="form-select">
+                                <option value="0" selected>Không giới hạn (Phù hợp ôn tập)</option>
+                                <option value="1">Chỉ được làm 1 lần duy nhất (Kiểm tra chính thức)</option>
+                                <option value="2">Tối đa 2 lần</option>
+                                <option value="3">Tối đa 3 lần</option>
+                            </select>
+                        </div>
+
+                        <!-- B. QUY TẮC HIỂN THỊ ĐIỂM & ĐÁP ÁN -->
+                        <div class="sub-section-title">
+                            <i class="ri-eye-line" style="color: #059669;"></i> B. Hiển thị kết quả &amp; đáp án chi tiết
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="selShowScore">Thời điểm hiển thị điểm số</label>
+                                <select id="selShowScore" class="form-select">
+                                    <option value="immediate" selected>Hiển thị điểm ngay sau khi nộp bài</option>
+                                    <option value="after_closed">Chỉ xem điểm khi hết giờ ca thi</option>
+                                    <option value="hidden">Ẩn điểm hoàn toàn (Giáo viên công bố sau)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="selShowAnswers">Thời điểm hiển thị đáp án đúng &amp; lời giải</label>
+                                <select id="selShowAnswers" class="form-select">
+                                    <option value="immediate" selected>Xem đáp án &amp; giải thích ngay sau khi nộp</option>
+                                    <option value="after_closed">Chỉ xem đáp án sau khi đóng ca thi (tránh lộ đề)</option>
+                                    <option value="never">Không bao giờ hiển thị đáp án</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <label class="switch-item">
+                            <div class="switch-info">
+                                <span class="switch-title"><i class="ri-trophy-line" style="color: #f59e0b;"></i> Bảng vinh danh &amp; xếp hạng điểm cao</span>
+                                <span class="switch-desc">Cho phép học sinh xem bảng xếp hạng top học sinh đạt điểm cao nhất của bài thi.</span>
+                            </div>
+                            <input type="checkbox" id="chkLeaderboard" style="display: none;" checked>
+                            <span class="switch-toggle"></span>
+                        </label>
+
+                        <!-- C. GIÁM SÁT CHỐNG GIAN LẬN NÂNG CAO -->
+                        <div class="sub-section-title">
+                            <i class="ri-shield-keyhole-line" style="color: #dc2626;"></i> C. Giám sát phòng thi &amp; chống gian lận
+                        </div>
+
+                        <label class="switch-item">
+                            <div class="switch-info">
+                                <span class="switch-title"><i class="ri-fullscreen-line" style="color: #2563eb;"></i> Bắt buộc chế độ toàn màn hình (Full-screen)</span>
+                                <span class="switch-desc">Yêu cầu thí sinh mở toàn màn hình khi làm bài; cảnh báo khi thu nhỏ cửa sổ.</span>
+                            </div>
+                            <input type="checkbox" id="chkFullScreen" style="display: none;">
+                            <span class="switch-toggle"></span>
+                        </label>
+
+                        <label class="switch-item">
+                            <div class="switch-info">
+                                <span class="switch-title"><i class="ri-alert-line" style="color: #ea580c;"></i> Phát hiện &amp; ghi nhận nhật ký chuyển tab</span>
+                                <span class="switch-desc">Ghi nhận số lần học sinh chuyển sang ứng dụng hoặc tab khác trong quá trình thi.</span>
+                            </div>
+                            <input type="checkbox" id="chkDetectTabSwitch" style="display: none;" checked>
+                            <span class="switch-toggle"></span>
+                        </label>
+
+                        <div class="form-group">
+                            <label class="form-label" for="selMaxTabViolations">Tự động nộp bài nếu vi phạm chuyển tab quá mức</label>
+                            <select id="selMaxTabViolations" class="form-select">
+                                <option value="0" selected>Chỉ ghi nhận và cảnh báo (Không tự thu bài)</option>
+                                <option value="3">Tự động thu bài khi chuyển tab quá 3 lần</option>
+                                <option value="5">Tự động thu bài khi chuyển tab quá 5 lần</option>
+                            </select>
+                        </div>
+
+                        <label class="switch-item">
+                            <div class="switch-info">
+                                <span class="switch-title"><i class="ri-file-copy-2-line" style="color: #475569;"></i> Khóa chống sao chép &amp; chống sao chép đề thi</span>
+                                <span class="switch-desc">Vô hiệu hóa thao tác bôi đen chữ, click chuột phải và các phím tắt sao chép đề thi.</span>
+                            </div>
+                            <input type="checkbox" id="chkAntiCopy" style="display: none;" checked>
+                            <span class="switch-toggle"></span>
+                        </label>
+
+                        <!-- D. THÔNG TIN THÍ SINH YÊU CẦU & XÁC MINH DANH TÍNH -->
+                        <div class="sub-section-title">
+                            <i class="ri-user-add-line" style="color: #6366f1;"></i> D. Thông tin thí sinh &amp; xác minh danh tính
+                        </div>
+
+                        <label class="switch-item" style="background: #f0fdf4; border-color: #bbf7d0; margin-bottom: 14px;">
+                            <div class="switch-info">
+                                <span class="switch-title" style="color: #15803d;"><i class="ri-shield-user-fill" style="color: #16a34a;"></i> Yêu cầu đăng nhập tài khoản để làm bài</span>
+                                <span class="switch-desc">Học sinh bắt buộc phải đăng nhập tài khoản HocNhanhTN để xác minh danh tính. Hệ thống sẽ <strong>tự động điền họ tên &amp; lớp</strong> theo tài khoản đã đăng ký, khóa trường nhập để chống gian lận và mạo danh.</span>
+                            </div>
+                            <input type="checkbox" id="chkReqLogin" style="display: none;">
+                            <span class="switch-toggle"></span>
+                        </label>
+
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="chkReqName" checked disabled style="accent-color: var(--pub-primary);">
+                                Họ và tên (Bắt buộc)
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="chkReqClass" checked style="accent-color: var(--pub-primary);">
+                                Lớp / Nhóm học tập
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="chkReqSchool" style="accent-color: var(--pub-primary);">
+                                Tên trường học
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                                <input type="checkbox" id="chkReqSBD" style="accent-color: var(--pub-primary);">
+                                Số báo danh (SBD) / Mã HS
+                            </label>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT SIDEBAR COLUMN (TÓM TẮT, MA TRẬN & CHIA SẺ) -->
+            <div class="pub-sidebar-col">
+                
+                <!-- HỘP HÀNH ĐỘNG XUẤT BẢN CHÍNH -->
+                <div class="pub-card" style="border-top: 4px solid var(--pub-primary);">
+                    <div class="action-box">
+                        <button type="button" class="btn-sidebar-action btn-sidebar-primary" id="btnSidebarPublish" onclick="saveAndPublishExam()">
+                            <i class="ri-send-plane-fill"></i> Hoàn tất &amp; xuất bản ngay
+                        </button>
+
+                        <button type="button" class="btn-sidebar-action btn-sidebar-outline" onclick="previewExamOnline()">
+                            <i class="ri-eye-line"></i> Xem trước màn hình học sinh
+                        </button>
+
+                        <button type="button" class="btn-sidebar-action btn-sidebar-outline" onclick="exportWordPdf()">
+                            <i class="ri-printer-line"></i> Xuất file Word &amp; PDF A4
+                        </button>
+                    </div>
+                </div>
+
+                <!-- HỘP CHIA SẺ LINK & QR CODE (TỰ ĐỘNG CẬP NHẬT KHI CÓ MÃ ĐỀ) -->
+                <div class="pub-card" id="cardShareBox">
+                    <div class="pub-card-header">
+                        <h3 class="pub-card-title" style="font-size: 0.95rem;">
+                            <i class="ri-share-forward-line"></i> Chia sẻ &amp; mã QR phòng thi
+                        </h3>
+                    </div>
+
+                    <div class="share-preview-card">
+                        <div class="qr-display-box" id="qrContainer">
+                            <img id="imgQrCode" src="" alt="Mã QR phòng thi" style="display: none;">
+                            <div id="qrPlaceholder" style="font-size: 0.76rem; color: #94a3b8; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                <i class="ri-qr-code-line" style="font-size: 36px; opacity: 0.5;"></i>
+                                Sẵn sàng tạo mã QR
+                            </div>
+                        </div>
+
+                        <div class="share-copy-row">
+                            <input type="text" id="txtDirectShareUrl" class="share-mini-input" readonly placeholder="Link làm bài thi...">
+                            <button type="button" class="btn-mini-copy" onclick="copyDirectShareUrl()">Chép</button>
+                        </div>
+
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button type="button" class="btn-sidebar-action btn-sidebar-outline" onclick="downloadQrCodeImage()" style="min-height: 34px; padding: 6px 10px; font-size: 0.78rem;">
+                                <i class="ri-download-2-line"></i> Tải ảnh QR
+                            </button>
+                            <button type="button" class="btn-sidebar-action btn-sidebar-outline" onclick="copyIframeEmbedCode()" style="min-height: 34px; padding: 6px 10px; font-size: 0.78rem;">
+                                <i class="ri-code-line"></i> Mã nhúng LMS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MA TRẬN CÂU HỎI NHANH -->
+                <div class="pub-card">
+                    <div class="pub-card-header">
+                        <h3 class="pub-card-title" style="font-size: 0.95rem;">
+                            <i class="ri-layout-grid-line"></i> Ma trận câu hỏi (<span id="sidebarQCount">0</span>)
+                        </h3>
+                    </div>
+                    
+                    <p style="font-size: 0.78rem; color: var(--pub-text-muted); margin-bottom: 10px;">
+                        Bấm vào số câu để xem câu hỏi tương ứng trong đề.
+                    </p>
+
+                    <div class="q-chip-grid" id="sidebarChipsGrid">
+                        <!-- Chips injected by JS -->
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 12px; font-size: 0.74rem; color: #475569; flex-wrap: wrap;">
+                        <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #bfdbfe; display: inline-block;"></span> TN</span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #a7f3d0; display: inline-block;"></span> Đ/S</span>
+                        <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #fde68a; display: inline-block;"></span> TLN</span>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- MOBILE STICKY BOTTOM ACTION BAR -->
+    <div class="mobile-sticky-action-bar">
+        <button type="button" class="btn-mobile-act btn-mobile-preview" onclick="previewExamOnline()">
+            <i class="ri-eye-line"></i> Xem trước
+        </button>
+        <button type="button" class="btn-mobile-act btn-mobile-publish" id="btnMobilePublish" onclick="saveAndPublishExam()">
+            <i class="ri-send-plane-fill"></i> Xuất bản ngay
+        </button>
+    </div>
+
+    <!-- MODAL THÀNH CÔNG SAU KHI XUẤT BẢN -->
+    <div id="publishSuccessModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="success-icon-wrap">
+                <i class="ri-checkbox-circle-fill"></i>
+            </div>
+            <h2 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Xuất bản đề thi thành công!</h2>
+            <p style="font-size: 0.86rem; color: #64748b; margin-bottom: 16px;">
+                Đề thi đã được số hóa và sẵn sàng. Bạn có thể gửi link hoặc mã QR dưới đây cho học sinh vào làm bài ngay.
+            </p>
+
+            <div class="share-copy-row" style="margin-bottom: 12px;">
+                <input type="text" id="txtModalShareUrl" class="share-mini-input" readonly style="font-size: 0.88rem; padding: 10px 12px;">
+                <button type="button" class="btn-mini-copy" onclick="copyModalShareUrl()" style="padding: 10px 16px;">Sao chép</button>
+            </div>
+
+            <div class="share-channels-grid">
+                <a id="btnShareZalo" href="#" target="_blank" class="btn-share-channel">
+                    <i class="ri-chat-3-line" style="color: #0068ff;"></i> Gửi qua Zalo
+                </a>
+                <a id="btnShareFacebook" href="#" target="_blank" class="btn-share-channel">
+                    <i class="ri-facebook-circle-fill" style="color: #1877f2;"></i> Chia sẻ Facebook
+                </a>
+                <button type="button" class="btn-share-channel" onclick="downloadQrCodeImage()">
+                    <i class="ri-qr-code-line" style="color: #16a34a;"></i> Tải mã QR PNG
+                </button>
+                <button type="button" class="btn-share-channel" onclick="copyIframeEmbedCode()">
+                    <i class="ri-code-box-line" style="color: #7c3aed;"></i> Nhúng vào LMS
+                </button>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 22px;">
+                <a href="/" class="btn-sidebar-action" style="width: auto; padding: 10px 22px; text-decoration: none; background: #0f172a; color: #ffffff; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; font-weight: 600;">
+                    <i class="ri-home-4-line"></i> Về trang chủ
+                </a>
+                <a id="lnkModalTryExam" href="#" target="_blank" class="btn-sidebar-action btn-sidebar-primary" style="width: auto; padding: 10px 22px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="ri-external-link-line"></i> Vào làm thử ngay
+                </a>
+                <a id="lnkModalBackStudio" href="/editor.html" class="btn-sidebar-action btn-sidebar-outline" style="width: auto; padding: 10px 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="ri-edit-line"></i> Về Studio soạn thảo
+                </a>
+                <button type="button" class="btn-sidebar-action btn-sidebar-outline" onclick="closeSuccessModal()" style="width: auto; padding: 10px 18px; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="ri-settings-4-line"></i> Ở lại tùy chọn
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="pubToast" class="pub-toast">
+        <i class="ri-checkbox-circle-fill" style="color: #22c55e;"></i>
+        <span id="toastMsg">Thao tác thành công</span>
+    </div>
+
+    <!-- SCRIPT XỬ LÝ TRANG XUẤT BẢN -->
+    <script>
+        let currentQuiz = {
+            id: null,
+            title: "Đề thi trắc nghiệm",
+            questions: [],
+            mode: "exam",
+            timeLimit: 45,
+            isShuffle: true,
+            description: "",
+            password: "",
+            settings: {}
+        };
+
+        function getAuthToken() {
+            return localStorage.getItem('auth_token') || 
+                   localStorage.getItem('teacher_token') || 
+                   localStorage.getItem('access_token') || '';
+        }
+
+        let authToken = getAuthToken();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initPublishPage();
+        });
+
+        async function initPublishPage() {
+            authToken = getAuthToken();
+
+            // 1. Đọc tham số URL
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            let idFromPath = null;
+            if (pathParts[0] === 'publish' && pathParts[1]) {
+                idFromPath = decodeURIComponent(pathParts[1]);
+            }
+            const urlParams = new URLSearchParams(window.location.search);
+            const idFromQuery = urlParams.get('id') || urlParams.get('quiz_id');
+            const targetId = idFromPath || idFromQuery;
+
+            if (targetId) {
+                currentQuiz.id = targetId;
+                document.getElementById('lblQuizId').textContent = targetId;
+                updateShareLinks(targetId);
+                const lnkStudio = document.getElementById('lnkModalBackStudio');
+                if (lnkStudio) lnkStudio.href = `/editor.html?id=${encodeURIComponent(targetId)}`;
+            }
+
+            // 2. Tìm nạp từ sessionStorage (nhiều nguồn dự phòng)
+            let loadedFromSession = false;
+            try {
+                const pendingData = sessionStorage.getItem('pending_publish_quiz') 
+                    || sessionStorage.getItem('export_quiz_data') 
+                    || sessionStorage.getItem('editor_quiz_data')
+                    || (targetId ? sessionStorage.getItem(`publish_quiz_${targetId}`) : null);
+                if (pendingData) {
+                    const parsed = JSON.parse(pendingData);
+                    applyQuizToUI(parsed);
+                    loadedFromSession = true;
+                }
+            } catch (e) {
+                console.warn("Parse pending_publish_quiz error:", e);
+            }
+
+            // 3. Nếu có targetId mà chưa nạp hoặc cần đồng bộ server, gọi API
+            if (targetId) {
+                try {
+                    const token = getAuthToken();
+                    const tokenParam = token ? `?teacher_token=${encodeURIComponent(token)}` : '';
+                    const res = await fetch(`/api/get_quiz/${encodeURIComponent(targetId)}${tokenParam}`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        // Nếu session đã có đầy đủ questions kèm đáp án thì ưu tiên câu hỏi từ session
+                        if (currentQuiz.questions && currentQuiz.questions.length > 0) {
+                            if (json.settings && (!currentQuiz.settings || Object.keys(currentQuiz.settings).length === 0)) {
+                                applyQuizToUI({ ...json, data: currentQuiz.questions });
+                            }
+                        } else {
+                            applyQuizToUI(json);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Fetch quiz error:", err);
+                }
+            }
+        }
+
+        function getQuestionType(q) {
+            if (!q) return 'mcq';
+            const opts = Array.isArray(q.options) ? q.options : [];
+            const mcqCount = opts.filter(o => /^\s*(?:\*\s*)?\(?\[?(\*?[A-F])[\.\:\)]/.test(String(o).trim())).length;
+            const tfCount = opts.filter(o => /^\s*(?:\*\s*)?\(?\[?(\*?[a-d])[\)\.\:\-\]\/]/.test(String(o).trim())).length;
+            if (mcqCount >= 2 && mcqCount >= tfCount) return 'mcq';
+            if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
+
+            const grp = String(q.group_title || '').toUpperCase();
+            if (opts.length === 0) {
+                if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('PHẦN III')) return 'short_answer';
+                if (grp.includes('ĐÚNG SAI') || grp.includes('PHẦN II')) return 'true_false';
+            }
+            const t = String(q.type || '').toLowerCase();
+            if (t === 'true_false' || t === 'tf') return 'true_false';
+            if (t === 'short_answer' || t === 'sa') return 'short_answer';
+            if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
+                return 'true_false';
+            }
+            return 'mcq';
+        }
+
+        function applyQuizToUI(data) {
+            if (!data) return;
+            const title = data.title || data.quiz_title || "Đề thi trắc nghiệm";
+            const questions = Array.isArray(data.data) ? data.data : (Array.isArray(data.questions) ? data.questions : []);
+            
+            currentQuiz.title = title;
+            currentQuiz.questions = questions;
+            if (data.id || data.quiz_id) {
+                currentQuiz.id = data.id || data.quiz_id;
+                document.getElementById('lblQuizId').textContent = currentQuiz.id;
+                updateShareLinks(currentQuiz.id);
+            }
+
+            // Giao diện Title
+            document.title = `Tùy chọn xuất bản: ${title} - HocNhanhTN`;
+            document.getElementById('navbarQuizTitle').textContent = title;
+            document.getElementById('heroExamTitle').textContent = title;
+            document.getElementById('txtQuizTitle').value = title;
+
+            if (data.description) {
+                document.getElementById('txtQuizDescription').value = data.description;
+            }
+            if (data.password) {
+                document.getElementById('txtQuizPassword').value = data.password;
+            }
+
+            // Phân loại và tính thống kê
+            let mcqCount = 0;
+            let tfCount = 0;
+            let saCount = 0;
+            const chipsContainer = document.getElementById('sidebarChipsGrid');
+            chipsContainer.innerHTML = '';
+
+            questions.forEach((q, idx) => {
+                const type = getQuestionType(q);
+                if (type === 'true_false') tfCount++;
+                else if (type === 'short_answer') saCount++;
+                else mcqCount++;
+
+                const chip = document.createElement('div');
+                chip.className = `q-chip chip-${type === 'true_false' ? 'tf' : (type === 'short_answer' ? 'sa' : 'mcq')}`;
+                chip.textContent = idx + 1;
+                chip.title = `Câu ${idx + 1} (${type === 'true_false' ? 'Đúng/Sai' : (type === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm')})`;
+                chipsContainer.appendChild(chip);
+            });
+
+            const total = questions.length;
+            document.getElementById('valTotalQ').textContent = total;
+            document.getElementById('valMcqQ').textContent = mcqCount;
+            document.getElementById('valTfQ').textContent = tfCount;
+            document.getElementById('valSaQ').textContent = saCount;
+            document.getElementById('sidebarQCount').textContent = `${total} câu`;
+            document.getElementById('navbarQuizMeta').textContent = `${total} câu (${mcqCount} TN • ${tfCount} Đ/S • ${saCount} TLN)`;
+
+            // Cấu hình thời gian & chế độ nếu có
+            if (data.time_limit !== undefined) {
+                document.getElementById('numTimeLimit').value = data.time_limit;
+                highlightMatchingTimeChip(data.time_limit);
+            }
+            if (data.mode) {
+                setQuizMode(data.mode);
+            }
+            if (data.is_shuffle !== undefined) {
+                document.getElementById('chkShuffle').checked = !!data.is_shuffle;
+            }
+
+            // Cấu hình nâng cao nếu có
+            if (data.settings && typeof data.settings === 'object') {
+                const s = data.settings;
+                if (s.start_time) document.getElementById('dtStartTime').value = s.start_time;
+                if (s.end_time) document.getElementById('dtEndTime').value = s.end_time;
+                if (s.max_attempts !== undefined) document.getElementById('selMaxAttempts').value = s.max_attempts;
+                if (s.show_score) document.getElementById('selShowScore').value = s.show_score;
+                if (s.show_answers) document.getElementById('selShowAnswers').value = s.show_answers;
+                if (s.leaderboard !== undefined) document.getElementById('chkLeaderboard').checked = !!s.leaderboard;
+                if (s.full_screen !== undefined) document.getElementById('chkFullScreen').checked = !!s.full_screen;
+                if (s.detect_tab !== undefined) document.getElementById('chkDetectTabSwitch').checked = !!s.detect_tab;
+                if (s.max_tab_violations !== undefined) document.getElementById('selMaxTabViolations').value = s.max_tab_violations;
+                if (s.anti_copy !== undefined) document.getElementById('chkAntiCopy').checked = !!s.anti_copy;
+                if (s.require_login !== undefined || s.req_login !== undefined) document.getElementById('chkReqLogin').checked = !!(s.require_login || s.req_login);
+                if (s.req_class !== undefined) document.getElementById('chkReqClass').checked = !!s.req_class;
+                if (s.req_school !== undefined) document.getElementById('chkReqSchool').checked = !!s.req_school;
+                if (s.req_sbd !== undefined) document.getElementById('chkReqSBD').checked = !!s.req_sbd;
+            }
+        }
+
+        function setQuizMode(mode) {
+            currentQuiz.mode = mode;
+            const cardPrac = document.getElementById('cardModePractice');
+            const cardExam = document.getElementById('cardModeExam');
+            const rdPrac = document.querySelector('input[name="rdQuizMode"][value="practice"]');
+            const rdExam = document.querySelector('input[name="rdQuizMode"][value="exam"]');
+
+            if (mode === 'practice') {
+                cardPrac.classList.add('active');
+                cardExam.classList.remove('active');
+                if (rdPrac) rdPrac.checked = true;
+            } else {
+                cardExam.classList.add('active');
+                cardPrac.classList.remove('active');
+                if (rdExam) rdExam.checked = true;
+            }
+        }
+
+        function setTimeChip(val) {
+            document.getElementById('numTimeLimit').value = val;
+            highlightMatchingTimeChip(val);
+        }
+
+        function highlightMatchingTimeChip(val) {
+            document.querySelectorAll('.time-chip').forEach(chip => {
+                const txt = chip.textContent;
+                if (val === 0 && txt.includes('Không')) {
+                    chip.classList.add('active');
+                } else if (txt.includes(`${val} phút`)) {
+                    chip.classList.add('active');
+                } else {
+                    chip.classList.remove('active');
+                }
+            });
+        }
+
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('open');
+        }
+
+        function filterQuestionCategory(cat) {
+            document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('active'));
+            const chips = document.querySelectorAll('.q-chip');
+            chips.forEach(c => {
+                if (cat === 'all') c.style.display = 'flex';
+                else if (cat === 'mcq') c.style.display = c.classList.contains('chip-mcq') ? 'flex' : 'none';
+                else if (cat === 'true_false') c.style.display = c.classList.contains('chip-tf') ? 'flex' : 'none';
+                else if (cat === 'short_answer') c.style.display = c.classList.contains('chip-sa') ? 'flex' : 'none';
+            });
+        }
+
+        function updateShareLinks(quizId) {
+            const shareUrl = `${window.location.origin}/?id=${encodeURIComponent(quizId)}`;
+            document.getElementById('txtDirectShareUrl').value = shareUrl;
+            document.getElementById('txtModalShareUrl').value = shareUrl;
+            document.getElementById('lnkModalTryExam').href = shareUrl;
+
+            // QR code generator URL (Google Chart API / QRServer API)
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(shareUrl)}`;
+            const imgQr = document.getElementById('imgQrCode');
+            const placeholder = document.getElementById('qrPlaceholder');
+            if (imgQr) {
+                imgQr.src = qrApiUrl;
+                imgQr.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+            }
+
+            // Social links
+            const zaloUrl = `https://zalo.me/share?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(currentQuiz.title)}`;
+            const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+            const btnZalo = document.getElementById('btnShareZalo');
+            if (btnZalo) btnZalo.href = zaloUrl;
+            const btnFb = document.getElementById('btnShareFacebook');
+            if (btnFb) btnFb.href = fbUrl;
+        }
+
+        async function saveAndPublishExam() {
+            const title = document.getElementById('txtQuizTitle').value.trim();
+            if (!title) return alert("Vui lòng nhập tên đề thi!");
+
+            const legalChk = document.getElementById('chkLegalCommit');
+            if (legalChk && !legalChk.checked) {
+                alert("Vui lòng tích chọn cam kết bản quyền đề thi trước khi xuất bản!");
+                legalChk.focus();
+                return;
+            }
+
+            // Đảm bảo có nội dung câu hỏi (tìm nạp dự phòng từ sessionStorage nếu bị refresh)
+            if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
+                try {
+                    const fallbackData = sessionStorage.getItem('pending_publish_quiz') 
+                        || sessionStorage.getItem('editor_quiz_data') 
+                        || sessionStorage.getItem('export_quiz_data')
+                        || (currentQuiz.id ? sessionStorage.getItem(`publish_quiz_${currentQuiz.id}`) : null);
+                    if (fallbackData) {
+                        const parsed = JSON.parse(fallbackData);
+                        const qs = Array.isArray(parsed.data) ? parsed.data : (Array.isArray(parsed.questions) ? parsed.questions : []);
+                        if (qs.length > 0) currentQuiz.questions = qs;
+                    }
+                } catch (e) {}
+            }
+
+            if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
+                return alert("Không tìm thấy nội dung câu hỏi để xuất bản! Vui lòng quay lại Trình soạn thảo Studio để kiểm tra lại.");
+            }
+
+            const timeLimit = parseInt(document.getElementById('numTimeLimit').value) || 0;
+            const isShuffle = document.getElementById('chkShuffle').checked;
+            const description = document.getElementById('txtQuizDescription').value.trim();
+            const password = document.getElementById('txtQuizPassword').value.trim();
+
+            // Thu thập cấu hình nâng cao
+            const settings = {
+                start_time: document.getElementById('dtStartTime').value || null,
+                end_time: document.getElementById('dtEndTime').value || null,
+                max_attempts: parseInt(document.getElementById('selMaxAttempts').value) || 0,
+                show_score: document.getElementById('selShowScore').value,
+                show_answers: document.getElementById('selShowAnswers').value,
+                leaderboard: document.getElementById('chkLeaderboard').checked,
+                full_screen: document.getElementById('chkFullScreen').checked,
+                detect_tab: document.getElementById('chkDetectTabSwitch').checked,
+                max_tab_violations: parseInt(document.getElementById('selMaxTabViolations').value) || 0,
+                anti_copy: document.getElementById('chkAntiCopy').checked,
+                require_login: document.getElementById('chkReqLogin').checked,
+                req_login: document.getElementById('chkReqLogin').checked,
+                req_name: true,
+                req_class: document.getElementById('chkReqClass').checked,
+                req_school: document.getElementById('chkReqSchool').checked,
+                req_sbd: document.getElementById('chkReqSBD').checked
+            };
+
+            const btnSidebar = document.getElementById('btnSidebarPublish');
+            const btnMobile = document.getElementById('btnMobilePublish');
+
+            const setLoading = (loading) => {
+                if (btnSidebar) { 
+                    btnSidebar.innerHTML = loading ? `<i class="ri-loader-4-line ri-spin"></i> Đang lưu & xuất bản...` : `<i class="ri-send-plane-fill"></i> Hoàn tất & Xuất bản ngay`; 
+                    btnSidebar.disabled = loading; 
+                }
+                if (btnMobile) { 
+                    btnMobile.innerHTML = loading ? `<i class="ri-loader-4-line ri-spin"></i> Đang xuất bản...` : `<i class="ri-send-plane-fill"></i> Xuất bản ngay`; 
+                    btnMobile.disabled = loading; 
+                }
+            };
+
+            setLoading(true);
+
+            const activeToken = getAuthToken();
+            const payload = {
+                title: title,
+                data: currentQuiz.questions,
+                mode: currentQuiz.mode || "exam",
+                time_limit: timeLimit,
+                is_shuffle: isShuffle,
+                creator_id: activeToken,
+                status: "published",
+                description: description,
+                password: password,
+                settings: settings
+            };
+            if (currentQuiz.id) payload.quiz_id = currentQuiz.id;
+
+            try {
+                const reqHeaders = { 'Content-Type': 'application/json' };
+                if (activeToken) {
+                    reqHeaders['Authorization'] = `Bearer ${activeToken}`;
+                }
+
+                const res = await fetch('/api/save_quiz', {
+                    method: 'POST',
+                    headers: reqHeaders,
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                if (res.ok && (result.status === 'success' || result.quiz_id || result.id)) {
+                    const finalId = result.quiz_id || result.id || currentQuiz.id;
+                    currentQuiz.id = finalId;
+                    document.getElementById('lblQuizId').textContent = finalId;
+                    updateShareLinks(finalId);
+
+                    // Cập nhật lại session storage để Studio & Trang chủ có dữ liệu mới nhất
+                    try {
+                        const updatedQuizObj = { ...payload, id: finalId, quiz_id: finalId };
+                        sessionStorage.setItem('pending_publish_quiz', JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem('editor_quiz_data', JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem(`publish_quiz_${finalId}`, JSON.stringify(updatedQuizObj));
+                    } catch(e) {}
+
+                    // Cập nhật các liên kết trong modal thành công
+                    const lnkTry = document.getElementById('lnkModalTryExam');
+                    if (lnkTry) lnkTry.href = `/?id=${encodeURIComponent(finalId)}`;
+                    const lnkStudio = document.getElementById('lnkModalBackStudio');
+                    if (lnkStudio) lnkStudio.href = `/editor.html?id=${encodeURIComponent(finalId)}`;
+
+                    document.getElementById('publishSuccessModal').style.display = 'flex';
+                    showToast("🎉 Đề thi đã được lưu và xuất bản thành công!");
+                } else {
+                    const errDetail = result.detail || result.message || "Có lỗi xảy ra khi lưu đề thi!";
+                    alert("Xuất bản thất bại: " + errDetail);
+                }
+            } catch (err) {
+                console.error("Save quiz error:", err);
+                alert("Không thể kết nối đến máy chủ. Vui lòng thử lại!");
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function copyDirectShareUrl() {
+            const input = document.getElementById('txtDirectShareUrl');
+            if (!input.value) return alert("Vui lòng xuất bản đề thi trước để lấy link!");
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            showToast("✓ Đã sao chép link làm bài!");
+        }
+
+        function copyModalShareUrl() {
+            const input = document.getElementById('txtModalShareUrl');
+            input.select();
+            navigator.clipboard.writeText(input.value);
+            showToast("✓ Đã sao chép link làm bài!");
+        }
+
+        function copyIframeEmbedCode() {
+            if (!currentQuiz.id) return alert("Vui lòng xuất bản đề thi trước để tạo mã nhúng!");
+            const shareUrl = `${window.location.origin}/?id=${encodeURIComponent(currentQuiz.id)}`;
+            const embed = `<iframe src="${shareUrl}" width="100%" height="800" frameborder="0" allowfullscreen style="border: 1px solid #cbd5e1; border-radius: 12px;"></iframe>`;
+            navigator.clipboard.writeText(embed);
+            showToast("✓ Đã chép mã nhúng Iframe vào bộ nhớ tạm!");
+        }
+
+        function downloadQrCodeImage() {
+            const img = document.getElementById('imgQrCode');
+            if (!img || !img.src) return alert("Vui lòng xuất bản đề thi trước để tải mã QR!");
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `QRCode_${currentQuiz.id || 'quiz'}.png`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast("✓ Đang tải ảnh mã QR phòng thi...");
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('publishSuccessModal').style.display = 'none';
+        }
+
+        function previewExamOnline() {
+            if (currentQuiz.id) {
+                window.open(`/?id=${encodeURIComponent(currentQuiz.id)}`, '_blank');
+            } else {
+                alert("Vui lòng bấm 'Xuất bản ngay' để tạo link xem trước.");
+            }
+        }
+
+        function exportWordPdf() {
+            if (currentQuiz.id) {
+                window.location.href = `/export/${encodeURIComponent(currentQuiz.id)}`;
+            } else {
+                window.location.href = `/export`;
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('pubToast');
+            const label = document.getElementById('toastMsg');
+            if (toast && label) {
+                label.textContent = msg;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -567,60 +567,45 @@ def clean_option_text(opt: str) -> tuple:
 
 
 def parse_tf_answer(raw_ca: Any) -> Dict[str, bool]:
-
     """Phân tích chuẩn xác các định dạng đáp án Đúng/Sai thành dict {'a': bool, 'b': bool, 'c': bool, 'd': bool}."""
+    if not raw_ca:
+        return {}
 
-    tf_dict = {"a": True, "b": False, "c": True, "d": False}
+    tf_dict: Dict[str, bool] = {}
 
     if isinstance(raw_ca, dict):
-
         for k, v in raw_ca.items():
-
             k_clean = str(k).lower().strip().replace(')', '').replace('.', '')
-
             if k_clean in ['a', 'b', 'c', 'd']:
-
                 if isinstance(v, bool):
-
                     tf_dict[k_clean] = v
-
                 elif isinstance(v, (int, float)):
-
                     tf_dict[k_clean] = bool(v)
-
                 elif isinstance(v, str):
-
                     tf_dict[k_clean] = v.strip().lower() in ['đ', 'đúng', 'dung', 'true', 't', '1', 'yes', 'y']
-
         return tf_dict
 
-    elif isinstance(raw_ca, (list, tuple)) and len(raw_ca) >= 4:
-
-        for idx, k in enumerate(['a', 'b', 'c', 'd']):
-
+    elif isinstance(raw_ca, (list, tuple)) and len(raw_ca) >= 2:
+        for idx, k in enumerate(['a', 'b', 'c', 'd'][:len(raw_ca)]):
             v = raw_ca[idx]
-
             if isinstance(v, bool):
-
                 tf_dict[k] = v
-
             elif isinstance(v, (int, float)):
-
                 tf_dict[k] = bool(v)
-
             elif isinstance(v, str):
-
                 tf_dict[k] = v.strip().lower() in ['đ', 'đúng', 'dung', 'true', 't', '1', 'yes', 'y']
-
         return tf_dict
 
     elif isinstance(raw_ca, str):
+        raw_str = raw_ca.strip()
+        if not raw_str:
+            return {}
 
         found_any = False
         for k in ['a', 'b', 'c', 'd']:
-            m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*(?:[\)\:\-\.\=]\s*|\s+)(?:là\s+)?(ĐÚNG|DUNG|SAI|TRUE|FALSE|Đ|S|T|F|1|0)\b', raw_ca, re.IGNORECASE)
+            m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*(?:[\)\:\-\.\=]\s*|\s+)(?:là\s+)?(ĐÚNG|DUNG|SAI|TRUE|FALSE|Đ|S|T|F|1|0)\b', raw_str, re.IGNORECASE)
             if not m:
-                m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*[\)\:\-\.\=]\s*([^\s,;\/]+)', raw_ca, re.IGNORECASE)
+                m = re.search(rf'(?:^|\b|[\(\[])\s*{k}\s*[\)\:\-\.\=]\s*([^\s,;\/]+)', raw_str, re.IGNORECASE)
             if m:
                 val_str = m.group(1).lower().strip()
                 tf_dict[k] = val_str in ['đ', 'đúng', 'dung', 'true', 't', '1', 'yes', 'y']
@@ -629,14 +614,10 @@ def parse_tf_answer(raw_ca: Any) -> Dict[str, bool]:
         if found_any:
             return tf_dict
 
-        seq = re.findall(r'\b(Đ|S|ĐÚNG|SAI|TRUE|FALSE|T|F)\b', raw_ca, re.IGNORECASE)
-
-        if len(seq) == 4:
-
-            for idx, k in enumerate(['a', 'b', 'c', 'd']):
-
-                tf_dict[k] = seq[idx].lower() in ['đ', 'đúng', 'true', 't']
-
+        seq = re.findall(r'\b(Đ|S|ĐÚNG|SAI|TRUE|FALSE|T|F)\b', raw_str, re.IGNORECASE)
+        if len(seq) == 4 or (len(seq) in [2, 3] and not re.search(r'[A-F]\.', raw_str)):
+            for idx, k in enumerate(['a', 'b', 'c', 'd'][:len(seq)]):
+                tf_dict[k] = seq[idx].lower() in ['đ', 'đúng', 'true', 't', '1']
             return tf_dict
 
     return tf_dict
@@ -1112,35 +1093,46 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
         raw_ca = str(raw_ca_obj or "").strip()
 
         if raw_ca and not final_ca:
-            # 1. Tìm chữ cái A-F bằng word boundary (tránh bắt 'D' trong 'Dap an A')
-            m = re.search(r'\b([A-F])\b', raw_ca, re.IGNORECASE)
-            if m:
-                target_char = m.group(1).upper()
+            ca_content, _, _, _ = clean_option_text(raw_ca)
+            ca_content_clean = clean_subscripts_and_formulas(ca_content).strip()
+
+            # 1. Kiểm tra nếu raw_ca có dạng nhãn chữ cái rõ ràng (VD: "A", "A.", "*A", "Đáp án A", "Chọn B")
+            m_explicit_letter = re.match(r'^\*?\s*([A-F])(?:[\.\:\)]|\s*$)', raw_ca, re.IGNORECASE)
+            if not m_explicit_letter:
+                m_explicit_letter = re.search(r'(?:đáp\s*án|phương\s*án|chọn|câu)\s*([A-F])\b', raw_ca, re.IGNORECASE)
+
+            if m_explicit_letter:
+                target_char = m_explicit_letter.group(1).upper()
                 for opt in normalized_options:
                     if opt.startswith(f"{target_char}."):
                         final_ca = opt
                         break
 
+            # 2. So khớp theo nội dung văn bản (tránh bắt nhầm chữ cái đơn như "A" trong "A cat", "Điểm A")
+            if not final_ca and ca_content_clean:
+                for opt in normalized_options:
+                    opt_body, _, _, _ = clean_option_text(opt)
+                    opt_clean = clean_subscripts_and_formulas(opt_body).strip()
+                    if ca_content_clean.lower() == opt_clean.lower():
+                        final_ca = opt
+                        break
 
-
-            # 2. Nếu chưa khớp, so sánh nội dung
-
-            if not final_ca:
-
-                ca_content, _, _, _ = clean_option_text(raw_ca)
-
-                ca_content_clean = clean_subscripts_and_formulas(ca_content).strip()
-
-                if ca_content_clean:
-
+                if not final_ca and len(ca_content_clean) >= 3:
                     for opt in normalized_options:
-
                         opt_body, _, _, _ = clean_option_text(opt)
-
-                        if ca_content_clean.lower() == opt_body.lower() or ca_content_clean.lower() in opt_body.lower():
-
+                        opt_clean = clean_subscripts_and_formulas(opt_body).strip()
+                        if ca_content_clean.lower() in opt_clean.lower() or opt_clean.lower() in ca_content_clean.lower():
                             final_ca = opt
+                            break
 
+            # 3. Fallback chữ cái nếu chuỗi ngắn
+            if not final_ca and len(raw_ca) <= 4:
+                m_single = re.search(r'\b([A-F])\b', raw_ca, re.IGNORECASE)
+                if m_single:
+                    target_char = m_single.group(1).upper()
+                    for opt in normalized_options:
+                        if opt.startswith(f"{target_char}."):
+                            final_ca = opt
                             break
 
 

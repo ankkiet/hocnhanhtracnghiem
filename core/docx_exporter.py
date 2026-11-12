@@ -685,12 +685,21 @@ def is_option_correct(opt_idx: int, opt_text: str, raw_ca) -> bool:
         return True
     if clean_ca == str(opt_idx) or clean_ca_no_star == str(opt_idx):
         return True
+
+    def _norm(t: str) -> str:
+        t = re.sub(r'<[^>]+>', '', str(t or ''))
+        t = re.sub(r'\\\(|\\\)|[\$]', '', t)
+        t = re.sub(r'[\u00a0\u200b\s]+', ' ', t)
+        return t.strip().lower()
+
     match_prefix = re.match(r'^(\*?\s*[A-Fa-f][\.\:\)])\s*(.*)', clean_opt)
     if match_prefix and match_prefix.group(2).strip():
-        opt_content = match_prefix.group(2).strip()
-        ca_content = re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', clean_ca).strip()
-        if opt_content == clean_ca.strip() or opt_content == ca_content:
+        opt_content = _norm(match_prefix.group(2))
+        ca_content = _norm(re.sub(r'^\*?\s*[A-Fa-f][\.\:\)]\s*', '', clean_ca))
+        if opt_content == ca_content or opt_content == _norm(clean_ca):
             return True
+    elif _norm(clean_opt) == _norm(clean_ca):
+        return True
     return False
 
 
@@ -747,6 +756,18 @@ def extract_answer_display(q: dict) -> str:
             if (correct_str.startswith(f"{c}.") or correct_str.startswith(f"{c}:") or correct_str == c
                 or correct_str_no_star.startswith(f"{c}.") or correct_str_no_star.startswith(f"{c}:") or correct_str_no_star == c):
                 return c
+
+        if correct_str_no_star.isdigit():
+            idx = int(correct_str_no_star)
+            if 0 <= idx < 26:
+                return chr(ord('A') + idx)
+
+        options = q.get('options', [])
+        if options and isinstance(options, list):
+            for opt_idx, opt in enumerate(options):
+                if is_option_correct(opt_idx, str(opt), raw_ca):
+                    return chr(ord('A') + opt_idx)
+
         if correct_str_no_star:
             return correct_str_no_star[:2]
         return "-"

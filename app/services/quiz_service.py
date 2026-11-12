@@ -131,15 +131,50 @@ class QuizService:
         else:
             questions_to_return = raw_questions
 
-        return {
+        res_data = {
             "status": "success",
             "title": quiz_data.get('title'),
             "data": questions_to_return,
             "mode": mode,
             "time_limit": quiz_data.get('time_limit', 0),
             "is_shuffle": quiz_data.get('is_shuffle', False),
+            "description": quiz_data.get('description', ''),
+            "settings": quiz_data.get('settings', {}),
             "updated_at": updated_ts
         }
+        if is_creator and quiz_data.get('password'):
+            res_data["password"] = quiz_data.get('password')
+        else:
+            res_data["has_password"] = bool(quiz_data.get('password'))
+        return res_data
+
+    def verify_password(self, quiz_id: str, password: str) -> Dict[str, Any]:
+        """Xác thực mật khẩu đề thi của học sinh."""
+        db = _get_db()
+        if db is None:
+            raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
+        
+        now = time.time()
+        quiz_data = None
+        if quiz_id in QUIZ_CACHE and (now - QUIZ_CACHE[quiz_id]['time'] < self.cache_ttl):
+            quiz_data = QUIZ_CACHE[quiz_id]['data']
+        else:
+            doc = db.collection('quizzes').document(quiz_id).get()
+            if doc.exists:
+                quiz_data = doc.to_dict()
+                QUIZ_CACHE[quiz_id] = {'time': now, 'data': quiz_data}
+        
+        if not quiz_data:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bài thi")
+        
+        expected_pwd = (quiz_data.get('password') or '').strip()
+        if not expected_pwd:
+            return {"status": "success", "valid": True}
+        
+        if expected_pwd == (password or '').strip():
+            return {"status": "success", "valid": True}
+        
+        return {"status": "error", "valid": False, "detail": "Mật khẩu bài thi không chính xác"}
 
     def save_quiz(
         self,
@@ -150,7 +185,10 @@ class QuizService:
         is_shuffle: bool = False,
         creator_id: str = "",
         status: str = "published",
-        quiz_id: Optional[str] = None
+        quiz_id: Optional[str] = None,
+        description: Optional[str] = "",
+        password: Optional[str] = "",
+        settings: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Lưu hoặc cập nhật đề thi vào Firestore, tự động dọn dẹp ảnh mồ côi và làm mới cache.
@@ -196,6 +234,13 @@ class QuizService:
             'status': status,
             'updated_at': firestore.SERVER_TIMESTAMP
         }
+
+        if description:
+            data_to_save['description'] = description
+        if password:
+            data_to_save['password'] = password
+        if settings:
+            data_to_save['settings'] = settings
 
         if not quiz_id:
             data_to_save['created_at'] = firestore.SERVER_TIMESTAMP

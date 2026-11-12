@@ -89,13 +89,33 @@ class TeacherService:
         scores = [s.get('score', 0) for s in submissions]
         avg_score = round(sum(scores) / total_sub, 2) if total_sub > 0 else 0
 
+        students_list = []
+        for s in submissions:
+            students_list.append({
+                'id': str(s.get('_id') or s.get('id') or len(students_list)),
+                'student_name': str(s.get('student_name') or 'Ẩn danh').strip(),
+                'class_name': str(s.get('class_name') or '').strip(),
+                'school_name': str(s.get('school_name') or '').strip(),
+                'sbd': str(s.get('sbd') or '').strip(),
+                'raw_score': s.get('score', 0),
+                'scaled_score': round((s.get('score', 0) / (s.get('total_questions') or 1)) * 10, 1) if s.get('total_questions') else s.get('score', 0),
+                'total_questions': s.get('total_questions', 0),
+                'time_elapsed': s.get('time_elapsed', 0),
+                'submitted_at': str(s.get('submitted_at') or ''),
+                'tab_switch_count': int(s.get('tab_switch_count', 0) or 0),
+                'is_guest': bool(s.get('is_guest', True))
+            })
+
         return {
             "status": "success",
             "quiz_id": quiz_id,
             "title": quiz_data.get('title', ''),
             "total_submissions": total_sub,
             "average_score": avg_score,
-            "submissions": submissions
+            "submissions": submissions,
+            "students": students_list,
+            "settings": quiz_data.get('settings', {}),
+            "description": quiz_data.get('description', '')
         }
 
     def export_word(

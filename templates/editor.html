@@ -45,9 +45,16 @@
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-        <!-- Trình soạn thảo công thức MathLive (hỗ trợ cả đường dẫn cục bộ và CDN fallback an toàn) -->
+    <!-- Trình soạn thảo công thức MathLive (hỗ trợ cả đường dẫn cục bộ và CDN fallback an toàn) -->
+    <script>
+        window.MathfieldElement = window.MathfieldElement || {};
+        window.MathfieldElement.fontsDirectory = 'https://cdn.jsdelivr.net/npm/mathlive@0.104.2/dist/fonts';
+    </script>
     <script src="/static/js/mathlive.min.js"></script>
     <script>
+        if (window.MathfieldElement) {
+            window.MathfieldElement.fontsDirectory = 'https://cdn.jsdelivr.net/npm/mathlive@0.104.2/dist/fonts';
+        }
         if (!window.customElements || !window.customElements.get('math-field')) {
             var s = document.createElement('script');
             s.src = '/mathlive.min.js';
@@ -460,8 +467,11 @@
                         </button>
                     </div>
                 </div>
-                <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; gap: 8px;">
+                <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                     <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Thêm dấu <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>). Gõ <code>câu</code> rồi nhấn <b>Tab</b> để tạo nhanh khung câu mới.</span>
+                    <a href="/huong-dan-tao-de" target="_blank" style="color: var(--studio-primary); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        <i class="ri-book-open-line"></i> Xem cẩm nang tạo đề <i class="ri-external-link-line" style="font-size: 0.8rem;"></i>
+                    </a>
                 </div>
                 <div class="studio-editor-wrapper" style="background: white; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; height: 100%; position: relative;">
                     <div class="editor-toolbar studio-word-toolbar">
@@ -640,41 +650,137 @@
 
     </main>
 
-    <!-- MODAL CẤU HÌNH XUẤT BẢN -->
-    <div id="publishModal" class="studio-modal-overlay" style="display: none;">
-        <div class="studio-modal-box">
-            <h2 style="color: var(--studio-primary); margin-top: 0; font-size: 1.4rem;">
-                <i class="ri-settings-3-line"></i> Cấu hình Xuất bản Đề thi
-            </h2>
-            <p style="color: var(--studio-text-muted); margin-bottom: 20px; font-size: 0.92rem;">
-                Thiết lập các thông số trước khi lưu đề và gửi link cho học sinh làm bài.
-            </p>
-            
-            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">
-                Tên bài kiểm tra <span style="color: var(--studio-danger);">*</span>
-            </label>
-            <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 15 phút - Chương 1..." style="margin-bottom: 16px;">
-            
-            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">Chế độ hiển thị</label>
-            <select id="modalQuizMode" style="width: 100%; padding: 12px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 0.95rem;">
-                <option value="practice">🎯 Luyện tập (Học sinh biết ngay đúng/sai và giải thích từng câu)</option>
-                <option value="exam">📝 Thi thử (Làm xong toàn bộ đề mới nộp bài và tính điểm)</option>
-            </select>
-            
-            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.95rem;">Thời gian làm bài (Phút)</label>
-            <input type="number" id="modalQuizTime" placeholder="Để trống hoặc 0 nếu không giới hạn thời gian" min="0" max="300" style="margin-bottom: 16px;">
-            
-            <label style="font-weight: 600; display: flex; align-items: center; cursor: pointer; margin-bottom: 24px;">
-                <input type="checkbox" id="modalQuizShuffle" style="width: 18px; height: 18px; margin-right: 10px;">
-                <i class="ri-shuffle-line" style="color: var(--studio-primary); margin-right: 6px;"></i> Tự động đảo ngẫu nhiên thứ tự câu hỏi & đáp án khi học sinh vào làm
-            </label>
-            
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn-studio-outline" onclick="closePublishModal()">Hủy</button>
-                <button id="btnConfirmPublish" class="btn-studio-primary" onclick="confirmPublishQuiz()">
-                    <i class="ri-send-plane-fill"></i> Lưu & Xuất bản ngay
-                </button>
+    <!-- MODAL KIỂM TRA, THỐNG KÊ & XUẤT BẢN -->
+    <div id="publishModal" class="studio-modal-overlay" style="display: none; z-index: 99999;">
+        <div class="studio-modal-box publish-stats-modal-content" style="max-width: 680px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; padding: 24px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); background: #ffffff;">
+            <!-- Header -->
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px;">
+                <div>
+                    <h2 style="color: #1e3a8a; font-size: 1.25rem; font-weight: 800; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="ri-checkbox-circle-fill" style="color: #2563eb;"></i> Kiểm tra &amp; Thống kê Đề thi trước Xuất bản
+                    </h2>
+                    <p style="color: #64748b; font-size: 0.86rem; margin: 0;">
+                        Thống kê cơ cấu câu hỏi chuẩn GDPT 2018. Bấm vào từng loại câu để xem số câu và nhảy đến vị trí câu hỏi trên đề thi.
+                    </p>
+                </div>
+                <button type="button" onclick="closePublishModal()" style="background: transparent; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; padding: 2px 6px; border-radius: 6px; line-height: 1;" title="Đóng">&times;</button>
             </div>
+
+            <!-- Scrollable Body -->
+            <div class="publish-modal-scrollable-body" style="overflow-y: auto; flex: 1; padding-right: 4px; margin-bottom: 16px;">
+                
+                <!-- Quick Exam Title Input -->
+                <div style="margin-bottom: 14px;">
+                    <label style="font-size: 0.86rem; font-weight: 700; color: #334155; display: block; margin-bottom: 5px;">
+                        Tên bài kiểm tra / Đề thi <span style="color: #dc2626;">*</span>
+                    </label>
+                    <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 15 phút - Chương 1..." style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-family: inherit; outline: none; box-sizing: border-box;">
+                </div>
+
+                <!-- 4 Summary / Filter Cards -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
+                    <!-- Total -->
+                    <div class="pub-type-card active" id="cardStatTotal" onclick="filterPublishType('all')" style="cursor: pointer; background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">TỔNG SỐ CÂU</div>
+                        <div id="statTotalCount" style="font-size: 1.5rem; font-weight: 800; color: #1e293b; margin: 2px 0;">0</div>
+                        <div style="font-size: 0.72rem; color: #2563eb; font-weight: 600;">Xem tất cả</div>
+                    </div>
+
+                    <!-- MCQ (TN) -->
+                    <div class="pub-type-card" id="cardStatMcq" onclick="filterPublishType('mcq')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase;">TRẮC NGHIỆM</div>
+                        <div id="statMcqCount" style="font-size: 1.5rem; font-weight: 800; color: #2563eb; margin: 2px 0;">0</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">(A, B, C, D)</div>
+                    </div>
+
+                    <!-- True / False (Đ/S) -->
+                    <div class="pub-type-card" id="cardStatTf" onclick="filterPublishType('true_false')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #059669; text-transform: uppercase;">ĐÚNG / SAI</div>
+                        <div id="statTfCount" style="font-size: 1.5rem; font-weight: 800; color: #059669; margin: 2px 0;">0</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">(Ý a, b, c, d)</div>
+                    </div>
+
+                    <!-- Short Answer (TLN) -->
+                    <div class="pub-type-card" id="cardStatSa" onclick="filterPublishType('short_answer')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #d97706; text-transform: uppercase;">TRẢ LỜI NGẮN</div>
+                        <div id="statSaCount" style="font-size: 1.5rem; font-weight: 800; color: #d97706; margin: 2px 0;">0</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">(Điền số)</div>
+                    </div>
+                </div>
+
+                <!-- Instruction & Question Grid -->
+                <div style="background: #f8fafc; border-radius: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 0.82rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="ri-list-check-2"></i> Danh sách câu hỏi <span id="pubFilterLabel" style="font-weight: 600; color: #2563eb;">(Tất cả)</span>:
+                        </span>
+                        <span style="font-size: 0.75rem; color: #64748b;">
+                            Bấm vào số câu để nhảy đến kiểm tra trên đề
+                        </span>
+                    </div>
+
+                    <!-- Grid of question chips -->
+                    <div id="pubQuestionsGrid" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow-y: auto; padding: 2px;">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Optional Quick Settings Accordion -->
+                <details style="background: #f1f5f9; border-radius: 10px; padding: 8px 12px; font-size: 0.85rem; color: #475569; margin-bottom: 10px;">
+                    <summary style="font-weight: 700; cursor: pointer; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
+                        <i class="ri-equalizer-line"></i> Tùy chọn nhanh đề thi (Chế độ, thời gian, đảo đề)
+                    </summary>
+                    <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Chế độ hiển thị</label>
+                            <select id="modalQuizMode" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
+                                <option value="practice">🎯 Luyện tập (Học sinh biết ngay đúng/sai và giải thích)</option>
+                                <option value="exam" selected>📝 Thi thử (Làm xong toàn bộ mới nộp và chấm điểm)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Thời gian làm bài (Phút)</label>
+                            <input type="number" id="modalQuizTime" placeholder="0 = Không giới hạn" min="0" max="300" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
+                            <input type="checkbox" id="modalQuizShuffle" style="width: 16px; height: 16px; margin-right: 8px;" checked>
+                            <i class="ri-shuffle-line" style="color: #2563eb; margin-right: 4px;"></i> Tự động đảo ngẫu nhiên thứ tự câu hỏi &amp; đáp án
+                        </label>
+                    </div>
+                </details>
+
+            </div>
+
+            <!-- Footer Actions -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: auto;">
+                <button type="button" class="btn-studio-outline" onclick="dockPublishModalToCorner()" style="margin: 0; width: auto; font-size: 0.84rem; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #ffffff; cursor: pointer;">
+                    <i class="ri-contract-left-line"></i> Thu nhỏ để xem đề
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-studio-outline" onclick="closePublishModal()" style="margin: 0; width: auto; font-size: 0.88rem; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                        Hủy
+                    </button>
+                    <button type="button" id="btnConfirmPublish" class="btn-studio-primary" onclick="proceedToPublishPage()" style="margin: 0; width: auto; font-size: 0.92rem; font-weight: 700; padding: 9px 20px; border-radius: 8px; background: #2563eb; color: #ffffff; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+                        Tiếp tục xuất bản <i class="ri-arrow-right-line"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Floating Dock Bar when Minimized -->
+    <div id="publishDockBar" class="publish-floating-bar" style="display: none; position: fixed; bottom: 24px; right: 24px; background: #0f172a; color: #ffffff; border-radius: 12px; padding: 10px 16px; align-items: center; gap: 14px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35); z-index: 100000;">
+        <div style="font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 6px; color: #60a5fa;">
+            <i class="ri-focus-3-line"></i> <span id="dockQuestionText">Đang kiểm tra câu 1</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" onclick="jumpToAdjacentQuestion(-1)" title="Câu trước" style="padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; background: #1e293b; color: #f8fafc; border: 1px solid #334155; cursor: pointer;"><i class="ri-arrow-left-s-line"></i></button>
+            <button type="button" onclick="jumpToAdjacentQuestion(1)" title="Câu tiếp theo" style="padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; background: #1e293b; color: #f8fafc; border: 1px solid #334155; cursor: pointer;"><i class="ri-arrow-right-s-line"></i></button>
+            <button type="button" onclick="expandPublishModal()" title="Mở lại toàn bộ thống kê" style="padding: 6px 12px; border-radius: 6px; font-size: 0.82rem; font-weight: 600; background: #1e293b; color: #f8fafc; border: 1px solid #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;"><i class="ri-fullscreen-line"></i> Mở thống kê</button>
+            <button type="button" onclick="proceedToPublishPage()" style="padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; background: #2563eb; color: #ffffff; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">Tiếp tục xuất bản <i class="ri-arrow-right-line"></i></button>
         </div>
     </div>
 
@@ -1465,6 +1571,20 @@
         </div>
     </div>
 
-    <script src="/editor.js?v=20261108_mathtype_fix_v2"></script>
+    <script src="/editor.js?v=20261110_fix_studio_v3"></script>
+    <script>
+        // Safety Fallback Watchdog: Đảm bảo preloader luôn biến mất kể cả khi mạng chậm
+        (function() {
+            function forceDismissLoader() {
+                var loader = document.getElementById('pageInitialLoader');
+                if (loader && !loader.classList.contains('hntn-loaded')) {
+                    loader.classList.add('hntn-loaded');
+                    setTimeout(function() { if (loader.parentNode) loader.remove(); }, 400);
+                }
+            }
+            window.addEventListener('load', function() { setTimeout(forceDismissLoader, 300); });
+            setTimeout(forceDismissLoader, 2500);
+        })();
+    </script>
 </body>
 </html>

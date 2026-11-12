@@ -16,6 +16,9 @@ class SaveQuizRequest(BaseModel):
     is_shuffle: bool = False
     creator_id: str = ""
     status: str = "published"
+    description: Optional[str] = ""
+    password: Optional[str] = ""
+    settings: Optional[dict] = None
 
 
 class DiscardDraftRequest(BaseModel):
@@ -31,7 +34,16 @@ class QuizResponse(BaseModel):
     mode: Optional[str] = "practice"
     time_limit: Optional[int] = 0
     is_shuffle: Optional[bool] = False
+    description: Optional[str] = ""
+    settings: Optional[dict] = None
+    has_password: Optional[bool] = False
+    password: Optional[str] = None
     updated_at: Optional[float] = None
+
+
+class VerifyQuizPasswordRequest(BaseModel):
+    quiz_id: str
+    password: str
 
 
 class CheckQuizAIRequest(BaseModel):

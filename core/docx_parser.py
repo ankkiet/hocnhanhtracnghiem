@@ -460,6 +460,9 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
 
     
 
+    marker_weights = [format_weights[opt['start_idx']] if opt['start_idx'] < len(format_weights) else 0 for opt in options]
+    all_markers_bold = len(marker_weights) >= 2 and all(w == 1 for w in marker_weights)
+
     for opt in options:
 
         score = 0
@@ -472,7 +475,8 @@ def evaluate_correct_answer(options: List[Dict], full_text: str, format_weights:
 
         
 
-        marker_weight = format_weights[start_idx] if start_idx < len(format_weights) else 0
+        raw_mw = format_weights[start_idx] if start_idx < len(format_weights) else 0
+        marker_weight = 0 if (all_markers_bold and raw_mw == 1) else raw_mw
 
         if marker_weight == 3: score += 1000
 

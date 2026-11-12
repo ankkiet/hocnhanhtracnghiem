@@ -104,6 +104,10 @@ export default {
       '/contact/': '/contact.html',
       '/canvas': '/canvas.html',
       '/canvas/': '/canvas.html',
+      '/huong-dan-tao-de': '/huong-dan-tao-de.html',
+      '/huong-dan-tao-de/': '/huong-dan-tao-de.html',
+      '/huong-dan': '/huong-dan-tao-de.html',
+      '/huong-dan/': '/huong-dan-tao-de.html',
       '/cam-nang': '/cam-nang.html',
       '/cam-nang/': '/cam-nang.html'
     };

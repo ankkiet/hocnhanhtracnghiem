@@ -24,7 +24,7 @@
         API_BASE_URL = window.location.origin;
     }
 
-    const authToken = localStorage.getItem('teacher_token') || localStorage.getItem('access_token') || '';
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('teacher_token') || localStorage.getItem('access_token') || '';
 
     // 2. Trạng thái dữ liệu đề thi & Tùy chọn xuất bản
     let quizData = {
@@ -490,6 +490,9 @@
                 qList.forEach((q) => {
                     const isMcq = (!q.type || q.type === 'mcq') && Array.isArray(q.options) && q.options.length >= 2;
                     if (!isMcq) return;
+
+                    // Không đảo phương án nếu câu hỏi có đáp án phụ thuộc vị trí ("Cả A và B", "Tất cả các đáp án trên")
+                    if (hasPositionDependentOptions(q.options)) return;
 
                     // Xác định nội dung đáp án đúng trước khi trộn
                     let correctContent = null;
@@ -1087,16 +1090,33 @@
         return 1;
     }
 
+    function hasPositionDependentOptions(options) {
+        if (!Array.isArray(options)) return false;
+        const depRegex = /(cả\s+[a-d]\s+và\s+[a-d]|tất\s+cả\s+(các\s+)?đáp\s+án|tất\s+cả\s+(các\s+)?phương\s+án|không\s+có\s+đáp\s+án\s+nào|cả\s+[a-d]\s*,\s*[a-d]|all\s+of\s+the\s+above|none\s+of\s+the\s+above)/i;
+        return options.some(opt => depRegex.test(String(opt)));
+    }
+
     function isOptionCorrect(optIdx, optText, rawCa) {
         if (rawCa === null || rawCa === undefined) return false;
         const letter = String.fromCharCode(65 + optIdx);
         if (typeof rawCa === 'string') {
             const cleanCa = rawCa.trim().toUpperCase();
-            if (cleanCa === letter) return true;
+            const cleanCaNoStar = cleanCa.replace(/^\*+\s*/, '');
+            if (cleanCa === letter || cleanCaNoStar === letter) return true;
             if (cleanCa.startsWith(letter + '.') || cleanCa.startsWith(letter + ')') || cleanCa.startsWith(letter + ':')) return true;
+            if (cleanCaNoStar.startsWith(letter + '.') || cleanCaNoStar.startsWith(letter + ')') || cleanCaNoStar.startsWith(letter + ':')) return true;
         }
         if (typeof rawCa === 'number' && rawCa === optIdx) return true;
         if (optText.trim().startsWith('*')) return true;
+
+        // So khớp nội dung làm sạch (hỗ trợ cả khi correct_answer lưu text thuần)
+        const norm = (s) => String(s || '').replace(/<[^>]+>/g, '').replace(/^(\*?\s*[A-Fa-f][\.\:\)])\s*/, '').replace(/[\s\u00a0]+/g, ' ').trim().toLowerCase();
+        const normOpt = norm(optText);
+        const normCa = norm(rawCa);
+        if (normOpt && normCa && (normOpt === normCa || normOpt === norm(String(rawCa)))) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1122,12 +1142,14 @@
         }
 
         const s = String(rawCa).trim().toUpperCase();
-        for (let c of ['A', 'B', 'C', 'D']) {
-            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c) {
+        const sNoStar = s.replace(/^\*+\s*/, '');
+        for (let c of ['A', 'B', 'C', 'D', 'E', 'F']) {
+            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c
+                || sNoStar.startsWith(c + '.') || sNoStar.startsWith(c + ')') || sNoStar.startsWith(c + ':') || sNoStar === c) {
                 return c;
             }
         }
-        return s.slice(0, 3);
+        return sNoStar.slice(0, 3);
     }
 
     function formatText(text) {
