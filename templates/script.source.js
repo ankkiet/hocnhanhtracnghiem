@@ -3515,6 +3515,26 @@ function renderFilteredQuizzes() {
         return;
     }
 
+    // Cơ chế sắp xếp: Mặc định sắp xếp theo ngày sửa đổi / xuất bản mới nhất lên đầu
+    const sortMode = document.getElementById('quizSortSelect')?.value || 'updated_desc';
+    filtered.sort((a, b) => {
+        if (sortMode === 'title_asc') {
+            return (a.title || '').localeCompare(b.title || '', 'vi');
+        }
+        if (sortMode === 'title_desc') {
+            return (b.title || '').localeCompare(a.title || '', 'vi');
+        }
+        if (sortMode === 'created_desc') {
+            const timeA = new Date(a.created_at || a.updated_at || 0).getTime() || 0;
+            const timeB = new Date(b.created_at || b.updated_at || 0).getTime() || 0;
+            return timeB - timeA;
+        }
+        // updated_desc (mặc định: ngày xuất bản / sửa đổi mới nhất)
+        const timeA = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
+        const timeB = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
+        return timeB - timeA;
+    });
+
     let cardsHtml = "";
     filtered.forEach(q => {
         let isTrashed = (q.status === 'trashed');
@@ -3528,6 +3548,18 @@ function renderFilteredQuizzes() {
         let timeText = q.time_limit ? `${q.time_limit} phút` : 'Tự do';
         let toggleAction = isPublished ? 'unpublished' : 'published';
         let toggleIcon = isPublished ? '<i class="ri-lock-line"></i> Khóa' : '<i class="ri-lock-unlock-line"></i> Mở';
+
+        let dateVal = q.updated_at || q.created_at;
+        let dateText = "";
+        if (dateVal) {
+            try {
+                const d = new Date(dateVal);
+                if (!isNaN(d.getTime())) {
+                    const pad = (n) => String(n).padStart(2, '0');
+                    dateText = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                }
+            } catch (e) {}
+        }
 
         let actionButtons = "";
         if (isTrashed) {
@@ -3582,6 +3614,7 @@ function renderFilteredQuizzes() {
                     <span class="quiz-meta-item"><i class="${modeIcon}"></i> ${modeText}</span>
                     <span class="quiz-meta-item"><i class="ri-hashtag"></i> ${q.question_count || 0} câu</span>
                     <span class="quiz-meta-item"><i class="ri-time-line"></i> ${timeText}</span>
+                    ${dateText ? `<span class="quiz-meta-item" title="Ngày cập nhật / xuất bản"><i class="ri-calendar-line"></i> ${dateText}</span>` : ''}
                 </div>
                 <div class="quiz-card-actions">
                     ${actionButtons}

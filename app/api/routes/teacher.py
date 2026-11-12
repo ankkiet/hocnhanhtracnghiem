@@ -161,14 +161,45 @@ async def get_teacher_quizzes(teacher_token: str):
     results = []
     for doc in docs:
         data = doc.to_dict()
+        updated_at = data.get('updated_at')
+        created_at = data.get('created_at')
+
+        # Chuẩn hóa Firestore Timestamp / Datetime / Float sang chuỗi ISO 8601
+        if hasattr(updated_at, 'isoformat'):
+            updated_at_str = updated_at.isoformat()
+        elif isinstance(updated_at, (int, float)):
+            updated_at_str = datetime.datetime.fromtimestamp(updated_at, datetime.timezone.utc).isoformat()
+        elif isinstance(updated_at, str):
+            updated_at_str = updated_at
+        else:
+            updated_at_str = None
+
+        if hasattr(created_at, 'isoformat'):
+            created_at_str = created_at.isoformat()
+        elif isinstance(created_at, (int, float)):
+            created_at_str = datetime.datetime.fromtimestamp(created_at, datetime.timezone.utc).isoformat()
+        elif isinstance(created_at, str):
+            created_at_str = created_at
+        else:
+            created_at_str = None
+
         results.append({
             'id': doc.id,
             'title': data.get('title', 'Không tên'),
             'mode': data.get('mode', 'practice'),
             'status': data.get('status', 'published'),
             'question_count': len(data.get('data', [])),
-            'time_limit': data.get('time_limit', 0)
+            'time_limit': data.get('time_limit', 0),
+            'created_at': created_at_str,
+            'updated_at': updated_at_str
         })
+
+    # Sắp xếp mặc định: đề mới sửa đổi/xuất bản nhất lên đầu (updated_at desc, fallback created_at desc)
+    def _get_sort_time(q):
+        val = q.get('updated_at') or q.get('created_at') or ''
+        return str(val)
+
+    results.sort(key=_get_sort_time, reverse=True)
     return {"status": "success", "data": results}
 
 @router.post("/quiz_action", summary="Thao tác với đề thi (Thùng rác, Khôi phục, Xóa vĩnh viễn)")
@@ -188,12 +219,12 @@ async def quiz_action(req: QuizActionRequest):
         raise HTTPException(status_code=403, detail="Không có quyền thao tác trên đề thi này")
         
     if req.action == 'trash':
-        doc_ref.update({'status': 'trashed'})
+        doc_ref.update({'status': 'trashed', 'updated_at': firestore.SERVER_TIMESTAMP})
         QUIZ_CACHE.pop(req.quiz_id, None)
         SUBMISSIONS_CACHE.pop(req.quiz_id, None)
         LEADERBOARD_CACHE.pop(req.quiz_id, None)
     elif req.action == 'restore':
-        doc_ref.update({'status': 'unpublished'})
+        doc_ref.update({'status': 'unpublished', 'updated_at': firestore.SERVER_TIMESTAMP})
         QUIZ_CACHE.pop(req.quiz_id, None)
         SUBMISSIONS_CACHE.pop(req.quiz_id, None)
         LEADERBOARD_CACHE.pop(req.quiz_id, None)
@@ -262,7 +293,7 @@ async def toggle_publish(req: TogglePublishRequest):
     if creator != user_uid and creator != req.teacher_token and user.get('role') != 'admin':
         raise HTTPException(status_code=403, detail="Không có quyền thay đổi trạng thái")
         
-    doc_ref.update({'status': req.status})
+    doc_ref.update({'status': req.status, 'updated_at': firestore.SERVER_TIMESTAMP})
     QUIZ_CACHE.pop(req.quiz_id, None)
     return {"status": "success"}
 

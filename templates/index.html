@@ -4164,6 +4164,15 @@ body.minimal-mode #publicLandingExtras {
                     Thùng rác (<span id="filterCountTrash">0</span>)
                 </button>
             </div>
+            <div class="azota-sort-box" style="display: flex; align-items: center; gap: 6px;">
+                <label for="quizSortSelect" style="font-size: 0.85rem; color: #64748b; font-weight: 600; white-space: nowrap;"><i class="ri-sort-desc"></i> Sắp xếp:</label>
+                <select id="quizSortSelect" class="azota-search-input" style="padding: 6px 10px; font-size: 0.82rem; border-radius: 8px; width: auto; cursor: pointer; border: 1px solid var(--azota-border); background: white;" onchange="renderFilteredQuizzes()">
+                    <option value="updated_desc" selected>Mới sửa đổi / xuất bản</option>
+                    <option value="created_desc">Mới tạo nhất</option>
+                    <option value="title_asc">Tên đề thi (A-Z)</option>
+                    <option value="title_desc">Tên đề thi (Z-A)</option>
+                </select>
+            </div>
         </div>
 
         <!-- Quiz Cards Grid -->
@@ -6050,6 +6059,6 @@ body.minimal-mode #publicLandingExtras {
         }
     });
 </script>
-<script src="/script.js?v=20261110_publish_btn_v1"></script>
+<script src="/script.js?v=20261112_sort_v1"></script>
 </body>
 </html>

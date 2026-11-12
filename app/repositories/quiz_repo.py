@@ -75,6 +75,13 @@ class QuizRepository(BaseRepository):
             item = doc.to_dict()
             item['id'] = doc.id
             res.append(item)
+
+        # Sắp xếp theo ngày cập nhật / xuất bản mới nhất lên đầu
+        def _get_sort_time(q):
+            val = q.get('updated_at') or q.get('created_at') or ''
+            return str(val)
+
+        res.sort(key=_get_sort_time, reverse=True)
         return res
 
 
