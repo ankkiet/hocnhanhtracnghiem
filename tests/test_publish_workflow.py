@@ -60,6 +60,31 @@ def test_publish_page_with_quiz_id():
     assert "TEST_QUIZ_12345" in res.text
 
 
+def test_publish_worker_routing_and_static_files():
+    """Kiểm tra file tĩnh publish.html và routing trong templates/_worker.js (Cloudflare Pages Edge)."""
+    import subprocess
+    from app.config.settings import settings
+    
+    # 1. Kiểm tra publish.html hiện diện ở cả templates và static
+    template_publish = os.path.join(settings.TEMPLATES_DIR, "publish.html")
+    static_publish = os.path.join(settings.STATIC_DIR, "publish.html")
+    assert os.path.exists(template_publish), "Thiếu templates/publish.html"
+    assert os.path.exists(static_publish), "Thiếu static/publish.html"
+
+    # 2. Kiểm tra routing Cloudflare Worker
+    worker_path = os.path.join(settings.TEMPLATES_DIR, "_worker.js")
+    with open(worker_path, "r", encoding="utf-8") as f:
+        worker_code = f.read()
+
+    assert "isPublishRoute" in worker_code, "templates/_worker.js thiếu routing isPublishRoute cho /publish"
+    assert "/publish.html" in worker_code, "templates/_worker.js thiếu rewrite về /publish.html"
+    assert "'/publish': '/publish.html'" in worker_code, "templates/_worker.js thiếu staticPageMap cho /publish"
+
+    # 3. Kiểm tra cú pháp JS của worker
+    res = subprocess.run(["node", "-c", worker_path], capture_output=True, text=True)
+    assert res.returncode == 0, f"Lỗi cú pháp _worker.js: {res.stderr}"
+
+
 def test_save_quiz_with_advanced_settings():
     """Kiểm tra API save_quiz chấp nhận các trường description, password và settings mới."""
     payload = {

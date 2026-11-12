@@ -109,7 +109,9 @@ export default {
       '/huong-dan': '/huong-dan-tao-de.html',
       '/huong-dan/': '/huong-dan-tao-de.html',
       '/cam-nang': '/cam-nang.html',
-      '/cam-nang/': '/cam-nang.html'
+      '/cam-nang/': '/cam-nang.html',
+      '/publish': '/publish.html',
+      '/publish/': '/publish.html'
     };
 
     const targetStaticFile = staticPageMap[url.pathname.toLowerCase()];
@@ -286,6 +288,78 @@ export default {
         .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
         .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
         .transform(editorResponse);
+    }
+
+    // 1c. Xử lý riêng cho Tùy chọn Xuất bản (/publish, /publish/*, /publish.html)
+    const isPublishRoute = url.pathname === '/publish' || url.pathname.startsWith('/publish/') || url.pathname === '/publish.html';
+    if (isPublishRoute) {
+      let publishQuizId = url.searchParams.get('id') || url.searchParams.get('quiz_id');
+      if (!publishQuizId) {
+        const publishMatch = url.pathname.match(/^\/publish\/([^\/?#]+)/i);
+        if (publishMatch && publishMatch[1]) {
+          publishQuizId = decodeURIComponent(publishMatch[1]);
+        }
+      }
+      if (publishQuizId) {
+        publishQuizId = publishQuizId.replace(/\.html$/i, '').trim();
+      }
+
+      // Luôn tải đúng publish.html từ Cloudflare Pages ASSETS
+      const publishAssetUrl = new URL(request.url);
+      publishAssetUrl.pathname = '/publish.html';
+      publishAssetUrl.search = '';
+      let publishResponse = await env.ASSETS.fetch(new Request(publishAssetUrl.toString(), request));
+      if (!publishResponse.ok) {
+        publishAssetUrl.pathname = '/publish';
+        publishResponse = await env.ASSETS.fetch(new Request(publishAssetUrl.toString(), request));
+      }
+      if (!publishResponse.ok) {
+        publishResponse = await env.ASSETS.fetch(request);
+      }
+
+      const publishContentType = publishResponse.headers.get('content-type') || '';
+      if (!publishResponse.ok || !publishContentType.includes('text/html')) {
+        return publishResponse;
+      }
+
+      if (!publishQuizId) {
+        const publishHeaders = new Headers(publishResponse.headers);
+        publishHeaders.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
+        return new Response(publishResponse.body, {
+          status: publishResponse.status,
+          statusText: publishResponse.statusText,
+          headers: publishHeaders
+        });
+      }
+
+      // Có mã đề thi: Edge Worker truy vấn máy chủ Koyeb để lấy tên đề thi thực tế
+      try {
+        const backendUrl = `https://inland-marylin-hocnhanhtn-c3471a95.koyeb.app/api/get_quiz/${encodeURIComponent(publishQuizId)}`;
+        const backendRes = await fetch(backendUrl, {
+          headers: { 'User-Agent': 'Cloudflare-Pages-Edge/1.0' }
+        });
+        if (backendRes.ok) {
+          const quizData = await backendRes.json();
+          const quizTitle = quizData.title || (quizData.data && quizData.data.title) || `Đề thi #${publishQuizId}`;
+          const pageTitle = `Cấu hình xuất bản: ${quizTitle} - HocNhanhTN`;
+          return new HTMLRewriter()
+            .on('title', { element(el) { el.setInnerContent(pageTitle); } })
+            .on('meta[property="og:title"]', { element(el) { el.setAttribute('content', pageTitle); } })
+            .on('meta[name="twitter:title"]', { element(el) { el.setAttribute('content', pageTitle); } })
+            .on('meta[property="og:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[property="og:image:secure_url"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+            .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
+            .transform(publishResponse);
+        }
+      } catch (err) {}
+
+      return new HTMLRewriter()
+        .on('meta[property="og:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[property="og:image:secure_url"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[name="twitter:image"]', { element(el) { el.setAttribute('content', absoluteOgImage); } })
+        .on('meta[property="og:url"]', { element(el) { el.setAttribute('content', url.href); } })
+        .transform(publishResponse);
     }
 
     const quizId = url.searchParams.get('id') || url.searchParams.get('quiz_id');

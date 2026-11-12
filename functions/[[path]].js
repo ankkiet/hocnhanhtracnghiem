@@ -10,6 +10,23 @@ export async function onRequest(context) {
     backendUrl.port = '';
     return fetch(new Request(backendUrl.toString(), request));
   }
+
+  // Chuyển tiếp các trang động độc lập (publish, editor, export) về file HTML tương ứng
+  if (url.pathname === '/publish' || url.pathname.startsWith('/publish/') || url.pathname === '/publish.html') {
+    const rewriteUrl = new URL(request.url);
+    rewriteUrl.pathname = '/publish.html';
+    return context.env && context.env.ASSETS ? context.env.ASSETS.fetch(new Request(rewriteUrl.toString(), request)) : next(new Request(rewriteUrl.toString(), request));
+  }
+  if (url.pathname === '/editor' || url.pathname.startsWith('/editor/') || url.pathname === '/editor.html') {
+    const rewriteUrl = new URL(request.url);
+    rewriteUrl.pathname = '/editor.html';
+    return context.env && context.env.ASSETS ? context.env.ASSETS.fetch(new Request(rewriteUrl.toString(), request)) : next(new Request(rewriteUrl.toString(), request));
+  }
+  if (url.pathname === '/export' || url.pathname.startsWith('/export/') || url.pathname === '/export.html') {
+    const rewriteUrl = new URL(request.url);
+    rewriteUrl.pathname = '/export.html';
+    return context.env && context.env.ASSETS ? context.env.ASSETS.fetch(new Request(rewriteUrl.toString(), request)) : next(new Request(rewriteUrl.toString(), request));
+  }
   const quizId = url.searchParams.get('id') || url.searchParams.get('quiz_id');
   
   let targetQuizId = quizId;
