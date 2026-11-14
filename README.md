@@ -405,5 +405,5 @@ Kiểm thử bao gồm:
 
 * **Email liên hệ & Cấp phép:** [kiet0905478167@gmail.com](mailto:kiet0905478167@gmail.com)
 
-* Website chính thức: [hocnhanhtn.pages.dev](https://hocnhanhtn.pages.dev/)
+* Website chính thức: [hocnhanhtn.pages.dev](https://hocnhanhtn.online/)
 
