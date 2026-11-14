@@ -291,6 +291,14 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
 }
 
+.studio-mobile-publish-btn {
+    display: none !important;
+}
+
+.studio-desktop-publish-btn {
+    display: inline-flex;
+}
+
 .btn-studio-ai {
     background: #faf5ff;
     color: var(--studio-purple);
@@ -1138,54 +1146,487 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
 
 @media (max-width: 860px) {
   /* --- CẤU TRÚC STUDIO TRÊN ĐIỆN THOẠI (APP STRUCTURE) --- */
-  .studio-body { background-color: #f8fafc !important; padding-bottom: 80px !important; }
-  .studio-workspace { padding: 10px !important; margin-top: 0 !important; }
-  .studio-navbar {
-    position: sticky !important; top: 0 !important; z-index: 900 !important; padding: 10px 14px !important;
-    background: rgba(255, 255, 255, 0.95) !important; backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.02) !important; flex-direction: column !important; gap: 12px !important;
+  .studio-body {
+    background-color: #f8fafc !important;
+    padding-bottom: calc(75px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  .studio-nav-left { width: 100% !important; display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; }
-  .studio-brand-badge, #studioQCountBadge, #autosaveIndicator { display: none !important; }
-  .studio-back-btn { padding: 8px 12px !important; font-size: 0.85rem !important; border-radius: 12px !important; background: #f1f5f9 !important; border: none !important; color: #475569 !important; }
-  #btnDiscardOrDelete { background: #fef2f2 !important; color: #ef4444 !important; border: none !important; }
-  #btnDiscardOrDelete span { display: none !important; }
-  #btnDiscardOrDelete i { margin: 0 !important; font-size: 1.2rem !important; }
-  .studio-title-box { flex: 1 !important; background: transparent !important; border: none !important; padding: 0 !important; justify-content: center !important; }
-  .studio-title-input { font-size: 1.05rem !important; font-weight: 700 !important; text-align: center !important; width: 100% !important; padding: 0 !important; }
-  .studio-nav-right { width: 100% !important; overflow-x: auto !important; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; padding-bottom: 4px !important; gap: 8px !important; justify-content: flex-start !important; }
-  .studio-nav-right::-webkit-scrollbar { display: none !important; }
-  .studio-mode-pill-group { background: #f1f5f9 !important; padding: 4px !important; border-radius: 14px !important; flex-shrink: 0 !important; }
-  .studio-mode-pill { padding: 6px 12px !important; font-size: 0.82rem !important; border-radius: 10px !important; }
-  .btn-studio-ai, .btn-studio-outline, .btn-studio-primary { padding: 8px 14px !important; font-size: 0.85rem !important; white-space: nowrap !important; border-radius: 12px !important; flex-shrink: 0 !important; }
-  .studio-mobile-view-tabs { display: flex !important; position: fixed !important; bottom: 20px !important; left: 50% !important; transform: translateX(-50%) !important; z-index: 998 !important; background: rgba(255, 255, 255, 0.9) !important; backdrop-filter: blur(15px) !important; -webkit-backdrop-filter: blur(15px) !important; padding: 6px !important; border-radius: 30px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important; border: 1px solid rgba(255,255,255,0.4) !important; width: max-content !important; gap: 6px !important; }
-  .studio-m-tab-btn { padding: 10px 20px !important; border-radius: 24px !important; font-size: 0.9rem !important; font-weight: 700 !important; color: #64748b !important; background: transparent !important; border: none !important; display: flex !important; align-items: center !important; gap: 8px !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; }
-  .studio-m-tab-btn.active { background: var(--studio-primary) !important; color: white !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important; }
-  .studio-mobile-float-toggle { display: none !important; }
-  .studio-split-layout { display: block !important; height: auto !important; background: transparent !important; }
-  .studio-split-layout.mobile-tab-preview #previewPane { display: flex !important; width: 100% !important; height: calc(100dvh - 150px) !important; min-height: 500px !important; margin: 0 !important; border-radius: 20px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; border: 1px solid #f1f5f9 !important; }
-  .studio-split-layout.mobile-tab-preview #editorPane { display: none !important; }
-  .studio-split-layout.mobile-tab-code #previewPane { display: none !important; }
-  .studio-split-layout.mobile-tab-code #editorPane { display: flex !important; width: 100% !important; height: calc(100dvh - 150px) !important; min-height: 500px !important; margin: 0 !important; border-radius: 20px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.03) !important; border: 1px solid #f1f5f9 !important; }
-  .studio-code-font { font-size: 15px !important; line-height: 1.7 !important; padding: 16px 16px 160px 16px !important; }
-  .studio-pane-header { padding: 14px 16px !important; background: rgba(255,255,255,0.9) !important; backdrop-filter: blur(8px) !important; border-bottom: 1px solid #f1f5f9 !important; }
-  .studio-pane-title { font-size: 0.95rem !important; font-weight: 800 !important; }
-  .studio-pane-header button { padding: 8px 12px !important; font-size: 0.85rem !important; border-radius: 10px !important; }
-  .studio-pane-body { padding: 16px 14px 160px 14px !important; background: #f8fafc !important; }
-  .question-box { padding: 20px 16px !important; border-radius: 16px !important; margin-bottom: 16px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important; border: 1px solid #f1f5f9 !important; }
-  .azota-tf-row { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; padding: 14px 16px !important; border-radius: 14px !important; }
-  .azota-tf-actions { width: 100% !important; justify-content: flex-end !important; }
-  .azota-tf-btn { flex: 1 !important; padding: 10px !important; justify-content: center !important; }
-  .studio-ai-panel { padding: 20px 16px !important; border-radius: 20px !important; margin-bottom: 16px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.04) !important; }
-  .ai-dashboard-header { flex-direction: column !important; align-items: stretch !important; gap: 12px !important; }
-  .ai-dashboard-header > div:last-child { display: flex !important; justify-content: space-between !important; width: 100% !important; }
-  #aiCustomPrompt { width: 100% !important; border-radius: 12px !important; padding: 12px 16px !important; }
-  #btnAICheck { width: 100% !important; border-radius: 12px !important; padding: 12px !important; justify-content: center !important; }
-  .studio-test-container { padding: 10px 10px 100px 10px !important; }
-  .studio-modal-box { width: 96% !important; max-width: 96% !important; padding: 24px 20px !important; border-radius: 24px !important; max-height: 85vh !important; }
-  .studio-modal-box h2 { font-size: 1.3rem !important; }
-  .studio-modal-box input, .studio-modal-box select { padding: 14px 16px !important; font-size: 1rem !important; border-radius: 12px !important; }
+  .studio-workspace {
+    padding: 8px !important;
+    margin-top: 0 !important;
+  }
+  .studio-navbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 900 !important;
+    padding: 8px 12px !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .studio-nav-left {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+  .studio-brand-badge {
+    display: none !important;
+  }
+  .studio-mobile-publish-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px 14px !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    border-radius: 10px !important;
+    background: var(--studio-primary) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .studio-mobile-publish-btn:hover {
+    background: var(--studio-primary-hover) !important;
+  }
+  .studio-desktop-publish-btn {
+    display: none !important;
+  }
+  #pillModePractice,
+  #pillModeExam {
+    display: none !important;
+  }
+  .studio-back-btn .nav-btn-text {
+    display: none !important;
+  }
+  .studio-brand-logo {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+  }
+  .studio-brand-text {
+    display: none !important;
+  }
+  .studio-back-btn {
+    padding: 6px 10px !important;
+    font-size: 0.8rem !important;
+    border-radius: 10px !important;
+    background: #f1f5f9 !important;
+    border: none !important;
+    color: #475569 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+  #btnDiscardOrDelete {
+    background: #fef2f2 !important;
+    color: #ef4444 !important;
+    border: none !important;
+    padding: 6px 10px !important;
+  }
+  #btnDiscardOrDelete span {
+    display: none !important;
+  }
+  #btnDiscardOrDelete i {
+    margin: 0 !important;
+    font-size: 1.1rem !important;
+  }
+  .studio-nav-right {
+    width: 100% !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 2px !important;
+    gap: 6px !important;
+    justify-content: flex-start !important;
+  }
+  .studio-nav-right::-webkit-scrollbar {
+    display: none !important;
+  }
+  .studio-mode-pill-group {
+    background: #f1f5f9 !important;
+    padding: 3px !important;
+    border-radius: 12px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+  }
+  .studio-mode-pill {
+    padding: 5px 10px !important;
+    font-size: 0.78rem !important;
+    border-radius: 9px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+  .btn-studio-ai, .btn-studio-outline {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  #btnOpenPublish,
+  .studio-desktop-publish-btn,
+  .studio-nav-right #btnOpenPublish,
+  .studio-nav-right .studio-desktop-publish-btn {
+    display: none !important;
+  }
+
+  /* --- BOTTOM DOCK CHUYỂN TAB MOBILE (NATIVE APP FEEL) --- */
+  .studio-mobile-view-tabs {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    transform: none !important;
+    z-index: 998 !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)) 16px !important;
+    border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.05) !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    box-sizing: border-box !important;
+  }
+  .studio-m-tab-btn {
+    flex: 1 !important;
+    max-width: 220px !important;
+    padding: 9px 16px !important;
+    border-radius: 12px !important;
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    transition: all 0.2s ease !important;
+  }
+  .studio-m-tab-btn.active {
+    background: var(--studio-primary) !important;
+    color: #ffffff !important;
+    border-color: var(--studio-primary) !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+  }
+  .studio-mobile-float-toggle {
+    display: none !important;
+  }
+
+  /* --- CÁC KHUNG SOẠN THẢO & XEM TRƯỚC TRÊN MOBILE --- */
+  .studio-split-layout {
+    display: block !important;
+    height: auto !important;
+    background: transparent !important;
+  }
+  .studio-split-layout.mobile-tab-preview #previewPane {
+    display: flex !important;
+    width: 100% !important;
+    height: calc(100dvh - 185px - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 420px !important;
+    margin: 0 0 65px 0 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid #e2e8f0 !important;
+    overflow: hidden !important;
+  }
+  .studio-split-layout.mobile-tab-preview #editorPane {
+    display: none !important;
+  }
+  .studio-split-layout.mobile-tab-code #previewPane {
+    display: none !important;
+  }
+  .studio-split-layout.mobile-tab-code #editorPane {
+    display: flex !important;
+    width: 100% !important;
+    height: calc(100dvh - 185px - env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 420px !important;
+    margin: 0 0 65px 0 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+    border: 1px solid #e2e8f0 !important;
+    overflow: hidden !important;
+  }
+
+  /* --- HEADER CỦA TỪNG KHUNG --- */
+  .studio-pane-header {
+    padding: 8px 12px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    gap: 8px !important;
+    min-height: 42px !important;
+    box-sizing: border-box !important;
+  }
+  .studio-pane-title {
+    font-size: 0.88rem !important;
+    font-weight: 700 !important;
+  }
+  #studioQCountBadge {
+    display: inline-flex !important;
+    padding: 3px 8px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+  }
+  #autosaveIndicator {
+    display: inline-flex !important;
+    font-size: 0.75rem !important;
+    color: #059669 !important;
+  }
+
+  /* --- TOOLBAR SOẠN THẢO TRÊN MOBILE (VUỐT NGANG 1 DÒNG DUY NHẤT) --- */
+  .studio-word-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 5px 8px !important;
+    gap: 3px !important;
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  .studio-word-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .toolbar-group {
+    flex-shrink: 0 !important;
+    gap: 2px !important;
+  }
+  .toolbar-btn {
+    flex-shrink: 0 !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    padding: 0 5px !important;
+    font-size: 0.95rem !important;
+  }
+  .toolbar-divider {
+    flex-shrink: 0 !important;
+    margin: 0 3px !important;
+    height: 18px !important;
+  }
+
+  /* Dropdown bảng màu cố định gọn gàng trên mobile */
+  .toolbar-color-palette {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 75px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(280px, calc(100vw - 32px)) !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2) !important;
+    z-index: 1000 !important;
+  }
+
+  /* --- NỘI DUNG VÙNG SOẠN CODE --- */
+  .studio-code-font {
+    font-size: 14.5px !important;
+    line-height: 1.65 !important;
+    padding: 12px 14px 100px 14px !important;
+  }
+
+  /* --- THANH TRẠNG THÁI (STATUS BAR) TRÊN MOBILE --- */
+  .editor-status-bar {
+    height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 0.78rem !important;
+    gap: 8px !important;
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
+  }
+  .status-bar-left {
+    gap: 8px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    justify-content: space-between !important;
+  }
+  .status-pill-q {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 0.78rem !important;
+    padding: 3px 10px !important;
+    border-radius: 8px !important;
+  }
+  .status-bar-right {
+    display: none !important; /* Ẩn phím tắt bàn phím vật lý trên điện thoại */
+  }
+  .status-divider {
+    display: none !important;
+  }
+  .status-text-count {
+    display: none !important;
+  }
+
+  /* --- KHUNG XEM TRƯỚC (PREVIEW) --- */
+  .studio-pane-body {
+    padding: 12px 10px 100px 10px !important;
+    background: #f8fafc !important;
+  }
+  .question-box {
+    padding: 16px 14px !important;
+    border-radius: 14px !important;
+    margin-bottom: 14px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+  .question-title {
+    font-size: 0.98rem !important;
+    line-height: 1.55 !important;
+  }
+  .azota-tf-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+  .azota-tf-actions {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+  .azota-tf-btn {
+    flex: 1 !important;
+    padding: 8px !important;
+    justify-content: center !important;
+  }
+
+  /* --- MENU GÕ / LỆNH NHANH (SLASH MENU) TRÊN MOBILE --- */
+  .editor-slash-menu {
+    max-width: calc(100vw - 28px) !important;
+    width: 290px !important;
+    max-height: 260px !important;
+    border-radius: 12px !important;
+  }
+  .slash-menu-item {
+    padding: 8px 10px !important;
+  }
+  .slash-item-desc {
+    font-size: 0.72rem !important;
+  }
+
+  /* --- BẢNG ĐIỀU KHIỂN AI TRÊN MOBILE --- */
+  .studio-ai-panel {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+    margin-bottom: 14px !important;
+  }
+  .ai-dashboard-title {
+    font-size: 1.05rem !important;
+  }
+  .ai-dashboard-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .ai-dashboard-header > div:last-child {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+  #aiCustomPrompt {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-radius: 10px !important;
+    padding: 10px 12px !important;
+    font-size: 0.86rem !important;
+  }
+  #btnAICheck, #btnCrossCheckAI {
+    width: 100% !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    justify-content: center !important;
+    font-size: 0.88rem !important;
+  }
+  .ai-quick-prompts {
+    gap: 6px !important;
+  }
+  .ai-quick-chip {
+    padding: 5px 10px !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* --- CHẾ ĐỘ THI THỬ & LÀM THỬ TRÊN MOBILE --- */
+  .studio-test-container {
+    padding: 8px 8px 100px 8px !important;
+  }
+  .studio-test-header-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+  .studio-test-header-card button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  #testExamSubmitArea button {
+    width: 100% !important;
+    padding: 12px 20px !important;
+    font-size: 1rem !important;
+  }
+
+  /* --- TẤT CẢ CÁC MODAL HỘP THOẠI TRÊN MOBILE --- */
+  .studio-modal-box {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 18px 14px !important;
+    border-radius: 16px !important;
+    max-height: 88vh !important;
+  }
+  .studio-modal-box h2 {
+    font-size: 1.15rem !important;
+  }
+  .studio-modal-box input, .studio-modal-box select {
+    padding: 10px 12px !important;
+    font-size: 0.9rem !important;
+    border-radius: 10px !important;
+  }
+  .docx-options-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .pub-stat-cards-group {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .pub-stat-cards-group > div:first-child {
+    grid-column: span 2 !important;
+  }
+  .quiz-table-wrapper,
+  .question-box table,
+  #codeEditor table {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    display: block !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .btn-header-label {
+    display: none !important;
+  }
+  .studio-back-btn .nav-btn-text {
+    display: none !important;
+  }
 }
 
 

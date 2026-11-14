@@ -758,9 +758,6 @@ async function loadQuizById(quizId) {
             renderPreviewAll();
             updateQCountBadge();
 
-            // Hiển thị nút Copy Link trên thanh điều hướng Studio nếu đề đã xuất bản
-            const btnCopy = document.getElementById('btnStudioCopyLink');
-            if (btnCopy) btnCopy.style.display = 'inline-flex';
             const deleteLabel = document.getElementById('discardOrDeleteLabel');
             if (deleteLabel) deleteLabel.innerText = "Xóa đề";
             const btnDiscard = document.getElementById('btnDiscardOrDelete');
@@ -1240,29 +1237,128 @@ function updateEditorStatusBar() {
     if (charEl) charEl.textContent = `${chars.toLocaleString()} ký tự`;
 
     // 2. Xác định câu hỏi hiện tại dưới con trỏ
-    const totalQ = currentData ? currentData.length : 0;
+    const totalQ = (Array.isArray(currentData) && currentData.length > 0) ? currentData.length : 0;
     let currentQText = totalQ > 0 ? `Câu 1 / ${totalQ}` : 'Chưa có câu hỏi';
     let activeQIdx = totalQ > 0 ? 0 : -1;
 
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0 && codeEditor.contains(sel.anchorNode)) {
-        let preCaretText = "";
+        let detected = null;
+        const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?\s*(?:(?:Câu\s*hỏi|Câu|Bài|Question)\s*(\d*)[\.\:\-\/\)]?|Q\s*(\d+)[\.\:\-\/\)]?)/i;
+
+        // Chiến lược 1: Duyệt node DOM trực tiếp từ vị trí con trỏ ngược về trước
         try {
-            const range = sel.getRangeAt(0).cloneRange();
-            range.selectNodeContents(codeEditor);
-            range.setEnd(sel.anchorNode, sel.anchorOffset);
-            preCaretText = range.toString();
+            let currentBlock = sel.anchorNode;
+            if (currentBlock === codeEditor) {
+                const offset = sel.anchorOffset || 0;
+                currentBlock = codeEditor.childNodes[offset] || codeEditor.childNodes[offset - 1] || codeEditor.lastChild;
+            } else {
+                while (currentBlock && currentBlock.parentNode && currentBlock.parentNode !== codeEditor) {
+                    currentBlock = currentBlock.parentNode;
+                }
+            }
+
+            if (currentBlock && currentBlock !== codeEditor) {
+                let foundQNode = null;
+                let walk = currentBlock;
+                while (walk) {
+                    const text = (walk.textContent || '').replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+                    if (qRegex.test(text)) {
+                        foundQNode = walk;
+                        break;
+                    }
+                    walk = walk.previousSibling;
+                }
+
+                if (foundQNode) {
+                    let qOrdinal = 0;
+                    let countWalk = codeEditor.firstChild;
+                    while (countWalk) {
+                        const t = (countWalk.textContent || '').replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+                        if (qRegex.test(t)) {
+                            qOrdinal++;
+                        }
+                        if (countWalk === foundQNode) break;
+                        countWalk = countWalk.nextSibling;
+                    }
+
+                    const cleanText = (foundQNode.textContent || '').replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+                    const m = cleanText.match(qRegex);
+                    const explicitNum = (m && (m[1] || m[2])) ? parseInt(m[1] || m[2], 10) : qOrdinal;
+                    const qNum = explicitNum || qOrdinal;
+                    const qIdx = Math.max(0, qOrdinal - 1);
+                    const displayTotal = totalQ > 0 ? totalQ : Math.max(totalQ, qOrdinal);
+                    detected = {
+                        text: `Câu ${qNum} / ${displayTotal}`,
+                        qIdx: qIdx
+                    };
+                }
+            }
         } catch (e) {
-            preCaretText = fullText;
+            // Bỏ qua lỗi duyệt node, chuyển sang chiến lược Range
         }
 
-        const qMatches = preCaretText.match(/(?:^|[\r\n\s\.\;\:\>])(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?/gi);
-        if (qMatches && qMatches.length > 0) {
-            const lastMatch = qMatches[qMatches.length - 1];
-            const numMatch = lastMatch.match(/\d+/);
-            const qNum = numMatch ? parseInt(numMatch[0], 10) : qMatches.length;
-            activeQIdx = Math.max(0, qNum - 1);
-            currentQText = `Câu ${qNum} / ${totalQ > 0 ? totalQ : qMatches.length}`;
+        // Chiến lược 2: Nếu duyệt block không tìm thấy (ví dụ text node phức tạp, caret ở đầu dòng hoặc DOM đặc thù),
+        // dùng Range cloneContents kết hợp getRichEditorText
+        if (!detected) {
+            try {
+                const range = document.createRange();
+                range.setStart(codeEditor, 0);
+                range.setEnd(sel.anchorNode, sel.anchorOffset);
+                const frag = range.cloneContents();
+                let preCaretText = getRichEditorText(frag);
+
+                const curLine = getEditorCurrentLineInfo();
+                if (curLine && curLine.fullLine) {
+                    const cleanCur = curLine.fullLine.replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+                    const lineM = cleanCur.match(qRegex);
+                    if (lineM) {
+                        const lineQNum = (lineM[1] || lineM[2]) ? parseInt(lineM[1] || lineM[2], 10) : null;
+                        const preLines = preCaretText.split('\n');
+                        let countInPre = 0;
+                        for (let pl of preLines) {
+                            if (qRegex.test(pl.replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim())) {
+                                countInPre++;
+                            }
+                        }
+                        if (lineQNum !== null && (!countInPre || lineQNum > countInPre)) {
+                            preCaretText += '\n' + curLine.fullLine;
+                        }
+                    }
+                }
+
+                if (preCaretText) {
+                    const lines = preCaretText.split('\n');
+                    let count = 0;
+                    let explicitNum = null;
+                    for (let i = 0; i < lines.length; i++) {
+                        const cleanL = lines[i].replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+                        const m = cleanL.match(qRegex);
+                        if (m) {
+                            count++;
+                            if (m[1] || m[2]) explicitNum = parseInt(m[1] || m[2], 10);
+                            else explicitNum = count;
+                        }
+                    }
+
+                    if (count > 0) {
+                        const qNum = explicitNum !== null ? explicitNum : count;
+                        const qIdx = Math.max(0, count - 1);
+                        const displayTotal = totalQ > 0 ? totalQ : Math.max(totalQ, count);
+                        detected = {
+                            text: `Câu ${qNum} / ${displayTotal}`,
+                            qIdx: qIdx
+                        };
+                    }
+                }
+            } catch (e) {
+                // Bỏ qua lỗi Range
+            }
+        }
+
+        if (detected) {
+            currentQText = detected.text;
+            activeQIdx = detected.qIdx;
         } else if (totalQ > 0) {
             currentQText = `Câu 1 / ${totalQ}`;
             activeQIdx = 0;
@@ -1320,24 +1416,28 @@ function positionSlashMenu() {
     if (!wrapper) return;
     const wrapperRect = wrapper.getBoundingClientRect();
 
-    const menuWidth = 320;
-    const menuHeight = 310;
+    const isMobile = window.innerWidth <= 860;
+    const menuWidth = isMobile ? Math.min(290, wrapperRect.width - 24) : 320;
+    const menuHeight = isMobile ? 250 : 310;
 
     let top = (rect.bottom - wrapperRect.top) + 6;
     let left = (rect.left - wrapperRect.left);
 
     if (top + menuHeight > wrapperRect.height - 40) {
-        top = (rect.top - wrapperRect.top) - menuHeight - 6;
+        top = Math.max(10, (rect.top - wrapperRect.top) - menuHeight - 6);
     }
 
-    if (left + menuWidth > wrapperRect.width - 16) {
-        left = Math.max(16, wrapperRect.width - menuWidth - 16);
+    if (left + menuWidth > wrapperRect.width - 12) {
+        left = Math.max(12, wrapperRect.width - menuWidth - 12);
     }
-    if (left < 16) left = 16;
+    if (left < 12) left = 12;
     if (top < 10) top = 10;
 
     slashMenu.style.top = top + 'px';
     slashMenu.style.left = left + 'px';
+    if (isMobile) {
+        slashMenu.style.width = menuWidth + 'px';
+    }
 }
 
 function showSlashMenu(query = '') {
@@ -1985,6 +2085,13 @@ function setupEditorEvents() {
         saveCurrentEditorSelection();
         updateEditorStatusBar();
     });
+    codeEditor.addEventListener('click', function() {
+        saveCurrentEditorSelection();
+        updateEditorStatusBar();
+    });
+    codeEditor.addEventListener('focus', function() {
+        updateEditorStatusBar();
+    });
     document.addEventListener('selectionchange', function() {
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0) {
@@ -2014,6 +2121,11 @@ function setupEditorEvents() {
         // Nếu chuyển focus sang chính Slash Menu thì không đóng ngay
         const slashMenu = document.getElementById('editorSlashMenu');
         if (slashMenu && slashMenu.contains(e.relatedTarget)) {
+            return;
+        }
+        // Nếu modal soạn thảo LaTeX đang mở hoặc đang có công thức được chọn sửa thì không ghi đè innerHTML
+        const latexModal = document.getElementById('latexMathModal');
+        if ((latexModal && latexModal.style.display !== 'none') || __activeEditingFormulaSpan || __activeEditingFormulaRange) {
             return;
         }
         const currentHtml = codeEditor.innerHTML;
@@ -3273,12 +3385,14 @@ function scrollToQuestionInEditor(qIndex) {
     const editor = document.getElementById('codeEditor');
     if (!editor) return;
     
-    const spans = editor.querySelectorAll('span');
+    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?\s*(?:(?:Câu\s*hỏi|Câu|Bài|Question)\s*(\d*)[\.\:\-\/\)]?|Q\s*(\d+)[\.\:\-\/\)]?)/i;
     let targetMatch = null;
     let currentQ = 0;
     
+    const spans = editor.querySelectorAll('span');
     for (let span of spans) {
-        if (/Câu\s+\d+:/i.test(span.innerText)) {
+        const text = (span.innerText || span.textContent || '').replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+        if (qRegex.test(text)) {
             if (currentQ === qIndex) {
                 targetMatch = span;
                 break;
@@ -3286,17 +3400,47 @@ function scrollToQuestionInEditor(qIndex) {
             currentQ++;
         }
     }
+
+    if (!targetMatch) {
+        currentQ = 0;
+        for (let child of editor.childNodes) {
+            const text = (child.textContent || '').replace(/\u00a0/g, ' ').replace(/\u200b/g, '').trim();
+            if (qRegex.test(text)) {
+                if (currentQ === qIndex) {
+                    targetMatch = child;
+                    break;
+                }
+                currentQ++;
+            }
+        }
+    }
     
     if (targetMatch) {
-        targetMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (targetMatch.scrollIntoView) {
+            targetMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         
         const parent = targetMatch.parentElement || targetMatch;
-        const origBg = parent.style.backgroundColor;
-        parent.style.transition = 'background-color 0.3s';
-        parent.style.backgroundColor = '#fef08a';
-        setTimeout(() => { 
-            parent.style.backgroundColor = origBg; 
-        }, 1500);
+        const origBg = parent.style ? parent.style.backgroundColor : '';
+        if (parent.style) {
+            parent.style.transition = 'background-color 0.3s';
+            parent.style.backgroundColor = '#fef08a';
+            setTimeout(() => { 
+                parent.style.backgroundColor = origBg; 
+            }, 1500);
+        }
+
+        try {
+            const sel = window.getSelection();
+            if (sel) {
+                const range = document.createRange();
+                range.selectNodeContents(targetMatch);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        } catch (e) {}
+        updateEditorStatusBar();
     }
 }
 
@@ -4906,9 +5050,6 @@ async function confirmPublishQuiz() {
 
             hideStudioLoader();
 
-            // Hiển thị nút Copy Link trên Studio navbar
-            const btnCopy = document.getElementById('btnStudioCopyLink');
-            if (btnCopy) btnCopy.style.display = 'inline-flex';
             const deleteLabel = document.getElementById('discardOrDeleteLabel');
             if (deleteLabel) deleteLabel.innerText = "Xóa đề";
             const btnDiscard = document.getElementById('btnDiscardOrDelete');
@@ -5791,6 +5932,7 @@ function clearEditorFormatting() {
 // --------------------------------------------------------------------------
 let __mathtype_typeset_done = false;
 let __activeEditingFormulaRange = null;
+let __activeEditingFormulaSpan = null;
 
 function ensureMathKeyboardReady() {
     try {
@@ -5911,6 +6053,18 @@ function openLatexMathModal(customPrefill = null, isEditMode = false) {
 function closeLatexMathModal() {
     const modal = document.getElementById('latexMathModal');
     if (modal) modal.style.display = 'none';
+
+    if (__activeEditingFormulaSpan) {
+        try {
+            __activeEditingFormulaSpan.removeAttribute('data-hntn-editing-formula');
+        } catch (_) {}
+        __activeEditingFormulaSpan = null;
+    }
+    try {
+        const marked = document.querySelector('#codeEditor [data-hntn-editing-formula="true"]');
+        if (marked) marked.removeAttribute('data-hntn-editing-formula');
+    } catch (_) {}
+
     __activeEditingFormulaRange = null;
 
     try {
@@ -6359,43 +6513,53 @@ function confirmInsertLatexFormula() {
     const formula = isDisplay ? ('$$' + clean + '$$') : ('$' + clean + '$');
 
     const editor = document.getElementById('codeEditor');
-    if (editor) {
-        if (__activeEditingFormulaRange) {
-            try {
-                let existingSpan = null;
-                let sc = __activeEditingFormulaRange.startContainer;
-                if (sc.nodeType === Node.TEXT_NODE && sc.parentElement && sc.parentElement.classList.contains('editor-formula')) {
-                    existingSpan = sc.parentElement;
-                } else if (sc.nodeType === Node.ELEMENT_NODE && sc.classList.contains('editor-formula')) {
-                    existingSpan = sc;
-                }
+    let isUpdated = false;
 
-                if (existingSpan) {
-                    existingSpan.textContent = formula;
-                    const newRange = document.createRange();
-                    newRange.setStartAfter(existingSpan);
-                    newRange.collapse(true);
-                    const sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(newRange);
-                    savedEditorSelection = newRange.cloneRange();
-                } else {
-                    const sel = window.getSelection();
-                    sel.removeAllRanges();
-                    sel.addRange(__activeEditingFormulaRange);
-                    __activeEditingFormulaRange.deleteContents();
-                    const formulaSpan = createEditorFormulaSpan(formula);
-                    __activeEditingFormulaRange.insertNode(formulaSpan);
-                    __activeEditingFormulaRange.setStartAfter(formulaSpan);
-                    __activeEditingFormulaRange.setEndAfter(formulaSpan);
-                    sel.removeAllRanges();
-                    sel.addRange(__activeEditingFormulaRange);
-                    savedEditorSelection = __activeEditingFormulaRange.cloneRange();
-                }
+    if (editor) {
+        let targetSpan = null;
+        if (__activeEditingFormulaSpan && editor.contains(__activeEditingFormulaSpan)) {
+            targetSpan = __activeEditingFormulaSpan;
+        } else {
+            targetSpan = editor.querySelector('[data-hntn-editing-formula="true"]');
+        }
+
+        if (targetSpan) {
+            // 1. Chế độ cập nhật trực tiếp vào thẻ công thức đang sửa (In-place update)
+            targetSpan.textContent = formula;
+            try {
+                targetSpan.removeAttribute('data-hntn-editing-formula');
+            } catch (_) {}
+            isUpdated = true;
+
+            const newRange = document.createRange();
+            newRange.setStartAfter(targetSpan);
+            newRange.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            savedEditorSelection = newRange.cloneRange();
+
+            __activeEditingFormulaSpan = null;
+            __activeEditingFormulaRange = null;
+        } else if (__activeEditingFormulaRange && editor.contains(__activeEditingFormulaRange.commonAncestorContainer)) {
+            // 2. Chế độ thay thế bằng Range hợp lệ
+            try {
+                __activeEditingFormulaRange.deleteContents();
+                const formulaSpan = createEditorFormulaSpan(formula);
+                __activeEditingFormulaRange.insertNode(formulaSpan);
+                __activeEditingFormulaRange.setStartAfter(formulaSpan);
+                __activeEditingFormulaRange.setEndAfter(formulaSpan);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(__activeEditingFormulaRange);
+                savedEditorSelection = __activeEditingFormulaRange.cloneRange();
+                isUpdated = true;
             } catch (e) {
                 console.warn("Lỗi thay thế công thức đang sửa:", e);
-                document.execCommand('insertText', false, formula);
+                const formulaSpan = createEditorFormulaSpan(formula);
+                editor.appendChild(formulaSpan);
             }
+            __activeEditingFormulaSpan = null;
             __activeEditingFormulaRange = null;
         } else {
             restoreEditorSelection();
@@ -6425,7 +6589,7 @@ function confirmInsertLatexFormula() {
 
     closeLatexMathModal();
     if (typeof showToast === 'function') {
-        showToast('✓ Đã cập nhật công thức vào đề thi!');
+        showToast(isUpdated ? '✓ Đã cập nhật công thức vào đề thi!' : '✓ Đã chèn công thức vào đề thi!');
     }
 }
 
@@ -6510,6 +6674,8 @@ function initFormulaClickToEdit() {
                 const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
                 const cleanLatex = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
 
+                formulaSpan.setAttribute('data-hntn-editing-formula', 'true');
+                __activeEditingFormulaSpan = formulaSpan;
                 const formulaRange = document.createRange();
                 formulaRange.selectNode(formulaSpan);
                 __activeEditingFormulaRange = formulaRange;
@@ -6545,17 +6711,22 @@ function initFormulaClickToEdit() {
 
         if (!node) return;
 
-        // Chuẩn hóa node cha để các text node không bị ngắt vụn
-        if (node.parentNode && typeof node.parentNode.normalize === 'function') {
-            node.parentNode.normalize();
-        }
-
         const formulaInfo = findFormulaAtPosition(node, offset);
         if (formulaInfo) {
             e.preventDefault();
             e.stopPropagation();
 
-            __activeEditingFormulaRange = formulaInfo.range;
+            // Đóng gói ngay text node thành thẻ .editor-formula để có node DOM cố định
+            const newSpan = createEditorFormulaSpan(formulaInfo.rawFormula);
+            formulaInfo.range.deleteContents();
+            formulaInfo.range.insertNode(newSpan);
+
+            newSpan.setAttribute('data-hntn-editing-formula', 'true');
+            __activeEditingFormulaSpan = newSpan;
+
+            const formulaRange = document.createRange();
+            formulaRange.selectNode(newSpan);
+            __activeEditingFormulaRange = formulaRange;
 
             // Đồng bộ kiểu hiển thị Trong dòng / Riêng một dòng
             const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
@@ -6597,6 +6768,7 @@ window.backspaceLatexFormula = backspaceLatexFormula;
 window.copyLatexFormula = copyLatexFormula;
 window.insertLatexSnippet = insertLatexSnippet;
 window.updateLatexLivePreview = updateLatexLivePreview;
+window.__activeEditingFormulaSpan = null;
 
 // Khởi tạo các listener khi trang tải xong
 document.addEventListener('DOMContentLoaded', function() {

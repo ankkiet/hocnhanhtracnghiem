@@ -325,16 +325,24 @@
     <!-- TOP STUDIO NAVBAR -->
     <header class="studio-navbar">
         <div class="studio-nav-left">
-            <button class="studio-back-btn" onclick="handleBackToDashboard()" title="Quay lại danh sách đề thi">
-                <i class="ri-arrow-left-line"></i> <span class="nav-btn-text">Quay lại</span>
-            </button>
-            <button id="btnDiscardOrDelete" class="studio-back-btn studio-discard-btn" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
-                <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel" class="nav-btn-text">Hủy nháp</span>
-            </button>
-            <div class="studio-brand-badge" title="HocNhanhTN Studio">
-                <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="studio-brand-logo">
-                <span class="studio-brand-text">HocNhanhTN Studio</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="studio-back-btn" onclick="handleBackToDashboard()" title="Quay lại danh sách đề thi">
+                    <i class="ri-arrow-left-line"></i> <span class="nav-btn-text">Quay lại</span>
+                </button>
+                <button id="btnDiscardOrDelete" class="studio-back-btn studio-discard-btn" onclick="handleDiscardOrDelete()" title="Hủy bỏ bản nháp hoặc xóa đề thi">
+                    <i class="ri-delete-bin-line"></i> <span id="discardOrDeleteLabel" class="nav-btn-text">Hủy nháp</span>
+                </button>
+                <div class="studio-brand-badge" title="HocNhanhTN Studio">
+                    <img src="/logohocnhanhtn.png" alt="HocNhanhTN" class="studio-brand-logo">
+                    <span class="studio-brand-text">HocNhanhTN Studio</span>
+                </div>
             </div>
+
+            <!-- Nút xuất bản trên mobile (thay thế vị trí khung xanh HocNhanhTN) -->
+            <button id="btnOpenPublishMobile" class="btn-studio-primary studio-mobile-publish-btn" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
+                <i class="ri-send-plane-fill"></i> <span>Xuất bản</span>
+            </button>
+
             <!-- Input ẩn để lưu title mà không làm vỡ / thừa thãi thanh điều hướng -->
             <input type="hidden" id="studioQuizTitle" value="">
         </div>
@@ -356,11 +364,7 @@
                 <i class="ri-file-word-2-line"></i> <span class="btn-action-text">Xuất Word</span>
             </button>
 
-            <button id="btnStudioCopyLink" class="btn-studio-outline" style="display: none; border-color: #0284c7; color: #0284c7; font-weight: 600;" onclick="copyCurrentStudioLink()" title="Sao chép link làm bài của học sinh">
-                <i class="ri-file-copy-line"></i> <span class="btn-action-text">Copy Link</span>
-            </button>
-
-            <button id="btnOpenPublish" class="btn-studio-primary" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
+            <button id="btnOpenPublish" class="btn-studio-primary studio-desktop-publish-btn" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
                 <i class="ri-send-plane-fill"></i> <span class="btn-action-text">Lưu & xuất bản</span>
             </button>
         </div>
@@ -374,7 +378,7 @@
             <div class="ai-dashboard-header">
                 <div>
                     <h3 class="ai-dashboard-title">
-                        <i class="ri-sparkling-fill" style="color: #9333ea;"></i> BẢNG RÀ SOÁT & THỐNG KÊ LỖI ĐỀ THI
+                        <i class="ri-sparkling-fill" style="color: #9333ea;"></i> Bảng rà soát & thống kê lỗi đề thi
                     </h3>
                     <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #6b7280;">
                         AI kiểm tra kiến thức, phát hiện đáp án sai, soát lỗi chính tả và format theo chuẩn giáo dục.
@@ -382,7 +386,7 @@
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <button id="btnApplyAllAI" class="btn-primary" style="background: #9333ea; font-size: 0.9rem; padding: 8px 16px; border-radius: 8px; display: none;" onclick="applyAllAISuggestions()">
-                        <i class="ri-flashlight-line"></i> Sửa TẤT CẢ câu lỗi
+                        <i class="ri-flashlight-line"></i> Sửa tất cả câu lỗi
                     </button>
                     <button class="btn-outline" style="border-color: #d8b4fe; color: #9333ea; font-size: 0.9rem; padding: 8px 14px;" onclick="toggleAIPanel(false)">
                         <i class="ri-arrow-up-s-line"></i> Thu gọn
@@ -437,10 +441,10 @@
             <div class="studio-pane" id="previewPane">
                 <div class="studio-pane-header">
                     <div class="studio-pane-title">
-                        <i class="ri-eye-line" style="color: var(--studio-primary);"></i> XEM TRƯỚC (GIAO DIỆN HỌC SINH)
+                        <i class="ri-eye-line" style="color: var(--studio-primary);"></i> Xem trước (giao diện học sinh)
                     </div>
                     <div style="font-size: 0.85rem; color: var(--studio-text-muted);">
-                        Click vào câu hỏi để cuộn đến code tương ứng
+                        Nhấn vào câu hỏi để cuộn đến code tương ứng
                     </div>
                 </div>
                 <div class="studio-pane-body" id="preview-content">
@@ -505,19 +509,16 @@
             <div class="studio-pane" id="editorPane">
                 <div class="studio-pane-header">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="studio-pane-title">
-                            <i class="ri-code-s-slash-line" style="color: var(--studio-primary);"></i> HOCNHANHTN CODE EDITOR
-                        </div>
                         <span id="studioQCountBadge" class="studio-badge" title="Số câu hỏi hiện tại">0 câu hỏi</span>
                         <span id="autosaveIndicator" class="studio-autosave" title="Trạng thái tự động lưu"><i class="ri-check-line"></i> Đã lưu nháp</span>
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <button class="btn-studio-outline" style="padding: 5px 10px; font-size: 0.82rem;" onclick="formatEditorCode()">
-                            <i class="ri-magic-line"></i> Chuẩn hóa định dạng
+                        <button class="btn-studio-outline" style="padding: 5px 10px; font-size: 0.82rem;" onclick="formatEditorCode()" title="Chuẩn hóa định dạng đề thi">
+                            <i class="ri-magic-line"></i> <span class="btn-header-label">Chuẩn hóa</span>
                         </button>
                         <div style="position: relative; display: inline-flex;" id="btnAddQuestionDropdownGroup">
                             <button class="btn-studio-primary" style="padding: 5px 10px; font-size: 0.82rem; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid rgba(255,255,255,0.25);" onclick="insertQuestionTemplate('mcq')" title="Thêm câu hỏi trắc nghiệm mới">
-                                <i class="ri-add-line"></i> Thêm câu hỏi
+                                <i class="ri-add-line"></i> <span class="btn-header-label">Thêm câu</span>
                             </button>
                             <button class="btn-studio-primary" style="padding: 5px 8px; font-size: 0.82rem; border-top-left-radius: 0; border-bottom-left-radius: 0;" onclick="toggleAddQuestionMenu(event)" title="Chọn dạng câu hỏi cần thêm">
                                 <i class="ri-arrow-down-s-line"></i>
@@ -538,12 +539,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                    <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Nhấn <b>Tab</b> để tạo nhanh câu mới • Gõ <code>/</code> mở menu lệnh nhanh • Nhấn <b>Enter</b> trên phương án để sinh tiếp • Thêm <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>).</span>
-                    <a href="/huong-dan-tao-de" target="_blank" style="color: var(--studio-primary); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
-                        <i class="ri-book-open-line"></i> Xem cẩm nang tạo đề <i class="ri-external-link-line" style="font-size: 0.8rem;"></i>
-                    </a>
                 </div>
                 <div class="studio-editor-wrapper" style="background: white; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; height: 100%; position: relative;">
                     <div class="editor-toolbar studio-word-toolbar">
@@ -708,7 +703,7 @@
                     <!-- Thanh trạng thái bộ soạn thảo thông minh -->
                     <div id="editorStatusBar" class="editor-status-bar">
                         <div class="status-bar-left">
-                            <span class="status-pill status-pill-q" id="statusCurrentQuestion" title="Nhấn để cuộn đến câu này trong bản xem trước"><i class="ri-map-pin-2-line"></i> Đang soạn: Câu 1 / 1</span>
+                            <span class="status-pill status-pill-q" id="statusCurrentQuestion" title="Nhấn để cuộn đến câu này trong bản xem trước"><i class="ri-map-pin-2-line"></i> Đang soạn: Chưa có câu hỏi</span>
                             <span class="status-divider"></span>
                             <span class="status-text-count" id="statusCounts"><i class="ri-file-text-line"></i> 0 từ • 0 ký tự</span>
                         </div>
@@ -725,7 +720,7 @@
 
         <!-- VIEW 2: GIAO DIỆN LÀM THỬ NGHIỆM (PRACTICE / EXAM TEST) -->
         <div id="interactiveTestView" class="studio-test-container" style="display: none;">
-            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">
+            <div class="studio-test-header-card" style="background: white; border-radius: 12px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">
                 <div>
                     <h2 id="testViewTitle" style="margin: 0; color: var(--primary);">Kiểm tra đề thi</h2>
                     <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">Bạn đang ở chế độ làm thử để trải nghiệm góc nhìn của học sinh trước khi xuất bản.</p>
@@ -774,7 +769,7 @@
                 </div>
 
                 <!-- 5 Summary / Filter Cards -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
+                <div class="pub-stat-cards-group" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
                     <!-- Total -->
                     <div class="pub-type-card active" id="cardStatTotal" onclick="filterPublishType('all')" style="cursor: pointer; background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
                         <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Tổng số câu</div>
@@ -1291,7 +1286,7 @@
                     <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
                         1. Mục đích xuất đề thi
                     </label>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="docx-options-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <label id="cardAudienceTeacher" style="border:2px solid #2563eb; background:#eff6ff; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                             <div style="display:flex; align-items:center; justify-content:space-between;">
                                 <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho giáo viên</span>
@@ -1315,7 +1310,7 @@
                     <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
                         2. Chế độ in ấn & tiết kiệm giấy
                     </label>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div class="docx-options-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <label id="cardLayoutCompact" style="border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                             <div style="display:flex; align-items:center; justify-content:space-between;">
                                 <span style="font-weight:700; font-size:0.92rem; color:#15803d;">🌱 Tiết kiệm giấy</span>
