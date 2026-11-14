@@ -90,14 +90,14 @@ def test_fastapi_cam_nang_routes():
     # 1. Test Hub page
     hub_resp = client.get("/cam-nang")
     assert hub_resp.status_code == 200
-    assert "Cẩm Nang Ôn Thi & Chuyển Đổi Số Giáo Dục" in hub_resp.text
+    assert "Cẩm nang ôn thi & chuyển đổi số giáo dục" in hub_resp.text
 
     # 2. Test các bài viết cụ thể
     articles = [
-        ("cau-truc-de-thi-tot-nghiep-thpt-2025-gdpt-2018", "Cấu Trúc Đề Thi Tốt Nghiệp THPT"),
-        ("cach-lam-trac-nghiem-dung-sai-diem-toi-da", "Trắc Nghiệm Đúng/Sai"),
-        ("huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien", "Hướng Dẫn Giáo Viên"),
-        ("ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn", "Trắc Nghiệm Trả Lời Ngắn"),
+        ("cau-truc-de-thi-tot-nghiep-thpt-2025-gdpt-2018", "cấu trúc đề thi tốt nghiệp THPT"),
+        ("cach-lam-trac-nghiem-dung-sai-diem-toi-da", "trắc nghiệm đúng/sai"),
+        ("huong-dan-so-hoa-de-thi-word-pdf-cho-giao-vien", "Hướng dẫn giáo viên"),
+        ("ky-nang-lam-trac-nghiem-tra-loi-ngan-toan-khtn", "trắc nghiệm trả lời ngắn"),
     ]
 
     for slug, expected_kw in articles:

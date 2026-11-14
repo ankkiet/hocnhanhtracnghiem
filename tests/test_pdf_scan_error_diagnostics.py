@@ -33,7 +33,7 @@ def test_scanned_pdf_without_ai_triggers_scanned_pdf_needs_ai():
         assert task_res.get("status") == "error"
         assert task_res.get("error_code") == "SCANNED_PDF_NEEDS_AI"
         assert "Dùng AI bóc tách siêu chuẩn" in task_res.get("solution", "")
-        assert "PDF Scan" in task_res.get("error_name", "")
+        assert "PDF scan" in task_res.get("error_name", "")
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)

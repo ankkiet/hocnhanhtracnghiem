@@ -3,13 +3,15 @@ import datetime
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from app.utils.helpers import (
     evaluate_mcq_answer,
     evaluate_short_answer,
     evaluate_true_false_answer,
+    resolve_question_type,
 )
+from app.services.student_service import resolve_question_points
 
 logger = logging.getLogger(__name__)
 import time
@@ -80,7 +82,7 @@ class TogglePublishRequest(BaseModel):
     status: str
 
 class CheckQuizRequest(BaseModel):
-    teacher_token: str
+    teacher_token: Optional[str] = ""
     quiz_data: list
     custom_prompt: str = ""
 
@@ -102,10 +104,10 @@ def verify_teacher_access(token: str, db) -> tuple:
     if not user:
         raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
     if user.get('role') not in ['teacher', 'admin']:
-        raise HTTPException(status_code=403, detail="Tài khoản không có quyền Giáo viên.")
+        raise HTTPException(status_code=403, detail="Tài khoản không có quyền giáo viên.")
     return user, user['id']
 
-@router.get("/quizzes", summary="Lấy danh sách đề thi của Giáo viên")
+@router.get("/quizzes", summary="Lấy danh sách đề thi của giáo viên")
 async def get_teacher_quizzes(teacher_token: str):
     db = _get_db()
     if db is None:
@@ -378,7 +380,7 @@ async def get_monitor_data(quiz_id: str, teacher_token: str):
             
     return {"status": "success", "data": list(res_dict.values())}
 
-@router.get("/monitor_stream/{quiz_id}", summary="SSE Giám sát thời gian thực (Đã vô hiệu hóa)")
+@router.get("/monitor_stream/{quiz_id}", summary="SSE giám sát thời gian thực (đã vô hiệu hóa)")
 async def monitor_stream(quiz_id: str, teacher_token: str, request: Request):
     # Endpoint SSE này đã bị vô hiệu hóa vì vòng lặp while True gọi Firebase get() mỗi 2 giây 
     # gây tốn rất nhiều Quota (hàng chục nghìn reads mỗi giờ).
@@ -388,25 +390,30 @@ async def monitor_stream(quiz_id: str, teacher_token: str, request: Request):
         yield f"data: {payload}\n\n"
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-@router.post("/check_quiz_ai", summary="AI Kiểm tra lỗi đề thi")
-async def check_quiz_ai(req: CheckQuizRequest):
+def _resolve_gemini_keys_optional_auth(teacher_token: Optional[str]):
+    """Xác minh token nếu có (cho phép phiên dùng thử) và lấy danh sách Gemini API keys từ cache/Firestore/env."""
     db = _get_db()
-    if db is None:
-        raise HTTPException(status_code=500, detail="Lỗi DB")
-        
-    _verify_teacher_access(req.teacher_token, db)
-        
+    if teacher_token and teacher_token.strip():
+        try:
+            if db is not None:
+                _verify_teacher_access(teacher_token, db)
+        except HTTPException:
+            logger.info("Token giáo viên không hợp lệ hoặc đã hết hạn, tiếp tục phiên AI dùng thử.")
+        except Exception as e:
+            logger.warning(f"Lỗi kiểm tra token giáo viên: {e}")
+
+    api_keys = []
     now = time.time()
     if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
         api_keys = SETTINGS_CACHE['gemini']['data']
     else:
-        api_keys = []
-        try:
-            settings_doc = db.collection('settings').document('gemini').get()
-            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
-                api_keys = settings_doc.to_dict().get('api_keys')
-        except Exception:
-            pass
+        if db is not None:
+            try:
+                settings_doc = db.collection('settings').document('gemini').get()
+                if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
+                    api_keys = settings_doc.to_dict().get('api_keys')
+            except Exception as e:
+                logger.warning(f"Không thể đọc gemini api keys từ Firestore: {e}")
         if not api_keys:
             import os
 
@@ -416,18 +423,55 @@ async def check_quiz_ai(req: CheckQuizRequest):
                 if isinstance(env_keys, str):
                     api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
                 elif isinstance(env_keys, list):
-                    api_keys = env_keys
-        if not api_keys:
-            diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "status": "error",
-                    **diag,
-                    "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
-                }
-            )
-        SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+                    api_keys = list(env_keys)
+        if api_keys:
+            SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
+
+    if not api_keys:
+        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
+        err_resp = JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                **diag,
+                "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
+            }
+        )
+        return [], err_resp
+    return api_keys, None
+
+
+def _parse_ai_check_json(raw_text: str) -> Optional[Dict[str, Any]]:
+    """Phân tích JSON phản hồi từ AI kiểm tra đề thi; trả về None nếu dữ liệu hỏng/cụt không đọc được."""
+    if not raw_text or not str(raw_text).strip():
+        return None
+    text = str(raw_text).strip()
+    obj_match = re.search(r'\{.*\}', text, re.DOTALL)
+    if obj_match:
+        try:
+            json_text = fix_json_latex_escapes(obj_match.group(0))
+            parsed = json_repair.loads(json_text) if json_repair is not None else json.loads(json_text, strict=False)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+    arr_match = re.search(r'\[.*\]', text, re.DOTALL)
+    if arr_match:
+        try:
+            json_text = fix_json_latex_escapes(arr_match.group(0))
+            arr_data = json_repair.loads(json_text) if json_repair is not None else json.loads(json_text, strict=False)
+            if isinstance(arr_data, list):
+                return {"summary": "Đã rà soát đề thi.", "feedback": arr_data}
+        except Exception:
+            pass
+    return None
+
+
+@router.post("/check_quiz_ai", summary="AI kiểm tra lỗi đề thi")
+async def check_quiz_ai(req: CheckQuizRequest):
+    api_keys, err_resp = _resolve_gemini_keys_optional_auth(req.teacher_token)
+    if err_resp is not None:
+        return err_resp
     
     if not req.quiz_data or len(req.quiz_data) == 0:
         return JSONResponse(
@@ -443,7 +487,9 @@ async def check_quiz_ai(req: CheckQuizRequest):
         )
 
     try:
-        custom_prompt_raw = req.custom_prompt.strip()
+        from services.ai_service import compact_quiz_for_ai_prompt, normalize_question_data
+
+        custom_prompt_raw = (req.custom_prompt or "").strip()
         custom_instructions = f"\n**YÊU CẦU ĐẶC BIỆT TỪ NGƯỜI LÀM ĐỀ:**\n{custom_prompt_raw}\n" if custom_prompt_raw else ""
         
         custom_prompt_lower = custom_prompt_raw.lower()
@@ -470,7 +516,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "     * Công thức toán/hóa trong lời giải phải định dạng chuẩn LaTeX trong $...$ hoặc \\(...\\).\n"
             "   - XÓA CÂU: Nếu người dùng yêu cầu xóa câu hỏi (ví dụ: 'xóa câu 3', 'xóa câu trùng lặp', 'bỏ các câu về este', 'bỏ câu 1 và 4'), "
             "hãy đánh dấu câu đó với action='delete', category='delete', category_name='Yêu cầu xóa câu', "
-            "corrected_data=null, và BẮT BUỘC LOẠI BỎ câu đó ra khỏi 'new_quiz_data'.\n"
+            "corrected_data=null.\n"
             "   - THAY ĐỔI KẾT CẤU: Nếu người dùng yêu cầu đổi dạng/kết cấu câu hỏi (ví dụ: chuyển sang Đúng/Sai theo chuẩn Bộ GD&ĐT, "
             "chuyển sang Trả lời ngắn, chia nhóm group_title, đảo câu...), hãy đánh dấu action='restructure', category='restructure', "
             "category_name='Thay đổi kết cấu', và tạo 'corrected_data' hoàn chỉnh theo định dạng chuẩn mới.\n"
@@ -481,7 +527,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "Không tự giải lại để áp đặt đáp án khác lên đề thi của giáo viên!\n"
             "   - QUY TẮC BẢO TOÀN NỘI DUNG: TUYỆT ĐỐI KHÔNG TỰ Ý THÊM BỚT CÂU HỎI, KHÔNG SÁNG TÁC THÊM PHƯƠNG ÁN LỰA CHỌN hoặc cắt xén câu hỏi trừ khi có yêu cầu xóa rõ ràng từ người làm đề.\n"
             "   - Với câu Đúng / Sai (true_false): BẮT BUỘC giữ nguyên đủ 4 ý a), b), c), d), không được tự thêm hay bớt ý.\n"
-            "   - PHÂN LOẠI DANH MỤC LỖI RÕ RÀNG (KHÔNG ĐƯỢC NHẬM LẪN):\n"
+            "   - PHÂN LOẠI DANH MỤC LỖI RÕ RÀNG (KHÔNG ĐƯỢC NHẦM LẪN):\n"
             "     * 'explanation': Câu hỏi thiếu lời giải thích chi tiết, hoặc cần bổ sung/nâng cấp hướng dẫn giải. (KHÔNG ĐƯỢC GỌI LÀ LỖI LATEX).\n"
             "     * 'latex': CHỈ DÙNG khi công thức toán/hóa thực sự bị lỗi cú pháp hiển thị (ví dụ quên đóng $, thẻ \\frac gãy, ký tự làm lỗi MathJax). Tuyệt đối không dùng cho việc thiếu lời giải.\n"
             "     * 'knowledge': Sai sót kiến thức khoa học hiển nhiên, nhầm lẫn khái niệm cơ bản.\n"
@@ -490,16 +536,26 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "     * 'format': Lỗi định dạng A, B, C, D, thiếu lựa chọn.\n"
             "Trả về DUY NHẤT một JSON Object hợp lệ (không kèm markdown ngoài khối JSON)."
         )
-        
-        prompt = f"""
-        Dữ liệu danh sách câu hỏi trắc nghiệm hiện tại:
-        {json.dumps(req.quiz_data, ensure_ascii=False)}
+
+        compacted_quiz = compact_quiz_for_ai_prompt(req.quiz_data, include_answers=True, include_explain=True)
+        needs_global_context = any(
+            kw in custom_prompt_lower
+            for kw in ["trùng", "lặp", "sắp xếp", "đảo", "gộp", "chia bài", "nhóm"]
+        )
+        batch_size = len(compacted_quiz) if needs_global_context else 12
+        batches = [compacted_quiz[i:i + batch_size] for i in range(0, len(compacted_quiz), max(1, batch_size))]
+        num_keys = max(1, len(api_keys))
+
+        async def check_single_batch(b_idx: int, b_questions: list, b_keys: List[str]):
+            prompt = f"""
+        Dữ liệu danh sách câu hỏi hiện tại (chỉ cần trả về các câu có vấn đề hoặc cần cập nhật trong mảng 'feedback', giữ đúng giá trị trường 'index' làm 'question_index'):
+        {json.dumps(b_questions, ensure_ascii=False)}
 
         {custom_instructions}
         {explain_focus}
 
         QUY TẮC ĐỊNH DẠNG JSON ĐẦU RA BẮT BUỘC:
-        Trả về 1 JSON Object duy nhất theo cấu trúc sau:
+        Trả về 1 JSON Object duy nhất theo cấu trúc gọn nhẹ sau (KHÔNG cần lặp lại các câu đạt chuẩn không bị sửa):
         {{
             "summary": "Tóm tắt ngắn gọn các thao tác đã thực hiện hoặc kết quả rà soát (tiếng Việt).",
             "feedback": [
@@ -508,74 +564,70 @@ async def check_quiz_ai(req: CheckQuizRequest):
                     "action": "modify",
                     "category": "explanation",
                     "category_name": "Bổ sung lời giải chi tiết",
-                    "reason": "Giải thích rõ nguyên nhân cần xử lý (ví dụ: 'Bổ sung lời giải chi tiết từng bước cho bài toán').",
+                    "reason": "Giải thích rõ nguyên nhân cần xử lý.",
                     "corrected_data": {{
-                        // Dữ liệu câu hỏi hoàn chỉnh sau khi sửa, đảm bảo có trường 'explain' với lời giải đầy đủ
+                        "question": "...",
+                        "options": ["..."],
+                        "correct_answer": "...",
+                        "explain": "..."
                     }}
                 }}
-            ],
-            "new_quiz_data": [
-                // Toàn bộ mảng câu hỏi của đề thi sau khi áp dụng TẤT CẢ các yêu cầu:
-                // - Các câu bị xóa (action='delete') KHÔNG được xuất hiện ở đây.
-                // - Các câu được đổi kết cấu hoặc sửa lỗi / bổ sung lời giải sẽ được cập nhật dữ liệu mới.
-                // - Các câu không bị sửa sẽ giữ nguyên vẹn 100% nội dung và đáp án ban đầu.
             ]
         }}
         LƯU Ý CỐT LÕI:
-        1. ĐẶC BIỆT CHÚ Ý: TUYỆT ĐỐI KHÔNG nhận diện việc thiếu lời giải thích là 'Lỗi công thức LaTeX'.
-           - Thiếu lời giải thích -> BẮT BUỘC dùng category: "explanation", category_name: "Bổ sung lời giải chi tiết".
-           - Chỉ dùng category: "latex" khi bản thân công thức trong đề thi bị gãy, sai cú pháp MathJax.
-        2. BẢO TOÀN ĐÁP ÁN: Giữ nguyên vẹn 100% đáp án ('correct_answer') của giáo viên trừ khi người dùng yêu cầu sửa đáp án câu đó trong yêu cầu đặc biệt.
-        3. BẢO TOÀN CÂU HỎI: Không tự ý thêm câu hỏi mới, không tự ý xóa bớt câu hỏi (chỉ xóa khi có yêu cầu cụ thể từ người dùng).
-        4. ĐỐI VỚI CÂU HỎI ĐÚNG / SAI: Giữ đủ 4 ý a), b), c), d), không thêm bớt ý.
-        5. Nếu người dùng yêu cầu XÓA CÂU: BẮT BUỘC ghi rõ action='delete', category='delete', corrected_data=null, và trong 'new_quiz_data' KHÔNG được chứa các câu đó.
-        6. Nếu người dùng yêu cầu ĐỔI KẾT CẤU: ghi action='restructure', category='restructure', corrected_data mang định dạng mới chuẩn xác.
-        7. Nếu đề thi hoàn hảo và không có yêu cầu đặc biệt nào từ người dùng, 'feedback' là [] và 'new_quiz_data' giữ nguyên toàn bộ đề thi ban đầu.
+        1. Trường 'question_index' BẮT BUỘC khớp với trường 'index' gốc của từng câu hỏi trong dữ liệu đầu vào.
+        2. TUYỆT ĐỐI KHÔNG nhận diện việc thiếu lời giải thích là 'Lỗi công thức LaTeX' (phải dùng category: "explanation").
+        3. BẢO TOÀN ĐÁP ÁN: Giữ nguyên vẹn 100% đáp án ('correct_answer') của giáo viên trừ khi người dùng yêu cầu sửa đáp án câu đó.
+        4. BẢO TOÀN CÂU HỎI: Không tự ý thêm câu hỏi mới, không tự ý xóa bớt câu hỏi. Với câu Đúng / Sai: giữ đủ 4 ý a), b), c), d).
+        5. Nếu đề thi hoàn hảo và không có yêu cầu đặc biệt, trả về "feedback": [].
         """
-        
-        response = await call_gemini_with_fallback(
-            prompt=prompt,
-            api_keys=api_keys,
-            system_instruction=system_instruction,
-            thinking_budget=0
-        )
-        
-        parsed_data = None
-        # Thử tìm Object {...} trước
-        obj_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-        if obj_match:
             try:
-                json_text = fix_json_latex_escapes(obj_match.group(0))
-                if json_repair is not None:
-                    parsed_data = json_repair.loads(json_text)
-                else:
-                    parsed_data = json.loads(json_text, strict=False)
-            except Exception:
-                pass
-                
-        if not isinstance(parsed_data, dict):
-            # Fallback tìm array [...]
-            arr_match = re.search(r'\[.*\]', response.text, re.DOTALL)
-            if arr_match:
-                try:
-                    json_text = fix_json_latex_escapes(arr_match.group(0))
-                    if json_repair is not None:
-                        arr_data = json_repair.loads(json_text)
-                    else:
-                        arr_data = json.loads(json_text, strict=False)
-                    parsed_data = {"summary": "Đã rà soát đề thi", "feedback": arr_data, "new_quiz_data": None}
-                except Exception:
-                    pass
-                    
-        if not isinstance(parsed_data, dict):
-            parsed_data = {"summary": "Không phát hiện lỗi", "feedback": [], "new_quiz_data": req.quiz_data}
+                resp = await call_gemini_with_fallback(
+                    prompt=prompt,
+                    api_keys=b_keys,
+                    system_instruction=system_instruction,
+                    thinking_budget=0,
+                    timeout=35.0,
+                )
+                parsed = _parse_ai_check_json(getattr(resp, "text", ""))
+                if parsed is None:
+                    return {"parsed": None, "error": ValueError("AI trả về phản hồi không đúng định dạng JSON hợp lệ.")}
+                return {"parsed": parsed, "error": None}
+            except Exception as exc:
+                return {"parsed": None, "error": exc}
+
+        batch_tasks = []
+        for b_idx, b_q in enumerate(batches):
+            b_keys = [api_keys[(b_idx + off) % num_keys] for off in range(num_keys)]
+            batch_tasks.append(check_single_batch(b_idx, b_q, b_keys))
+
+        batch_results = await asyncio.gather(*batch_tasks)
+        successful_batches = [br["parsed"] for br in batch_results if br.get("parsed") is not None]
+        if not successful_batches:
+            first_err = next((br["error"] for br in batch_results if br.get("error") is not None), None)
+            if first_err is not None:
+                raise first_err
+            raise ValueError("AI không trả về dữ liệu hợp lệ khi kiểm tra đề.")
+
+        raw_feedback = []
+        raw_new_data = None
+        summary_parts = []
+        for parsed_data in successful_batches:
+            s_text = str(parsed_data.get("summary") or "").strip()
+            if s_text and s_text not in summary_parts:
+                summary_parts.append(s_text)
+            fb_part = parsed_data.get("feedback")
+            if isinstance(fb_part, list):
+                raw_feedback.extend(fb_part)
+            if len(successful_batches) == 1 and isinstance(parsed_data.get("new_quiz_data"), list):
+                raw_new_data = parsed_data.get("new_quiz_data")
+
+        summary_text = " ".join(summary_parts).strip() or "Đã hoàn tất rà soát đề thi."
+        failed_batches_count = sum(1 for br in batch_results if br.get("parsed") is None)
+        if failed_batches_count > 0:
+            summary_text += f" (Lưu ý: {failed_batches_count}/{len(batches)} nhóm câu hỏi gặp sự cố kết nối AI khi rà soát.)"
 
         total_q = len(req.quiz_data)
-        raw_feedback = parsed_data.get("feedback", [])
-        raw_new_data = parsed_data.get("new_quiz_data", None)
-        summary_text = parsed_data.get("summary", "")
-        
-        from services.ai_service import normalize_question_data
         
         feedback_list = []
         deleted_indices = set()
@@ -586,7 +638,7 @@ async def check_quiz_ai(req: CheckQuizRequest):
             "latex": "Lỗi công thức LaTeX",
             "knowledge": "Sai kiến thức",
             "answer": "Sai đáp án",
-            "grammar_typo": "Chính tả & Diễn đạt",
+            "grammar_typo": "Chính tả & diễn đạt",
             "format": "Lỗi định dạng",
             "restructure": "Thay đổi kết cấu",
             "delete": "Yêu cầu xóa câu"
@@ -654,27 +706,45 @@ async def check_quiz_ai(req: CheckQuizRequest):
                                     if cat == "explanation" and not item["corrected_data"].get("explain") and item.get("reason"):
                                         item["corrected_data"]["explain"] = item["reason"]
                                     item["corrected_data"] = normalize_question_data(item["corrected_data"])
-                                    
+
+                            if "corrected_data" in item and isinstance(item["corrected_data"], dict):
+                                orig_q = req.quiz_data[q_idx]
+                                c_data = item["corrected_data"]
+                                if orig_q.get("image") and (not c_data.get("image") or str(c_data.get("image")).strip() in ("[CÓ_HÌNH_ẢNH]", "[IMAGE_ATTACHED]")):
+                                    c_data["image"] = orig_q["image"]
+                                if orig_q.get("points") is not None and c_data.get("points") is None:
+                                    c_data["points"] = orig_q["points"]
+                                if orig_q.get("scoring") is not None and c_data.get("scoring") is None:
+                                    c_data["scoring"] = orig_q["scoring"]
+
                             feedback_list.append(item)
                     except Exception:
                         pass
 
-        # Xây dựng hoặc chuẩn hóa new_quiz_data
+        # Xây dựng hoặc chuẩn hóa new_quiz_data (bảo toàn image/points/scoring gốc)
         final_new_quiz_data = []
-        if isinstance(raw_new_data, list) and len(raw_new_data) > 0:
-            for q in raw_new_data:
+        mod_map = {f["question_index"]: f.get("corrected_data") for f in feedback_list if f["action"] != "delete" and f.get("corrected_data")}
+        if isinstance(raw_new_data, list) and len(raw_new_data) > 0 and not mod_map and not deleted_indices:
+            for idx, q in enumerate(raw_new_data):
                 if isinstance(q, dict):
-                    final_new_quiz_data.append(normalize_question_data(q))
+                    norm_q = normalize_question_data(q)
+                    if idx < total_q and isinstance(req.quiz_data[idx], dict):
+                        orig_q = req.quiz_data[idx]
+                        if orig_q.get("image") and (not norm_q.get("image") or str(norm_q.get("image")).strip() in ("[CÓ_HÌNH_ẢNH]", "[IMAGE_ATTACHED]")):
+                            norm_q["image"] = orig_q["image"]
+                        if orig_q.get("points") is not None and norm_q.get("points") is None:
+                            norm_q["points"] = orig_q["points"]
+                        if orig_q.get("scoring") is not None and norm_q.get("scoring") is None:
+                            norm_q["scoring"] = orig_q["scoring"]
+                    final_new_quiz_data.append(norm_q)
         else:
-            # Tự động kiến tạo new_quiz_data từ req.quiz_data + feedback nếu AI không trả đủ
-            mod_map = {f["question_index"]: f.get("corrected_data") for f in feedback_list if f["action"] != "delete" and f.get("corrected_data")}
             for idx, orig_q in enumerate(req.quiz_data):
                 if idx in deleted_indices:
-                    continue # Bỏ qua câu bị xóa
+                    continue  # Bỏ qua câu bị xóa
                 if idx in mod_map:
                     final_new_quiz_data.append(mod_map[idx])
                 else:
-                    final_new_quiz_data.append(normalize_question_data(orig_q))
+                    final_new_quiz_data.append(normalize_question_data(dict(orig_q)))
 
         # Tính toán thống kê chuyên sâu
         deleted_count = sum(1 for f in feedback_list if f.get("action") == "delete")
@@ -994,11 +1064,19 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
     # Danh sách chi tiết bảng điểm từng học sinh
     students_list = []
     
+    quiz_scoring_cfg = quiz_data.get('scoring') or (quiz_data.get('settings') or {}).get('scoring') or {}
+    quiz_max_score = round(sum(resolve_question_points(q, total_q, quiz_scoring_cfg) for q in questions), 2) if total_q > 0 else 0
+
     for data in submissions:
         raw_score = data.get('score', 0)
         tot = data.get('total_questions', total_q) or total_q
-        # Quy đổi điểm về hệ 10
-        norm_score = round((raw_score / tot) * 10, 1) if tot > 0 else 0
+        sub_max_score = data.get('max_score')
+        if sub_max_score is None or float(sub_max_score) <= 0:
+            sub_max_score = quiz_max_score if quiz_max_score > 0 else tot
+        else:
+            sub_max_score = float(sub_max_score)
+        # Quy đổi điểm về hệ 10 theo thang điểm thực tế của bài thi (max_score)
+        norm_score = round((raw_score / sub_max_score) * 10, 1) if sub_max_score > 0 else 0
         scores.append(norm_score)
         
         # Chuẩn hóa thời gian nộp bài
@@ -1017,6 +1095,7 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
             'school_name': str(data.get('school_name') or '').strip(),
             'sbd': str(data.get('sbd') or '').strip(),
             'raw_score': raw_score,
+            'max_score': round(sub_max_score, 2),
             'scaled_score': norm_score,
             'total_questions': tot,
             'time_elapsed': data.get('time_elapsed', 0),
@@ -1034,9 +1113,11 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
         res_map = {r.get('question_index'): r for r in res_list if isinstance(r, dict) and 'question_index' in r}
         
         for idx in range(total_q):
-            u_ans = user_answers.get(str(idx)) or user_answers.get(idx)
+            u_ans = user_answers.get(str(idx))
+            if u_ans is None:
+                u_ans = user_answers.get(idx)
             correct_ans = questions[idx].get('correct_answer')
-            q_type = questions[idx].get('type', 'mcq')
+            q_type = resolve_question_type(questions[idx])
             
             # Kiểm tra câu trả lời đúng: Ưu tiên lấy trực tiếp từ results đã được chấm xác thực
             server_res = res_map.get(idx) or res_map.get(str(idx))
@@ -1116,7 +1197,7 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
             {
                 "question_index": idx + 1,
                 "question": q.get('question', ''),
-                "type": q.get('type', 'mcq'),
+                "type": resolve_question_type(q),
                 "options": q.get('options', []),
                 "correct_answer": q.get('correct_answer'),
                 "explain": q.get('explain', ''),
@@ -1134,53 +1215,9 @@ async def cross_check_quiz_answers(req: CrossCheckAnswersRequest):
     Kiểm tra chéo đáp án: AI giải độc lập không nhìn đáp án của giáo viên,
     sau đó so sánh và phát hiện những câu có đáp án khác nhau để cảnh báo rà soát.
     """
-    db = _get_db()
-    
-    # Xác minh quyền nếu có token; cho phép dùng thử nếu chưa đăng nhập
-    if req.teacher_token and req.teacher_token.strip():
-        try:
-            if db is not None:
-                _verify_teacher_access(req.teacher_token, db)
-        except HTTPException:
-            logger.info("Token giáo viên không hợp lệ hoặc đã hết hạn, tiếp tục phiên kiểm tra chéo dùng thử.")
-        except Exception as e:
-            logger.warning(f"Lỗi kiểm tra token giáo viên: {e}")
-    
-    api_keys = []
-    now = time.time()
-    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
-        api_keys = SETTINGS_CACHE['gemini']['data']
-    elif db is not None:
-        try:
-            settings_doc = db.collection('settings').document('gemini').get()
-            if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
-                api_keys = settings_doc.to_dict().get('api_keys')
-                SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
-        except Exception as e:
-            logger.warning(f"Không thể đọc gemini api keys từ Firestore: {e}")
-
-    # Fallback sang cấu hình môi trường nếu Firestore chưa có keys
-    if not api_keys:
-        import os
-
-        from core.config import settings
-        env_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", "")
-        if env_keys:
-            if isinstance(env_keys, str):
-                api_keys = [k.strip() for k in env_keys.split(",") if k.strip()]
-            elif isinstance(env_keys, list):
-                api_keys = env_keys
-
-    if not api_keys:
-        diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
-        return JSONResponse(
-            status_code=400,
-            content={
-                "status": "error",
-                **diag,
-                "detail": f"{diag['error_name']}. Do đâu: {diag['cause']}. Hướng xử lý: {diag['solution']}"
-            }
-        )
+    api_keys, err_resp = _resolve_gemini_keys_optional_auth(req.teacher_token)
+    if err_resp is not None:
+        return err_resp
 
     if not req.quiz_data or len(req.quiz_data) == 0:
         return JSONResponse(
@@ -1351,7 +1388,7 @@ async def diagnose_ai_endpoint(req: Optional[DiagnoseAIRequest] = None):
     from services.ai_service import get_gemini_client
     from services.gemini_tracker_service import mask_api_key
 
-    models_to_test = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash']
+    models_to_test = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-3.8-flash']
     key_diagnostics = []
     healthy_keys_count = 0
     last_err = None

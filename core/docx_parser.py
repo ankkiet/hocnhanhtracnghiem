@@ -1128,11 +1128,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
                     q_text_clean, explain = extract_explain_from_block(q_text)
 
+                    grp_upper = str(shared_context or '').upper()
+
+                    is_essay = ("TỰ LUẬN" in grp_upper or "TU LUAN" in grp_upper or "PHẦN IV" in grp_upper or "PHẦN 4" in grp_upper) or bool(re.search(r'\(?\[?\s*Tự\s*luận\s*\]?\)?', q_text_clean, re.IGNORECASE))
+
+                    q_type = "essay" if is_essay else "short_answer"
+
                     extracted_data.append({
 
                         "group_title": sanitize_group_title(shared_context),
 
                         "question": q_text_clean,
+
+                        "type": q_type,
 
                         "options": [],
 
@@ -1272,11 +1280,19 @@ def extract_formatting_from_docx(file_path: str) -> List[Dict[str, Any]]:
 
             q_text_clean, explain = extract_explain_from_block(q_text)
 
+            grp_upper = str(shared_context or '').upper()
+
+            is_essay = ("TỰ LUẬN" in grp_upper or "TU LUAN" in grp_upper or "PHẦN IV" in grp_upper or "PHẦN 4" in grp_upper) or bool(re.search(r'\(?\[?\s*Tự\s*luận\s*\]?\)?', q_text_clean, re.IGNORECASE))
+
+            q_type = "essay" if is_essay else "short_answer"
+
             extracted_data.append({
 
                 "group_title": sanitize_group_title(shared_context),
 
                 "question": q_text_clean,
+
+                "type": q_type,
 
                 "options": [],
 

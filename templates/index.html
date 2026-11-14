@@ -145,7 +145,7 @@
           "@id": "https://hocnhanhtn.online/#website",
           "url": "https://hocnhanhtn.online/",
           "name": "HocNhanhTN",
-          "alternateName": ["Học Nhanh Trắc Nghiệm", "HocNhanhTN Online", "Hệ thống số hóa đề thi"],
+          "alternateName": ["Học nhanh trắc nghiệm", "HocNhanhTN Online", "Hệ thống số hóa đề thi"],
           "description": "Hệ thống học nhanh trắc nghiệm thông minh cho học sinh & giáo viên - Chuẩn GDPT 2018",
           "inLanguage": "vi-VN",
           "potentialAction": {
@@ -174,7 +174,7 @@
             "Số hóa đề thi Word và PDF tự động chuẩn GDPT 2018",
             "Phòng thi trực tuyến tự động bấm giờ và đảo câu hỏi thông minh",
             "Chấm điểm tức thì, thống kê phổ điểm và phân tích lời giải chi tiết",
-            "Bóc tách công thức Toán Lý Hóa LaTeX và hình ảnh minh họa sắc nét"
+            "Bóc tách công thức Toán, Lý, Hóa LaTeX và hình ảnh minh họa sắc nét"
           ]
         },
         {
@@ -203,7 +203,7 @@
           "knowsAbout": [
             "Giáo dục phổ thông 2018",
             "Đề thi trắc nghiệm",
-            "Công thức Toán LaTeX",
+            "Công thức toán LaTeX",
             "MathType",
             "Khảo thí và thi trực tuyến"
           ]
@@ -286,9 +286,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="/style.css?v=20261110_submit_modal_v1">
-    <link rel="stylesheet" href="/style.css?v=20261110_submit_modal_v1" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="/style.css?v=20261110_submit_modal_v1"></noscript>
+    <link rel="preload" as="style" href="/style.css?v=20261112_sort_ui_v2">
+    <link rel="stylesheet" href="/style.css?v=20261112_sort_ui_v2" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="/style.css?v=20261112_sort_ui_v2"></noscript>
     <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"></noscript>
@@ -1502,7 +1502,7 @@
 <!-- BANNER CẢNH BÁO MẤT MẠNG / KHÔI PHỤC MẠNG TỰ ĐỘNG -->
 <div id="hntnOfflineBanner" class="hntn-offline-banner" style="display:none;">
     <i class="ri-wifi-off-line"></i>
-    <span>Mất kết nối Internet - Chế độ Offline kích hoạt: Mọi câu trả lời của bạn vẫn được lưu an toàn trên máy!</span>
+    <span>Mất kết nối Internet - chế độ offline kích hoạt: mọi câu trả lời của bạn vẫn được lưu an toàn trên máy!</span>
 </div>
 
 <!-- MÀN HÌNH TẢI TRANG KHỞI ĐỘNG (PAGE INITIAL PRELOADER) -->
@@ -1806,9 +1806,9 @@ window.handleHeroDemoChoice = handleHeroDemoChoice;
                     <i class="ri-play-circle-fill" aria-hidden="true"></i>
                     <span>Làm thử bài thi mẫu</span>
                 </button>
-                <button type="button" onclick="openAuthPage('login')" class="btn-hero-outline" aria-label="Giáo viên: Tạo đề mới">
+                <button type="button" onclick="openAuthPage('login')" class="btn-hero-outline" aria-label="Giáo viên: tạo đề mới">
                     <i class="ri-file-upload-line" aria-hidden="true"></i>
-                    <span>Giáo viên: Tạo đề mới</span>
+                    <span>Giáo viên: tạo đề mới</span>
                 </button>
             </div>
         </div>
@@ -1888,9 +1888,9 @@ window.handleHeroDemoChoice = handleHeroDemoChoice;
             <div class="metric-desc">Không lỗi font Toán, Lý, Hóa từ MathType và LaTeX.</div>
         </div>
         <div class="metric-col">
-            <div class="metric-figure">3 Dạng</div>
+            <div class="metric-figure">3 dạng</div>
             <div class="metric-label">Chuẩn GDPT 2018</div>
-            <div class="metric-desc">Trắc nghiệm nhiều lựa chọn, Đúng/Sai và Trả lời ngắn.</div>
+            <div class="metric-desc">Trắc nghiệm nhiều lựa chọn, đúng/sai và trả lời ngắn.</div>
         </div>
         <div class="metric-col">
             <div class="metric-figure">0 VNĐ</div>
@@ -2627,8 +2627,8 @@ body.minimal-mode #publicLandingExtras {
 
     <!-- 2. MA TRẬN 3 DẠNG THỨC GDPT 2018 -->
     <section class="editorial-section" id="dang-thuc-gdpt" aria-label="3 dạng thức đề thi chuẩn GDPT 2018">
-        <h2 class="editorial-headline">3 Dạng thức trắc nghiệm chuẩn GDPT 2018.</h2>
-        <p class="editorial-subline">Hỗ trợ đầy đủ và chính xác cấu trúc đề thi mới nhất của Bộ Giáo dục và Đào tạo áp dụng cho kỳ thi Tốt nghiệp THPT.</p>
+        <h2 class="editorial-headline">3 dạng thức trắc nghiệm chuẩn GDPT 2018.</h2>
+        <p class="editorial-subline">Hỗ trợ đầy đủ và chính xác cấu trúc đề thi mới nhất của Bộ Giáo dục và Đào tạo áp dụng cho kỳ thi tốt nghiệp THPT.</p>
 
         <div class="standards-grid">
             <div class="standard-card" data-ui>
@@ -2652,9 +2652,9 @@ body.minimal-mode #publicLandingExtras {
             <div class="standard-card active-standard" data-ui>
                 <div class="standard-header">
                     <div class="standard-part">Phần II</div>
-                    <div class="standard-name">Trắc nghiệm Đúng / Sai</div>
+                    <div class="standard-name">Trắc nghiệm đúng / sai</div>
                 </div>
-                <p class="standard-desc">Mỗi câu hỏi gồm 4 ý độc lập a, b, c, d. Học sinh lựa chọn Đúng hoặc Sai cho từng ý. Tính điểm theo quy tắc lũy tiến khắt khe của Bộ GD&ĐT.</p>
+                <p class="standard-desc">Mỗi câu hỏi gồm 4 ý độc lập a, b, c, d. Học sinh lựa chọn đúng hoặc sai cho từng ý. Tính điểm theo quy tắc lũy tiến khắt khe của Bộ GD&ĐT.</p>
                 <div class="standard-spec">
                     <div class="spec-row">
                         <span class="spec-k">Quy tắc điểm:</span>
@@ -2670,7 +2670,7 @@ body.minimal-mode #publicLandingExtras {
             <div class="standard-card" data-ui>
                 <div class="standard-header">
                     <div class="standard-part">Phần III</div>
-                    <div class="standard-name">Trắc nghiệm Trả lời ngắn</div>
+                    <div class="standard-name">Trắc nghiệm trả lời ngắn</div>
                 </div>
                 <p class="standard-desc">Không cung cấp phương án mồi. Học sinh tự tính toán và điền kết quả dạng số hoặc phân số vào ô nhập liệu. Đòi hỏi năng lực vận dụng cao.</p>
                 <div class="standard-spec">
@@ -2694,7 +2694,7 @@ body.minimal-mode #publicLandingExtras {
 
         <div class="capabilities-matrix">
             <div class="capability-item">
-                <div class="cap-title">Bảo toàn công thức LaTeX & Hình vẽ</div>
+                <div class="cap-title">Bảo toàn công thức LaTeX & hình vẽ</div>
                 <p class="cap-text">Hệ thống chuyển đổi công thức Toán, Lý, Hóa thành MathJax chuẩn, hiển thị sắc nét trên cả màn hình máy tính và điện thoại. Hình vẽ, sơ đồ mạch điện và đồ thị được giữ nguyên kích thước gốc.</p>
             </div>
 
@@ -2704,12 +2704,12 @@ body.minimal-mode #publicLandingExtras {
             </div>
 
             <div class="capability-item">
-                <div class="cap-title">Giám sát trung thực & Chống gian lận</div>
+                <div class="cap-title">Giám sát trung thực & chống gian lận</div>
                 <p class="cap-text">Tự động ghi nhận số lần chuyển tab hoặc rời khỏi màn hình làm bài của học sinh, hỗ trợ giáo viên đánh giá đúng thực chất năng lực ôn luyện.</p>
             </div>
 
             <div class="capability-item">
-                <div class="cap-title">Báo cáo phổ điểm & Phân tích lỗi sai</div>
+                <div class="cap-title">Báo cáo phổ điểm & phân tích lỗi sai</div>
                 <p class="cap-text">Biểu đồ phổ điểm tự động thống kê ngay sau khi kết thúc buổi thi, chỉ ra các câu hỏi có tỷ lệ học sinh làm sai cao nhất để giáo viên kịp thời chữa đề và củng cố kiến thức.</p>
             </div>
         </div>
@@ -2849,13 +2849,13 @@ body.minimal-mode #publicLandingExtras {
                         </div>
                         <div>
                             <h2 class="auth-card-title">Đăng nhập tài khoản</h2>
-                            <p class="auth-card-desc">Dành cho Giáo viên & Học sinh đã có tài khoản</p>
+                            <p class="auth-card-desc">Dành cho giáo viên & học sinh đã có tài khoản</p>
                         </div>
                     </div>
 
                     <!-- Email / Username -->
                     <div class="flex-column">
-                        <label for="email">Email hoặc Tên đăng nhập <span class="required-star">*</span></label>
+                        <label for="email">Email hoặc tên đăng nhập <span class="required-star">*</span></label>
                     </div>
                     <div class="inputForm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
@@ -2887,7 +2887,7 @@ body.minimal-mode #publicLandingExtras {
                             <input type="checkbox" id="rememberMe" checked />
                             <label for="rememberMe" style="cursor: pointer;">Ghi nhớ đăng nhập</label>
                         </div>
-                        <span class="span" onclick="alert('Vui lòng liên hệ Quản trị viên (kiet0905478167@gmail.com) để được hỗ trợ cấp lại mật khẩu.')">Quên mật khẩu?</span>
+                        <span class="span" onclick="alert('Vui lòng liên hệ quản trị viên (kiet0905478167@gmail.com) để được hỗ trợ cấp lại mật khẩu.')">Quên mật khẩu?</span>
                     </div>
 
                     <!-- Nút Đăng nhập -->
@@ -2939,13 +2939,13 @@ body.minimal-mode #publicLandingExtras {
                         </div>
                         <div>
                             <h2 class="auth-card-title">Tạo tài khoản mới</h2>
-                            <p class="auth-card-desc">Miễn phí 100% dành cho Học sinh & Giáo viên</p>
+                            <p class="auth-card-desc">Miễn phí 100% dành cho học sinh & giáo viên</p>
                         </div>
                     </div>
 
                     <!-- Họ và Tên -->
                     <div class="flex-column">
-                        <label for="regFullName">Họ và Tên <span class="required-star">*</span></label>
+                        <label for="regFullName">Họ và tên <span class="required-star">*</span></label>
                     </div>
                     <div class="inputForm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2957,7 +2957,7 @@ body.minimal-mode #publicLandingExtras {
 
                     <!-- Tên đăng nhập (Username / Email) -->
                     <div class="flex-column">
-                        <label for="regUsername">Tên đăng nhập hoặc Email <span class="required-star">*</span></label>
+                        <label for="regUsername">Tên đăng nhập hoặc email <span class="required-star">*</span></label>
                     </div>
                     <div class="inputForm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="0 0 32 32" height="20">
@@ -3014,7 +3014,7 @@ body.minimal-mode #publicLandingExtras {
                     <!-- Cam kết đồng ý xử lý dữ liệu cá nhân theo Điều 11 Nghị định 13/2023/NĐ-CP -->
                     <label style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 4px 0; font-size: 12.2px; color: #475569; line-height: 1.45; cursor: pointer; text-align: left;">
                         <input type="checkbox" id="regConsentPdpd" required style="margin-top: 2px; width: 16px; height: 16px; accent-color: #2563eb; flex-shrink: 0;">
-                        <span>Tôi đồng ý với <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Điều khoản sử dụng</a> &amp; <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023/NĐ-CP)</a>. Học sinh dưới 16 tuổi xác nhận có sự đồng ý của phụ huynh/giáo viên hướng dẫn.</span>
+                        <span>Tôi đồng ý với <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">điều khoản sử dụng</a> &amp; <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">chính sách bảo vệ dữ liệu cá nhân (NĐ 13/2023/NĐ-CP)</a>. Học sinh dưới 16 tuổi xác nhận có sự đồng ý của phụ huynh/giáo viên hướng dẫn.</span>
                     </label>
 
                     <!-- Nút Đăng ký -->
@@ -3081,7 +3081,7 @@ body.minimal-mode #publicLandingExtras {
 
             <!-- Họ và Tên -->
             <div class="flex-column">
-                <label>Họ và Tên <span style="color: #ef4444;">*</span></label>
+                <label>Họ và tên <span style="color: #ef4444;">*</span></label>
             </div>
             <div class="inputForm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3119,13 +3119,13 @@ body.minimal-mode #publicLandingExtras {
             <div id="teacherApprovalNotice" style="display: none; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; color: #166534; line-height: 1.45;">
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <i class="ri-checkbox-circle-fill" style="font-size: 16px; color: #16a34a; flex-shrink: 0;"></i>
-                    <span>Tài khoản Giáo viên được kích hoạt sử dụng ngay lập tức đầy đủ tính năng tạo đề và chấm thi!</span>
+                    <span>Tài khoản giáo viên được kích hoạt sử dụng ngay lập tức đầy đủ tính năng tạo đề và chấm thi!</span>
                 </div>
             </div>
 
             <!-- Lớp học / Đơn vị (Không bắt buộc) -->
             <div class="flex-column">
-                <label id="roleClassLabel">Lớp học / Đơn vị <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+                <label id="roleClassLabel">Lớp học / đơn vị <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(không bắt buộc)</span></label>
             </div>
             <div class="inputForm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3137,7 +3137,7 @@ body.minimal-mode #publicLandingExtras {
 
             <!-- Số điện thoại (Không bắt buộc) -->
             <div class="flex-column">
-                <label>Số điện thoại / Zalo <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(Không bắt buộc)</span></label>
+                <label>Số điện thoại / Zalo <span style="font-weight: 400; color: #9ca3af; font-size: 12px;">(không bắt buộc)</span></label>
             </div>
             <div class="inputForm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3150,18 +3150,18 @@ body.minimal-mode #publicLandingExtras {
             <!-- Cam kết đồng ý xử lý dữ liệu cá nhân theo Điều 11 Nghị định 13/2023/NĐ-CP -->
             <label style="display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 2px 0; font-size: 12.2px; color: #475569; line-height: 1.45; cursor: pointer; text-align: left;">
                 <input type="checkbox" id="roleConsentPdpd" required style="margin-top: 2px; width: 16px; height: 16px; accent-color: #2563eb; flex-shrink: 0;">
-                <span>Tôi đồng ý xử lý dữ liệu cá nhân cơ bản theo <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Nghị định 13/2023/NĐ-CP</a> và tuân thủ <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Điều khoản sử dụng</a>.</span>
+                <span>Tôi đồng ý xử lý dữ liệu cá nhân cơ bản theo <a href="/privacy" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">Nghị định 13/2023/NĐ-CP</a> và tuân thủ <a href="/terms" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none;">điều khoản sử dụng</a>.</span>
             </label>
 
             <!-- Nút Submit Hoàn tất -->
             <button class="button-submit" type="submit" id="btnSubmitRoleChoice" style="background-color: #2563eb; margin-top: 10px;">
-                <span id="btnSubmitRoleText">🚀 Hoàn tất & Vào học ngay</span>
+                <span id="btnSubmitRoleText">🚀 Hoàn tất & vào học ngay</span>
             </button>
 
             <!-- Quay lại / Đổi tài khoản -->
             <p class="p" style="margin-top: 8px;">
                 <span class="span" onclick="cancelRoleSelection()" style="color: #64748b; font-size: 13px;">
-                    ← Đăng xuất & Đổi tài khoản khác
+                    ← Đăng xuất & đổi tài khoản khác
                 </span>
             </p>
         </form>
@@ -3182,7 +3182,7 @@ body.minimal-mode #publicLandingExtras {
             <h3 style="font-size: 18px; font-weight: 700; color: #151717; margin: 0 0 6px 0;">Tài khoản đang chờ duyệt</h3>
             <p class="p" style="font-size: 13px; color: #475569; line-height: 1.5; margin: 0 0 12px 0;">
                 Xin chào <b id="pendingTeacherName" style="color: #0f172a;">...</b>!<br>
-                Hệ thống đã nhận yêu cầu tài khoản Giáo viên từ email <b id="pendingTeacherEmail" style="color: #2563eb;">...</b>.
+                Hệ thống đã nhận yêu cầu tài khoản giáo viên từ email <b id="pendingTeacherEmail" style="color: #2563eb;">...</b>.
             </p>
             <p id="pendingTeacherInfo" style="display: none; font-size: 12px; color: #475569; margin: 0 0 12px 0; background: #f8fafc; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0;"></p>
 
@@ -3190,7 +3190,7 @@ body.minimal-mode #publicLandingExtras {
                 <div style="display: flex; gap: 8px; align-items: flex-start;">
                     <i class="ri-shield-keyhole-line" style="font-size: 16px; color: #2563eb; flex-shrink: 0; margin-top: 2px;"></i>
                     <div>
-                        Để đảm bảo an toàn ngân hàng đề thi, Quản trị viên sẽ phê duyệt tài khoản của bạn trong thời gian sớm nhất.
+                        Để đảm bảo an toàn ngân hàng đề thi, quản trị viên sẽ phê duyệt tài khoản của bạn trong thời gian sớm nhất.
                     </div>
                 </div>
             </div>
@@ -3556,24 +3556,24 @@ body.minimal-mode #publicLandingExtras {
 <!-- Màn hình Quản trị viên (Admin) -->
 <div id="adminContainer" class="container" style="display:none; max-width: 900px; margin-top: 5vh;">
     <div class="navbar">
-        <h2 style="color: var(--danger); margin: 0;">🛡️ Bảng điều khiển Quản trị viên</h2>
+        <h2 style="color: var(--danger); margin: 0;">🛡️ Bảng điều khiển quản trị viên</h2>
         <button class="btn-outline" onclick="logout()">Đăng xuất</button>
     </div>
     <div class="card">
-        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Cấu hình đa khóa Gemini API (Tránh quá tải):</p>
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Cấu hình đa khóa Gemini API (tránh quá tải):</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-            <input type="password" id="newApiKeyInput" placeholder="Nhập 1 Gemini API Key mới..." style="flex: 1; min-width: 200px;">
-            <button class="btn-primary" onclick="addApiKey()">Thêm Key</button>
+            <input type="password" id="newApiKeyInput" placeholder="Nhập 1 Gemini API key mới..." style="flex: 1; min-width: 200px;">
+            <button class="btn-primary" onclick="addApiKey()">Thêm key</button>
         </div>
         <div id="apiKeyList" style="display: flex; flex-direction: column; gap: 8px;"></div>
-        <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 15px;">Hệ thống sẽ tự động dùng Key tiếp theo nếu Key trước đó bị lỗi hoặc quá tải (Lỗi 429/503).</p>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 15px;">Hệ thống sẽ tự động dùng key tiếp theo nếu key trước đó bị lỗi hoặc quá tải (lỗi 429/503).</p>
     </div>
 
     <!-- CARD THEO DÕI QUOTA & CHI PHÍ GEMINI -->
     <div class="card" id="adminGeminiAnalyticsCard">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
             <p style="font-weight: 700; margin: 0; font-size: 1.15rem; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                <i class="ri-dashboard-2-line" style="color: #2563eb;"></i> Giám sát Quota & Chi phí Gemini AI
+                <i class="ri-dashboard-2-line" style="color: #2563eb;"></i> Giám sát quota & chi phí Gemini AI
             </p>
             <button class="btn-outline" style="padding: 4px 12px; font-size: 0.85rem; border-color: #2563eb; color: #2563eb;" onclick="loadAdminGeminiStats()">
                 <i class="ri-refresh-line"></i> Làm mới dữ liệu
@@ -3606,14 +3606,14 @@ body.minimal-mode #publicLandingExtras {
 
         <!-- BẢNG TÌNH TRẠNG CÁC API KEY -->
         <div style="margin-bottom: 20px;">
-            <p style="font-weight: 600; font-size: 0.95rem; color: #334155; margin-bottom: 8px;">🔑 Tình trạng chi tiết từng API Key (Nhận diện Key sắp hết Quota):</p>
+            <p style="font-weight: 600; font-size: 0.95rem; color: #334155; margin-bottom: 8px;">🔑 Tình trạng chi tiết từng API key (nhận diện key sắp hết quota):</p>
             <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;">
                     <thead>
                         <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569;">
                             <th style="padding: 10px 12px;">#</th>
                             <th style="padding: 10px 12px;">Khóa API (Masked)</th>
-                            <th style="padding: 10px 12px;">Trạng thái Quota</th>
+                            <th style="padding: 10px 12px;">Trạng thái quota</th>
                             <th style="padding: 10px 12px;">Gọi hôm nay</th>
                             <th style="padding: 10px 12px;">Lỗi 429</th>
                             <th style="padding: 10px 12px;">Lần cuối dùng</th>
@@ -3637,7 +3637,7 @@ body.minimal-mode #publicLandingExtras {
                             <th style="padding: 10px 12px;">Ngày</th>
                             <th style="padding: 10px 12px;">Tổng lượt gọi</th>
                             <th style="padding: 10px 12px;">Thành công</th>
-                            <th style="padding: 10px 12px;">Lỗi Quota (429)</th>
+                            <th style="padding: 10px 12px;">Lỗi quota (429)</th>
                             <th style="padding: 10px 12px;">Lỗi khác</th>
                             <th style="padding: 10px 12px;">Tỷ lệ lỗi</th>
                         </tr>
@@ -3658,20 +3658,20 @@ body.minimal-mode #publicLandingExtras {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
             </svg>
-            Cấu hình Đăng nhập Google (OAuth 2.0 Client ID):
+            Cấu hình đăng nhập Google (OAuth 2.0 Client ID):
         </p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
             <input type="text" id="adminGoogleClientId" placeholder="Nhập Google OAuth Client ID (.apps.googleusercontent.com)..." style="flex: 1; min-width: 250px;">
             <button class="btn-primary" onclick="saveAdminGoogleClientId()">Lưu Client ID</button>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
-            👑 Quản trị viên tối cao: <strong style="color: var(--danger);">kiet0905478167@gmail.com</strong> (Luôn có toàn quyền quản trị).
+            👑 Quản trị viên tối cao: <strong style="color: var(--danger);">kiet0905478167@gmail.com</strong> (luôn có toàn quyền quản trị).
         </p>
     </div>
 
     
     <div class="card">
-        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Đổi mật khẩu Quản trị viên:</p>
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Đổi mật khẩu quản trị viên:</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <input type="password" id="adminOldPwd" placeholder="Mật khẩu hiện tại" style="flex: 1; min-width: 200px;">
             <input type="password" id="adminNewPwd" placeholder="Mật khẩu mới" style="flex: 1; min-width: 200px;">
@@ -3679,7 +3679,7 @@ body.minimal-mode #publicLandingExtras {
         </div>
     </div>
     <div class="card">
-        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Danh sách tài khoản (Chờ duyệt / Đã duyệt):</p>
+        <p style="font-weight: 600; margin-top: 0; font-size: 1.1rem;">Danh sách tài khoản (chờ duyệt / đã duyệt):</p>
         <div id="adminUserList" style="overflow-x: auto;"></div>
     </div>
 </div>
@@ -3705,7 +3705,7 @@ body.minimal-mode #publicLandingExtras {
                 <i class="ri-add-circle-line"></i> Tạo đề mới
             </button>
             <button class="azota-nav-tab" id="navTabStudio" onclick="openStudioNewQuiz()">
-                <i class="ri-code-box-line"></i> Studio Soạn thảo
+                <i class="ri-code-box-line"></i> Studio soạn thảo
             </button>
             <button class="azota-nav-tab" id="navTabAdmin" style="display:none;" onclick="showAdminView()">
                 <i class="ri-shield-user-line"></i> Quản trị
@@ -3734,7 +3734,7 @@ body.minimal-mode #publicLandingExtras {
             <img src="/logohocnhanhtn.png" alt="HocNhanhTN" style="width: 100%; height: 100%; object-fit: contain;">
         </div>
         <h2 style="color: var(--azota-primary); margin-top:0; font-size: 1.6rem;">Chào mừng bạn đến với HocNhanhTN!</h2>
-        <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm Bắt đầu để làm bài.</p>
+        <p style="font-size: 1.02rem; color: #64748b; margin-bottom: 20px;" id="welcomeMsgText">Hệ thống học nhanh trắc nghiệm cho học sinh & giáo viên. Vui lòng nhập họ tên hoặc bấm "Bắt đầu" để làm bài.</p>
         
         <!-- Lời dặn của giáo viên / Hướng dẫn làm bài -->
         <div id="teacherInstructionCard" style="display: none; max-width: 480px; margin: 0 auto 18px auto; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 12px; padding: 14px 16px; text-align: left; box-shadow: 0 2px 6px rgba(37,99,235,0.06);">
@@ -3761,7 +3761,7 @@ body.minimal-mode #publicLandingExtras {
                         Yêu cầu đăng nhập để làm bài
                     </div>
                     <div style="font-size: 0.86rem; color: #7f1d1d; line-height: 1.45; margin-bottom: 10px;">
-                        Giáo viên yêu cầu học sinh phải đăng nhập tài khoản HocNhanhTN để xác minh danh tính. Hệ thống sẽ <strong>tự động lấy Họ tên và Lớp</strong> theo tài khoản của bạn.
+                        Giáo viên yêu cầu học sinh phải đăng nhập tài khoản HocNhanhTN để xác minh danh tính. Hệ thống sẽ <strong>tự động lấy họ tên và lớp</strong> theo tài khoản của bạn.
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button type="button" onclick="openExamLoginModal()" style="background: #dc2626; color: #fff; border: none; font-size: 0.85rem; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);">
@@ -3790,23 +3790,23 @@ body.minimal-mode #publicLandingExtras {
         </div>
 
         <div style="max-width: 420px; margin: 0 auto 12px auto;">
-            <input type="text" id="studentNameInput" placeholder="Nhập Họ và Tên (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <input type="text" id="studentNameInput" placeholder="Nhập họ và tên (VD: Nguyễn Văn An)" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
             <div style="font-size: 0.78rem; color: #64748b; margin-top: 6px; line-height: 1.4;">
-                <i class="ri-shield-user-line" style="color: #10b981;"></i> Có thể nhập Họ tên hoặc Biệt danh/Mã học sinh (Chỉ dùng chấm điểm &amp; BXH theo <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: underline;">NĐ 13/2023/NĐ-CP</a>).
+                <i class="ri-shield-user-line" style="color: #10b981;"></i> Có thể nhập họ tên hoặc biệt danh/mã học sinh (chỉ dùng chấm điểm &amp; BXH theo <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: underline;">NĐ 13/2023/NĐ-CP</a>).
             </div>
         </div>
 
         <!-- Trường thông tin bổ sung theo cấu hình giáo viên -->
         <div id="studentClassGroup" style="display: none; max-width: 420px; margin: 0 auto 10px auto;">
-            <input type="text" id="studentClassInput" placeholder="Nhập Lớp học (VD: 12A1) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <input type="text" id="studentClassInput" placeholder="Nhập lớp học (VD: 12A1) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
         </div>
 
         <div id="studentSchoolGroup" style="display: none; max-width: 420px; margin: 0 auto 10px auto;">
-            <input type="text" id="studentSchoolInput" placeholder="Nhập Trường học (VD: THPT Chuyên KHTN) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <input type="text" id="studentSchoolInput" placeholder="Nhập trường học (VD: THPT Chuyên KHTN) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
         </div>
 
         <div id="studentSbdGroup" style="display: none; max-width: 420px; margin: 0 auto 10px auto;">
-            <input type="text" id="studentSbdInput" placeholder="Nhập Số báo danh / Mã thí sinh (SBD) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
+            <input type="text" id="studentSbdInput" placeholder="Nhập số báo danh / mã thí sinh (SBD) *" style="font-size: 1.05rem; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box; text-align: center;">
         </div>
 
         <!-- Mật khẩu đề thi nếu giáo viên cài đặt -->
@@ -3839,7 +3839,7 @@ body.minimal-mode #publicLandingExtras {
         <div id="adPassBadgeContainer" style="max-width: 460px; margin: 0 auto 16px auto; display: none;">
             <div id="adPassActiveBadge" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 10px; padding: 10px 14px; font-size: 0.9rem; align-items: center; justify-content: center; gap: 8px;">
                 <i class="ri-checkbox-circle-fill" style="color: #10b981; font-size: 1.15rem;"></i>
-                <span>Đã kích hoạt quyền làm bài không giới hạn (Còn lại: <b id="adPassTimeRemaining">12 giờ</b>)</span>
+                <span>Đã kích hoạt quyền làm bài không giới hạn (còn lại: <b id="adPassTimeRemaining">12 giờ</b>)</span>
             </div>
             <div id="adPassInactiveBadge" style="display: none; background: #f8fafc; border: 1px dashed #cbd5e1; color: #475569; border-radius: 10px; padding: 8px 12px; font-size: 0.85rem; align-items: center; justify-content: center; gap: 6px;">
                 <i class="ri-shield-star-line" style="color: #f59e0b; font-size: 1.1rem;"></i>
@@ -3858,7 +3858,7 @@ body.minimal-mode #publicLandingExtras {
 
         <div style="display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 8px auto 4px auto; font-size: 0.8rem; color: #64748b;">
             <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
-                <i class="ri-flag-2-line" style="color: #ef4444;"></i> Báo cáo đề thi / Bản quyền
+                <i class="ri-flag-2-line" style="color: #ef4444;"></i> Báo cáo đề thi / bản quyền
             </a>
             <span style="color: #cbd5e1;">•</span>
             <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #64748b; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
@@ -3938,7 +3938,7 @@ body.minimal-mode #publicLandingExtras {
                         <span>Góc học tập &amp; lịch sử làm bài</span>
                     </h2>
                     <p style="color: #64748b; font-size: 0.92rem; margin: 3px 0 0 0;">
-                        Xin chào <b id="studentGreetingName" style="color: #0f172a;">Học sinh</b>! Dưới đây là bảng điểm và lịch sử các bài thi bạn đã hoàn thành.
+                        Xin chào <b id="studentGreetingName" style="color: #0f172a;">học sinh</b>! Dưới đây là bảng điểm và lịch sử các bài thi bạn đã hoàn thành.
                     </p>
                 </div>
             </div>
@@ -3963,7 +3963,7 @@ body.minimal-mode #publicLandingExtras {
             </div>
             <div class="azota-stat-box">
                 <div class="val" id="statStudentAvgScore" style="color: #0284c7;">--</div>
-                <div class="lbl">Điểm trung bình (Thang 10)</div>
+                <div class="lbl">Điểm trung bình (thang 10)</div>
             </div>
             <div class="azota-stat-box">
                 <div class="val" id="statStudentMaxScore" style="color: #10b981;">--</div>
@@ -4014,8 +4014,8 @@ body.minimal-mode #publicLandingExtras {
                     <i class="ri-book-open-fill"></i>
                 </div>
                 <div>
-                    <div style="font-weight: 700; color: #1e3a8a; font-size: 0.95rem;">Cẩm nang tạo &amp; số hóa đề thi chuẩn GDPT 2018 (Có ảnh chụp minh họa)</div>
-                    <div style="color: #475569; font-size: 0.85rem;">Hướng dẫn chi tiết Trắc nghiệm 4 ĐA, Đúng/Sai, Trả lời ngắn, đề tổng hợp và cách sửa các lỗi thường gặp.</div>
+                    <div style="font-weight: 700; color: #1e3a8a; font-size: 0.95rem;">Cẩm nang tạo &amp; số hóa đề thi chuẩn GDPT 2018 (có ảnh chụp minh họa)</div>
+                    <div style="color: #475569; font-size: 0.85rem;">Hướng dẫn chi tiết trắc nghiệm 4 ĐA, đúng/sai, trả lời ngắn, đề tổng hợp và cách sửa các lỗi thường gặp.</div>
                 </div>
             </div>
             <a href="/huong-dan-tao-de" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; background: #2563eb; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; text-decoration: none; white-space: nowrap; transition: background 0.2s ease;">
@@ -4028,7 +4028,7 @@ body.minimal-mode #publicLandingExtras {
             <div class="card-icon-wrap blue">
                 <i class="ri-file-word-2-line"></i>
             </div>
-            <div class="card-title">Tải lên Word / PDF scan / Ảnh chụp</div>
+            <div class="card-title">Tải lên Word / PDF scan / ảnh chụp</div>
             <div class="card-desc">Bóc tách tự động từ tài liệu Word (.docx), PDF (.pdf, kể cả PDF scan) và ảnh chụp (.png, .jpg) chuẩn GDPT 2018.</div>
             
             <input type="file" id="fileInput" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp" style="margin-bottom: 14px; width: 100%;">
@@ -4044,7 +4044,7 @@ body.minimal-mode #publicLandingExtras {
                 </button>
                 <div style="margin-top: 10px; text-align: center;">
                     <a href="/api/download-sample-docx" download="DE_THI_MAU_CHUAN_HocNhanhTN.docx" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; color: #0369a1; text-decoration: none; font-weight: 600; padding: 7px 12px; border-radius: 6px; background: #f0f9ff; border: 1px dashed #38bdf8; width: 100%; box-sizing: border-box; transition: all 0.2s ease;">
-                        <i class="ri-file-word-line" style="font-size: 1.1rem; color: #0284c7;"></i> Tải file Word mẫu chuẩn (Tránh lỗi nhận diện)
+                        <i class="ri-file-word-line" style="font-size: 1.1rem; color: #0284c7;"></i> Tải file Word mẫu chuẩn (tránh lỗi nhận diện)
                     </a>
                 </div>
             </div>
@@ -4087,16 +4087,16 @@ body.minimal-mode #publicLandingExtras {
             <div class="card-icon-wrap emerald">
                 <i class="ri-edit-2-line"></i>
             </div>
-            <div class="card-title">Studio Soạn thảo 2 Màn hình</div>
+            <div class="card-title">Studio soạn thảo 2 màn hình</div>
             <div class="card-desc">Gõ hoặc dán đề trực tiếp, tự động tô màu cú pháp, xem trước giao diện học sinh thời gian thực.</div>
             
             <div style="background: #ecfdf5; border: 1px dashed #6ee7b7; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 0.85rem; color: #065f46; text-align: left;">
-                <i class="ri-lightbulb-line" style="color: #059669; font-weight: bold;"></i> <b>Tính năng Studio:</b> Hỗ trợ công thức Toán LaTeX, chèn hình ảnh, tự động sửa lỗi và đổi đáp án 1-click.
+                <i class="ri-lightbulb-line" style="color: #059669; font-weight: bold;"></i> <b>Tính năng Studio:</b> Hỗ trợ công thức toán LaTeX, chèn hình ảnh, tự động sửa lỗi và đổi đáp án 1-click.
             </div>
 
             <div class="card-footer">
                 <button class="btn-outline" onclick="openStudioNewQuiz()" style="width: 100%; border-radius: 8px; font-weight: 700; padding: 12px; border-color: #059669; color: #059669; background: white;">
-                    <i class="ri-external-link-line"></i> Mở Studio Soạn thảo
+                    <i class="ri-external-link-line"></i> Mở Studio soạn thảo
                 </button>
             </div>
         </div>
@@ -4144,34 +4144,42 @@ body.minimal-mode #publicLandingExtras {
             </div>
         </div>
 
-        <!-- Toolbar: Search + Filter Tabs -->
+        <!-- Toolbar: Tìm kiếm + Lọc trạng thái + Sắp xếp -->
         <div class="azota-toolbar">
             <div class="azota-search-box">
                 <i class="ri-search-line"></i>
                 <input type="text" id="quizSearchInput" class="azota-search-input" placeholder="Tìm kiếm đề thi theo tên hoặc mã đề..." oninput="filterTeacherQuizzes()">
             </div>
-            <div class="azota-filter-tabs">
-                <button class="azota-tab-btn active" data-filter="all" onclick="setQuizFilter('all')">
-                    Tất cả (<span id="filterCountAll">0</span>)
-                </button>
-                <button class="azota-tab-btn" data-filter="published" onclick="setQuizFilter('published')">
-                    Đang mở (<span id="filterCountPublished">0</span>)
-                </button>
-                <button class="azota-tab-btn" data-filter="unpublished" onclick="setQuizFilter('unpublished')">
-                    Đã khóa (<span id="filterCountLocked">0</span>)
-                </button>
-                <button class="azota-tab-btn" data-filter="trashed" onclick="setQuizFilter('trashed')">
-                    Thùng rác (<span id="filterCountTrash">0</span>)
-                </button>
-            </div>
-            <div class="azota-sort-box" style="display: flex; align-items: center; gap: 6px;">
-                <label for="quizSortSelect" style="font-size: 0.85rem; color: #64748b; font-weight: 600; white-space: nowrap;"><i class="ri-sort-desc"></i> Sắp xếp:</label>
-                <select id="quizSortSelect" class="azota-search-input" style="padding: 6px 10px; font-size: 0.82rem; border-radius: 8px; width: auto; cursor: pointer; border: 1px solid var(--azota-border); background: white;" onchange="renderFilteredQuizzes()">
-                    <option value="updated_desc" selected>Mới sửa đổi / xuất bản</option>
-                    <option value="created_desc">Mới tạo nhất</option>
-                    <option value="title_asc">Tên đề thi (A-Z)</option>
-                    <option value="title_desc">Tên đề thi (Z-A)</option>
-                </select>
+            <div class="azota-toolbar-actions">
+                <div class="azota-filter-tabs">
+                    <button class="azota-tab-btn active" data-filter="all" onclick="setQuizFilter('all')">
+                        Tất cả (<span id="filterCountAll">0</span>)
+                    </button>
+                    <button class="azota-tab-btn" data-filter="published" onclick="setQuizFilter('published')">
+                        Đang mở (<span id="filterCountPublished">0</span>)
+                    </button>
+                    <button class="azota-tab-btn" data-filter="unpublished" onclick="setQuizFilter('unpublished')">
+                        Đã khóa (<span id="filterCountLocked">0</span>)
+                    </button>
+                    <button class="azota-tab-btn" data-filter="trashed" onclick="setQuizFilter('trashed')">
+                        Thùng rác (<span id="filterCountTrash">0</span>)
+                    </button>
+                </div>
+                <div class="azota-sort-control">
+                    <div class="azota-sort-pill" title="Sắp xếp danh sách đề thi">
+                        <i class="ri-arrow-up-down-line azota-sort-icon"></i>
+                        <span class="azota-sort-label">Sắp xếp:</span>
+                        <div class="azota-sort-select-wrapper">
+                            <select id="quizSortSelect" class="azota-sort-select" onchange="renderFilteredQuizzes()" aria-label="Sắp xếp danh sách đề thi">
+                                <option value="updated_desc" selected>Mới sửa đổi / xuất bản</option>
+                                <option value="created_desc">Mới tạo nhất</option>
+                                <option value="title_asc">Tên đề thi (A - Z)</option>
+                                <option value="title_desc">Tên đề thi (Z - A)</option>
+                            </select>
+                            <i class="ri-arrow-down-s-line azota-sort-chevron"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -4196,7 +4204,7 @@ body.minimal-mode #publicLandingExtras {
                         <span id="quizStatsSubtitle"><i class="ri-file-list-3-line"></i> Kết quả thi</span>
                         <span>•</span>
                         <span id="quizStatsUpdatedTime"><i class="ri-time-line"></i> Cập nhật lúc: --</span>
-                        <span style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;"><i class="ri-shield-check-line"></i> Tải theo yêu cầu (Tiết kiệm Quota)</span>
+                        <span style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600;"><i class="ri-shield-check-line"></i> Tải theo yêu cầu (tiết kiệm quota)</span>
                     </div>
                 </div>
             </div>
@@ -4234,7 +4242,7 @@ body.minimal-mode #publicLandingExtras {
         <div id="statsQuizSettingsBanner" style="display: none; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                 <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #1e40af; font-size: 0.92rem;">
-                    <i class="ri-settings-4-line" style="color: #2563eb; font-size: 1.15rem;"></i> Cài đặt & Quy chế bài thi của giáo viên:
+                    <i class="ri-settings-4-line" style="color: #2563eb; font-size: 1.15rem;"></i> Cài đặt & quy chế bài thi của giáo viên:
                 </div>
                 <div id="statsQuizSettingsChips" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
             </div>
@@ -4249,7 +4257,7 @@ body.minimal-mode #publicLandingExtras {
                 <i class="ri-user-star-line"></i> Bảng điểm từng học sinh (<span id="statsTabStudentCount">0</span>)
             </button>
             <button id="tabBtnStatsAnalytics" class="azota-tab-btn" style="padding: 10px 18px; font-weight: 700; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="switchStatsSubTab('analytics')">
-                <i class="ri-pie-chart-2-line"></i> Phổ điểm & Phân tích đề
+                <i class="ri-pie-chart-2-line"></i> Phổ điểm & phân tích đề
             </button>
         </div>
 
@@ -4270,7 +4278,7 @@ body.minimal-mode #publicLandingExtras {
                     </select>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button class="btn-outline" style="border-radius: 8px; font-weight: 700; padding: 8px 16px; font-size: 0.88rem; color: #15803d; border-color: #86efac; background: #f0fdf4; display: inline-flex; align-items: center; gap: 6px;" onclick="exportStatsScoreTableToExcel()" title="Tải bảng điểm Excel/CSV kèm SBD, Họ tên, Lớp, Trường, Điểm số">
+                    <button class="btn-outline" style="border-radius: 8px; font-weight: 700; padding: 8px 16px; font-size: 0.88rem; color: #15803d; border-color: #86efac; background: #f0fdf4; display: inline-flex; align-items: center; gap: 6px;" onclick="exportStatsScoreTableToExcel()" title="Tải bảng điểm Excel/CSV kèm SBD, họ tên, lớp, trường, điểm số">
                         <i class="ri-file-excel-2-line"></i> <span>Xuất Excel / CSV</span>
                     </button>
                 </div>
@@ -4451,7 +4459,7 @@ body.minimal-mode #publicLandingExtras {
 
             <div id="quiz-container"></div>
             
-            <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu cho AI (VD: Bổ sung lời giải, Xóa câu 2, đổi câu 3 sang dạng Đúng/Sai, sửa công thức... Để trống để rà soát tự động)"></textarea>
+            <textarea id="aiCustomPrompt" style="display:none; width: 100%; margin-top: 10px; padding: 12px; border: 2px solid #9333ea; border-radius: 8px; font-family: inherit; resize: vertical; box-sizing: border-box;" placeholder="Nhập yêu cầu cho AI (VD: bổ sung lời giải, xóa câu 2, đổi câu 3 sang dạng đúng/sai, sửa công thức... Để trống để rà soát tự động)"></textarea>
             <div id="aiQuickPromptsIndex" class="ai-quick-prompts" style="display:none;">
                 <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Bổ sung lời giải chi tiết cho tất cả các câu hỏi chưa có lời giải')">
                     <i class="ri-lightbulb-line" style="color: #10b981;"></i> Bổ sung lời giải chi tiết
@@ -4462,8 +4470,8 @@ body.minimal-mode #publicLandingExtras {
                 <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Kiểm tra và chuẩn hóa công thức Toán/Lý/Hóa LaTeX')">
                     <i class="ri-functions" style="color: #ea580c;"></i> Chuẩn hóa công thức LaTeX
                 </button>
-                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng Đúng/Sai chuẩn Bộ GD&ĐT')">
-                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng Đúng/Sai Bộ GD&ĐT
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng đúng/sai chuẩn Bộ GD&ĐT')">
+                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng đúng/sai Bộ GD&ĐT
                 </button>
             </div>
             <button id="btnAICheck" class="btn-outline" style="display:none; width: 100%; margin-top: 10px; border-color: #9333ea; color: #9333ea; font-weight: bold;" onclick="checkQuizWithAI()">
@@ -4496,7 +4504,7 @@ body.minimal-mode #publicLandingExtras {
                 
                 <!-- Gợi ý phím tắt tiện lợi cho học sinh -->
                 <div class="exam-shortcut-hint" id="examShortcutHint" title="Phím tắt thao tác nhanh trên máy tính">
-                    <i class="ri-keyboard-line"></i> <span><b>1-4 / A-D</b> Chọn &bull; <span class="shortcut-flag-part"><b>F</b> Phân vân &bull; </span><b>&darr;/&uarr;</b> Chuyển câu</span>
+                    <i class="ri-keyboard-line"></i> <span><b>1-4 / A-D</b> chọn &bull; <span class="shortcut-flag-part"><b>F</b> phân vân &bull; </span><b>&darr;/&uarr;</b> chuyển câu</span>
                 </div>
                 
                 <!-- Legend dành cho Chế độ Thi thử (Exam Mode) -->
@@ -4633,7 +4641,7 @@ body.minimal-mode #publicLandingExtras {
             <div style="display: flex; gap: 12px; align-items: flex-start;">
                 <i class="ri-gift-line" style="font-size: 24px; color: #d97706; flex-shrink: 0; margin-top: 2px;"></i>
                 <div>
-                    <strong style="color: #0f172a; font-size: 0.92rem; display: block;">100% Phi lợi nhuận</strong>
+                    <strong style="color: #0f172a; font-size: 0.92rem; display: block;">100% phi lợi nhuận</strong>
                     <span style="font-size: 0.82rem; color: #64748b; line-height: 1.4; display: block;">Dự án giáo dục cộng đồng miễn phí trọn đời toàn quốc.</span>
                 </div>
             </div>
@@ -4662,11 +4670,11 @@ body.minimal-mode #publicLandingExtras {
             <span style="color: #cbd5e1;">•</span>
             <a href="/terms" style="color: #2563eb; text-decoration: none; font-weight: 600;">Điều khoản sử dụng</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Quyền dữ liệu &amp; Xóa dữ liệu</a>
+            <a href="javascript:void(0)" onclick="openLegalModal('privacy')" style="color: #2563eb; text-decoration: none; font-weight: 600;">Quyền dữ liệu &amp; xóa dữ liệu</a>
             <span style="color: #cbd5e1;">•</span>
             <a href="javascript:void(0)" onclick="window.openCookieSettings && window.openCookieSettings()" style="color: #2563eb; text-decoration: none; font-weight: 600;"><i class="ri-settings-4-line"></i> Cài đặt Cookie</a>
             <span style="color: #cbd5e1;">•</span>
-            <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #dc2626; text-decoration: none; font-weight: 600;">Báo cáo bản quyền / Vi phạm</a>
+            <a href="javascript:void(0)" onclick="openReportQuizModal()" style="color: #dc2626; text-decoration: none; font-weight: 600;">Báo cáo bản quyền / vi phạm</a>
             <span style="color: #cbd5e1;">•</span>
             <a href="/about" style="color: #2563eb; text-decoration: none; font-weight: 600;">Về chúng tôi</a>
             <span style="color: #cbd5e1;">•</span>
@@ -4677,7 +4685,7 @@ body.minimal-mode #publicLandingExtras {
             &copy; 2026 HocNhanhTN. Dự án công nghệ giáo dục phi lợi nhuận hỗ trợ số hóa đề thi và ôn luyện trắc nghiệm cho học sinh THCS &amp; THPT trên toàn quốc.
         </p>
         <p style="margin: 0 auto; max-width: 860px; color: #94a3b8; font-size: 0.76rem; line-height: 1.55;">
-            <b>Tuyên bố miễn trừ pháp lý:</b> HocNhanhTN là nền tảng phần mềm giáo dục độc lập phục vụ cộng đồng, không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào. Các đề thi trên hệ thống chỉ phục vụ mục đích ôn luyện, tham khảo. Vận hành tuân thủ Nghị định 13/2023/NĐ-CP về Bảo vệ dữ liệu cá nhân, Điều 198b Luật Sở hữu trí tuệ 2022, Luật Bảo vệ bí mật nhà nước 2018 và Nghị định 147/2024/NĐ-CP.
+            <b>Tuyên bố miễn trừ pháp lý:</b> HocNhanhTN là nền tảng phần mềm giáo dục độc lập phục vụ cộng đồng, không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào. Các đề thi trên hệ thống chỉ phục vụ mục đích ôn luyện, tham khảo. Vận hành tuân thủ Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân, Điều 198b Luật Sở hữu trí tuệ 2022, Luật Bảo vệ bí mật nhà nước 2018 và Nghị định 147/2024/NĐ-CP.
         </p>
     </div>
 </footer>
@@ -4708,7 +4716,7 @@ body.minimal-mode #publicLandingExtras {
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i class="ri-shield-check-line" style="color: #2563eb; font-size: 1.4rem;"></i>
-                <h3 id="legalModalTitle" style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700;">Chính sách Pháp lý &amp; Bảo vệ Dữ liệu Cá nhân</h3>
+                <h3 id="legalModalTitle" style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 700;">Chính sách pháp lý &amp; bảo vệ dữ liệu cá nhân</h3>
             </div>
             <button type="button" onclick="closeLegalModal()" style="background: transparent; border: none; font-size: 22px; color: #64748b; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                 <i class="ri-close-line"></i>
@@ -4718,32 +4726,32 @@ body.minimal-mode #publicLandingExtras {
         <!-- Navigation Tabs -->
         <div style="display: flex; background: #f1f5f9; padding: 6px 16px; gap: 8px; border-bottom: 1px solid #e2e8f0; overflow-x: auto;">
             <button type="button" class="legal-tab-btn active" id="tabBtnPrivacy" onclick="switchLegalTab('privacy')" style="padding: 8px 14px; border: none; background: #ffffff; color: #2563eb; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Bảo vệ dữ liệu (NĐ 13/2023)</button>
-            <button type="button" class="legal-tab-btn" id="tabBtnTerms" onclick="switchLegalTab('terms')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Điều khoản &amp; Bản quyền</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnTerms" onclick="switchLegalTab('terms')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Điều khoản &amp; bản quyền</button>
             <button type="button" class="legal-tab-btn" id="tabBtnAbout" onclick="switchLegalTab('about')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Về HocNhanhTN</button>
-            <button type="button" class="legal-tab-btn" id="tabBtnContact" onclick="switchLegalTab('contact')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Liên hệ &amp; Khiếu nại</button>
+            <button type="button" class="legal-tab-btn" id="tabBtnContact" onclick="switchLegalTab('contact')" style="padding: 8px 14px; border: none; background: transparent; color: #64748b; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Liên hệ &amp; khiếu nại</button>
         </div>
 
         <!-- Modal Body Scrollable -->
         <div style="padding: 24px; overflow-y: auto; text-align: left; line-height: 1.65; color: #334155; font-size: 0.92rem; flex: 1;">
             <!-- Tab 1: Privacy Policy -->
             <div id="legalContentPrivacy">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Chính sách Bảo vệ Dữ liệu Cá nhân (Tuân thủ Nghị định 13/2023/NĐ-CP)</h4>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Chính sách bảo vệ dữ liệu cá nhân (tuân thủ Nghị định 13/2023/NĐ-CP)</h4>
                 <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;"><i>Áp dụng theo Nghị định 13/2023/NĐ-CP, Luật An ninh mạng 2018 và Luật Trẻ em 2016</i></p>
-                <p>HocNhanhTN (<code>https://hocnhanhtn.online/</code>) cam kết chỉ xử lý <b>Dữ liệu cá nhân cơ bản</b> với sự đồng ý tự nguyện, tường minh của người dùng và <b>không thu thập bất kỳ Dữ liệu cá nhân nhạy cảm nào</b> (không thu thập CCCD, tài khoản ngân hàng, sinh trắc học hay vị trí GPS chính xác).</p>
+                <p>HocNhanhTN (<code>https://hocnhanhtn.online/</code>) cam kết chỉ xử lý <b>dữ liệu cá nhân cơ bản</b> với sự đồng ý tự nguyện, tường minh của người dùng và <b>không thu thập bất kỳ dữ liệu cá nhân nhạy cảm nào</b> (không thu thập CCCD, tài khoản ngân hàng, sinh trắc học hay vị trí GPS chính xác).</p>
                 
                 <h5 style="color: #0f172a; margin: 14px 0 6px;">1. Thông báo xử lý dữ liệu cá nhân (Điều 13 Nghị định 13/2023/NĐ-CP)</h5>
                 <ul>
-                    <li><b>Học sinh làm bài tự do:</b> Chỉ cần nhập Họ tên hoặc Biệt danh/Mã học sinh để chấm điểm và xếp hạng trong phạm vi đề thi.</li>
-                    <li><b>Người dùng đăng ký tài khoản:</b> Lưu trữ Họ tên, Email/Tên đăng nhập, mật khẩu băm một chiều (PBKDF2/Bcrypt) và Trường/Lớp (không bắt buộc) để đồng bộ lịch sử bài thi và quản lý đề thi.</li>
+                    <li><b>Học sinh làm bài tự do:</b> Chỉ cần nhập họ tên hoặc biệt danh/mã học sinh để chấm điểm và xếp hạng trong phạm vi đề thi.</li>
+                    <li><b>Người dùng đăng ký tài khoản:</b> Lưu trữ họ tên, email/tên đăng nhập, mật khẩu băm một chiều (PBKDF2/Bcrypt) và trường/lớp (không bắt buộc) để đồng bộ lịch sử bài thi và quản lý đề thi.</li>
                 </ul>
 
                 <h5 style="color: #0f172a; margin: 14px 0 6px;">2. Bảo vệ dữ liệu trẻ em dưới 16 tuổi (Điều 20 NĐ 13/2023/NĐ-CP &amp; Luật Trẻ em 2016)</h5>
                 <p>Đối với học sinh dưới 16 tuổi (từ đủ 7 tuổi trở lên theo Điều 20 NĐ 13/2023/NĐ-CP), việc tạo tài khoản lưu lịch sử dài hạn được thực hiện với sự đồng ý của học sinh và sự hướng dẫn, đồng ý của phụ huynh, người giám hộ hoặc giáo viên phụ trách. Trong phòng thi trực tuyến, hệ thống tắt hoàn toàn quảng cáo tự động để đảm bảo môi trường học đường an toàn tuyệt đối.</p>
 
-                <h5 style="color: #0f172a; margin: 14px 0 6px;">3. Tệp Cookie &amp; Quảng cáo Google AdSense</h5>
-                <p>Trang web sử dụng Cookie kỹ thuật để duy trì phiên thi và hợp tác với <b>Google AdSense</b> tại màn hình chờ nhằm duy trì máy chủ miễn phí. Bạn có thể tùy chỉnh hoặc từ chối Cookie quảng cáo tại <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">Cài đặt quảng cáo Google</a>.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">3. Tệp cookie &amp; quảng cáo Google AdSense</h5>
+                <p>Trang web sử dụng cookie kỹ thuật để duy trì phiên thi và hợp tác với <b>Google AdSense</b> tại màn hình chờ nhằm duy trì máy chủ miễn phí. Bạn có thể tùy chỉnh hoặc từ chối cookie quảng cáo tại <a href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer" style="color: #2563eb;">Cài đặt quảng cáo Google</a>.</p>
 
-                <h5 style="color: #0f172a; margin: 14px 0 6px;">4. Thực thi Quyền xóa dữ liệu &amp; Rút lại sự đồng ý (Điều 9 &amp; Điều 16 NĐ 13/2023/NĐ-CP)</h5>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">4. Thực thi quyền xóa dữ liệu &amp; rút lại sự đồng ý (Điều 9 &amp; Điều 16 NĐ 13/2023/NĐ-CP)</h5>
                 <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-top: 8px;">
                     <p style="margin: 0 0 10px 0; font-size: 0.86rem; color: #475569;">Bạn có thể thực thi quyền xóa dữ liệu cá nhân ngay lập tức trên hệ thống thông qua các công cụ tự phục vụ dưới đây:</p>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -4759,29 +4767,29 @@ body.minimal-mode #publicLandingExtras {
 
             <!-- Tab 2: Terms of Service -->
             <div id="legalContentTerms" style="display: none;">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Điều khoản Dịch vụ, Bản quyền &amp; Bí mật Nhà nước</h4>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Điều khoản dịch vụ, bản quyền &amp; bí mật nhà nước</h4>
                 <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;"><i>Tuân thủ Luật Sở hữu trí tuệ 2022, Luật Bảo vệ bí mật nhà nước 2018 &amp; Nghị định 147/2024/NĐ-CP</i></p>
                 
                 <h5 style="color: #0f172a; margin: 14px 0 6px;">1. Tuyên bố không mạo danh cơ quan nhà nước</h5>
                 <p>HocNhanhTN là giải pháp phần mềm giáo dục độc lập phục vụ cộng đồng phi lợi nhuận, <b>không trực thuộc và không đại diện cho Bộ Giáo dục và Đào tạo hay bất kỳ cơ quan quản lý nhà nước nào</b>. Các đề thi trên hệ thống chỉ phục vụ mục đích tự ôn luyện, tham khảo.</p>
 
-                <h5 style="color: #0f172a; margin: 14px 0 6px;">2. Trách nhiệm bản quyền học liệu &amp; Bí mật nhà nước (Quyết định 531/QĐ-TTg)</h5>
-                <p>Người tải lên chịu hoàn toàn trách nhiệm trước pháp luật về bản quyền tài liệu. <b>Nghiêm cấm tuyệt đối</b> việc tải lên đề thi chính thức chưa đến thời điểm công bố thuộc danh mục Bí mật nhà nước trong lĩnh vực giáo dục (Luật Bảo vệ bí mật nhà nước 2018) hoặc nội dung vi phạm Điều 8 Luật An ninh mạng 2018.</p>
+                <h5 style="color: #0f172a; margin: 14px 0 6px;">2. Trách nhiệm bản quyền học liệu &amp; bí mật nhà nước (Quyết định 531/QĐ-TTg)</h5>
+                <p>Người tải lên chịu hoàn toàn trách nhiệm trước pháp luật về bản quyền tài liệu. <b>Nghiêm cấm tuyệt đối</b> việc tải lên đề thi chính thức chưa đến thời điểm công bố thuộc danh mục bí mật nhà nước trong lĩnh vực giáo dục (Luật Bảo vệ bí mật nhà nước 2018) hoặc nội dung vi phạm Điều 8 Luật An ninh mạng 2018.</p>
 
                 <h5 style="color: #0f172a; margin: 14px 0 6px;">3. Quy trình tiếp nhận &amp; gỡ bỏ trong 24 giờ (Điều 198b Luật SHTT 2022)</h5>
-                <p>Nếu phát hiện đề thi xâm phạm quyền tác giả hoặc vi phạm quy định pháp luật, vui lòng bấm nút <b>"🚩 Báo cáo đề thi / Bản quyền"</b> để gửi yêu cầu gỡ bỏ. Ban quản trị cam kết thẩm tra và gỡ bỏ trong vòng 24 giờ.</p>
+                <p>Nếu phát hiện đề thi xâm phạm quyền tác giả hoặc vi phạm quy định pháp luật, vui lòng bấm nút <b>"🚩 Báo cáo đề thi / bản quyền"</b> để gửi yêu cầu gỡ bỏ. Ban quản trị cam kết thẩm tra và gỡ bỏ trong vòng 24 giờ.</p>
             </div>
 
             <!-- Tab 3: About Us -->
             <div id="legalContentAbout" style="display: none;">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Về Dự án HocNhanhTN (About Us)</h4>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Về dự án HocNhanhTN</h4>
                 <p><b>HocNhanhTN</b> là dự án công nghệ giáo dục phi lợi nhuận được phát triển với sứ mệnh giúp việc ôn thi trắc nghiệm của học sinh trở nên nhẹ nhàng, hiệu quả và công bằng hơn.</p>
                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin: 16px 0;">
                     <p style="margin: 0 0 8px 0; font-weight: 700; color: #0f172a;">Các tính năng trọng tâm:</p>
                     <ul style="margin: 0; padding-left: 20px;">
                         <li><b>Số hóa đề thi thông minh:</b> Chuyển đổi đề thi trắc nghiệm từ tệp Word (.docx) và PDF chuẩn GDPT 2018 chỉ trong vài giây.</li>
                         <li><b>Phòng thi trực tuyến tốc độ cao:</b> Giao diện làm bài thi tối giản, tự động bấm giờ, đảo câu hỏi & đáp án ngẫu nhiên.</li>
-                        <li><b>Chấm điểm & Thống kê phổ điểm tức thì:</b> Phân tích chi tiết câu đúng/sai, lời giải chi tiết giúp học sinh tiến bộ nhanh chóng.</li>
+                        <li><b>Chấm điểm & thống kê phổ điểm tức thì:</b> Phân tích chi tiết câu đúng/sai, lời giải chi tiết giúp học sinh tiến bộ nhanh chóng.</li>
                     </ul>
                 </div>
                 <p>Chúng tôi luôn nỗ lực tối ưu để nền tảng chạy mượt mà ngay cả trên điện thoại di động và đường truyền mạng yếu.</p>
@@ -4789,10 +4797,10 @@ body.minimal-mode #publicLandingExtras {
 
             <!-- Tab 4: Contact Us -->
             <div id="legalContentContact" style="display: none;">
-                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Liên hệ & Hỗ trợ (Contact Us)</h4>
+                <h4 style="color: #0f172a; margin-top: 0; font-size: 1.1rem;">Liên hệ & hỗ trợ</h4>
                 <p>Nếu bạn có bất kỳ câu hỏi nào về chính sách, kỹ thuật, báo cáo lỗi câu hỏi hoặc đề nghị hợp tác giáo dục, vui lòng liên hệ với chúng tôi qua các kênh sau:</p>
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin: 16px 0;">
-                    <p style="margin: 0 0 8px 0;"><b>📧 Email Quản trị viên:</b> <a href="mailto:kiet0905478167@gmail.com" style="color: #2563eb; font-weight: 600;">kiet0905478167@gmail.com</a></p>
+                    <p style="margin: 0 0 8px 0;"><b>📧 Email quản trị viên:</b> <a href="mailto:kiet0905478167@gmail.com" style="color: #2563eb; font-weight: 600;">kiet0905478167@gmail.com</a></p>
                     <p style="margin: 0 0 8px 0;"><b>🌐 Website chính thức:</b> <code>https://hocnhanhtn.online/</code></p>
                     <p style="margin: 0;"><b>⏰ Thời gian phản hồi:</b> Trong vòng 24 - 48 giờ làm việc.</p>
                 </div>
@@ -4801,7 +4809,7 @@ body.minimal-mode #publicLandingExtras {
 
         <!-- Modal Footer -->
         <div style="padding: 12px 24px; border-top: 1px solid #e2e8f0; background: #f8fafc; text-align: right;">
-            <button type="button" onclick="closeLegalModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Đã hiểu & Đóng</button>
+            <button type="button" onclick="closeLegalModal()" style="background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Đã hiểu & đóng</button>
         </div>
     </div>
 </div>
@@ -4928,7 +4936,7 @@ body.minimal-mode #publicLandingExtras {
         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px;">
             <div>
                 <h2 style="color: #1e3a8a; font-size: 1.25rem; font-weight: 800; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-                    <i class="ri-checkbox-circle-fill" style="color: #2563eb;"></i> Kiểm tra &amp; Thống kê Đề thi trước Xuất bản
+                    <i class="ri-checkbox-circle-fill" style="color: #2563eb;"></i> Kiểm tra &amp; thống kê đề thi trước khi xuất bản
                 </h2>
                 <p style="color: #64748b; font-size: 0.86rem; margin: 0;">
                     Thống kê cơ cấu câu hỏi chuẩn GDPT 2018. Bấm vào từng loại câu để xem số câu và nhảy đến vị trí câu hỏi trên đề thi.
@@ -4943,39 +4951,46 @@ body.minimal-mode #publicLandingExtras {
             <!-- Quick Exam Title Input -->
             <div style="margin-bottom: 14px;">
                 <label style="font-size: 0.86rem; font-weight: 700; color: #334155; display: block; margin-bottom: 5px;">
-                    Tên bài kiểm tra / Đề thi <span style="color: #dc2626;">*</span>
+                    Tên bài kiểm tra / đề thi <span style="color: #dc2626;">*</span>
                 </label>
                 <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 45 phút môn Toán..." style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-family: inherit; outline: none; box-sizing: border-box;">
             </div>
 
-            <!-- 4 Summary / Filter Cards -->
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
+            <!-- 5 Summary / Filter Cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
                 <!-- Total -->
                 <div class="pub-type-card active" id="cardStatTotal" onclick="filterPublishType('all')" style="cursor: pointer; background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">TỔNG SỐ CÂU</div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Tổng số câu</div>
                     <div id="statTotalCount" style="font-size: 1.5rem; font-weight: 800; color: #1e293b; margin: 2px 0;">0</div>
                     <div style="font-size: 0.72rem; color: #2563eb; font-weight: 600;">Xem tất cả</div>
                 </div>
 
                 <!-- MCQ (TN) -->
                 <div class="pub-type-card" id="cardStatMcq" onclick="filterPublishType('mcq')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase;">TRẮC NGHIỆM</div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase;">Trắc nghiệm</div>
                     <div id="statMcqCount" style="font-size: 1.5rem; font-weight: 800; color: #2563eb; margin: 2px 0;">0</div>
                     <div style="font-size: 0.72rem; color: #64748b;">(A, B, C, D)</div>
                 </div>
 
                 <!-- True / False (Đ/S) -->
                 <div class="pub-type-card" id="cardStatTf" onclick="filterPublishType('true_false')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #059669; text-transform: uppercase;">ĐÚNG / SAI</div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #059669; text-transform: uppercase;">Đúng / sai</div>
                     <div id="statTfCount" style="font-size: 1.5rem; font-weight: 800; color: #059669; margin: 2px 0;">0</div>
-                    <div style="font-size: 0.72rem; color: #64748b;">(Ý a, b, c, d)</div>
+                    <div style="font-size: 0.72rem; color: #64748b;">(ý a, b, c, d)</div>
                 </div>
 
                 <!-- Short Answer (TLN) -->
                 <div class="pub-type-card" id="cardStatSa" onclick="filterPublishType('short_answer')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                    <div style="font-size: 0.72rem; font-weight: 700; color: #d97706; text-transform: uppercase;">TRẢ LỜI NGẮN</div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #d97706; text-transform: uppercase;">Trả lời ngắn</div>
                     <div id="statSaCount" style="font-size: 1.5rem; font-weight: 800; color: #d97706; margin: 2px 0;">0</div>
-                    <div style="font-size: 0.72rem; color: #64748b;">(Điền số)</div>
+                    <div style="font-size: 0.72rem; color: #64748b;">(điền số)</div>
+                </div>
+
+                <!-- Essay (TL) -->
+                <div class="pub-type-card" id="cardStatEssay" onclick="filterPublishType('essay')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #7e22ce; text-transform: uppercase;">Tự luận</div>
+                    <div id="statEssayCount" style="font-size: 1.5rem; font-weight: 800; color: #7e22ce; margin: 2px 0;">0</div>
+                    <div style="font-size: 0.72rem; color: #64748b;">(tự luận)</div>
                 </div>
             </div>
 
@@ -4983,7 +4998,7 @@ body.minimal-mode #publicLandingExtras {
             <div style="background: #f8fafc; border-radius: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                     <span style="font-size: 0.82rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 6px;">
-                        <i class="ri-list-check-2"></i> Danh sách câu hỏi <span id="pubFilterLabel" style="font-weight: 600; color: #2563eb;">(Tất cả)</span>:
+                        <i class="ri-list-check-2"></i> Danh sách câu hỏi <span id="pubFilterLabel" style="font-weight: 600; color: #2563eb;">(tất cả)</span>:
                     </span>
                     <span style="font-size: 0.75rem; color: #64748b;">
                         Bấm vào số câu để nhảy đến kiểm tra trên đề
@@ -4997,34 +5012,172 @@ body.minimal-mode #publicLandingExtras {
             </div>
 
             <!-- Optional Quick Settings Accordion -->
-            <details style="background: #f1f5f9; border-radius: 10px; padding: 8px 12px; font-size: 0.85rem; color: #475569; margin-bottom: 10px;">
-                <summary style="font-weight: 700; cursor: pointer; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
-                    <i class="ri-equalizer-line"></i> Tùy chọn nhanh đề thi (Chế độ, thời gian, đảo đề)
+            <details class="modal-accordion-card">
+                <summary>
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 26px; height: 26px; border-radius: 7px; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; border: 1px solid #bfdbfe;">
+                            <i class="ri-equalizer-line"></i>
+                        </span>
+                        <span style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">Tùy chọn nhanh đề thi (chế độ, thời gian, đảo đề)</span>
+                    </span>
+                    <i class="ri-arrow-down-s-line accordion-chevron"></i>
                 </summary>
-                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <div>
-                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Chế độ hiển thị</label>
-                        <select id="modalQuizMode" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
-                            <option value="practice">🎯 Luyện tập (Biết ngay đúng/sai từng câu)</option>
-                            <option value="exam" selected>📝 Thi thử (Làm xong hết mới chấm điểm)</option>
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Chế độ hiển thị</label>
+                        <select id="modalQuizMode" style="width: 100%; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem;">
+                            <option value="practice">Luyện tập (biết ngay đúng / sai từng câu)</option>
+                            <option value="exam" selected>Thi thử (làm xong hết mới chấm điểm)</option>
                         </select>
                     </div>
                     <div>
-                        <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Thời gian làm bài (Phút)</label>
-                        <input type="number" id="modalQuizTime" placeholder="0 = Không giới hạn" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; box-sizing: border-box;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Thời gian làm bài (phút)</label>
+                        <input type="number" id="modalQuizTime" placeholder="0 = không giới hạn" style="width: 100%; min-height: 42px; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 0.86rem; font-weight: 600; color: #0f172a; box-sizing: border-box; outline: none;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
                     </div>
                 </div>
-                <div style="margin-top: 8px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
-                        <input type="checkbox" id="modalQuizShuffle" style="width: 16px; height: 16px; margin-right: 8px;" checked>
-                        <i class="ri-shuffle-line" style="color: #2563eb; margin-right: 4px;"></i> Tự động trộn ngẫu nhiên câu hỏi &amp; đáp án
+                <div style="margin-top: 10px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.83rem; font-weight: 600; color: #334155;">
+                        <input type="checkbox" id="modalQuizShuffle" style="width: 16px; height: 16px; margin-right: 8px; accent-color: #2563eb;" checked>
+                        <i class="ri-shuffle-line" style="color: #2563eb; margin-right: 5px;"></i> Tự động trộn ngẫu nhiên câu hỏi &amp; đáp án
                     </label>
                 </div>
             </details>
 
+            <!-- Thang điểm & chia điểm từng phần -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" id="modalScoringDetails">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <span style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; border: 1px solid #bfdbfe;">
+                            <i class="ri-scales-3-line"></i>
+                        </span>
+                        <span>
+                            <span style="font-size: 0.9rem; font-weight: 700; color: #0f172a; display: block; line-height: 1.2;">Thang điểm &amp; chia điểm</span>
+                            <span style="font-size: 0.74rem; color: #64748b;">Phân bổ điểm cho từng phần câu hỏi</span>
+                        </span>
+                    </span>
+                    <span id="modalScoringBadge" style="font-size: 0.78rem; font-weight: 800; background: #ecfdf5; color: #047857; padding: 4px 10px; border-radius: 20px; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); display: inline-flex; align-items: center; gap: 5px;">
+                        <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm
+                    </span>
+                </div>
+
+                <div style="padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Chế độ chia điểm</label>
+                    <div style="position: relative; margin-bottom: 10px;">
+                        <select id="modalScoringMode" style="width: 100%; padding: 8px 36px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: #ffffff; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; transition: border-color 0.15s, box-shadow 0.15s;" onchange="onModalScoringModeChange()" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
+                            <option value="auto" selected>Tự động chia đều theo câu (tổng 10 điểm)</option>
+                            <option value="gdpt2018">Chuẩn Bộ GD&ĐT (GDPT 2018: 3đ - 4đ - 3đ)</option>
+                            <option value="custom">Tùy chỉnh điểm cho từng phần</option>
+                        </select>
+                        <i class="ri-arrow-down-s-line" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #64748b; font-size: 1.15rem;"></i>
+                    </div>
+
+                    <!-- Danh sách các phần câu hỏi (full-width stack hiện đại) -->
+                    <div id="modalScoringInputs" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Phần I -->
+                        <div id="modalScoringPart1Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #bfdbfe; flex-shrink: 0;">
+                                    I
+                                </div>
+                                <div style="min-width: 0;">
+                                    <div style="font-weight: 700; font-size: 0.86rem; color: #1e3a8a; line-height: 1.3;">Phần I: Trắc nghiệm 4 lựa chọn</div>
+                                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                        <span id="modalPart1CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <input type="number" id="modalPtPart1" step="0.05" min="0" max="10" value="0.25" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part1')">
+                                    <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                </div>
+                                <span id="modalPart1Total" style="font-size: 0.88rem; font-weight: 800; color: #0369a1; min-width: 60px; text-align: right;">= 0.0đ</span>
+                            </div>
+                        </div>
+
+                        <!-- Phần II -->
+                        <div id="modalScoringPart2Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #a7f3d0; flex-shrink: 0;">
+                                    II
+                                </div>
+                                <div style="min-width: 0;">
+                                    <div style="font-weight: 700; font-size: 0.86rem; color: #065f46; line-height: 1.3;">Phần II: Trắc nghiệm đúng / sai</div>
+                                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                        <span id="modalPart2CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu (4 ý a, b, c, d)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <input type="number" id="modalPtPart2" step="0.1" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part2')">
+                                    <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                </div>
+                                <span id="modalPart2Total" style="font-size: 0.88rem; font-weight: 800; color: #047857; min-width: 60px; text-align: right;">= 0.0đ</span>
+                            </div>
+                        </div>
+
+                        <!-- Phần III -->
+                        <div id="modalScoringPart3Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #fde68a; flex-shrink: 0;">
+                                    III
+                                </div>
+                                <div style="min-width: 0;">
+                                    <div style="font-weight: 700; font-size: 0.86rem; color: #92400e; line-height: 1.3;">Phần III: Câu hỏi trả lời ngắn</div>
+                                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                        <span id="modalPart3CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <input type="number" id="modalPtPart3" step="0.05" min="0" max="10" value="0.5" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part3')">
+                                    <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                </div>
+                                <span id="modalPart3Total" style="font-size: 0.88rem; font-weight: 800; color: #b45309; min-width: 60px; text-align: right;">= 0.0đ</span>
+                            </div>
+                        </div>
+
+                        <!-- Phần IV -->
+                        <div id="modalScoringPart4Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #faf5ff; color: #9333ea; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #e9d5ff; flex-shrink: 0;">
+                                    IV
+                                </div>
+                                <div style="min-width: 0;">
+                                    <div style="font-weight: 700; font-size: 0.86rem; color: #7e22ce; line-height: 1.3;">Phần IV: Câu hỏi tự luận</div>
+                                    <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                        <span id="modalPart4CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <input type="number" id="modalPtPart4" step="0.25" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part4')">
+                                    <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                </div>
+                                <span id="modalPart4Total" style="font-size: 0.88rem; font-weight: 800; color: #7e22ce; min-width: 60px; text-align: right;">= 0.0đ</span>
+                            </div>
+                        </div>
+
+                        <!-- Thông báo trống khi chưa có câu hỏi -->
+                        <div id="modalScoringEmptyNotice" style="display: none; padding: 14px; text-align: center; color: #64748b; font-size: 0.82rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+                            <i class="ri-information-line" style="margin-right: 4px;"></i> Đề thi hiện chưa có câu hỏi để chia điểm.
+                        </div>
+                    </div>
+
+                    <!-- Chú thích hỗ trợ dưới chân -->
+                    <div id="modalScoringHelperNote" style="margin-top: 10px; padding: 8px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; display: flex; align-items: center; gap: 6px;">
+                        <i class="ri-sparkling-fill" style="color: #2563eb; font-size: 0.9rem;"></i>
+                        <span id="modalScoringHelperText">Điểm số tự động chia đều theo số câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.</span>
+                    </div>
+                </div>
+            </div>
+
             <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 8px 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; line-height: 1.4;">
                 <input type="checkbox" id="modalQuizLegalCommit" checked style="width: 16px; height: 16px; margin-top: 2px; accent-color: #2563eb; flex-shrink: 0;">
-                <span><b>Cam kết bản quyền:</b> Tôi xác nhận đề thi này thuộc quyền biên soạn/sử dụng hợp pháp của tôi (Luật SHTT 2022) và không thuộc danh mục đề thi Bí mật nhà nước chưa công bố.</span>
+                <span><b>Cam kết bản quyền:</b> Tôi xác nhận đề thi này thuộc quyền biên soạn/sử dụng hợp pháp của tôi (Luật SHTT 2022) và không thuộc danh mục đề thi bí mật nhà nước chưa công bố.</span>
             </label>
 
         </div>
@@ -5060,12 +5213,12 @@ body.minimal-mode #publicLandingExtras {
     </div>
 </div>
 
-<!-- Modal Báo cáo Đề thi / Khiếu nại Bản quyền (Điều 198b Luật SHTT 2022 & Nghị định 147/2024/NĐ-CP) -->
+<!-- Modal Báo cáo đề thi / khiếu nại bản quyền (Điều 198b Luật SHTT 2022 & Nghị định 147/2024/NĐ-CP) -->
 <div id="reportViolationModal" class="modal-overlay" style="display: none; z-index: 999999;">
     <div class="modal-content" style="max-width: 520px; width: 92%; border-radius: 16px;">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <h3 style="margin: 0; color: #dc2626; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
-                <i class="ri-flag-2-fill"></i> Báo cáo Đề thi / Khiếu nại Bản quyền
+                <i class="ri-flag-2-fill"></i> Báo cáo đề thi / khiếu nại bản quyền
             </h3>
             <button type="button" onclick="closeReportQuizModal()" style="background: transparent; border: none; font-size: 22px; color: #64748b; cursor: pointer;">
                 <i class="ri-close-line"></i>
@@ -5077,14 +5230,14 @@ body.minimal-mode #publicLandingExtras {
         <div style="margin-bottom: 10px;">
             <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Loại báo cáo <span style="color: #dc2626;">*</span></label>
             <select id="reportQuizType" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.9rem;">
-                <option value="copyright">Vi phạm bản quyền học liệu / Sao chép trái phép (Luật SHTT)</option>
-                <option value="state_secret">Đề thi thuộc danh mục Bí mật nhà nước chưa công bố</option>
+                <option value="copyright">Vi phạm bản quyền học liệu / sao chép trái phép (Luật SHTT)</option>
+                <option value="state_secret">Đề thi thuộc danh mục bí mật nhà nước chưa công bố</option>
                 <option value="inappropriate_content">Nội dung không phù hợp môi trường sư phạm (NĐ 147/2024)</option>
-                <option value="wrong_answer">Sai sót kiến thức / Đáp án trong đề thi</option>
+                <option value="wrong_answer">Sai sót kiến thức / đáp án trong đề thi</option>
             </select>
         </div>
         <div style="margin-bottom: 10px;">
-            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mã đề thi hoặc Liên kết</label>
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mã đề thi hoặc liên kết</label>
             <input type="text" id="reportQuizIdInput" placeholder="Mã đề hoặc URL đề thi..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; margin: 0;">
         </div>
         <div style="margin-bottom: 10px;">
@@ -5092,7 +5245,7 @@ body.minimal-mode #publicLandingExtras {
             <input type="text" id="reportQuizEmailInput" placeholder="Nhập email hoặc số điện thoại của bạn..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 0.9rem; margin: 0;">
         </div>
         <div style="margin-bottom: 14px;">
-            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mô tả chi tiết &amp; Căn cứ xác minh <span style="color: #dc2626;">*</span></label>
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Mô tả chi tiết &amp; căn cứ xác minh <span style="color: #dc2626;">*</span></label>
             <textarea id="reportQuizDescInput" rows="3" placeholder="Nêu rõ nguồn gốc tài liệu gốc hoặc nội dung vi phạm cần gỡ bỏ..." style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 0.9rem;"></textarea>
         </div>
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -5435,7 +5588,7 @@ body.minimal-mode #publicLandingExtras {
     <div class="u225-tp">
       <span class="u225-ck" aria-hidden="true"></span>
       <div class="u225-tx">
-        <b>Cho phép sử dụng Cookie?</b>
+        <b>Cho phép sử dụng cookie?</b>
         <span>Lưu tiến độ thi, bảo mật phiên và tuân thủ <a href="/privacy" target="_blank" style="color:var(--ux-accent);text-decoration:underline;">NĐ 13/2023</a>.</span>
       </div>
     </div>
@@ -5448,7 +5601,7 @@ body.minimal-mode #publicLandingExtras {
       <button type="button" class="u225-all" id="u225BtnAcceptAll" onclick="window.u225AcceptAll && window.u225AcceptAll(event)">Đồng ý tất cả</button>
     </div>
   </div>
-  <button type="button" class="u225-fab" id="u225Fab" aria-label="Cài đặt Cookie & Quyền riêng tư" tabindex="-1" title="Cài đặt Cookie & Quyền riêng tư" onclick="window.u225ToggleFab && window.u225ToggleFab(event)"></button>
+  <button type="button" class="u225-fab" id="u225Fab" aria-label="Cài đặt cookie & quyền riêng tư" tabindex="-1" title="Cài đặt cookie & quyền riêng tư" onclick="window.u225ToggleFab && window.u225ToggleFab(event)"></button>
 </div>
 <script>
 (function () {
@@ -5472,7 +5625,7 @@ body.minimal-mode #publicLandingExtras {
   if (fab) fab.innerHTML = cookieSvg(uid + 'b', false).replace('<svg ', '<svg aria-hidden="true" ');
 
   var CK = [
-    ['Thiết yếu (Bắt buộc)', 'Lưu phiên làm bài, đăng nhập và bảo mật', 1],
+    ['Thiết yếu (bắt buộc)', 'Lưu phiên làm bài, đăng nhập và bảo mật', 1],
     ['Phân tích hiệu năng', 'Thống kê phổ điểm & tối ưu tốc độ tải đề', 0],
     ['Tùy chỉnh giao diện', 'Ghi nhớ kích cỡ chữ, chế độ xem và bộ lọc', 0]
   ];
@@ -5654,7 +5807,7 @@ body.minimal-mode #publicLandingExtras {
 <script type="module" src="webllm_service.js"></script>
 -->
 <!-- NÚT NỔI CHUYỂN ĐỔI NHANH SOẠN THẢO / XEM TRƯỚC TRÊN ĐIỆN THOẠI (INDEX) -->
-<button id="indexMobileFloatToggle" class="index-mobile-float-toggle" onclick="toggleIndexMobileEditorTab()" style="display:none;" title="Chuyển đổi Soạn thảo / Xem trước">
+<button id="indexMobileFloatToggle" class="index-mobile-float-toggle" onclick="toggleIndexMobileEditorTab()" style="display:none;" title="Chuyển đổi soạn thảo / xem trước">
     <i class="ri-eye-line"></i> <span>Xem trước</span>
 </button>
 
@@ -5688,10 +5841,10 @@ body.minimal-mode #publicLandingExtras {
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <button type="button" id="btnWatchAdNow" onclick="startWatchingAdProcess()" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; padding: 14px 20px; border-radius: 10px; font-weight: 700; font-size: 1.05rem; cursor: pointer; box-shadow: 0 4px 14px rgba(37,99,235,0.3); display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="ri-play-circle-line" style="font-size: 1.25rem;"></i> Xem quảng cáo & Mở khóa ngay
+                    <i class="ri-play-circle-line" style="font-size: 1.25rem;"></i> Xem quảng cáo & mở khóa ngay
                 </button>
                 <button type="button" onclick="bypassAdOnceForEmergency()" style="background: transparent; color: #64748b; border: 1px solid #cbd5e1; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
-                    Em đang thi gấp / Bỏ qua lần này
+                    Em đang thi gấp / bỏ qua lần này
                 </button>
             </div>
         </div>
@@ -5754,21 +5907,21 @@ body.minimal-mode #publicLandingExtras {
                     <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                         <input type="radio" name="simMode" value="change_numbers" checked>
                         <div>
-                            <div style="font-weight:700; color:#1e293b;">🔢 Đổi số liệu (Khuyên dùng cho Toán / Lý / Hóa)</div>
+                            <div style="font-weight:700; color:#1e293b;">🔢 Đổi số liệu (khuyên dùng cho Toán / Lý / Hóa)</div>
                             <div style="font-size:0.82rem; color:#64748b;">Giữ nguyên cấu trúc bài toán, thay đổi số liệu và tính toán lại 100% đáp án đúng.</div>
                         </div>
                     </label>
                     <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                         <input type="radio" name="simMode" value="change_context">
                         <div>
-                            <div style="font-weight:700; color:#1e293b;">🌍 Đổi ngữ cảnh / Tình huống thực tế</div>
+                            <div style="font-weight:700; color:#1e293b;">🌍 Đổi ngữ cảnh / tình huống thực tế</div>
                             <div style="font-size:0.82rem; color:#64748b;">Đổi hiện tượng, tên nhân vật, vật thể đời sống nhưng giữ nguyên mô hình lý thuyết.</div>
                         </div>
                     </label>
                     <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                         <input type="radio" name="simMode" value="both">
                         <div>
-                            <div style="font-weight:700; color:#1e293b;">⚡ Kết hợp cả hai (Số liệu & Ngữ cảnh mới)</div>
+                            <div style="font-weight:700; color:#1e293b;">⚡ Kết hợp cả hai (số liệu & ngữ cảnh mới)</div>
                             <div style="font-size:0.82rem; color:#64748b;">Tạo ra bài toán hoàn toàn mới có cùng độ khó và dạng tư duy.</div>
                         </div>
                     </label>
@@ -5789,8 +5942,8 @@ body.minimal-mode #publicLandingExtras {
                     <label style="font-weight:700; color:#334155; display:block; margin-bottom:6px; font-size:0.92rem;">3. Độ khó:</label>
                     <select id="simDifficultySelect" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.95rem;">
                         <option value="keep" selected>Giữ nguyên độ khó</option>
-                        <option value="easier">Dễ hơn (Cơ bản)</option>
-                        <option value="harder">Nâng cao (Vận dụng)</option>
+                        <option value="easier">Dễ hơn (cơ bản)</option>
+                        <option value="harder">Nâng cao (vận dụng)</option>
                     </select>
                 </div>
             </div>
@@ -5847,7 +6000,7 @@ body.minimal-mode #publicLandingExtras {
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <label id="cardAudienceTeacher" style="border:2px solid #2563eb; background:#eff6ff; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                         <div style="display:flex; align-items:center; justify-content:space-between;">
-                            <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho Giáo viên</span>
+                            <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho giáo viên</span>
                             <input type="radio" name="docxAudience" value="teacher" checked onchange="onDocxAudienceChange('teacher')" style="accent-color:#2563eb; width:16px; height:16px;">
                         </div>
                         <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Có đáp án tô đỏ, bảng đáp án và lời giải chi tiết.</span>
@@ -5855,7 +6008,7 @@ body.minimal-mode #publicLandingExtras {
 
                     <label id="cardAudienceStudent" style="border:2px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                         <div style="display:flex; align-items:center; justify-content:space-between;">
-                            <span style="font-weight:700; font-size:0.92rem; color:#334155;">👨‍🎓 Cho Học sinh</span>
+                            <span style="font-weight:700; font-size:0.92rem; color:#334155;">👨‍🎓 Cho học sinh</span>
                             <input type="radio" name="docxAudience" value="student" onchange="onDocxAudienceChange('student')" style="accent-color:#2563eb; width:16px; height:16px;">
                         </div>
                         <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Đề thi sạch làm bài, không đáp án, không lời giải.</span>
@@ -5866,7 +6019,7 @@ body.minimal-mode #publicLandingExtras {
             <!-- 2. Định dạng trang & Tiết kiệm giấy -->
             <div>
                 <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-                    2. Chế độ in ấn & Tiết kiệm giấy
+                    2. Chế độ in ấn & tiết kiệm giấy
                 </label>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <label id="cardLayoutCompact" style="border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
@@ -5893,10 +6046,10 @@ body.minimal-mode #publicLandingExtras {
                     3. Bố cục các đáp án (A, B, C, D)
                 </label>
                 <select id="docxOptionsLayout" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.9rem; color:#1e293b; background:#ffffff; outline:none; transition:border-color 0.2s;">
-                    <option value="auto" selected>⚡ Tự động thông minh (Khuyên dùng: 1 - 2 - 4 hàng tùy độ dài)</option>
-                    <option value="4_col">4 cột (Dồn cả 4 đáp án trên 1 hàng ngang nếu đủ chỗ)</option>
-                    <option value="2_col">2 cột (Chia 2 đáp án mỗi hàng)</option>
-                    <option value="1_col">1 cột (Mỗi đáp án 1 hàng riêng truyền thống)</option>
+                    <option value="auto" selected>Tự động thông minh (khuyên dùng: 1 - 2 - 4 hàng tùy độ dài)</option>
+                    <option value="4_col">4 cột (dồn cả 4 đáp án trên 1 hàng ngang nếu đủ chỗ)</option>
+                    <option value="2_col">2 cột (chia 2 đáp án mỗi hàng)</option>
+                    <option value="1_col">1 cột (mỗi đáp án 1 hàng riêng truyền thống)</option>
                 </select>
                 <div style="font-size:0.76rem; color:#64748b; margin-top:4px;">
                     <i class="ri-information-line"></i> Khi chọn tự động: công thức/từ ngắn dồn 4 cột, trung bình 2 cột, dài để 1 cột.
@@ -5911,7 +6064,7 @@ body.minimal-mode #publicLandingExtras {
 
                 <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
                     <input type="checkbox" id="docxShowAnswers" checked style="width:17px; height:17px; accent-color:#2563eb;">
-                    <span>Đánh dấu đáp án đúng trong câu hỏi (Gạch chân & tô đỏ)</span>
+                    <span>Đánh dấu đáp án đúng trong câu hỏi (gạch chân & tô đỏ)</span>
                 </label>
 
                 <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
@@ -5980,7 +6133,7 @@ body.minimal-mode #publicLandingExtras {
             <i class="ri-information-fill" style="color: #e11d48;"></i> <b>Quy định thi:</b> Nếu vi phạm rời màn hình quá <b>3 lần</b>, hệ thống sẽ tự động dừng thời gian và <b>tự động thu bài nộp</b> với điểm số hiện tại.
         </div>
         <button type="button" class="btn-primary" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; background: #dc2626; border: none; border-radius: 10px; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35); cursor: pointer;" onclick="dismissExamViolationModal()">
-            <i class="ri-check-line"></i> Tôi đã hiểu & Tiếp tục làm bài
+            <i class="ri-check-line"></i> Tôi đã hiểu & tiếp tục làm bài
         </button>
     </div>
 </div>
@@ -6059,6 +6212,7 @@ body.minimal-mode #publicLandingExtras {
         }
     });
 </script>
-<script src="/script.js?v=20261112_sort_v1"></script>
+<script src="/hc-select.js?v=20261113_ui_v2"></script>
+<script src="/script.js?v=20261113_ai_check_v1"></script>
 </body>
 </html>

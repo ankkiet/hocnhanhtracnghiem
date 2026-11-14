@@ -16,6 +16,7 @@ class AnswerKeyMap(dict):
         self.part1: Dict[int, str] = {}
         self.part2: Dict[int, Dict[str, bool]] = {}
         self.part3: Dict[int, str] = {}
+        self.part4: Dict[int, Any] = {}
 
     def set_answer(self, part: int, q_num: int, ans: Any):
         if part == 1:
@@ -24,6 +25,8 @@ class AnswerKeyMap(dict):
             self.part2[q_num] = ans
         elif part == 3:
             self.part3[q_num] = ans
+        elif part == 4:
+            self.part4[q_num] = ans
         self[q_num] = ans
 
     def get_answer(self, q_type: str, linear_num: int = None, part_num: int = None, raw_num: int = None) -> Any:
@@ -55,6 +58,16 @@ class AnswerKeyMap(dict):
                         return s
             if linear_num is not None and linear_num in self.part3:
                 return self.part3[linear_num]
+
+        elif q_type == "essay":
+            for c in candidates:
+                if c in self.part4:
+                    return self.part4[c]
+            for c in candidates:
+                if c in self and isinstance(self[c], (str, int, float)) and not isinstance(self[c], dict):
+                    return str(self[c]).strip()
+            if linear_num is not None and linear_num in self.part4:
+                return self.part4[linear_num]
 
         else: # MCQ
             for c in candidates:
@@ -93,6 +106,11 @@ class AnswerKeyMap(dict):
             lines.append("--- PHẦN III (TRẮC NGHIỆM TRẢ LỜI NGẮN) ---")
             p3_items = [f"Câu {q}: {ans}" for q, ans in sorted(self.part3.items())]
             lines.append(" | ".join(p3_items))
+
+        if self.part4:
+            lines.append("--- PHẦN IV (TỰ LUẬN) ---")
+            p4_items = [f"Câu {q}: {ans}" for q, ans in sorted(self.part4.items())]
+            lines.append(" | ".join(p4_items))
 
         # Nếu không có chia part nhưng có self chung
         if not lines and self:
@@ -497,7 +515,11 @@ def separate_answer_key_from_text(full_text: str) -> Tuple[str, str, AnswerKeyMa
         
         # Chỉ tách khi thực sự tìm thấy cấu trúc bảng đáp án hợp lệ hoặc có từ khóa rõ ràng
         is_explicit_header = any(k in ans_raw.upper() for k in ["BẢNG ĐÁP ÁN", "BANG DAP AN", "ANSWER KEY", "HƯỚNG DẪN CHẤM"])
-        has_clear_ak = bool(ak.part1 or ak.part2 or ak.part3 or len(ak) >= 2 or is_explicit_header)
+        has_subsequent_questions = bool(re.search(r'(?:^|\n)\s*(?:<[^>]+>\s*)*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]', tail_text[10:], re.IGNORECASE))
+        if has_subsequent_questions and len(ak) == 0:
+            has_clear_ak = False
+        else:
+            has_clear_ak = bool(ak.part1 or ak.part2 or ak.part3 or ak.part4 or len(ak) >= 2 or (is_explicit_header and not has_subsequent_questions))
         if has_clear_ak:
             return text_questions, ans_raw, ak
 
@@ -584,7 +606,7 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
                 ak_obj[k] = v
         answer_key = ak_obj
 
-    part_counters = {'mcq': 0, 'true_false': 0, 'short_answer': 0}
+    part_counters = {'mcq': 0, 'true_false': 0, 'short_answer': 0, 'essay': 0}
 
     for idx, q_item in enumerate(quiz_data):
         if not isinstance(q_item, dict):
@@ -659,6 +681,9 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
         elif q_type == 'short_answer':
             part_counters['short_answer'] += 1
             part_num = part_counters['short_answer']
+        elif q_type == 'essay':
+            part_counters['essay'] += 1
+            part_num = part_counters['essay']
         else:
             part_counters['mcq'] += 1
             part_num = part_counters['mcq']
@@ -680,6 +705,8 @@ def reconcile_quiz_with_answer_key(quiz_data: List[Dict[str, Any]], answer_key: 
                     from services.ai_service import parse_tf_answer
                     q_item['correct_answer'] = parse_tf_answer(official_ans)
             elif q_type == 'short_answer':
+                q_item['correct_answer'] = str(official_ans).strip()
+            elif q_type == 'essay':
                 q_item['correct_answer'] = str(official_ans).strip()
             else: # MCQ
                 opts = q_item.get('options', [])

@@ -113,7 +113,7 @@ class QuizService:
             if not is_creator:
                 raise HTTPException(status_code=404, detail="Bài thi không tồn tại hoặc đã bị xóa.")
         elif quiz_status in ['unpublished', 'locked', 'archived'] and not is_creator:
-            raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (Hủy xuất bản).")
+            raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa (hủy xuất bản).")
 
         updated_at = quiz_data.get('updated_at')
         updated_ts = updated_at.timestamp() if hasattr(updated_at, 'timestamp') else 0

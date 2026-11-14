@@ -186,7 +186,7 @@ class GeminiTrackerService:
                     totals["total_429"] += 1
                     key_entry["errors_429_today"] += 1
                     key_entry["status"] = "warning_429"
-                    key_entry["status_label"] = "🔴 Hết Quota (Lỗi 429)"
+                    key_entry["status_label"] = "🔴 Hết quota (lỗi 429)"
                 elif "api key not valid" in err_lower or "invalid api key" in err_lower or "400" in err_lower:
                     day_entry["errors_invalid_key"] += 1
                     key_entry["status"] = "invalid_key"
@@ -264,10 +264,10 @@ class GeminiTrackerService:
                     k_status = k_stat.get("status", "healthy")
                     if e429_count >= 4 or k_status == "exhausted":
                         k_status = "exhausted"
-                        status_label = "🔴 Hết Quota (Exhausted)"
+                        status_label = "🔴 Hết quota (Exhausted)"
                     elif e429_count > 0 or k_status == "warning_429":
                         k_status = "warning_429"
-                        status_label = "🟡 Sắp đầy / Gặp lỗi 429"
+                        status_label = "🟡 Sắp đầy / gặp lỗi 429"
                     else:
                         status_label = k_stat.get("status_label", "🟢 Đang hoạt động")
 

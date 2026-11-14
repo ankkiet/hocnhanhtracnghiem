@@ -30,6 +30,7 @@ class SyncHistoryItem(BaseModel):
     quiz_id: str
     quiz_title: Optional[str] = "Đề thi trắc nghiệm"
     score: float
+    max_score: Optional[float] = None
     total_questions: int
     time_elapsed: int
     submitted_at: Optional[str] = None

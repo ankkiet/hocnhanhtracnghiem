@@ -3,6 +3,92 @@
 // AI ERROR DIAGNOSTIC MODAL & LOG VIEWER (BÁO CÁO LỖI AI CHI TIẾT)
 // =========================================================================
 
+window.buildLightweightAIQuizPayload = function(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(function(q) {
+        if (!q || typeof q !== 'object') return q;
+        const copy = Object.assign({}, q);
+        delete copy.cross_check_info;
+        delete copy.has_cross_check_warning;
+        if (typeof copy.image === 'string' && (copy.image.startsWith('data:') || copy.image.length > 300)) {
+            copy.image = '[CÓ_HÌNH_ẢNH]';
+        }
+        return copy;
+    });
+};
+
+window.mergeAIQuestionPreservingMeta = function(updatedQ, origQ) {
+    if (!updatedQ || typeof updatedQ !== 'object') return origQ;
+    if (!origQ || typeof origQ !== 'object') return Object.assign({}, updatedQ);
+    const merged = Object.assign({}, updatedQ);
+    if (merged.group_title === undefined && origQ.group_title !== undefined) {
+        merged.group_title = origQ.group_title;
+    }
+    if (merged.passage === undefined && origQ.passage !== undefined) {
+        merged.passage = origQ.passage;
+    }
+    const imgStr = typeof merged.image === 'string' ? merged.image.trim() : '';
+    if (origQ.image && (!imgStr || imgStr === '[CÓ_HÌNH_ẢNH]' || imgStr === '[IMAGE_ATTACHED]')) {
+        merged.image = origQ.image;
+    }
+    if (merged.points === undefined && origQ.points !== undefined) {
+        merged.points = origQ.points;
+    }
+    if (merged.scoring === undefined && origQ.scoring !== undefined) {
+        merged.scoring = origQ.scoring;
+    }
+    return merged;
+};
+
+window.postAIWithFallback = async function(endpointPath, payload) {
+    const prodUrl = typeof PROD_BACKEND_URL === 'string' ? PROD_BACKEND_URL : '';
+    const primaryBase = typeof API_BASE_URL === 'string' ? API_BASE_URL : prodUrl;
+
+    async function doPost(baseUrl) {
+        const res = await fetch(`${baseUrl}${endpointPath}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const rawText = await res.text();
+        let data = null;
+        try {
+            data = rawText ? JSON.parse(rawText) : {};
+        } catch (_) {
+            data = {
+                status: 'error',
+                error_code: `HTTP_${res.status}`,
+                error_name: `Máy chủ phản hồi lỗi (HTTP ${res.status})`,
+                cause: res.status === 413
+                    ? 'Dữ liệu đề thi (hoặc ảnh đính kèm) vượt quá giới hạn kích thước cho phép của máy chủ.'
+                    : (res.status === 502 || res.status === 504
+                        ? 'Máy chủ AI xử lý quá thời gian chờ hoặc đang khởi động lại.'
+                        : 'Máy chủ trả về phản hồi không đúng định dạng JSON.'),
+                solution: '1. Nếu đề quá dài hoặc nhiều ảnh, vui lòng thử lại hoặc tắt bớt ảnh nặng.\n2. Chờ 10 - 15 giây rồi bấm thử lại.',
+                technical_detail: rawText ? rawText.slice(0, 300) : `HTTP ${res.status} ${res.statusText || ''}`
+            };
+        }
+        return { res, data };
+    }
+
+    try {
+        const first = await doPost(primaryBase);
+        if (!first.res.ok && first.res.status >= 500 && prodUrl && primaryBase !== prodUrl) {
+            try {
+                return await doPost(prodUrl);
+            } catch (_) {
+                return first;
+            }
+        }
+        return first;
+    } catch (err) {
+        if (prodUrl && primaryBase !== prodUrl) {
+            return await doPost(prodUrl);
+        }
+        throw err;
+    }
+};
+
 window.closeAIDiagnosticModal = function() {
     const modal = document.getElementById('aiDiagnosticModal');
     if (modal) modal.style.display = 'none';
@@ -16,8 +102,8 @@ window.copyAIDiagnosticData = function() {
         "  HỆ THỐNG TRẮC NGHIỆM - BÁO CÁO CHI TIẾT SỰ CỐ AI",
         "═══════════════════════════════════════════════",
         `• Mã lỗi: ${diag.code}`,
-        `• Tên lỗi (Lỗi gì): ${diag.name}`,
-        `• Nguyên nhân (Do đâu): ${diag.cause}`,
+        `• Tên lỗi (lỗi gì): ${diag.name}`,
+        `• Nguyên nhân (do đâu): ${diag.cause}`,
         `• Hướng dẫn khắc phục:
 ${diag.solution}`,
         diag.models ? `• Mô hình đã thử: ${diag.models}` : null,
@@ -47,7 +133,20 @@ window.showAIDiagnosticModal = function(errData) {
     if (typeof errData === 'string') {
         errData = { detail: errData };
     }
-    if (typeof errData.detail === 'object' && errData.detail !== null) {
+    if (Array.isArray(errData.detail)) {
+        const msgList = errData.detail.map(d => {
+            if (!d || typeof d !== 'object') return String(d || '');
+            const loc = Array.isArray(d.loc) ? d.loc.join('.') : '';
+            return loc ? `${loc}: ${d.msg || JSON.stringify(d)}` : (d.msg || JSON.stringify(d));
+        }).filter(Boolean).join('; ');
+        errData = Object.assign({}, errData, {
+            error_code: errData.error_code || 'VALIDATION_ERROR_422',
+            error_name: errData.error_name || 'Dữ liệu gửi lên chưa đúng định dạng (422)',
+            cause: errData.cause || `Thiếu hoặc sai định dạng tham số: ${msgList}`,
+            solution: errData.solution || 'Vui lòng tải lại trang (Ctrl+F5) và thử lại.',
+            technical_detail: msgList
+        });
+    } else if (typeof errData.detail === 'object' && errData.detail !== null) {
         errData = Object.assign({}, errData, errData.detail);
     }
 
@@ -62,14 +161,14 @@ window.showAIDiagnosticModal = function(errData) {
         const rawLower = String(technical || errorName).toLowerCase();
         if (rawLower.includes('429') || rawLower.includes('quota') || rawLower.includes('exhausted')) {
             errorCode = 'QUOTA_EXCEEDED_429';
-            errorName = 'Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)';
+            errorName = 'Quá hạn mức gọi API Google Gemini (quota exceeded - 429)';
             cause = 'Tài khoản Google AI Studio đã chạm trần tốc độ gọi (15 RPM ở gói Free) hoặc đã dùng hết hạn mức token được cấp miễn phí trong ngày.';
-            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm các Gemini API Key dự phòng vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán Pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
+            solution = '1. Vui lòng chờ 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: thêm các Gemini API key dự phòng vào cài đặt quản trị để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ thanh toán pay-as-you-go trên Google Cloud để mở rộng hạn mức lên 1000 RPM.';
         } else if (rawLower.includes('404') || rawLower.includes('not found') || rawLower.includes('no longer available')) {
             errorCode = 'MODEL_NOT_FOUND_404';
             errorName = 'Mô hình AI không tồn tại hoặc đã ngừng cung cấp (404)';
-            cause = 'Phiên bản mô hình AI (như gemini-2.5-flash cũ) đã bị Google ngừng hỗ trợ cho tài khoản mới.';
-            solution = '1. Hệ thống đã tự động thử các model mới nhất (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
+            cause = 'Phiên bản mô hình AI được gọi chưa được kích hoạt hoặc đã thay đổi.';
+            solution = '1. Hệ thống đã tự động chuyển sang các model ổn định (gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.8-flash).\n2. Vui lòng thử lại sau vài giây hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.';
         } else if (rawLower.includes('503') || rawLower.includes('unavailable') || rawLower.includes('high demand') || rawLower.includes('overloaded')) {
             errorCode = 'SERVICE_UNAVAILABLE_503';
             errorName = 'Máy chủ Google Gemini đang quá tải tạm thời (503 Unavailable)';
@@ -79,17 +178,17 @@ window.showAIDiagnosticModal = function(errData) {
             errorCode = 'INVALID_API_KEY';
             errorName = 'Khóa API Google Gemini không hợp lệ';
             cause = 'Khóa API được cấu hình trong hệ thống không chính xác, đã bị xóa hoặc bị thu hồi trên Google Cloud Console.';
-            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào Admin Settings.';
+            solution = '1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Cập nhật khóa mới vào cài đặt quản trị.';
         } else if (rawLower.includes('chưa cấu hình') || rawLower.includes('no_api_keys')) {
             errorCode = 'NO_API_KEYS';
             errorName = 'Chưa cấu hình Google Gemini API Key';
             cause = 'Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường.';
-            solution = '1. Quản trị viên vào Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
+            solution = '1. Quản trị viên vào cài đặt quản trị -> cấu hình Gemini API key.\n2. Lấy API key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.';
         } else if (rawLower.includes('scanned_pdf') || rawLower.includes('pdf scan') || rawLower.includes('ảnh chụp') || rawLower.includes('không có lớp chữ')) {
             errorCode = 'SCANNED_PDF_NEEDS_AI';
-            errorName = 'Phát hiện tệp PDF Scan / Ảnh chụp (Chưa bật AI)';
+            errorName = 'Phát hiện tệp PDF scan / ảnh chụp (chưa bật AI)';
             cause = 'Tệp PDF của bạn là tài liệu scan hoặc ảnh chụp không có lớp chữ số hóa. Thuật toán bóc tách nội bộ (không dùng AI) không thể đọc được chữ từ hình ảnh.';
-            solution = '1. Vui lòng BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã có Gemini API Key trong Cài đặt Admin.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lớp văn bản gốc.';
+            solution = '1. Vui lòng BẬT nút "Dùng AI bóc tách siêu chuẩn" khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã có Gemini API key trong cài đặt quản trị.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lớp văn bản gốc.';
         } else if (rawLower.includes('không thể trích xuất') || rawLower.includes('không tìm thấy câu hỏi') || rawLower.includes('câu 1:') || rawLower.includes('format')) {
             errorCode = 'FORMAT_NOT_RECOGNIZED';
             errorName = 'Không tìm thấy câu hỏi trắc nghiệm hợp lệ';
@@ -99,7 +198,7 @@ window.showAIDiagnosticModal = function(errData) {
             errorCode = 'AI_COMMUNICATION_ERROR';
             errorName = 'Lỗi kết nối tới dịch vụ AI';
             cause = technical ? `Phát sinh lỗi khi kết nối hoặc nhận phản hồi: ${technical.substring(0, 200)}` : 'Không thể kết nối hoặc nhận phản hồi từ dịch vụ AI.';
-            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ Quản trị viên nếu sự cố tiếp diễn.';
+            solution = '1. Vui lòng kiểm tra lại kết nối mạng Internet.\n2. Bấm thử lại sau vài giây hoặc liên hệ quản trị viên nếu sự cố tiếp diễn.';
         }
     }
 
@@ -131,8 +230,8 @@ window.showAIDiagnosticModal = function(errData) {
     }).join('');
 
     const isDocFormatError = errorCode === 'SCANNED_PDF_NEEDS_AI' || errorCode === 'FORMAT_NOT_RECOGNIZED' || errorCode === 'PDF_EXTRACT_EMPTY' || errorCode === 'IMAGE_OCR_EMPTY' || errorCode === 'CORRUPTED_FILE';
-    const modalTitle = isDocFormatError ? 'Chi Tiết Sự Cố Bóc Tách Tài Liệu' : 'Chi Tiết Sự Cố AI';
-    const modalSub = isDocFormatError ? 'Chẩn đoán định dạng tệp & Hướng dẫn xử lý' : 'Chẩn đoán nguyên nhân & Hướng dẫn khắc phục';
+    const modalTitle = isDocFormatError ? 'Chi tiết sự cố bóc tách tài liệu' : 'Chi tiết sự cố AI';
+    const modalSub = isDocFormatError ? 'Chẩn đoán định dạng tệp & hướng dẫn xử lý' : 'Chẩn đoán nguyên nhân & hướng dẫn khắc phục';
     const headerBg = isDocFormatError ? '#fffbeb' : '#fef2f2';
     const headerBorder = isDocFormatError ? '#fef3c7' : '#fee2e2';
     const iconBg = isDocFormatError ? '#fef3c7' : '#fee2e2';
@@ -164,7 +263,7 @@ window.showAIDiagnosticModal = function(errData) {
             <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
                 <div>
                     <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-alert-line" style="color:${iconColor};"></i> Lỗi gì (Sự cố)
+                        <i class="ri-alert-line" style="color:${iconColor};"></i> Lỗi gì (sự cố)
                     </div>
                     <div style="padding:10px 14px; background:${boxBg}; border:1px solid ${boxBorder}; border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                         <span style="font-family:monospace; font-weight:700; font-size:0.8rem; background:${badgeBg}; color:${badgeColor}; padding:3px 8px; border-radius:5px;">${safeEsc(errorCode)}</span>
@@ -174,7 +273,7 @@ window.showAIDiagnosticModal = function(errData) {
 
                 <div>
                     <div style="font-size:0.82rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
-                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (Nguyên nhân)
+                        <i class="ri-question-line" style="color:#f97316;"></i> Do đâu (nguyên nhân)
                     </div>
                     <div style="padding:10px 14px; background:#fff7ed; border-left:3.5px solid #f97316; border-radius:6px; color:#9a3412; font-size:0.9rem; line-height:1.55;">
                         ${safeEsc(cause)}
@@ -204,7 +303,7 @@ window.showAIDiagnosticModal = function(errData) {
 
                 <details style="border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; background:#f8fafc;">
                     <summary style="font-size:0.82rem; font-weight:600; color:#64748b; cursor:pointer; user-select:none;">
-                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & Log lỗi (Debug Info)
+                        <i class="ri-code-line"></i> Chi tiết kỹ thuật & log lỗi (debug)
                     </summary>
                     <pre style="margin-top:8px; margin-bottom:0; font-family:monospace; font-size:0.76rem; background:#0f172a; color:#f8fafc; padding:10px; border-radius:6px; max-height:140px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">${safeEsc(technical || 'Không có log bổ sung')}</pre>
                 </details>
@@ -215,7 +314,7 @@ window.showAIDiagnosticModal = function(errData) {
                     <i class="ri-file-copy-line"></i> Sao chép lỗi
                 </button>
                 <button type="button" onclick="closeAIDiagnosticModal()" style="padding:8px 20px; background:${isDocFormatError ? '#d97706' : '#dc2626'}; border:none; border-radius:8px; font-size:0.88rem; font-weight:600; color:#ffffff; cursor:pointer;">
-                    Đã hiểu & Đóng
+                    Đã hiểu & đóng
                 </button>
             </div>
         </div>
@@ -272,6 +371,26 @@ let editingQuizSettings = {
     timeLimit: 0,
     isShuffle: false
 };
+window.hasUnsavedStudioChanges = false;
+window.allowStudioNavigationWithoutPrompt = false;
+window.isNavigatingToPublish = false;
+
+window.addEventListener('pageshow', () => {
+    window.allowStudioNavigationWithoutPrompt = false;
+    window.isNavigatingToPublish = false;
+});
+
+function hasPendingStudioExitWarning() {
+    if (window.allowStudioNavigationWithoutPrompt) return false;
+    const hasQuestions = Array.isArray(currentData) && currentData.length > 0;
+    if (!hasQuestions) return false;
+    const isUntouchedBlankSample = !editingQuizId
+        && currentData.length === 1
+        && (currentData[0].question || '').trim() === 'Nội dung câu hỏi mẫu thứ nhất ở đây?';
+    if (isUntouchedBlankSample && !window.hasUnsavedStudioChanges) return false;
+    if (!editingQuizId && !window.isCurrentQuizPublished) return true;
+    return !!window.hasUnsavedStudioChanges;
+}
 let currentStudioMode = 'edit'; // 'edit' | 'practice' | 'exam'
 let globalEditorImageStorage = {};
 let globalEditorImageCounter = 0;
@@ -396,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initStudio() {
     if (!authToken) {
-        console.log("Khách trải nghiệm Studio chưa đăng nhập. Sẽ yêu cầu đăng nhập khi Lưu & Xuất bản.");
+        console.log("Khách trải nghiệm Studio chưa đăng nhập. Sẽ yêu cầu đăng nhập khi lưu & xuất bản.");
     }
 
     setupEditorEvents();
@@ -623,6 +742,7 @@ async function loadQuizById(quizId) {
         if (result.status === 'success') {
             editingQuizId = quizId;
             window.isCurrentQuizPublished = true;
+            window.hasUnsavedStudioChanges = false;
             sessionStorage.removeItem('editor_draft_images');
             editingQuizSettings = {
                 title: result.title || "Đề thi chưa đặt tên",
@@ -713,7 +833,11 @@ function loadQuizFromSession() {
     syncDataToEditor();
     renderPreviewAll();
     updateQCountBadge();
-    saveDraftToSession();
+    const hasRestoredSessionDraft = Boolean(rawData || rawTitle || rawSettings);
+    const isUntouchedBlankSample = currentData.length === 1
+        && (currentData[0].question || '').trim() === 'Nội dung câu hỏi mẫu thứ nhất ở đây?';
+    window.hasUnsavedStudioChanges = !editingQuizId && hasRestoredSessionDraft && !isUntouchedBlankSample;
+    saveDraftToSession(false);
 }
 
 function normalizeImageUrls(data) {
@@ -746,7 +870,10 @@ function updateQCountBadge() {
     }
 }
 
-function saveDraftToSession() {
+function saveDraftToSession(markDirty = true) {
+    if (markDirty !== false) {
+        window.hasUnsavedStudioChanges = true;
+    }
     sessionStorage.setItem('editor_quiz_data', JSON.stringify(currentData));
     sessionStorage.setItem('editor_quiz_title', editingQuizSettings.title);
     sessionStorage.setItem('editor_quiz_settings', JSON.stringify(editingQuizSettings));
@@ -766,7 +893,8 @@ function isSyntaxHighlightColor(styleStr) {
            s.includes('#7c3aed') || s.includes('124, 58, 237') ||
            s.includes('#0ea5e9') || s.includes('14, 165, 233') ||
            s.includes('#16a34a') || s.includes('22, 163, 74') ||
-           s.includes('#b45309') || s.includes('180, 83, 9');
+           s.includes('#b45309') || s.includes('180, 83, 9') ||
+           s.includes('#c026d3') || s.includes('192, 38, 211');
 }
 
 function cleanEditorClosingTags(text) {
@@ -807,9 +935,11 @@ function getRichEditorText(node) {
                 const colorAttr = child.getAttribute ? (child.getAttribute('color') || '') : '';
                 const fullStyle = (styleAttr + ';' + colorAttr).toLowerCase();
 
-                // Nếu là thẻ syntax highlight do editor sinh ra (prefix câu, đáp án, lời giải, phần hoặc màu cú pháp),
+                // Nếu là thẻ syntax highlight do editor sinh ra (prefix câu, đáp án, lời giải, phần hoặc công thức toán),
                 // tháo bỏ thẻ wrapper để parser nhận diện chính xác 100%
-                const isPrefixSpan = /^(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?/i.test(textContent) ||
+                const isFormulaSpan = child.classList && (child.classList.contains('editor-formula') || child.classList.contains('editor-math'));
+                const isPrefixSpan = isFormulaSpan ||
+                                     /^(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?/i.test(textContent) ||
                                      /^(?:\*\s*)?\(?\[?(?:\*?[A-Fa-f]|\*?[a-d])[\.\:\)\-\]\/]/.test(textContent) ||
                                      /^(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]/i.test(textContent) ||
                                      /^(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)\s*[\:\-\=]/i.test(textContent) ||
@@ -849,6 +979,7 @@ function setupEditorEvents() {
 
     let editTimeout;
     codeEditor.addEventListener('input', function() {
+        window.hasUnsavedStudioChanges = true;
         const indicator = document.getElementById('autosaveIndicator');
         if (indicator) indicator.innerText = "⏳ Đang gõ...";
 
@@ -884,6 +1015,15 @@ function setupEditorEvents() {
             document.execCommand('insertText', false, '    ');
         }
     });
+
+    // Tự động đóng gói công thức toán mới gõ thành thẻ .editor-formula khi rời con trỏ
+    codeEditor.addEventListener('blur', function() {
+        const currentHtml = codeEditor.innerHTML;
+        const highlighted = highlightFormulasInHtml(currentHtml);
+        if (highlighted !== currentHtml) {
+            codeEditor.innerHTML = highlighted;
+        }
+    });
 }
 
 function setupTitleEvents() {
@@ -917,25 +1057,33 @@ function getRealQuestionType(q) {
     // 2. Nếu có từ 2 ý chữ thường a), b), c), d) trở lên -> 100% BẮT BUỘC là Đúng / Sai
     if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
 
-    // 3. Nếu KHÔNG có phương án nào: kiểm tra tiêu đề nhóm hoặc loại câu hỏi đã được xác định
+    // 3. Nếu KHÔNG có phương án nào: ưu tiên loại câu hỏi đã được chỉ định rõ (khi người dùng chuyển dạng hoặc AI xác định),
+    // sau đó mới suy luận theo tiêu đề nhóm hoặc đáp án
     const grp = String(q.group_title || '').toUpperCase();
+    const t = String(q.type || '').toLowerCase().trim();
     if (opts.length === 0) {
-        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III')) {
-            return 'short_answer';
-        }
-        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II')) {
-            return 'true_false';
-        }
-        const t = String(q.type || '').toLowerCase();
+        if (t === 'essay' || t === 'tu_luan' || t === 'tự luận' || t === 'tuluan') return 'essay';
         if (t === 'short_answer' || t === 'sa' || t === 'tra_loi_ngan') return 'short_answer';
         if (t === 'true_false' || t === 'tf' || t === 'dung_sai') return 'true_false';
+
+        if (grp.includes('TỰ LUẬN') || grp.includes('TU LUAN') || grp.includes('PHẦN IV') || grp.includes('PHAN IV') || grp.includes('PART IV') || /\bPHẦN\s+4\b/i.test(grp)) {
+            return 'essay';
+        }
+        if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('TRA LOI NGAN') || grp.includes('PHẦN III') || grp.includes('PHAN III') || grp.includes('PART III') || /\bPHẦN\s+3\b/i.test(grp)) {
+            return 'short_answer';
+        }
+        if (grp.includes('ĐÚNG SAI') || grp.includes('DUNG SAI') || grp.includes('PHẦN II') || grp.includes('PHAN II') || grp.includes('PART II') || /\bPHẦN\s+2\b/i.test(grp)) {
+            return 'true_false';
+        }
         if (q.correct_answer !== null && q.correct_answer !== undefined && typeof q.correct_answer === 'string' && q.correct_answer.trim()) {
             return 'short_answer';
         }
     }
 
     // 4. Nếu là loại câu hỏi đã chỉ định rõ ràng và không mâu thuẫn với phương án
-    const t = String(q.type || '').toLowerCase();
+    if (t === 'essay' || t === 'tu_luan' || t === 'tự luận' || t === 'tuluan') {
+        if (mcqCount === 0 && tfCount < 2) return 'essay';
+    }
     if (t === 'true_false' || t === 'tf' || t === 'dung_sai') {
         if (mcqCount === 0) return 'true_false';
     }
@@ -953,6 +1101,31 @@ function getRealQuestionType(q) {
     if (opts.length === 0 && q.correct_answer) return 'short_answer';
 
     return 'mcq';
+}
+
+// ----------------------------------------------------
+// TÔ MÀU CÔNG THỨC TOÁN HỌC TRONG KHUNG SOẠN THẢO CODE
+// ----------------------------------------------------
+function highlightFormulasInHtml(html) {
+    if (!html || typeof html !== 'string') return '';
+
+    // Gỡ bỏ thẻ wrapper .editor-formula cũ nếu có để tránh lồng nhau
+    let clean = html.replace(/<span\b[^>]*class=["'][^"']*editor-formula[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi, '$1');
+
+    // Tách các thẻ HTML (như <img>, <table>, <span>, <div>, <br>) để không match nhầm bên trong thuộc tính HTML
+    const parts = clean.split(/(<[^>]+>)/g);
+    const formulaRegex = /(\$\$[\s\S]*?\$\$|\$(?!\$)(?:[^\$\n\r\\]|\\.)+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\})/g;
+
+    for (let i = 0; i < parts.length; i++) {
+        // Chỉ xử lý các đoạn văn bản bên ngoài thẻ HTML (i chẵn)
+        if (i % 2 === 0 && parts[i]) {
+            parts[i] = parts[i].replace(formulaRegex, function(m) {
+                return `<span class="editor-formula" contenteditable="false" draggable="true" style="color: #c026d3; font-weight: 600;" title="Nhấn đúp để chỉnh sửa công thức, kéo thả để di chuyển">${m}</span>`;
+            });
+        }
+    }
+
+    return parts.join('');
 }
 
 function dataToEditorText(data) {
@@ -977,11 +1150,14 @@ function dataToEditorText(data) {
                 let prefix = isTrue ? `<span style="color: #059669; font-weight: bold;">*${char}) </span>` : `<span style="color: #0ea5e9; font-weight: bold;">${char}) </span>`;
                 html += `<div>${prefix}${cleanOpt}</div>`;
             });
-        } else if (qType === 'short_answer') {
+        } else if (qType === 'essay') {
             let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
             if (ca) {
-                html += `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>${ca}</div>`;
+                html += `<div><span style="color: #059669; font-weight: bold;">Hướng dẫn chấm: </span>${ca}</div>`;
             }
+        } else if (qType === 'short_answer') {
+            let ca = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
+            html += `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>${ca}</div>`;
         } else {
             // MCQ (4 lựa chọn)
             (q.options || []).forEach((opt) => {
@@ -1012,7 +1188,7 @@ function dataToEditorText(data) {
     globalEditorImageStorage = {};
     globalEditorImageCounter = 0;
 
-    return html;
+    return highlightFormulasInHtml(html);
 }
 
 function isLineInsideMath(accumulatedText) {
@@ -1054,6 +1230,9 @@ function parseEditorText(text) {
     // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
     const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
 
+    // Nhận diện Hướng dẫn chấm / Thang điểm tự luận
+    const essayAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Hướng dẫn chấm|Thang điểm|Biểu điểm|Đáp án và thang điểm|Gợi ý làm bài)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
+
     // Nhận diện Lời giải / Hướng dẫn giải
     const explainRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
 
@@ -1070,14 +1249,19 @@ function parseEditorText(text) {
             if (currentQ) data.push(currentQ);
             let qText = cleanEditorClosingTags(line.replace(qRegex, '').trim());
             
-            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn)
+            // Tự động nhận diện loại câu hỏi mặc định theo nhóm phần (Phần II: Đúng/Sai, Phần III: Trả lời ngắn, Phần IV: Tự luận)
             let defaultType = 'mcq';
             const activeGroup = (currentSectionHeader || sharedContext || '').trim();
             const grpUpper = activeGroup.toUpperCase();
-            if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III')) {
+            if (grpUpper.includes('TỰ LUẬN') || grpUpper.includes('TU LUAN') || grpUpper.includes('PHẦN IV') || grpUpper.includes('PHAN IV') || grpUpper.includes('PART IV') || /\bPHẦN\s+4\b/i.test(grpUpper)) {
+                defaultType = 'essay';
+            } else if (grpUpper.includes('TRẢ LỜI NGẮN') || grpUpper.includes('TRA LOI NGAN') || grpUpper.includes('PHẦN III') || grpUpper.includes('PHAN III') || grpUpper.includes('PART III') || /\bPHẦN\s+3\b/i.test(grpUpper)) {
                 defaultType = 'short_answer';
-            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II')) {
+            } else if (grpUpper.includes('ĐÚNG SAI') || grpUpper.includes('DUNG SAI') || grpUpper.includes('PHẦN II') || grpUpper.includes('PHAN II') || grpUpper.includes('PART II') || /\bPHẦN\s+2\b/i.test(grpUpper)) {
                 defaultType = 'true_false';
+            }
+            if (/^\s*(?:<[^>]+>\s*)*\(?\[?\s*Tự\s*luận\s*\]?\)?/i.test(qText)) {
+                defaultType = 'essay';
             }
 
             currentQ = {
@@ -1085,7 +1269,7 @@ function parseEditorText(text) {
                 group_title: activeGroup,
                 question: qText,
                 options: [],
-                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' ? '' : null)),
+                correct_answer: (defaultType === 'true_false' ? {} : (defaultType === 'short_answer' || defaultType === 'essay' ? '' : null)),
                 explain: ''
             };
             sharedContext = ""; 
@@ -1313,11 +1497,21 @@ function parseEditorText(text) {
                         });
                     }
                     currentQ.correct_answer = tfDict;
+                } else if (currentQ.type === 'essay') {
+                    currentQ.correct_answer = ansContent;
                 } else {
                     currentQ.type = 'short_answer';
                     currentQ.options = [];
                     currentQ.correct_answer = ansContent;
                 }
+            }
+        } else if (essayAnsRegex.test(line)) {
+            if (currentQ) {
+                const ansMatch = line.match(essayAnsRegex);
+                const ansContent = cleanEditorClosingTags((ansMatch[1] || "").trim());
+                currentQ.type = 'essay';
+                currentQ.options = [];
+                currentQ.correct_answer = ansContent;
             }
         } else if (explainRegex.test(line)) {
             if (currentQ) {
@@ -1706,13 +1900,15 @@ function renderPreviewAll() {
         mcq3: 0,
         mcqOther: 0,
         tf: 0,
-        short: 0
+        short: 0,
+        essay: 0
     };
     
     currentData.forEach(q => {
         let qType = getRealQuestionType(q);
         if (qType === 'true_false') stats.tf++;
         else if (qType === 'short_answer') stats.short++;
+        else if (qType === 'essay') stats.essay++;
         else {
             let optCount = (q.options || []).length;
             if (optCount === 4) stats.mcq4++;
@@ -1731,6 +1927,7 @@ function renderPreviewAll() {
         ${stats.mcqOther > 0 ? `<div style="background: #dbeafe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #1d4ed8;">Trắc nghiệm khác: ${stats.mcqOther}</div>` : ''}
         ${stats.tf > 0 ? `<div style="background: #e0f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #0369a1;">Đúng/Sai: ${stats.tf}</div>` : ''}
         ${stats.short > 0 ? `<div style="background: #fef3c7; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #92400e;">Trả lời ngắn: ${stats.short}</div>` : ''}
+        ${stats.essay > 0 ? `<div style="background: #f3e8ff; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #7e22ce;">Tự luận: ${stats.essay}</div>` : ''}
     `;
     previewContent.appendChild(statsBox);
 
@@ -1755,12 +1952,17 @@ function renderPreviewAll() {
         let formattedQ = formatSubscriptsAndFormulas(qClean, true);
         
         let qType = getRealQuestionType(q);
-        let typeBadge = '';
-        if (qType === 'true_false') {
-            typeBadge = '<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #bae6fd;">Đúng / Sai</span>';
-        } else if (qType === 'short_answer') {
-            typeBadge = '<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; margin-left: 8px; border: 1px solid #fde68a;">Trả lời ngắn</span>';
-        }
+
+        let typeSelectorHtml = `
+            <span style="margin-left: auto; display: inline-flex; align-items: center;" onclick="event.stopPropagation();">
+                <select class="hc-qtype-select" onchange="changeQuestionType(${qIndex}, this.value)" title="Đổi dạng câu hỏi">
+                    <option value="mcq" ${qType === 'mcq' ? 'selected' : ''}>Trắc nghiệm</option>
+                    <option value="true_false" ${qType === 'true_false' ? 'selected' : ''}>Đúng / sai</option>
+                    <option value="short_answer" ${qType === 'short_answer' ? 'selected' : ''}>Trả lời ngắn</option>
+                    <option value="essay" ${qType === 'essay' ? 'selected' : ''}>Tự luận</option>
+                </select>
+            </span>
+        `;
 
         let aiSuggestedBadge = '';
         const isAIExplicitlyDisabled = sessionStorage.getItem('editor_use_ai') === 'false';
@@ -1773,7 +1975,7 @@ function renderPreviewAll() {
             `;
         }
 
-        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6;">Câu ${qIndex + 1}: ${formattedQ} ${typeBadge} ${aiSuggestedBadge}</div>`;
+        html += `${groupTitleHtml}<div class="question-title" style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; line-height: 1.6; display: flex; align-items: center; flex-wrap: wrap; gap: 4px;"><span>Câu ${qIndex + 1}: ${formattedQ}</span> ${aiSuggestedBadge} ${typeSelectorHtml}</div>`;
         
         if (qType === 'true_false') {
             // Giao diện xem trước cho câu hỏi Đúng / Sai
@@ -1799,11 +2001,27 @@ function renderPreviewAll() {
             html += `</div>`;
         } else if (qType === 'short_answer') {
             // Giao diện xem trước cho câu hỏi Trả lời ngắn
-            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer) : 'Chưa nhập đáp án';
+            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null && String(q.correct_answer).trim() !== '') ? String(q.correct_answer) : 'Chưa nhập đáp án';
             html += `
                 <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
                     <span style="font-weight: 700; color: #0284c7; font-size: 0.95rem;">✍️ Đáp án ngắn:</span>
                     <span style="font-weight: 700; font-size: 1.05rem; background: #dcfce7; color: #15803d; padding: 3px 12px; border-radius: 6px; border: 1px solid #86efac;">${escapeHtml(caVal)}</span>
+                </div>`;
+        } else if (qType === 'essay') {
+            // Giao diện xem trước cho câu hỏi Tự luận
+            let caVal = (q.correct_answer !== undefined && q.correct_answer !== null) ? String(q.correct_answer).trim() : '';
+            html += `
+                <div style="background: #faf5ff; border: 1.5px dashed #d8b4fe; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+                    <div style="font-size: 0.82rem; font-weight: 700; color: #7e22ce; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                        <i class="ri-edit-2-line"></i> Khung làm bài tự luận của học sinh:
+                    </div>
+                    <div style="background: #ffffff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 10px; min-height: 60px; color: #94a3b8; font-size: 0.9rem; font-style: italic;">
+                        (Học sinh sẽ nhập câu trả lời, trình bày các bước giải hoặc đính kèm bài làm tự luận vào đây)
+                    </div>
+                    ${caVal ? `
+                    <div style="margin-top: 8px; font-size: 0.88rem; color: #15803d; background: #dcfce7; padding: 8px 12px; border-radius: 6px; border: 1px solid #86efac;">
+                        <b>📖 Hướng dẫn chấm / Thang điểm:</b> ${formatSubscriptsAndFormulas(caVal, true)}
+                    </div>` : ''}
                 </div>`;
         } else {
             // MCQ (4 lựa chọn)
@@ -1844,12 +2062,12 @@ function renderPreviewAll() {
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                         <span style="font-weight: 700; color: #c2410c; display: flex; align-items: center; gap: 6px; font-size: 0.92rem;">
                             <i class="ri-alert-fill" style="color: #ea580c; font-size: 1.15rem;"></i>
-                            CẢNH BÁO KIỂM TRA CHÉO: AI giải khác đáp án của Giáo viên!
+                            CẢNH BÁO KIỂM TRA CHÉO: AI giải khác đáp án của giáo viên!
                         </span>
                         <span style="font-size: 0.78rem; background: #ffedd5; color: #9a3412; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Cần rà soát</span>
                     </div>
                     <div style="font-size: 0.88rem; color: #7c2d12; margin-bottom: 10px; line-height: 1.5;">
-                        <div><b>Đáp án hiện tại (Giáo viên / Gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
+                        <div><b>Đáp án hiện tại (giáo viên / gốc):</b> <span style="background: #fed7aa; color: #7c2d12; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(tAns)}</span></div>
                         <div style="margin-top: 5px;"><b>Đáp án do AI độc lập giải:</b> <span style="background: #bbf7d0; color: #166534; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${escapeHtml(aiAns)}</span></div>
                         ${aiExp ? `<div style="margin-top: 8px; font-size: 0.85rem; color: #431407; background: #ffffff; padding: 8px 10px; border-radius: 6px; border: 1px dashed #fdba74;"><b>💡 Lời giải độc lập của AI:</b> ${formatSubscriptsAndFormulas(aiExp, true)}</div>` : ''}
                     </div>
@@ -1858,7 +2076,7 @@ function renderPreviewAll() {
                             <i class="ri-check-line"></i> Dùng đáp án AI giải
                         </button>
                         <button type="button" class="btn-studio-outline" style="padding: 5px 12px; font-size: 0.82rem; border-radius: 6px; background: #fff; cursor: pointer;" onclick="dismissAICrossCheck(${qIndex}); event.stopPropagation();">
-                            <i class="ri-close-line"></i> Giữ đáp án Giáo viên & Bỏ qua
+                            <i class="ri-close-line"></i> Giữ đáp án giáo viên & bỏ qua
                         </button>
                     </div>
                 </div>
@@ -1922,13 +2140,13 @@ function renderPreviewAll() {
                 aiDiv.style.cssText = 'margin-top: 14px; padding: 14px; background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 10px; cursor: default;';
                 let corrected = aiData.corrected_data || {};
                 let targetType = corrected.type || 'true_false';
-                let targetTypeName = targetType === 'true_false' ? 'Đúng / Sai' : (targetType === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm 4 lựa chọn');
+                let targetTypeName = targetType === 'true_false' ? 'Đúng / sai' : (targetType === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm 4 lựa chọn');
 
                 let previewRestructure = '';
                 if (targetType === 'true_false' && Array.isArray(corrected.options)) {
                     let tfMap = typeof corrected.correct_answer === 'object' && corrected.correct_answer ? corrected.correct_answer : {};
                     previewRestructure = `<div style="font-size: 0.88rem; background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e9d5ff; margin-bottom: 8px;">
-                        <div style="font-weight: 700; color: #7e22ce; margin-bottom: 6px;"><i class="ri-checkbox-multiple-line"></i> Kết cấu Đúng/Sai mới:</div>`;
+                        <div style="font-weight: 700; color: #7e22ce; margin-bottom: 6px;"><i class="ri-checkbox-multiple-line"></i> Kết cấu đúng/sai mới:</div>`;
                     corrected.options.forEach((opt, oIdx) => {
                         let ch = ['a', 'b', 'c', 'd'][oIdx] || 'a';
                         let isT = tfMap[ch] === true;
@@ -2009,7 +2227,7 @@ function renderPreviewAll() {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <i class="ri-sparkling-fill" style="color: #9333ea; font-size: 1.15rem;"></i>
-                            <strong style="color: #9333ea;">AI Phát hiện vấn đề:</strong>
+                            <strong style="color: #9333ea;">AI phát hiện vấn đề:</strong>
                             <span class="ai-cat-chip ${catClass}" style="padding: 2px 8px; font-size: 0.75rem;">${aiData.category_name || 'Cần sửa'}</span>
                         </div>
                     </div>
@@ -2036,6 +2254,9 @@ function renderPreviewAll() {
         previewContent.appendChild(prevBox);
     });
     
+    if (typeof window.initQuestionTypeCustomSelects === 'function') {
+        window.initQuestionTypeCustomSelects(previewContent);
+    }
     renderMathJax(previewContent);
 }
 
@@ -2092,26 +2313,117 @@ window.changeTfAnswer = function(qIndex, char, isTrue) {
     syncDataToEditor();
     renderPreviewAll();
     saveDraftToSession();
-    showToast("Đã cập nhật đáp án Đúng/Sai!");
+    showToast("Đã cập nhật đáp án đúng/sai!");
 };
 
-function insertQuestionTemplate() {
+function insertQuestionTemplate(type = 'mcq') {
     const editor = document.getElementById('codeEditor');
     if (!editor) return;
     
     const nextQNum = currentData.length + 1;
-    const template = `<br><br>Câu ${nextQNum}: Nội dung câu hỏi mới ở đây?<br>*A. Đáp án đúng thứ nhất<br>B. Đáp án thứ hai<br>C. Đáp án thứ ba<br>D. Đáp án thứ tư<br>`;
+    let template = "";
+    if (type === 'essay') {
+        template = `<br><br><div><span style="color: #2563eb; font-weight: bold;">Câu ${nextQNum}: </span>Nội dung câu hỏi tự luận ở đây (trình bày, giải thích, chứng minh hoặc tính toán)...</div><div><span style="color: #059669; font-weight: bold;">Hướng dẫn chấm: </span>Nội dung hướng dẫn chấm hoặc biểu điểm chi tiết...</div><br>`;
+    } else if (type === 'true_false') {
+        template = `<br><br><div><span style="color: #2563eb; font-weight: bold;">Câu ${nextQNum}: </span>Nội dung câu hỏi đúng / sai ở đây...</div><div><span style="color: #059669; font-weight: bold;">*a) </span>Mệnh đề đúng thứ nhất</div><div><span style="color: #0ea5e9; font-weight: bold;">b) </span>Mệnh đề sai thứ hai</div><div><span style="color: #059669; font-weight: bold;">*c) </span>Mệnh đề đúng thứ ba</div><div><span style="color: #0ea5e9; font-weight: bold;">d) </span>Mệnh đề sai thứ tư</div><br>`;
+    } else if (type === 'short_answer') {
+        template = `<br><br><div><span style="color: #2563eb; font-weight: bold;">Câu ${nextQNum}: </span>Nội dung câu hỏi trả lời ngắn ở đây...</div><div><span style="color: #059669; font-weight: bold;">Đáp án: </span>10</div><br>`;
+    } else {
+        template = `<br><br><div><span style="color: #2563eb; font-weight: bold;">Câu ${nextQNum}: </span>Nội dung câu hỏi trắc nghiệm ở đây?</div><div><span style="color: #059669; font-weight: bold;">*A. </span>Đáp án đúng thứ nhất</div><div><span style="color: #7c3aed; font-weight: bold;">B. </span>Đáp án thứ hai</div><div><span style="color: #7c3aed; font-weight: bold;">C. </span>Đáp án thứ ba</div><div><span style="color: #7c3aed; font-weight: bold;">D. </span>Đáp án thứ tư</div><br>`;
+    }
     
     editor.innerHTML += template;
     editor.scrollTop = editor.scrollHeight;
     editor.focus();
     
     currentData = parseEditorText(getRichEditorText(editor));
+    if (currentData.length > 0) {
+        const addedQ = currentData[currentData.length - 1];
+        addedQ.type = type;
+        clearConflictingGroupTitle(addedQ, type);
+    }
     renderPreviewAll();
     updateQCountBadge();
     saveDraftToSession();
-    showToast(`Đã thêm Câu ${nextQNum}!`);
+    showToast(`Đã thêm câu ${nextQNum}!`);
 }
+
+window.insertQuestionTemplate = insertQuestionTemplate;
+
+function clearConflictingGroupTitle(q, targetType) {
+    if (!q || !q.group_title) return;
+    const grp = String(q.group_title).toUpperCase();
+    const hasMcqGrp = /(TRẮC NGHIỆM(?!\s*ĐÚNG)|PHẦN I\b|PHAN I\b|PART I\b|PHẦN\s+1\b)/i.test(grp) && !/(ĐÚNG\s*SAI|TRẢ\s*LỜI\s*NGẮN|TỰ\s*LUẬN)/i.test(grp);
+    const hasTfGrp = /(ĐÚNG\s*SAI|DUNG\s*SAI|ĐÚNG\/SAI|PHẦN II\b|PHAN II\b|PART II\b|PHẦN\s+2\b)/i.test(grp);
+    const hasSaGrp = /(TRẢ\s*LỜI\s*NGẮN|TRA\s*LOI\s*NGAN|PHẦN III\b|PHAN III\b|PART III\b|PHẦN\s+3\b)/i.test(grp);
+    const hasEssayGrp = /(TỰ\s*LUẬN|TU\s*LUAN|PHẦN IV\b|PHAN IV\b|PART IV\b|PHẦN\s+4\b)/i.test(grp);
+
+    const conflict = (targetType === 'mcq' && (hasTfGrp || hasSaGrp || hasEssayGrp))
+        || (targetType === 'true_false' && (hasMcqGrp || hasSaGrp || hasEssayGrp))
+        || (targetType === 'short_answer' && (hasMcqGrp || hasTfGrp || hasEssayGrp))
+        || (targetType === 'essay' && (hasMcqGrp || hasTfGrp || hasSaGrp));
+    if (conflict) {
+        q.group_title = '';
+    }
+}
+
+window.changeQuestionType = function(qIndex, newType) {
+    if (!currentData || !currentData[qIndex]) return;
+    const q = currentData[qIndex];
+    const oldType = getRealQuestionType(q);
+    if (oldType === newType) return;
+
+    if (newType === 'essay') {
+        q.type = 'essay';
+        q.options = [];
+        if (typeof q.correct_answer === 'object' || q.correct_answer === null || q.correct_answer === undefined) q.correct_answer = '';
+    } else if (newType === 'short_answer') {
+        q.type = 'short_answer';
+        q.options = [];
+        if (typeof q.correct_answer === 'object' || q.correct_answer === null || q.correct_answer === undefined) q.correct_answer = '';
+    } else if (newType === 'true_false') {
+        q.type = 'true_false';
+        if (!q.options || q.options.length < 2) {
+            q.options = ['a) Mệnh đề thứ nhất', 'b) Mệnh đề thứ hai', 'c) Mệnh đề thứ ba', 'd) Mệnh đề thứ tư'];
+        } else {
+            q.options = q.options.slice(0, 4).map((opt, idx) => {
+                const char = String.fromCharCode(97 + idx);
+                const clean = opt.replace(/^[a-fA-F0-9][\.\:\)\-]\s*/, '').trim();
+                return `${char}) ${clean}`;
+            });
+        }
+        if (typeof q.correct_answer !== 'object' || q.correct_answer === null) {
+            q.correct_answer = { a: true, b: false, c: true, d: false };
+        }
+    } else { // mcq
+        q.type = 'mcq';
+        if (!q.options || q.options.length < 2) {
+            q.options = ['A. Phương án 1', 'B. Phương án 2', 'C. Phương án 3', 'D. Phương án 4'];
+        } else {
+            q.options = q.options.slice(0, 4).map((opt, idx) => {
+                const char = String.fromCharCode(65 + idx);
+                const clean = opt.replace(/^[a-fA-F0-9][\.\:\)\-]\s*/, '').trim();
+                return `${char}. ${clean}`;
+            });
+        }
+        if (typeof q.correct_answer !== 'string' || !q.correct_answer) {
+            q.correct_answer = q.options[0] || 'A. Phương án 1';
+        }
+    }
+
+    clearConflictingGroupTitle(q, newType);
+    syncDataToEditor();
+    renderPreviewAll();
+    updateQCountBadge();
+    saveDraftToSession();
+    const typeLabelMap = {
+        essay: 'tự luận',
+        true_false: 'Đúng / Sai',
+        short_answer: 'trả lời ngắn',
+        mcq: 'trắc nghiệm'
+    };
+    showToast(`Đã chuyển câu ${qIndex + 1} sang dạng ${typeLabelMap[newType] || newType}!`);
+};
 
 function formatEditorCode() {
     syncDataToEditor();
@@ -2191,16 +2503,12 @@ async function runAICheck() {
     }, 600);
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/teacher/check_quiz_ai`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                teacher_token: authToken,
-                quiz_data: currentData,
-                custom_prompt: customPrompt
-            })
+        const lightweightQuiz = buildLightweightAIQuizPayload(currentData);
+        const { res, data } = await postAIWithFallback('/api/teacher/check_quiz_ai', {
+            teacher_token: authToken || '',
+            quiz_data: lightweightQuiz,
+            custom_prompt: customPrompt
         });
-        const data = await res.json();
         
         if (res.ok && data.status === 'success') {
             document.getElementById('aiFeedbackBox').style.display = 'block';
@@ -2279,7 +2587,7 @@ async function runAICheck() {
 
                 if (btnApplyAll) {
                     btnApplyAll.style.display = 'inline-block';
-                    btnApplyAll.innerHTML = '<i class="ri-flashlight-line"></i> Áp dụng TẤT CẢ thay đổi';
+                    btnApplyAll.innerHTML = '<i class="ri-flashlight-line"></i> Áp dụng tất cả thay đổi';
                 }
                 renderPreviewAll();
             } else if (Array.isArray(data.feedback) && data.feedback.length === 0) {
@@ -2418,24 +2726,20 @@ function applyAllAISuggestions() {
     const count = Object.keys(window.activeAIFeedbacks).length;
     if (!confirm(`Bạn có chắc muốn áp dụng TẤT CẢ ${count} thay đổi từ AI (xóa câu, đổi kết cấu, sửa nội dung)?`)) return;
 
-    if (Array.isArray(window.activeAINewQuizData) && window.activeAINewQuizData.length > 0) {
-        currentData = JSON.parse(JSON.stringify(window.activeAINewQuizData));
-    } else {
-        // Áp dụng từ dưới lên (chỉ số cao xuống thấp) để tránh lệch index khi xóa câu
-        const sortedIndices = Object.keys(window.activeAIFeedbacks).map(Number).sort((a, b) => b - a);
+    // Ưu tiên áp dụng theo activeAIFeedbacks giảm dần để giữ nguyên vẹn ảnh Base64 & thông số các câu không bị sửa
+    const sortedIndices = Object.keys(window.activeAIFeedbacks).map(Number).sort((a, b) => b - a);
+    if (sortedIndices.length > 0) {
         for (const qIdx of sortedIndices) {
             const fb = window.activeAIFeedbacks[qIdx];
             if (!fb) continue;
             if (fb.action === 'delete' || fb.category === 'delete') {
                 currentData.splice(qIdx, 1);
             } else if (fb.corrected_data && currentData[qIdx]) {
-                const origGroup = currentData[qIdx].group_title;
-                currentData[qIdx] = {
-                    ...fb.corrected_data,
-                    group_title: fb.corrected_data.group_title !== undefined ? fb.corrected_data.group_title : origGroup
-                };
+                currentData[qIdx] = mergeAIQuestionPreservingMeta(fb.corrected_data, currentData[qIdx]);
             }
         }
+    } else if (Array.isArray(window.activeAINewQuizData) && window.activeAINewQuizData.length > 0) {
+        currentData = JSON.parse(JSON.stringify(window.activeAINewQuizData));
     }
 
     window.activeAIFeedbacks = {};
@@ -2453,7 +2757,7 @@ function applyAllAISuggestions() {
         <div style="text-align: center; padding: 20px 10px;">
             <div style="font-size: 2.5rem; color: #9333ea; margin-bottom: 8px;"><i class="ri-sparkling-fill"></i></div>
             <h3 style="margin: 0; color: #9333ea;">Đã áp dụng thành công tất cả thay đổi!</h3>
-            <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo Code đã được cập nhật hoàn tất.</p>
+            <p style="margin: 4px 0 0 0; color: #64748b;">Dữ liệu đề thi và trình soạn thảo code đã được cập nhật hoàn tất.</p>
         </div>
     `;
     showToast(`Đã áp dụng tất cả thay đổi thành công!`);
@@ -2499,12 +2803,7 @@ function applyAISuggestion(question_index) {
     const corrected = aiData.corrected_data;
     if (!corrected) return;
 
-    const origGroup = currentData[question_index] ? currentData[question_index].group_title : "";
-    
-    currentData[question_index] = {
-        ...corrected,
-        group_title: corrected.group_title !== undefined ? corrected.group_title : origGroup
-    };
+    currentData[question_index] = mergeAIQuestionPreservingMeta(corrected, currentData[question_index]);
 
     delete window.activeAIFeedbacks[question_index];
     window.activeAINewQuizData = null;
@@ -2600,7 +2899,7 @@ function renderInteractiveTest(mode) {
     testPracticeAnswers = {};
     testExamAnswers = {};
 
-    titleElem.innerText = mode === 'practice' ? "🎯 Chế độ Luyện tập thử nghiệm" : "📝 Chế độ Thi thử nghiệm";
+    titleElem.innerText = mode === 'practice' ? "🎯 Chế độ luyện tập thử nghiệm" : "📝 Chế độ thi thử nghiệm";
     submitArea.style.display = mode === 'exam' ? 'block' : 'none';
 
     let html = "";
@@ -2822,6 +3121,7 @@ async function exportWordDocument() {
     }
 
     const targetUrl = editingQuizId ? `/export/${encodeURIComponent(editingQuizId)}` : '/export';
+    window.allowStudioNavigationWithoutPrompt = true;
     window.location.href = targetUrl;
 }
 
@@ -2842,6 +3142,9 @@ function openExportDocxModal(quizId, quizTitle = "") {
     setDocxLayoutUI('compact');
     const optSelect = document.getElementById('docxOptionsLayout');
     if (optSelect) optSelect.value = 'auto';
+    if (typeof window.initEditorExtraCustomSelects === 'function') {
+        window.initEditorExtraCustomSelects();
+    }
 
     modal.style.display = 'flex';
 }
@@ -3044,11 +3347,13 @@ function openPublishModal() {
     let mcqList = [];
     let tfList = [];
     let saList = [];
+    let essayList = [];
 
     questions.forEach((q, idx) => {
         const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
         if (type === 'true_false' || type === 'tf') tfList.push(idx);
         else if (type === 'short_answer' || type === 'sa') saList.push(idx);
+        else if (type === 'essay' || type === 'tu_luan') essayList.push(idx);
         else mcqList.push(idx);
     });
 
@@ -3061,6 +3366,8 @@ function openPublishModal() {
     if (tfEl) tfEl.textContent = tfList.length;
     const saEl = document.getElementById('statSaCount');
     if (saEl) saEl.textContent = saList.length;
+    const essayEl = document.getElementById('statEssayCount');
+    if (essayEl) essayEl.textContent = essayList.length;
 
     // 3. Cập nhật tiêu đề & tùy chọn
     const titleInput = document.getElementById('modalQuizTitle');
@@ -3083,11 +3390,203 @@ function openPublishModal() {
     window.currentPublishMcqList = mcqList;
     window.currentPublishTfList = tfList;
     window.currentPublishSaList = saList;
+    window.currentPublishEssayList = essayList;
     publishAuditFilter = 'all';
     filterPublishType('all');
 
+    // 5. Khởi tạo thang điểm & chia điểm từng phần trong modal
+    initModalScoringUI(mcqList.length, tfList.length, saList.length, essayList.length, questions.length);
+    if (typeof window.initModalCustomSelects === 'function') {
+        window.initModalCustomSelects();
+    }
+
     modal.style.display = 'flex';
 }
+
+function initModalScoringUI(mcqCount, tfCount, saCount, essayCount, totalCount) {
+    const selMode = document.getElementById('modalScoringMode');
+    const p1Box = document.getElementById('modalScoringPart1Box');
+    if (p1Box) p1Box.style.display = mcqCount > 0 ? 'flex' : 'none';
+    const p2Box = document.getElementById('modalScoringPart2Box');
+    if (p2Box) p2Box.style.display = tfCount > 0 ? 'flex' : 'none';
+    const p3Box = document.getElementById('modalScoringPart3Box');
+    if (p3Box) p3Box.style.display = saCount > 0 ? 'flex' : 'none';
+    const p4Box = document.getElementById('modalScoringPart4Box');
+    if (p4Box) p4Box.style.display = essayCount > 0 ? 'flex' : 'none';
+
+    const b1 = document.getElementById('modalPart1CountBadge');
+    if (b1) b1.textContent = `${mcqCount} câu`;
+    const b2 = document.getElementById('modalPart2CountBadge');
+    if (b2) b2.textContent = `${tfCount} câu (4 ý a, b, c, d)`;
+    const b3 = document.getElementById('modalPart3CountBadge');
+    if (b3) b3.textContent = `${saCount} câu`;
+    const b4 = document.getElementById('modalPart4CountBadge');
+    if (b4) b4.textContent = `${essayCount} câu`;
+
+    const emptyNotice = document.getElementById('modalScoringEmptyNotice');
+    if (emptyNotice) {
+        emptyNotice.style.display = totalCount === 0 ? 'block' : 'none';
+    }
+
+    if (selMode) {
+        const optGdpt = selMode.querySelector('option[value="gdpt2018"]');
+        const hasGdptParts = (tfCount > 0 || saCount > 0);
+        if (optGdpt) {
+            if (!hasGdptParts) {
+                optGdpt.disabled = true;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (đề cần có đúng / sai hoặc trả lời ngắn)';
+            } else {
+                optGdpt.disabled = false;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: 3đ - 4đ - 3đ)';
+            }
+        }
+    }
+
+    const existingScoring = editingQuizSettings && editingQuizSettings.scoring;
+    if (existingScoring && selMode) {
+        selMode.value = existingScoring.mode || 'auto';
+        if (existingScoring.part1_point_per_q !== undefined) document.getElementById('modalPtPart1').value = existingScoring.part1_point_per_q;
+        if (existingScoring.part2_point_per_q !== undefined) document.getElementById('modalPtPart2').value = existingScoring.part2_point_per_q;
+        if (existingScoring.part3_point_per_q !== undefined) document.getElementById('modalPtPart3').value = existingScoring.part3_point_per_q;
+        if (existingScoring.part4_point_per_q !== undefined) document.getElementById('modalPtPart4').value = existingScoring.part4_point_per_q;
+    } else if (selMode) {
+        if (tfCount > 0 || saCount > 0) {
+            selMode.value = 'gdpt2018';
+        } else {
+            selMode.value = 'auto';
+        }
+        applyModalScoringPreset(mcqCount, tfCount, saCount, essayCount, totalCount);
+    }
+    updateModalScoringTotal();
+}
+
+function onModalScoringModeChange() {
+    const mcqCount = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
+    const tfCount = (window.currentPublishTfList && window.currentPublishTfList.length) || 0;
+    const saCount = (window.currentPublishSaList && window.currentPublishSaList.length) || 0;
+    const essayCount = (window.currentPublishEssayList && window.currentPublishEssayList.length) || 0;
+    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    applyModalScoringPreset(mcqCount, tfCount, saCount, essayCount, questions.length);
+    updateModalScoringTotal();
+}
+
+function onModalScoringInputChanged(part) {
+    const selMode = document.getElementById('modalScoringMode');
+    if (selMode && selMode.value !== 'custom') {
+        selMode.value = 'custom';
+    }
+    updateModalScoringTotal();
+}
+
+function applyModalScoringPreset(mcqCount, tfCount, saCount, essayCount, totalCount) {
+    const sel = document.getElementById('modalScoringMode');
+    if (!sel) return;
+    const mode = sel.value;
+    const elPt1 = document.getElementById('modalPtPart1');
+    const elPt2 = document.getElementById('modalPtPart2');
+    const elPt3 = document.getElementById('modalPtPart3');
+    const elPt4 = document.getElementById('modalPtPart4');
+    if (!elPt1 || !elPt2 || !elPt3 || !elPt4) return;
+
+    if (mode === 'auto') {
+        const pt = totalCount > 0 ? (10.0 / totalCount) : 0;
+        const rounded = Math.round(pt * 1000) / 1000;
+        elPt1.value = mcqCount > 0 ? rounded : 0;
+        elPt2.value = tfCount > 0 ? rounded : 0;
+        elPt3.value = saCount > 0 ? rounded : 0;
+        elPt4.value = essayCount > 0 ? rounded : 0;
+    } else if (mode === 'gdpt2018') {
+        const pt1 = mcqCount > 0 ? (3.0 / mcqCount) : 0;
+        const pt2 = tfCount > 0 ? (4.0 / tfCount) : 0;
+        const pt3 = saCount > 0 ? (3.0 / saCount) : 0;
+        elPt1.value = mcqCount > 0 ? Math.round(pt1 * 100) / 100 : 0;
+        elPt2.value = tfCount > 0 ? Math.round(pt2 * 100) / 100 : 0;
+        elPt3.value = saCount > 0 ? Math.round(pt3 * 100) / 100 : 0;
+        elPt4.value = essayCount > 0 ? 1.0 : 0;
+    }
+}
+
+function updateModalScoringTotal() {
+    const mcqCount = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
+    const tfCount = (window.currentPublishTfList && window.currentPublishTfList.length) || 0;
+    const saCount = (window.currentPublishSaList && window.currentPublishSaList.length) || 0;
+    const essayCount = (window.currentPublishEssayList && window.currentPublishEssayList.length) || 0;
+    const totalCount = mcqCount + tfCount + saCount + essayCount;
+
+    const elPt1 = document.getElementById('modalPtPart1');
+    const elPt2 = document.getElementById('modalPtPart2');
+    const elPt3 = document.getElementById('modalPtPart3');
+    const elPt4 = document.getElementById('modalPtPart4');
+    if (!elPt1 || !elPt2 || !elPt3 || !elPt4) return 10.0;
+
+    const sel = document.getElementById('modalScoringMode');
+    const mode = sel ? sel.value : 'auto';
+
+    const pt1 = parseFloat(elPt1.value) || 0;
+    const pt2 = parseFloat(elPt2.value) || 0;
+    const pt3 = parseFloat(elPt3.value) || 0;
+    const pt4 = parseFloat(elPt4.value) || 0;
+
+    let tot1 = 0, tot2 = 0, tot3 = 0, tot4 = 0, total = 10.0;
+    if (mode === 'auto') {
+        tot1 = totalCount > 0 ? (mcqCount / totalCount) * 10.0 : 0;
+        tot2 = totalCount > 0 ? (tfCount / totalCount) * 10.0 : 0;
+        tot3 = totalCount > 0 ? (saCount / totalCount) * 10.0 : 0;
+        tot4 = totalCount > 0 ? (essayCount / totalCount) * 10.0 : 0;
+
+        tot1 = Math.round(tot1 * 100) / 100;
+        tot2 = Math.round(tot2 * 100) / 100;
+        tot3 = Math.round(tot3 * 100) / 100;
+        tot4 = Math.round(tot4 * 100) / 100;
+        total = 10.0;
+    } else {
+        tot1 = Math.round(mcqCount * pt1 * 100) / 100;
+        tot2 = Math.round(tfCount * pt2 * 100) / 100;
+        tot3 = Math.round(saCount * pt3 * 100) / 100;
+        tot4 = Math.round(essayCount * pt4 * 100) / 100;
+        total = Math.round((tot1 + tot2 + tot3 + tot4) * 100) / 100;
+    }
+
+    const t1El = document.getElementById('modalPart1Total');
+    if (t1El) t1El.textContent = `= ${tot1}đ`;
+    const t2El = document.getElementById('modalPart2Total');
+    if (t2El) t2El.textContent = `= ${tot2}đ`;
+    const t3El = document.getElementById('modalPart3Total');
+    if (t3El) t3El.textContent = `= ${tot3}đ`;
+    const t4El = document.getElementById('modalPart4Total');
+    if (t4El) t4El.textContent = `= ${tot4}đ`;
+
+    const badge = document.getElementById('modalScoringBadge');
+    if (badge) {
+        if (Math.abs(total - 10.0) < 0.05) {
+            badge.innerHTML = `<i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm`;
+            badge.style.background = '#ecfdf5';
+            badge.style.color = '#047857';
+            badge.style.borderColor = '#a7f3d0';
+        } else {
+            badge.innerHTML = `<i class="ri-error-warning-fill" style="color: #f59e0b;"></i> Tổng: ${total} điểm`;
+            badge.style.background = '#fef3c7';
+            badge.style.color = '#b45309';
+            badge.style.borderColor = '#fde68a';
+        }
+    }
+
+    const helperText = document.getElementById('modalScoringHelperText');
+    if (helperText) {
+        if (mode === 'auto') {
+            helperText.innerHTML = 'Điểm số tự động chia đều theo câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.';
+        } else if (mode === 'gdpt2018') {
+            helperText.innerHTML = 'Phân bổ theo chuẩn Bộ GD&ĐT: Phần I (3.0đ) • Phần II (4.0đ) • Phần III (3.0đ).';
+        } else {
+            helperText.innerHTML = 'Chế độ tự do: Bạn có thể nhập điểm tùy ý cho từng câu của mỗi phần.';
+        }
+    }
+
+    return total;
+}
+window.onModalScoringModeChange = onModalScoringModeChange;
+window.onModalScoringInputChanged = onModalScoringInputChanged;
+window.updateModalScoringTotal = updateModalScoringTotal;
 
 function filterPublishType(type) {
     publishAuditFilter = type;
@@ -3097,22 +3596,27 @@ function filterPublishType(type) {
         const c = document.getElementById('cardStatMcq');
         if (c) c.classList.add('active');
         const l = document.getElementById('pubFilterLabel');
-        if (l) l.textContent = '(Trắc nghiệm nhiều lựa chọn)';
+        if (l) l.textContent = '(trắc nghiệm nhiều lựa chọn)';
     } else if (type === 'true_false') {
         const c = document.getElementById('cardStatTf');
         if (c) c.classList.add('active');
         const l = document.getElementById('pubFilterLabel');
-        if (l) l.textContent = '(Đúng / Sai 4 ý a,b,c,d)';
+        if (l) l.textContent = '(đúng / sai 4 ý a, b, c, d)';
     } else if (type === 'short_answer') {
         const c = document.getElementById('cardStatSa');
         if (c) c.classList.add('active');
         const l = document.getElementById('pubFilterLabel');
-        if (l) l.textContent = '(Trả lời ngắn điền số)';
+        if (l) l.textContent = '(trả lời ngắn điền số)';
+    } else if (type === 'essay') {
+        const c = document.getElementById('cardStatEssay');
+        if (c) c.classList.add('active');
+        const l = document.getElementById('pubFilterLabel');
+        if (l) l.textContent = '(tự luận)';
     } else {
         const c = document.getElementById('cardStatTotal');
         if (c) c.classList.add('active');
         const l = document.getElementById('pubFilterLabel');
-        if (l) l.textContent = '(Tất cả các câu)';
+        if (l) l.textContent = '(tất cả các câu)';
     }
 
     renderPublishQuestionsGrid(type);
@@ -3132,6 +3636,7 @@ function renderPublishQuestionsGrid(filter) {
     const mcqSet = new Set(window.currentPublishMcqList || []);
     const tfSet = new Set(window.currentPublishTfList || []);
     const saSet = new Set(window.currentPublishSaList || []);
+    const essaySet = new Set(window.currentPublishEssayList || []);
 
     questions.forEach((q, idx) => {
         let isMatch = true;
@@ -3140,12 +3645,16 @@ function renderPublishQuestionsGrid(filter) {
 
         if (tfSet.has(idx)) {
             typeClass = 'btn-q-tf';
-            typeName = 'Đúng/Sai';
+            typeName = 'Đúng/sai';
             if (filter !== 'all' && filter !== 'true_false') isMatch = false;
         } else if (saSet.has(idx)) {
             typeClass = 'btn-q-sa';
             typeName = 'Trả lời ngắn';
             if (filter !== 'all' && filter !== 'short_answer') isMatch = false;
+        } else if (essaySet.has(idx)) {
+            typeClass = 'btn-q-essay';
+            typeName = 'Tự luận';
+            if (filter !== 'all' && filter !== 'essay') isMatch = false;
         } else {
             typeClass = 'btn-q-mcq';
             typeName = 'Trắc nghiệm';
@@ -3158,7 +3667,7 @@ function renderPublishQuestionsGrid(filter) {
             btn.className = `pub-q-btn ${typeClass}`;
             btn.dataset.idx = idx;
             btn.textContent = idx + 1;
-            btn.title = `Câu ${idx + 1} (${typeName}) - Bấm để nhảy đến câu này`;
+            btn.title = `Câu ${idx + 1} (${typeName}) - bấm để nhảy đến câu này`;
             btn.onclick = () => jumpToQuestionFromPublishModal(idx);
             grid.appendChild(btn);
         }
@@ -3203,7 +3712,7 @@ function dockPublishModalToCorner(qIndex) {
     let typeName = 'Trắc nghiệm';
     if (q) {
         const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
-        if (type === 'true_false' || type === 'tf') typeName = 'Đúng/Sai';
+        if (type === 'true_false' || type === 'tf') typeName = 'Đúng/sai';
         else if (type === 'short_answer' || type === 'sa') typeName = 'Trả lời ngắn';
     }
 
@@ -3244,6 +3753,45 @@ function proceedToPublishPage() {
     const isShuffle = document.getElementById('modalQuizShuffle') ? document.getElementById('modalQuizShuffle').checked : (editingQuizSettings ? !!editingQuizSettings.isShuffle : true);
 
     const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+
+    const scoringMode = (document.getElementById('modalScoringMode') && document.getElementById('modalScoringMode').value) || 'auto';
+    const mcqCnt = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
+    const tfCnt = (window.currentPublishTfList && window.currentPublishTfList.length) || 0;
+    const saCnt = (window.currentPublishSaList && window.currentPublishSaList.length) || 0;
+    const essayCnt = (window.currentPublishEssayList && window.currentPublishEssayList.length) || 0;
+    const totalCount = questions.length;
+
+    let pt1 = parseFloat(document.getElementById('modalPtPart1') && document.getElementById('modalPtPart1').value) || 0;
+    let pt2 = parseFloat(document.getElementById('modalPtPart2') && document.getElementById('modalPtPart2').value) || 0;
+    let pt3 = parseFloat(document.getElementById('modalPtPart3') && document.getElementById('modalPtPart3').value) || 0;
+    let pt4 = parseFloat(document.getElementById('modalPtPart4') && document.getElementById('modalPtPart4').value) || 0;
+
+    if (scoringMode === 'auto') {
+        const autoPt = totalCount > 0 ? (Math.round((10.0 / totalCount) * 1000) / 1000) : 0;
+        pt1 = mcqCnt > 0 ? autoPt : 0;
+        pt2 = tfCnt > 0 ? autoPt : 0;
+        pt3 = saCnt > 0 ? autoPt : 0;
+        pt4 = essayCnt > 0 ? autoPt : 0;
+    }
+    const totalScore = (typeof updateModalScoringTotal === 'function') ? updateModalScoringTotal() : 10.0;
+
+    const scoringSettings = {
+        mode: scoringMode,
+        total_score: totalScore,
+        part1_point_per_q: pt1,
+        part2_point_per_q: pt2,
+        part3_point_per_q: pt3,
+        part4_point_per_q: pt4
+    };
+
+    // Gán điểm từng câu trực tiếp vào danh sách câu hỏi
+    questions.forEach(q => {
+        const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
+        if (type === 'true_false' || type === 'tf') q.points = pt2;
+        else if (type === 'short_answer' || type === 'sa') q.points = pt3;
+        else if (type === 'essay' || type === 'tu_luan') q.points = pt4;
+        else q.points = pt1;
+    });
     
     const payload = {
         title: title,
@@ -3253,7 +3801,10 @@ function proceedToPublishPage() {
         time_limit: timeLimit,
         is_shuffle: isShuffle,
         creator_id: (typeof authToken !== 'undefined') ? authToken : '',
-        status: 'published'
+        status: 'published',
+        settings: {
+            scoring: scoringSettings
+        }
     };
 
     const targetId = (typeof editingQuizId !== 'undefined' && editingQuizId) ? editingQuizId : null;
@@ -3273,6 +3824,8 @@ function proceedToPublishPage() {
     const dock = document.getElementById('publishDockBar');
     if (dock) dock.style.display = 'none';
 
+    window.allowStudioNavigationWithoutPrompt = true;
+    window.isNavigatingToPublish = true;
     if (targetId) {
         window.location.href = `/publish?id=${encodeURIComponent(targetId)}`;
     } else {
@@ -3292,7 +3845,7 @@ async function confirmPublishQuiz() {
     if (!title) return alert("Vui lòng nhập tên bài kiểm tra!");
 
     if (!authToken) {
-        alert("Vui lòng đăng nhập tài khoản Giáo viên để lưu và xuất bản đề thi!");
+        alert("Vui lòng đăng nhập tài khoản giáo viên để lưu và xuất bản đề thi!");
         window.location.href = "/dang-nhap";
         return;
     }
@@ -3335,12 +3888,13 @@ async function confirmPublishQuiz() {
         if (result.status === 'success') {
             editingQuizId = result.quiz_id;
             window.isCurrentQuizPublished = true;
+            window.hasUnsavedStudioChanges = false;
             window.draftImageKeys = [];
             sessionStorage.removeItem('editor_draft_images');
             sessionStorage.removeItem('editor_pending_task_id');
             editingQuizSettings = { title, mode, timeLimit, isShuffle };
             document.getElementById('studioQuizTitle').value = title;
-            saveDraftToSession();
+            saveDraftToSession(false);
 
             hideStudioLoader();
 
@@ -3364,7 +3918,7 @@ async function confirmPublishQuiz() {
     } finally {
         hideStudioLoader();
         if (btn) {
-            btn.innerText = "🚀 Lưu & Xuất bản ngay";
+            btn.innerText = "🚀 Lưu & xuất bản ngay";
             btn.disabled = false;
         }
     }
@@ -3422,7 +3976,7 @@ function copyShareLink() {
 
 function copyCurrentStudioLink() {
     if (!editingQuizId) {
-        alert("Đề thi này chưa được lưu hoặc xuất bản. Vui lòng bấm 'Lưu & Xuất bản' trước!");
+        alert("Đề thi này chưa được lưu hoặc xuất bản. Vui lòng bấm 'Lưu & xuất bản' trước!");
         return;
     }
     const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";
@@ -3487,7 +4041,7 @@ async function handleDiscardOrDelete() {
     if (editingQuizId) {
         const confirmDel = confirm(
             "🗑️ XÁC NHẬN XÓA ĐỀ THI:\n\n" +
-            "Bạn có chắc chắn muốn đưa đề thi này vào Thùng rác không?\n" +
+            "Bạn có chắc chắn muốn đưa đề thi này vào thùng rác không?\n" +
             "Học sinh sẽ không thể tiếp tục truy cập bài thi này."
         );
         if (!confirmDel) return;
@@ -3506,6 +4060,8 @@ async function handleDiscardOrDelete() {
             const data = await res.json();
             if (res.ok && data.status === 'success') {
                 alert("Đã đưa đề thi vào thùng rác!");
+                window.hasUnsavedStudioChanges = false;
+                window.allowStudioNavigationWithoutPrompt = true;
                 window.location.href = "/giao-vien";
             } else {
                 hideStudioLoader();
@@ -3520,7 +4076,7 @@ async function handleDiscardOrDelete() {
 
     const confirmDiscard = confirm(
         "⚠️ XÁC NHẬN HỦY BỎ BẢN NHÁP:\n\n" +
-        "Toàn bộ câu hỏi và hình ảnh vừa phân tích sẽ bị XÓA VĨNH VIỄN khỏi hệ thống (Database và Cloudflare R2).\n" +
+        "Toàn bộ câu hỏi và hình ảnh vừa phân tích sẽ bị XÓA VĨNH VIỄN khỏi hệ thống (database và Cloudflare R2).\n" +
         "Hành động này giúp giải phóng hoàn toàn dung lượng lưu trữ.\n\n" +
         "Bạn có chắc chắn muốn hủy bỏ không?"
     );
@@ -3531,6 +4087,8 @@ async function handleDiscardOrDelete() {
         subtitle: "Đang giải phóng dung lượng bộ nhớ và Cloudflare R2..."
     });
     await discardCurrentDraft();
+    window.hasUnsavedStudioChanges = false;
+    window.allowStudioNavigationWithoutPrompt = true;
     window.location.href = "/giao-vien";
 }
 
@@ -3543,7 +4101,7 @@ async function handleBackToDashboard() {
     if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
         const confirmExit = confirm(
             "⚠️ BẠN CHƯA XUẤT BẢN ĐỀ THI!\n\n" +
-            "Nếu quay lại bây giờ mà không xuất bản, toàn bộ câu hỏi và hình ảnh tạm thời sẽ được HỦY BỎ HOÀN TOÀN để tránh làm đầy dữ liệu hệ thống (Database và Cloudflare R2).\n\n" +
+            "Nếu quay lại bây giờ mà không xuất bản, toàn bộ câu hỏi và hình ảnh tạm thời sẽ được HỦY BỎ HOÀN TOÀN để tránh làm đầy dữ liệu hệ thống (database và Cloudflare R2).\n\n" +
             "• Chọn [OK]: Hủy đề & dọn sạch dung lượng để về trang chủ.\n" +
             "• Chọn [Cancel]: Ở lại Studio để tiếp tục chỉnh sửa hoặc xuất bản."
         );
@@ -3554,16 +4112,37 @@ async function handleBackToDashboard() {
             subtitle: "Đang chuẩn bị đưa bạn quay lại bảng điều khiển..."
         });
         await discardCurrentDraft();
+        window.hasUnsavedStudioChanges = false;
+        window.allowStudioNavigationWithoutPrompt = true;
         window.location.href = "/giao-vien";
         return;
+    }
+
+    if (editingQuizId && window.hasUnsavedStudioChanges) {
+        const confirmLeaveEdit = confirm(
+            "Bạn có thay đổi chưa được lưu hoặc xuất bản lại!\n\n" +
+            "Nếu quay lại bảng điều khiển bây giờ, các chỉnh sửa vừa rồi sẽ chưa được cập nhật lên máy chủ.\n\n" +
+            "• Chọn [OK]: Bỏ thay đổi và quay lại.\n" +
+            "• Chọn [Cancel]: Ở lại Studio để lưu hoặc xuất bản."
+        );
+        if (!confirmLeaveEdit) return;
+        window.allowStudioNavigationWithoutPrompt = true;
     }
     
     window.location.href = "/giao-vien";
 }
 
-// Tự động dọn dẹp R2 nếu người dùng đóng tab / tắt trình duyệt khi chưa xuất bản
-window.addEventListener('beforeunload', () => {
-    if (!editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
+// Hỏi xác nhận khi giáo viên đóng/tải lại/thoát tab giữa chừng khi chưa lưu hoặc chưa xuất bản
+window.addEventListener('beforeunload', (e) => {
+    if (hasPendingStudioExitWarning()) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Tự động dọn dẹp R2 chỉ khi trang thực sự rời đi mà chưa xuất bản (tránh xóa nhầm khi user chọn "Ở lại" hoặc chuyển sang /publish)
+window.addEventListener('pagehide', () => {
+    if (!window.isNavigatingToPublish && !editingQuizId && !window.isCurrentQuizPublished && currentData && currentData.length > 0) {
         const storedImages = JSON.parse(sessionStorage.getItem('editor_draft_images') || '[]');
         const currentImages = extractImageKeysFromClient(currentData);
         const allImages = Array.from(new Set([...(window.draftImageKeys || []), ...storedImages, ...currentImages]));
@@ -3666,22 +4245,18 @@ window.runCrossCheckAI = async function() {
         }
     }, 600);
     try {
-        const res = await fetch(`${API_BASE_URL}/api/teacher/cross_check_answers`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                teacher_token: authToken,
-                quiz_data: currentData
-            })
+        const lightweightQuiz = buildLightweightAIQuizPayload(currentData);
+        const { res, data } = await postAIWithFallback('/api/teacher/cross_check_answers', {
+            teacher_token: authToken || '',
+            quiz_data: lightweightQuiz
         });
-        const data = await res.json();
         if (typeof hideStudioLoader === 'function') hideStudioLoader();
         if (typeof crossTimer !== 'undefined') clearInterval(crossTimer);
 
         if (res.ok && data.status === 'success') {
             const rawQuiz = data.quiz_data || data.data || [];
             if (Array.isArray(rawQuiz) && rawQuiz.length > 0) {
-                currentData = rawQuiz;
+                currentData = rawQuiz.map((q, idx) => mergeAIQuestionPreservingMeta(q, currentData[idx]));
             }
             const totalChecked = data.total_checked || data.total_questions || currentData.length;
             const mismatches = (data.mismatches_found !== undefined) ? data.mismatches_found : ((data.mismatch_count !== undefined) ? data.mismatch_count : (data.mismatches ? data.mismatches.length : 0));
@@ -3697,7 +4272,7 @@ window.runCrossCheckAI = async function() {
                 }, 300);
                 alert(`⚠️ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát xong ${totalChecked} câu hỏi.\nPhát hiện ${mismatches} câu hỏi có đáp án AI giải KHÁC với đáp án ban đầu!\n\nHệ thống đã đánh dấu các khung cảnh báo MÀU CAM tại từng câu hỏi tương ứng trong Studio để bạn rà soát và quyết định cập nhật.`);
             } else {
-                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của Giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
+                alert(`✅ KẾT QUẢ KIỂM TRA CHÉO:\n\nĐã đối soát toàn bộ ${totalChecked} câu hỏi.\n100% đáp án của giáo viên trùng khớp hoàn toàn với kết quả AI giải độc lập! Không phát hiện câu nào có nghi vấn.`);
             }
         } else {
             showAIDiagnosticModal(data);
@@ -3754,7 +4329,7 @@ window.dismissAICrossCheck = function(qIndex) {
     delete currentData[qIndex].cross_check_info;
     renderPreviewAll();
     saveDraftToSession();
-    showToast("Đã giữ lại đáp án của Giáo viên.");
+    showToast("Đã giữ lại đáp án của giáo viên.");
 };
 
 let activeSimilarBaseIndex = null;
@@ -3798,6 +4373,9 @@ window.openSimilarModal = function(qIndex) {
     }
 
     if (modal) {
+        if (typeof window.initEditorExtraCustomSelects === 'function') {
+            window.initEditorExtraCustomSelects();
+        }
         modal.style.display = 'flex';
         if (typeof renderMathJax === 'function') renderMathJax(preview);
     }
@@ -4008,7 +4586,7 @@ function insertTableToEditor(type) {
     document.execCommand('insertHTML', false, tableHtml);
     codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
     if (typeof showToast === 'function') {
-        showToast(type === 'bbt' ? 'Đã chèn khung Bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
+        showToast(type === 'bbt' ? 'Đã chèn khung bảng biến thiên chuẩn!' : 'Đã chèn bảng dữ liệu!');
     }
 }
 
@@ -4199,11 +4777,47 @@ function clearEditorFormatting() {
 
 // --------------------------------------------------------------------------
 // --------------------------------------------------------------------------
-// 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE TRỰC QUAN
+// 2. MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG CORTEXJS + MATHLIVE
 // --------------------------------------------------------------------------
 let __mathtype_typeset_done = false;
+let __activeEditingFormulaRange = null;
 
-function openLatexMathModal() {
+function ensureMathKeyboardReady() {
+    try {
+        document.documentElement.style.setProperty('--keyboard-zindex', '2147483647');
+        document.body.style.setProperty('--keyboard-zindex', '2147483647');
+
+        if (window.mathVirtualKeyboard) {
+            window.mathVirtualKeyboard.container = document.body;
+        }
+
+        const applyKeyboardLayers = () => {
+            const kbs = document.querySelectorAll('.ML__keyboard, div.ML__keyboard, .ML__keyboard-sink');
+            kbs.forEach(el => {
+                el.style.setProperty('z-index', '2147483647', 'important');
+                el.style.setProperty('position', 'fixed', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            });
+            const backdrops = document.querySelectorAll('.ML__keyboard .MLK__backdrop, .ML__keyboard .MLK__plate, .ML__keyboard .MLK__keycap');
+            backdrops.forEach(el => {
+                el.style.setProperty('pointer-events', 'all', 'important');
+            });
+        };
+
+        applyKeyboardLayers();
+
+        if (window.mathVirtualKeyboard && !window._mathVirtualKeyboardListenerAttached) {
+            window._mathVirtualKeyboardListenerAttached = true;
+            window.mathVirtualKeyboard.addEventListener('virtual-keyboard-toggle', () => {
+                setTimeout(applyKeyboardLayers, 10);
+                setTimeout(applyKeyboardLayers, 80);
+                setTimeout(applyKeyboardLayers, 250);
+            });
+        }
+    } catch (_) {}
+}
+
+function openLatexMathModal(customPrefill = null, isEditMode = false) {
     try {
         saveCurrentEditorSelection();
     } catch (_) {}
@@ -4214,23 +4828,52 @@ function openLatexMathModal() {
         return;
     }
 
-    // 1. Luôn hiển thị modal ngay lập tức để người dùng có phản hồi thị giác
-    modal.style.display = 'flex';
+    // 1. Cập nhật tiêu đề & nút bấm theo chế độ
+    const titleEl = document.getElementById('latexModalTitleText');
+    const confirmBtn = document.getElementById('btnConfirmLatexInsert');
+    if (titleEl) {
+        titleEl.textContent = isEditMode ? 'Chỉnh sửa công thức' : 'Soạn thảo công thức';
+    }
+    if (confirmBtn) {
+        confirmBtn.textContent = isEditMode ? 'Cập nhật' : 'Chèn';
+    }
 
-    // 2. Điền trước công thức nếu người dùng đang bôi đen một đoạn text trong editor
-    let prefill = '';
-    try {
-        if (savedEditorSelection && !savedEditorSelection.collapsed) {
-            const selectedText = savedEditorSelection.toString().trim();
-            if (selectedText) {
-                prefill = selectedText.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+    // 2. Hiển thị modal (neo ở trên cùng, chừa 340px đáy cho bàn phím ảo MathLive)
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'flex-start';
+    modal.style.paddingTop = '24px';
+    modal.style.paddingBottom = '340px';
+    modal.style.overflowY = 'auto';
+
+    // 3. Tự động bật bàn phím ảo MathLive trượt lên từ đáy màn hình
+    ensureMathKeyboardReady();
+    setTimeout(() => {
+        try {
+            if (window.mathVirtualKeyboard) {
+                window.mathVirtualKeyboard.show({ animate: true });
             }
-        }
-    } catch (_) {}
+            ensureMathKeyboardReady();
+        } catch (_) {}
+    }, 80);
+
+    // 4. Lấy nội dung công thức cần điền sẵn
+    let prefill = customPrefill;
+    if (prefill === null) {
+        prefill = '';
+        try {
+            if (savedEditorSelection && !savedEditorSelection.collapsed) {
+                const selectedText = savedEditorSelection.toString().trim();
+                if (selectedText) {
+                    prefill = selectedText.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+                }
+            }
+        } catch (_) {}
+    }
 
     const mf = document.getElementById('mathLiveEditor');
     if (mf) {
         try {
+            mf.mathVirtualKeyboardPolicy = 'manual';
             if (typeof mf.setValue === 'function') {
                 mf.setValue(prefill || '', { format: 'latex' });
             } else {
@@ -4240,90 +4883,330 @@ function openLatexMathModal() {
             console.warn("Lỗi set value mathLiveEditor:", e);
             try { mf.value = prefill || ''; } catch (_) {}
         }
+        
+        // Ẩn kết quả tính nhẩm cũ và kiểm tra cú pháp ban đầu
+        hideLatexEvalResult();
+        validateLatexSyntax();
+
+        setTimeout(() => {
+            try {
+                if (typeof mf.focus === 'function') {
+                    mf.focus();
+                }
+            } catch (_) {}
+        }, 150);
     }
-
-    // 3. Typeset MathJax duy nhất 1 lần cho modal để chống lỗi lồng mjx-container
-    try {
-        if (!__mathtype_typeset_done && window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
-            window.MathJax.typesetPromise([modal]).then(() => {
-                __mathtype_typeset_done = true;
-            }).catch(() => {});
-        }
-    } catch (_) {}
-
-    // 4. Focus vào ô nhập công thức
-    setTimeout(() => {
-        try {
-            if (mf && typeof mf.focus === 'function') {
-                mf.focus();
-            }
-        } catch (_) {}
-    }, 100);
 }
 
 function closeLatexMathModal() {
     const modal = document.getElementById('latexMathModal');
     if (modal) modal.style.display = 'none';
+    __activeEditingFormulaRange = null;
+
+    try {
+        if (window.mathVirtualKeyboard) {
+            window.mathVirtualKeyboard.hide({ animate: true });
+        }
+    } catch (_) {}
 }
 
-function switchMathTypeTab(tabId, btn) {
-    const nav = document.getElementById('mathTypeTabsNav');
-    if (nav) {
-        nav.querySelectorAll('.mathtype-tab-btn').forEach(b => b.classList.remove('active'));
+function toggleLatexVirtualKeyboard() {
+    ensureMathKeyboardReady();
+    try {
+        if (!window.mathVirtualKeyboard) return;
+        if (window.mathVirtualKeyboard.visible) {
+            window.mathVirtualKeyboard.hide({ animate: true });
+        } else {
+            window.mathVirtualKeyboard.show({ animate: true });
+            ensureMathKeyboardReady();
+            const mf = document.getElementById('mathLiveEditor');
+            if (mf && typeof mf.focus === 'function') mf.focus();
+        }
+    } catch (e) {
+        console.warn("Lỗi toggle bàn phím ảo:", e);
     }
-    if (btn) {
-        btn.classList.add('active');
-    }
-
-    const panes = document.querySelectorAll('.mathtype-pane');
-    panes.forEach(p => p.style.display = 'none');
-
-    const targetPane = document.getElementById('mathPane-' + tabId);
-    if (targetPane) {
-        targetPane.style.display = 'flex';
-    }
-
-    const mf = document.getElementById('mathLiveEditor');
-    if (mf && typeof mf.focus === 'function') mf.focus();
 }
 
-function insertMathSnippet(snippet) {
+function insertShortcutSymbol(type) {
     const mf = document.getElementById('mathLiveEditor');
     if (!mf) return;
     try {
-        if (typeof mf.executeCommand === 'function') {
-            mf.executeCommand(['insert', snippet]);
-        } else if (typeof mf.insert === 'function') {
-            mf.insert(snippet);
-        } else {
-            mf.value = (mf.value || '') + snippet;
-        }
         if (typeof mf.focus === 'function') mf.focus();
+        if (type === 'frac') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '\\frac{#@}{#?}']);
+            else mf.insert('\\frac{}{}', { format: 'latex' });
+        } else if (type === 'pow') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '^{#?}']);
+            else mf.insert('^{}', { format: 'latex' });
+        } else if (type === 'sub') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '_{#?}']);
+            else mf.insert('_{}', { format: 'latex' });
+        } else if (type === 'sqrt') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '\\sqrt{#?}']);
+            else mf.insert('\\sqrt{}', { format: 'latex' });
+        } else if (type === 'pi') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '\\pi ']);
+            else mf.insert('\\pi', { format: 'latex' });
+        } else if (type === 'paren') {
+            if (typeof mf.executeCommand === 'function') mf.executeCommand(['insert', '\\left(#?\\right)']);
+            else mf.insert('\\left(\\right)', { format: 'latex' });
+        }
+        validateLatexSyntax();
     } catch (e) {
-        console.warn("Lỗi chèn công thức math snippet:", e);
-        try { mf.value = (mf.value || '') + snippet; } catch (_) {}
+        console.warn("Lỗi insertShortcutSymbol:", e);
     }
 }
 
-// Bắt sự kiện click vào các phím ảo chứa data-snippet chuẩn xác 100%
-document.addEventListener('click', function(e) {
-    const btn = e.target.closest('button.mathtype-key');
-    if (btn && btn.hasAttribute('data-snippet')) {
-        e.preventDefault();
-        const snip = btn.getAttribute('data-snippet');
-        if (snip) {
-            insertMathSnippet(snip);
+
+// Kiểm tra cú pháp thời gian thực với Compute Engine
+function validateLatexSyntax() {
+    const mf = document.getElementById('mathLiveEditor');
+    const statusEl = document.getElementById('latexSyntaxStatus');
+    const wrapper = document.getElementById('mathFieldWrapper');
+    if (!mf || !statusEl) return;
+
+    const val = (mf.value || '').trim();
+    if (!val) {
+        statusEl.innerHTML = '<i class="ri-checkbox-circle-line" style="color: #64748b;"></i> <span style="color: #64748b; font-weight: 500;">Sẵn sàng nhập</span>';
+        if (wrapper) wrapper.classList.remove('has-error');
+        return;
+    }
+
+    try {
+        if (window.ce) {
+            const expr = window.ce.parse(val);
+            const jsonStr = JSON.stringify(expr.json);
+            if (jsonStr.includes('"Error"') || jsonStr.includes('["Error"')) {
+                statusEl.innerHTML = '<i class="ri-alert-line" style="color: #d97706;"></i> <span style="color: #d97706; font-weight: 600;">Cú pháp chưa hoàn chỉnh</span>';
+                if (wrapper) wrapper.classList.remove('has-error');
+            } else {
+                statusEl.innerHTML = '<i class="ri-checkbox-circle-fill" style="color: #059669;"></i> <span style="color: #059669; font-weight: 600;">Cú pháp hợp lệ</span>';
+                if (wrapper) wrapper.classList.remove('has-error');
+            }
+        } else {
+            statusEl.innerHTML = '<i class="ri-checkbox-circle-fill" style="color: #059669;"></i> <span style="color: #059669; font-weight: 600;">Cú pháp hợp lệ</span>';
+        }
+    } catch (e) {
+        statusEl.innerHTML = '<i class="ri-error-warning-line" style="color: #ef4444;"></i> <span style="color: #ef4444; font-weight: 600;">Lỗi công thức</span>';
+        if (wrapper) wrapper.classList.add('has-error');
+    }
+}
+
+// Rút gọn / Tính nhanh biểu thức bằng CortexJS Compute Engine
+function handleLatexComputeSimplify() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+
+    if (!window.ce) {
+        if (typeof showToast === 'function') {
+            showToast('Bộ máy Compute Engine đang nạp, vui lòng bấm lại sau 1 giây!');
+        }
+        return;
+    }
+
+    const val = (mf.value || '').trim();
+    if (!val) {
+        if (typeof showToast === 'function') {
+            showToast('Vui lòng nhập biểu thức trước khi tính toán!');
+        }
+        return;
+    }
+
+    try {
+        const expr = window.ce.parse(val);
+        let resultExpr = expr.simplify();
+        if (resultExpr.latex === expr.latex) {
+            resultExpr = expr.evaluate();
+        }
+
+        const resultLatex = resultExpr.latex;
+        if (resultLatex && resultLatex !== val) {
+            showLatexEvalResult(resultLatex, '(Đã rút gọn)');
+        } else {
+            const numVal = expr.N();
+            if (numVal && numVal.latex && numVal.latex !== val) {
+                showLatexEvalResult(numVal.latex, '(Giá trị xấp xỉ)');
+            } else {
+                showLatexEvalResult(val, '(Đã ở dạng tối giản)');
+            }
+        }
+    } catch (err) {
+        console.warn('Lỗi tính toán Compute Engine:', err);
+        if (typeof showToast === 'function') {
+            showToast('Không thể rút gọn biểu thức này');
         }
     }
-});
+}
 
-// Ngăn cướp tiêu điểm (focus) khi click các nút phím ảo
-document.addEventListener('mousedown', function(e) {
-    const btn = e.target.closest('button.mathtype-key, .mathtype-tab-btn, .mathtype-action-btn');
-    if (btn) {
-        e.preventDefault();
+// Tính đạo hàm tự động f'(x) theo biến x
+function handleLatexDerivative() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+
+    if (!window.ce) {
+        if (typeof showToast === 'function') {
+            showToast('Bộ máy Compute Engine đang nạp, vui lòng bấm lại sau 1 giây!');
+        }
+        return;
     }
-});
+
+    const val = (mf.value || '').trim();
+    if (!val) {
+        if (typeof showToast === 'function') {
+            showToast('Vui lòng nhập biểu thức cần tính đạo hàm!');
+        }
+        return;
+    }
+
+    try {
+        const expr = window.ce.parse(val);
+        const deriv = window.ce.box(['D', expr, 'x']).evaluate();
+        const derivLatex = deriv.latex;
+
+        if (derivLatex) {
+            showLatexEvalResult(derivLatex, '(Đạo hàm theo x)');
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Không thể tính đạo hàm cho biểu thức này');
+            }
+        }
+    } catch (err) {
+        console.warn('Lỗi tính đạo hàm Compute Engine:', err);
+        if (typeof showToast === 'function') {
+            showToast('Không thể tính đạo hàm: ' + err.message);
+        }
+    }
+}
+
+// Khai triển đa thức tự động
+function handleLatexExpand() {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+
+    if (!window.ce) {
+        if (typeof showToast === 'function') {
+            showToast('Bộ máy Compute Engine đang nạp, vui lòng bấm lại sau 1 giây!');
+        }
+        return;
+    }
+
+    const val = (mf.value || '').trim();
+    if (!val) {
+        if (typeof showToast === 'function') {
+            showToast('Vui lòng nhập đa thức cần khai triển!');
+        }
+        return;
+    }
+
+    try {
+        const expr = window.ce.parse(val);
+        let expanded = window.ce.box(['Expand', expr]).evaluate();
+        if (expanded.latex === expr.latex) {
+            expanded = expr.simplify();
+        }
+        const resLatex = expanded.latex;
+
+        if (resLatex && resLatex !== val) {
+            showLatexEvalResult(resLatex, '(Đã khai triển)');
+        } else {
+            showLatexEvalResult(val, '(Đã ở dạng khai triển tối giản)');
+        }
+    } catch (err) {
+        console.warn('Lỗi khai triển Compute Engine:', err);
+        if (typeof showToast === 'function') {
+            showToast('Không thể khai triển đa thức: ' + err.message);
+        }
+    }
+}
+
+// Chuẩn hóa kết quả công thức theo đúng chuẩn quy ước SGK Việt Nam (GDPT 2018)
+function formatLatexForVietnameseCurriculum(latex) {
+    if (!latex || typeof latex !== 'string') return '';
+    let res = latex;
+
+    // 1. Chuyển hàm \exp(...) hoặc \exp\left(...\right) thành dạng lũy thừa e^{...} quen thuộc
+    res = res.replace(/\\exp\s*\\left\(([\s\S]*?)\\right\)/g, 'e^{$1}');
+    let prev = '';
+    while (prev !== res) {
+        prev = res;
+        res = res.replace(/\\exp\s*\(([^()]*)\)/g, 'e^{$1}');
+        res = res.replace(/\\exp\s*\{([^{}]*)\}/g, 'e^{$1}');
+    }
+
+    // 2. Chuyển ký hiệu hằng số e của CAS: \exponentialE -> e
+    res = res.replace(/\\exponentialE\b/g, 'e');
+
+    // 3. Rút gọn dấu nhân thô giữa số và e: 2 \cdot e^{...} -> 2e^{...}
+    res = res.replace(/(\d+)\s*\\cdot\s*e\^/g, '$1e^');
+
+    // 4. Rút gọn dấu nhân thô giữa số và biến: 2 \cdot x -> 2x
+    res = res.replace(/(\d+)\s*\\cdot\s*([a-zA-Z])/g, '$1$2');
+
+    return res;
+}
+
+function showLatexEvalResult(latexCode, noteText = '') {
+    const card = document.getElementById('latexEvalResultCard');
+    const mathEl = document.getElementById('latexEvalResultMath');
+    const noteEl = document.getElementById('latexEvalResultNote');
+    const legacyText = document.getElementById('latexEvalResultText');
+
+    const cleanCode = formatLatexForVietnameseCurriculum(latexCode);
+
+    if (card) {
+        if (mathEl) {
+            try {
+                if (typeof mathEl.setValue === 'function') {
+                    mathEl.setValue(cleanCode, { format: 'latex' });
+                } else {
+                    mathEl.value = cleanCode;
+                }
+            } catch (_) {
+                mathEl.value = cleanCode;
+            }
+        }
+        if (noteEl) {
+            noteEl.textContent = noteText ? ' ' + noteText : '';
+        }
+        if (legacyText) {
+            legacyText.textContent = cleanCode + (noteText ? ' ' + noteText : '');
+        }
+        card.style.display = 'flex';
+    }
+}
+
+function hideLatexEvalResult() {
+    const card = document.getElementById('latexEvalResultCard');
+    if (card) card.style.display = 'none';
+}
+
+function applyLatexEvalResult() {
+    const mathEl = document.getElementById('latexEvalResultMath');
+    const legacyText = document.getElementById('latexEvalResultText');
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+
+    let res = '';
+    if (mathEl) {
+        res = (typeof mathEl.getValue === 'function' ? mathEl.getValue('latex') : mathEl.value) || '';
+    }
+    if (!res && legacyText) {
+        res = legacyText.textContent.replace(/\s*\([^)]*\)/g, '').trim();
+    }
+    if (res) {
+        if (typeof mf.setValue === 'function') {
+            mf.setValue(res, { format: 'latex' });
+        } else {
+            mf.value = res;
+        }
+        if (typeof mf.focus === 'function') mf.focus();
+        hideLatexEvalResult();
+        validateLatexSyntax();
+        if (typeof showToast === 'function') {
+            showToast('✓ Đã áp dụng kết quả tính toán!');
+        }
+    }
+}
 
 function clearMathField() {
     const mf = document.getElementById('mathLiveEditor');
@@ -4338,6 +5221,8 @@ function clearMathField() {
         } catch (_) {
             mf.value = '';
         }
+        hideLatexEvalResult();
+        validateLatexSyntax();
     }
     if (typeof showToast === 'function') {
         showToast('Đã xóa trắng công thức');
@@ -4357,56 +5242,106 @@ function backspaceMathField() {
         } catch (_) {
             mf.value = (mf.value || '').slice(0, -1);
         }
+        hideLatexEvalResult();
+        validateLatexSyntax();
     }
 }
 
-function copyMathField() {
+function copyMathField(format = 'latex') {
     const mf = document.getElementById('mathLiveEditor');
-    const val = mf ? ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim() : '';
-    if (!val) {
-        if (typeof showToast === 'function') showToast('ℹ Chưa có công thức để sao chép!');
-        return;
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(val).then(() => {
-            if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
-        }).catch(() => {
-            fallbackCopy(val);
-        });
-    } else {
-        fallbackCopy(val);
+    if (!mf) return;
+
+    let val = '';
+    try {
+        if (format === 'mathml') {
+            val = (typeof mf.getValue === 'function') ? mf.getValue('math-ml') : '';
+        } else {
+            val = (typeof mf.getValue === 'function') ? mf.getValue('latex') : mf.value;
+        }
+    } catch (_) {
+        val = mf.value || '';
     }
 
-    function fallbackCopy(text) {
+    val = (val || '').trim();
+    if (!val) {
+        if (typeof showToast === 'function') showToast('Chưa có công thức để sao chép');
+        return;
+    }
+
+    const toastMsg = (format === 'mathml')
+        ? 'Đã sao chép MathML (sẵn sàng dán vào Word)'
+        : 'Đã sao chép mã LaTeX';
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(val).then(() => {
+            if (typeof showToast === 'function') showToast(toastMsg);
+        }).catch(() => {
+            fallbackCopy(val, toastMsg);
+        });
+    } else {
+        fallbackCopy(val, toastMsg);
+    }
+
+    function fallbackCopy(text, msg) {
         const ta = document.createElement('textarea');
         ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
         document.body.appendChild(ta);
         ta.select();
-        document.execCommand('copy');
+        try {
+            document.execCommand('copy');
+            if (typeof showToast === 'function') showToast(msg);
+        } catch (_) {}
         document.body.removeChild(ta);
-        if (typeof showToast === 'function') showToast('✓ Đã sao chép mã LaTeX!');
     }
 }
 
 // Aliases cho tương thích ngược
+function switchMathTypeTab() {}
+function insertMathSnippet(snippet) {
+    const mf = document.getElementById('mathLiveEditor');
+    if (!mf) return;
+    try {
+        if (typeof mf.executeCommand === 'function') {
+            mf.executeCommand(['insert', snippet]);
+        } else if (typeof mf.insert === 'function') {
+            mf.insert(snippet);
+        } else {
+            mf.value = (mf.value || '') + snippet;
+        }
+        if (typeof mf.focus === 'function') mf.focus();
+    } catch (_) {}
+}
 function clearLatexFormula() { clearMathField(); }
 function backspaceLatexFormula() { backspaceMathField(); }
 function copyLatexFormula() { copyMathField(); }
 function insertLatexSnippet(s) { insertMathSnippet(s); }
 function updateLatexLivePreview() {}
 
+function createEditorFormulaSpan(formula) {
+    const span = document.createElement('span');
+    span.className = 'editor-formula';
+    span.setAttribute('contenteditable', 'false');
+    span.setAttribute('draggable', 'true');
+    span.style.cssText = 'color: #c026d3; font-weight: 600;';
+    span.title = 'Nhấn đúp để chỉnh sửa công thức, kéo thả để di chuyển';
+    span.textContent = formula;
+    return span;
+}
+
 function confirmInsertLatexFormula() {
     const mf = document.getElementById('mathLiveEditor');
     if (!mf) return;
     let raw = ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim();
     if (!raw) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức toán học!');
         return;
     }
 
     let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
     if (!clean) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức Toán học!');
+        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức toán học!');
         return;
     }
 
@@ -4415,24 +5350,64 @@ function confirmInsertLatexFormula() {
 
     const editor = document.getElementById('codeEditor');
     if (editor) {
-        restoreEditorSelection();
-        editor.focus();
+        if (__activeEditingFormulaRange) {
+            try {
+                let existingSpan = null;
+                let sc = __activeEditingFormulaRange.startContainer;
+                if (sc.nodeType === Node.TEXT_NODE && sc.parentElement && sc.parentElement.classList.contains('editor-formula')) {
+                    existingSpan = sc.parentElement;
+                } else if (sc.nodeType === Node.ELEMENT_NODE && sc.classList.contains('editor-formula')) {
+                    existingSpan = sc;
+                }
 
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode(formula);
-            range.insertNode(textNode);
-
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            savedEditorSelection = range.cloneRange();
+                if (existingSpan) {
+                    existingSpan.textContent = formula;
+                    const newRange = document.createRange();
+                    newRange.setStartAfter(existingSpan);
+                    newRange.collapse(true);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                    savedEditorSelection = newRange.cloneRange();
+                } else {
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(__activeEditingFormulaRange);
+                    __activeEditingFormulaRange.deleteContents();
+                    const formulaSpan = createEditorFormulaSpan(formula);
+                    __activeEditingFormulaRange.insertNode(formulaSpan);
+                    __activeEditingFormulaRange.setStartAfter(formulaSpan);
+                    __activeEditingFormulaRange.setEndAfter(formulaSpan);
+                    sel.removeAllRanges();
+                    sel.addRange(__activeEditingFormulaRange);
+                    savedEditorSelection = __activeEditingFormulaRange.cloneRange();
+                }
+            } catch (e) {
+                console.warn("Lỗi thay thế công thức đang sửa:", e);
+                document.execCommand('insertText', false, formula);
+            }
+            __activeEditingFormulaRange = null;
         } else {
-            document.execCommand('insertText', false, formula);
-            saveCurrentEditorSelection();
+            restoreEditorSelection();
+            editor.focus();
+
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                const formulaSpan = createEditorFormulaSpan(formula);
+                range.insertNode(formulaSpan);
+
+                range.setStartAfter(formulaSpan);
+                range.setEndAfter(formulaSpan);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                savedEditorSelection = range.cloneRange();
+            } else {
+                const formulaSpan = createEditorFormulaSpan(formula);
+                editor.appendChild(formulaSpan);
+                saveCurrentEditorSelection();
+            }
         }
 
         editor.dispatchEvent(new Event('input', { bubbles: true }));
@@ -4440,7 +5415,7 @@ function confirmInsertLatexFormula() {
 
     closeLatexMathModal();
     if (typeof showToast === 'function') {
-        showToast('✓ Đã chèn công thức Toán học!');
+        showToast('✓ Đã cập nhật công thức vào đề thi!');
     }
 }
 
@@ -4449,9 +5424,157 @@ function insertLatexMathFormula() {
     openLatexMathModal();
 }
 
+// Tìm công thức toán học tại vị trí con trỏ chuột trong TextNode hoặc thẻ cha
+function findFormulaAtPosition(targetNode, offset) {
+    if (!targetNode) return null;
+
+    let node = targetNode;
+    let localOffset = offset;
+
+    // Nếu click vào thẻ Element (chẳng hạn thẻ div bao ngoài dòng), tìm text node con tương ứng
+    if (node.nodeType !== Node.TEXT_NODE) {
+        if (node.childNodes && node.childNodes.length > 0) {
+            let acc = 0;
+            for (let i = 0; i < node.childNodes.length; i++) {
+                const child = node.childNodes[i];
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const len = child.textContent.length;
+                    if (localOffset >= acc && localOffset <= acc + len) {
+                        node = child;
+                        localOffset = localOffset - acc;
+                        break;
+                    }
+                    acc += len;
+                }
+            }
+        }
+    }
+
+    if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+
+    const text = node.textContent || '';
+    if (!text.includes('$') && !text.includes('\\(') && !text.includes('\\[') && !text.includes('\\begin')) {
+        return null;
+    }
+
+    // Các dạng công thức: $$...$$, $...$, \[...\], \(...\), \begin{...}...\end{...}
+    const regex = /(\$\$[\s\S]*?\$\$|\$(?!\$)(?:[^\$\n\r\\]|\\.)+?\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\\begin\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\}[\s\S]*?\\end\{(?:array|matrix|pmatrix|bmatrix|cases|aligned|align\*?)\})/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (localOffset >= start && localOffset <= end) {
+            const rawFormula = match[0];
+            const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
+            const cleanLatex = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
+
+            const formulaRange = document.createRange();
+            formulaRange.setStart(node, start);
+            formulaRange.setEnd(node, end);
+
+            return {
+                range: formulaRange,
+                rawFormula: rawFormula,
+                cleanLatex: cleanLatex,
+                isDisplay: isDisplay
+            };
+        }
+    }
+    return null;
+}
+
+// Bắt sự kiện bấm vào mã công thức trong khung soạn thảo để tự động chuyển sang sửa công thức
+function initFormulaClickToEdit() {
+    const editor = document.getElementById('codeEditor');
+    if (!editor) return;
+
+    function handleFormulaTrigger(e) {
+        // 1. Ưu tiên kiểm tra nếu click trực tiếp vào thẻ .editor-formula
+        const formulaSpan = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : (e.target.parentElement ? e.target.parentElement.closest('.editor-formula') : null))) : null;
+        if (formulaSpan && editor.contains(formulaSpan)) {
+            const rawFormula = formulaSpan.textContent.trim();
+            if (rawFormula.includes('$') || rawFormula.includes('\\(') || rawFormula.includes('\\[') || rawFormula.includes('\\begin')) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
+                const cleanLatex = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
+
+                const formulaRange = document.createRange();
+                formulaRange.selectNode(formulaSpan);
+                __activeEditingFormulaRange = formulaRange;
+
+                const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
+                const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
+                if (isDisplay && radioDisplay) {
+                    radioDisplay.checked = true;
+                } else if (radioInline) {
+                    radioInline.checked = true;
+                }
+
+                openLatexMathModal(cleanLatex, true);
+                return;
+            }
+        }
+
+        let node = null;
+        let offset = 0;
+
+        // 2. Lấy vị trí click chính xác từ tọa độ chuột nếu công thức ở dạng text thường
+        const caret = getCaretRangeFromPoint(e.clientX, e.clientY);
+        if (caret && editor.contains(caret.startContainer)) {
+            node = caret.startContainer;
+            offset = caret.startOffset;
+        } else {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+                node = sel.anchorNode;
+                offset = sel.anchorOffset;
+            }
+        }
+
+        if (!node) return;
+
+        // Chuẩn hóa node cha để các text node không bị ngắt vụn
+        if (node.parentNode && typeof node.parentNode.normalize === 'function') {
+            node.parentNode.normalize();
+        }
+
+        const formulaInfo = findFormulaAtPosition(node, offset);
+        if (formulaInfo) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            __activeEditingFormulaRange = formulaInfo.range;
+
+            // Đồng bộ kiểu hiển thị Trong dòng / Riêng một dòng
+            const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
+            const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
+            if (formulaInfo.isDisplay && radioDisplay) {
+                radioDisplay.checked = true;
+            } else if (radioInline) {
+                radioInline.checked = true;
+            }
+
+            // Chuyển sang mở modal soạn thảo công thức với mã LaTeX được nạp sẵn
+            openLatexMathModal(formulaInfo.cleanLatex, true);
+        }
+    }
+
+    // Chỉ kích hoạt mở bảng soạn thảo công thức khi nhấn đúp chuột (Double Click)
+    editor.addEventListener('dblclick', handleFormulaTrigger);
+}
+
+// Giữ lại alias để tương thích ngược
+const initFormulaDoubleClickToEdit = initFormulaClickToEdit;
+
 // Expose toàn bộ các hàm ra window để inline onclick luôn gọi được
 window.openLatexMathModal = openLatexMathModal;
 window.closeLatexMathModal = closeLatexMathModal;
+window.toggleLatexVirtualKeyboard = toggleLatexVirtualKeyboard;
+window.validateLatexSyntax = validateLatexSyntax;
+window.handleLatexComputeSimplify = handleLatexComputeSimplify;
+window.applyLatexEvalResult = applyLatexEvalResult;
 window.switchMathTypeTab = switchMathTypeTab;
 window.insertMathSnippet = insertMathSnippet;
 window.clearMathField = clearMathField;
@@ -4465,7 +5588,7 @@ window.copyLatexFormula = copyLatexFormula;
 window.insertLatexSnippet = insertLatexSnippet;
 window.updateLatexLivePreview = updateLatexLivePreview;
 
-// Gắn trực tiếp event listener dự phòng cho nút #btnInsertLatex
+// Khởi tạo các listener khi trang tải xong
 document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('btnInsertLatex');
     if (btn) {
@@ -4473,6 +5596,26 @@ document.addEventListener('DOMContentLoaded', function() {
             openLatexMathModal();
         });
     }
+
+    const mf = document.getElementById('mathLiveEditor');
+    if (mf) {
+        mf.mathVirtualKeyboardPolicy = 'manual';
+        mf.addEventListener('input', function() {
+            validateLatexSyntax();
+            hideLatexEvalResult();
+        });
+        const showKb = function() {
+            ensureMathKeyboardReady();
+            if (window.mathVirtualKeyboard) {
+                window.mathVirtualKeyboard.show({ animate: true });
+                ensureMathKeyboardReady();
+            }
+        };
+        mf.addEventListener('click', showKb);
+        mf.addEventListener('focus', showKb);
+    }
+
+    initFormulaDoubleClickToEdit();
 });
 
 function toggleImageMenu() {
@@ -4577,6 +5720,64 @@ function insertImageAtRange(srcUrl, range) {
     }
 }
 
+function insertTextAtRange(text, range) {
+    const editor = document.getElementById('codeEditor');
+    if (!editor || !text) return;
+    editor.focus();
+
+    let targetRange = range;
+    if (!targetRange || !editor.contains(targetRange.startContainer)) {
+        restoreEditorSelection();
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+            targetRange = sel.getRangeAt(0);
+        }
+    }
+
+    if (!targetRange || !editor.contains(targetRange.startContainer)) {
+        targetRange = document.createRange();
+        targetRange.selectNodeContents(editor);
+        targetRange.collapse(false);
+    }
+
+    targetRange.deleteContents();
+
+    let lastNode = null;
+    if (text.includes('$') || text.includes('\\(') || text.includes('\\[')) {
+        const safeText = escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>');
+        const formattedHtml = highlightFormulasInHtml(safeText);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = formattedHtml;
+        const frag = document.createDocumentFragment();
+        while (tempDiv.firstChild) {
+            lastNode = tempDiv.firstChild;
+            frag.appendChild(tempDiv.firstChild);
+        }
+        targetRange.insertNode(frag);
+    } else {
+        const textNode = document.createTextNode(text);
+        lastNode = textNode;
+        targetRange.insertNode(textNode);
+    }
+
+    if (lastNode) {
+        const newRange = document.createRange();
+        newRange.setStartAfter(lastNode);
+        newRange.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        saveCurrentEditorSelection();
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    saveDraftToSession();
+
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã chèn văn bản vào bài!');
+    }
+}
+
 // --------------------------------------------------------------------------
 // 2. IN-EDITOR IMAGE INTERACTIVE RESIZE & FLOATING BAR
 // --------------------------------------------------------------------------
@@ -4586,6 +5787,10 @@ let resizeHandleDir = '';
 let resizeStartX = 0, resizeStartY = 0;
 let resizeStartWidth = 0, resizeStartHeight = 0, resizeAspect = 1;
 let draggedEditorImg = null;
+let draggedEditorFormula = null;
+let isDraggingEditorText = false;
+let draggedEditorTextRange = null;
+let draggedEditorTextContent = '';
 let currentDropRange = null;
 
 function getCaretRangeFromPoint(clientX, clientY) {
@@ -4616,13 +5821,6 @@ function updateEditorDropCaret(clientX, clientY) {
     }
 
     currentDropRange = range;
-
-    // Cập nhật vùng chọn hệ thống để con trỏ chuột cũng định vị tại đây
-    try {
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    } catch (e) {}
 
     const wrapperRect = wrapper.getBoundingClientRect();
     let rect = null;
@@ -4725,7 +5923,7 @@ function initEditorImageInteractions() {
         }
     });
 
-    // Support Paste image directly from clipboard (Ctrl + V)
+    // Support Paste image directly from clipboard (Ctrl + V) & auto-highlight math formulas
     editor.addEventListener('paste', function(e) {
         if (e.clipboardData && e.clipboardData.items) {
             const items = e.clipboardData.items;
@@ -4744,19 +5942,70 @@ function initEditorImageInteractions() {
                 }
             }
         }
+
+        // Tự động tô màu công thức toán khi dán văn bản có công thức
+        if (e.clipboardData) {
+            const text = e.clipboardData.getData('text/plain');
+            if (text && (text.includes('$') || text.includes('\\(') || text.includes('\\['))) {
+                e.preventDefault();
+                const safeText = escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>');
+                const formattedHtml = highlightFormulasInHtml(safeText);
+                document.execCommand('insertHTML', false, formattedHtml);
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                saveDraftToSession();
+                return;
+            }
+        }
     });
 
-    // Tự động gán draggable="true" cho mọi ảnh khi rê chuột vào trong editor
+    // Tự động gán draggable="true" và contenteditable="false" cho mọi ảnh và công thức toán
     editor.addEventListener('mouseenter', function(e) {
         if (e.target && e.target.tagName === 'IMG' && !e.target.hasAttribute('draggable')) {
             e.target.setAttribute('draggable', 'true');
         }
+        if (e.target && e.target.classList && e.target.classList.contains('editor-formula')) {
+            if (!e.target.hasAttribute('draggable')) e.target.setAttribute('draggable', 'true');
+            if (e.target.getAttribute('contenteditable') !== 'false') e.target.setAttribute('contenteditable', 'false');
+        }
     }, true);
 
-    // 1. Kéo bắt đầu từ ảnh trong editor (Drag Start)
+    editor.addEventListener('mouseover', function(e) {
+        const formulaEl = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : null)) : null;
+        if (formulaEl) {
+            if (!formulaEl.hasAttribute('draggable')) formulaEl.setAttribute('draggable', 'true');
+            if (formulaEl.getAttribute('contenteditable') !== 'false') formulaEl.setAttribute('contenteditable', 'false');
+        }
+    });
+
+    // Mousedown: Đảm bảo công thức sẵn sàng kéo thả hoặc tự động bọc công thức chưa có thẻ
+    editor.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return; // Chỉ xử lý chuột trái
+        const formulaEl = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : null)) : null;
+        if (formulaEl) {
+            if (!formulaEl.hasAttribute('draggable')) formulaEl.setAttribute('draggable', 'true');
+            if (formulaEl.getAttribute('contenteditable') !== 'false') formulaEl.setAttribute('contenteditable', 'false');
+            return;
+        }
+
+        const caret = getCaretRangeFromPoint(e.clientX, e.clientY);
+        if (caret && editor.contains(caret.startContainer)) {
+            const formulaInfo = findFormulaAtPosition(caret.startContainer, caret.startOffset);
+            if (formulaInfo && formulaInfo.range) {
+                const span = createEditorFormulaSpan(formulaInfo.rawFormula);
+                formulaInfo.range.deleteContents();
+                formulaInfo.range.insertNode(span);
+            }
+        }
+    });
+
+    // 1. Kéo bắt đầu từ ảnh, công thức toán hoặc văn bản bôi đen trong editor (Drag Start)
     editor.addEventListener('dragstart', function(e) {
         if (e.target && e.target.tagName === 'IMG') {
             draggedEditorImg = e.target;
+            draggedEditorFormula = null;
+            isDraggingEditorText = false;
+            draggedEditorTextRange = null;
+            draggedEditorTextContent = '';
             hideEditorImageResizer();
             e.dataTransfer.effectAllowed = 'move';
             try {
@@ -4769,6 +6018,51 @@ function initEditorImageInteractions() {
                     draggedEditorImg.classList.add('editor-img-dragging');
                 }
             }, 0);
+            return;
+        }
+
+        // Kéo công thức toán trực tiếp mà không cần bôi đen trước
+        const formulaEl = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : null)) : null;
+        const sel = window.getSelection();
+        const isMultiNodeSelection = sel && !sel.isCollapsed && sel.rangeCount > 0 && formulaEl && sel.containsNode && sel.containsNode(formulaEl, true) && (sel.toString().trim() !== formulaEl.textContent.trim());
+
+        if (formulaEl && editor.contains(formulaEl) && !isMultiNodeSelection) {
+            draggedEditorImg = null;
+            draggedEditorFormula = formulaEl;
+            isDraggingEditorText = false;
+            draggedEditorTextRange = null;
+            draggedEditorTextContent = '';
+            e.dataTransfer.effectAllowed = 'move';
+            try {
+                e.dataTransfer.setData('text/plain', formulaEl.textContent || '');
+                e.dataTransfer.setData('text/html', formulaEl.outerHTML || '');
+            } catch (err) {}
+
+            setTimeout(() => {
+                if (draggedEditorFormula) {
+                    draggedEditorFormula.classList.add('editor-formula-dragging');
+                }
+            }, 0);
+            return;
+        }
+
+        // Kéo đoạn văn bản đã được bôi đen trong editor (có thể chứa chữ và công thức)
+        draggedEditorImg = null;
+        draggedEditorFormula = null;
+        if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            if (editor.contains(range.commonAncestorContainer)) {
+                isDraggingEditorText = true;
+                draggedEditorTextRange = range.cloneRange();
+                draggedEditorTextContent = sel.toString();
+                e.dataTransfer.effectAllowed = 'move';
+                try {
+                    e.dataTransfer.setData('text/plain', draggedEditorTextContent);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.appendChild(range.cloneContents());
+                    e.dataTransfer.setData('text/html', tempDiv.innerHTML);
+                } catch (_) {}
+            }
         }
     });
 
@@ -4778,22 +6072,31 @@ function initEditorImageInteractions() {
             draggedEditorImg.classList.remove('editor-img-dragging');
             draggedEditorImg = null;
         }
+        if (draggedEditorFormula) {
+            draggedEditorFormula.classList.remove('editor-formula-dragging');
+            draggedEditorFormula = null;
+        }
+        isDraggingEditorText = false;
+        draggedEditorTextRange = null;
+        draggedEditorTextContent = '';
         hideEditorDropCaret();
     });
 
     // 3. Rê chuột khi đang kéo (Drag Over) - hiển thị dấu nháy chuột định vị chính xác vị trí thả
     editor.addEventListener('dragover', function(e) {
         const isInternalImg = !!draggedEditorImg;
+        const isInternalFormula = !!draggedEditorFormula;
+        const isInternalText = isDraggingEditorText;
         const isFiles = e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files');
-        const isHtml = e.dataTransfer && e.dataTransfer.types && (
+        const hasTextOrHtml = e.dataTransfer && e.dataTransfer.types && (
             Array.from(e.dataTransfer.types).includes('text/html') || 
-            Array.from(e.dataTransfer.types).includes('text/uri-list') ||
-            Array.from(e.dataTransfer.types).includes('text/plain')
+            Array.from(e.dataTransfer.types).includes('text/plain') ||
+            Array.from(e.dataTransfer.types).includes('text/uri-list')
         );
 
-        if (isInternalImg || isFiles || isHtml) {
+        if (isInternalImg || isInternalFormula || isInternalText || isFiles || hasTextOrHtml) {
             e.preventDefault();
-            e.dataTransfer.dropEffect = isInternalImg ? 'move' : 'copy';
+            e.dataTransfer.dropEffect = (isInternalImg || isInternalFormula || isInternalText) ? 'move' : 'copy';
             updateEditorDropCaret(e.clientX, e.clientY);
         }
     });
@@ -4805,7 +6108,7 @@ function initEditorImageInteractions() {
         }
     });
 
-    // 5. Thả ảnh vào vị trí dấu nháy (Drop)
+    // 5. Thả vào vị trí dấu nháy (Drop)
     editor.addEventListener('drop', function(e) {
         const targetDropRange = getCaretRangeFromPoint(e.clientX, e.clientY) || currentDropRange;
         hideEditorDropCaret();
@@ -4853,7 +6156,136 @@ function initEditorImageInteractions() {
             return;
         }
 
-        // TRƯỜNG HỢP 2: Thả tệp ảnh từ máy tính vào đúng vị trí dấu nháy
+        // TRƯỜNG HỢP 2: Kéo thả công thức toán trực tiếp sang vị trí mới mà không cần bôi đen
+        if (draggedEditorFormula) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const targetFormula = draggedEditorFormula;
+            draggedEditorFormula = null;
+            targetFormula.classList.remove('editor-formula-dragging');
+
+            if (!targetDropRange || !editor.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Tránh thả công thức vào chính nó
+            if (targetFormula.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Tránh thả lồng vào bên trong một thẻ công thức khác
+            let dropNode = targetDropRange.startContainer;
+            let formulaHost = dropNode.nodeType === Node.ELEMENT_NODE ? dropNode.closest('.editor-formula') : (dropNode.parentElement ? dropNode.parentElement.closest('.editor-formula') : null);
+            if (formulaHost && formulaHost !== targetFormula && editor.contains(formulaHost)) {
+                formulaHost.parentNode.insertBefore(targetFormula, formulaHost.nextSibling);
+            } else {
+                targetDropRange.insertNode(targetFormula);
+            }
+
+            // Đặt con trỏ chuột ngay sau công thức vừa thả
+            const newRange = document.createRange();
+            newRange.setStartAfter(targetFormula);
+            newRange.collapse(true);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            saveCurrentEditorSelection();
+
+            // Kích hoạt re-parse đề thi và cập nhật xem trước ngay lập tức
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            saveDraftToSession();
+
+            if (typeof showToast === 'function') {
+                showToast('✓ Đã di chuyển công thức đến vị trí mới!');
+            }
+            return;
+        }
+
+        // TRƯỜNG HỢP 3: Kéo thả văn bản đã bôi đen trong chính editor sang vị trí mới
+        if (isDraggingEditorText && draggedEditorTextRange) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const sourceRange = draggedEditorTextRange;
+            isDraggingEditorText = false;
+            draggedEditorTextRange = null;
+
+            if (!targetDropRange || !editor.contains(targetDropRange.startContainer)) {
+                return;
+            }
+
+            // Kiểm tra nếu thả vào chính bên trong vùng văn bản đang bôi đen
+            let isInsideSource = false;
+            try {
+                const startsAfterOrAt = targetDropRange.compareBoundaryPoints(Range.START_TO_START, sourceRange) >= 0;
+                const endsBeforeOrAt = targetDropRange.compareBoundaryPoints(Range.START_TO_END, sourceRange) <= 0;
+                if (startsAfterOrAt && endsBeforeOrAt) {
+                    isInsideSource = true;
+                }
+            } catch (_) {}
+
+            if (isInsideSource) {
+                return;
+            }
+
+            try {
+                const isTargetBeforeSource = targetDropRange.compareBoundaryPoints(Range.START_TO_START, sourceRange) < 0;
+
+                if (isTargetBeforeSource) {
+                    // Target ở trước Source: Trích xuất Source trước (vì Source ở sau nên không làm xê dịch Target)
+                    const extractedFrag = sourceRange.extractContents();
+                    let lastInsertedNode = extractedFrag.lastChild;
+                    targetDropRange.insertNode(extractedFrag);
+
+                    if (lastInsertedNode) {
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(lastInsertedNode);
+                        newRange.collapse(true);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        saveCurrentEditorSelection();
+                    }
+                } else {
+                    // Target ở sau Source: Cắm marker tại Target trước (vì Target ở sau nên không làm xê dịch Source)
+                    const marker = document.createElement('span');
+                    marker.id = '__editor_text_drop_marker__';
+                    targetDropRange.insertNode(marker);
+
+                    const extractedFrag = sourceRange.extractContents();
+                    let lastInsertedNode = extractedFrag.lastChild;
+
+                    if (marker.parentNode) {
+                        marker.parentNode.insertBefore(extractedFrag, marker);
+                        marker.remove();
+                    }
+
+                    if (lastInsertedNode) {
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(lastInsertedNode);
+                        newRange.collapse(true);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        saveCurrentEditorSelection();
+                    }
+                }
+
+                // Cập nhật lại giao diện và lưu bản nháp
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                saveDraftToSession();
+
+                if (typeof showToast === 'function') {
+                    showToast('✓ Đã di chuyển văn bản đến vị trí mới!');
+                }
+            } catch (err) {
+                console.warn("Lỗi kéo thả văn bản:", err);
+            }
+            return;
+        }
+
+        // TRƯỜNG HỢP 3: Thả tệp ảnh từ máy tính vào đúng vị trí dấu nháy
         if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
@@ -4869,7 +6301,7 @@ function initEditorImageInteractions() {
             }
         }
 
-        // TRƯỜNG HỢP 3: Kéo ảnh từ khung Xem trước (Giao diện học sinh) hoặc web khác vào
+        // TRƯỜNG HỢP 4: Kéo ảnh từ khung Xem trước (Giao diện học sinh) hoặc web khác vào
         if (e.dataTransfer) {
             const html = e.dataTransfer.getData('text/html');
             if (html && /<img\b[^>]*>/i.test(html)) {
@@ -4882,6 +6314,17 @@ function initEditorImageInteractions() {
                     insertImageAtRange(img.src, targetDropRange);
                     return;
                 }
+            }
+        }
+
+        // TRƯỜNG HỢP 5: Thả văn bản từ bên ngoài vào editor (từ file, web khác,...)
+        if (e.dataTransfer) {
+            const text = e.dataTransfer.getData('text/plain');
+            if (text) {
+                e.preventDefault();
+                e.stopPropagation();
+                insertTextAtRange(text, targetDropRange);
+                return;
             }
         }
     });
@@ -5412,5 +6855,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+});
+
+function toggleAddQuestionMenu(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const menu = document.getElementById('addQuestionMenuDropdown');
+    if (!menu) return;
+    menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+}
+
+function closeAddQuestionMenu() {
+    const menu = document.getElementById('addQuestionMenuDropdown');
+    if (menu) menu.style.display = 'none';
+}
+
+window.toggleAddQuestionMenu = toggleAddQuestionMenu;
+window.closeAddQuestionMenu = closeAddQuestionMenu;
+
+document.addEventListener('click', function(e) {
+    const group = document.getElementById('btnAddQuestionDropdownGroup');
+    if (group && !group.contains(e.target)) {
+        closeAddQuestionMenu();
     }
 });

@@ -749,6 +749,9 @@ def extract_answer_display(q: dict) -> str:
     elif q_type == 'short_answer':
         return str(raw_ca or '')
 
+    elif q_type == 'essay':
+        return str(raw_ca or 'Tự luận')
+
     else:
         correct_str = str(raw_ca or '').strip()
         correct_str_no_star = re.sub(r'^\*+\s*', '', correct_str)
@@ -972,6 +975,35 @@ def render_quiz_document_content(
                 run_dots = p_ans.add_run("...................................................................................")
                 run_dots.font.name = 'Times New Roman'
                 run_dots.font.size = Pt(font_size_pt)
+
+        elif q_type == 'essay':
+            p_essay = doc.add_paragraph()
+            p_essay.paragraph_format.left_indent = Inches(0.25 if is_compact else 0.3)
+            p_essay.paragraph_format.space_before = Pt(2 if is_compact else 4)
+            p_essay.paragraph_format.space_after = Pt(2 if is_compact else 4)
+            if show_answers:
+                if raw_ca:
+                    run_prompt = p_essay.add_run("Hướng dẫn chấm: ")
+                    run_prompt.bold = True
+                    run_prompt.font.name = 'Times New Roman'
+                    run_prompt.font.size = Pt(font_size_pt)
+                    run_ca = p_essay.add_run(f" {raw_ca}\n")
+                    run_ca.font.name = 'Times New Roman'
+                    run_ca.font.size = Pt(font_size_pt)
+                    run_ca.font.color.rgb = RGBColor(185, 28, 28)
+            else:
+                run_prompt = p_essay.add_run("Bài làm:\n")
+                run_prompt.italic = True
+                run_prompt.font.name = 'Times New Roman'
+                run_prompt.font.size = Pt(font_size_pt)
+                for _ in range(4):
+                    p_dots = doc.add_paragraph()
+                    p_dots.paragraph_format.left_indent = Inches(0.25 if is_compact else 0.3)
+                    p_dots.paragraph_format.space_before = Pt(0)
+                    p_dots.paragraph_format.space_after = Pt(2)
+                    run_dots = p_dots.add_run("...........................................................................................................................")
+                    run_dots.font.name = 'Times New Roman'
+                    run_dots.font.size = Pt(font_size_pt)
 
         elif q_type == 'true_false' or isinstance(raw_ca, dict):
             raw_ca_dict = normalize_tf_ca(raw_ca)

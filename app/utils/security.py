@@ -207,7 +207,7 @@ def verify_admin_access(token: str, db) -> Tuple[Dict[str, Any], str]:
     """Xác minh quyền quản trị viên (Admin)."""
     user = get_user_from_token(token, db)
     if not user or user.get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Không có quyền truy cập Quản trị viên.")
+        raise HTTPException(status_code=403, detail="Không có quyền truy cập quản trị viên.")
     return user, user['id']
 
 
@@ -217,7 +217,7 @@ def verify_teacher_access(token: str, db) -> Tuple[Dict[str, Any], str]:
     if not user:
         raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
     if user.get('role') not in ['teacher', 'admin']:
-        raise HTTPException(status_code=403, detail="Tài khoản không có quyền Giáo viên.")
+        raise HTTPException(status_code=403, detail="Tài khoản không có quyền giáo viên.")
     return user, user['id']
 
 

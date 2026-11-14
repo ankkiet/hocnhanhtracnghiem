@@ -834,6 +834,12 @@ input[type="checkbox"]:checked + .switch-toggle::after {
     background: var(--pub-sa-bg);
 }
 
+.q-chip.chip-essay {
+    border-color: #d8b4fe;
+    color: #7e22ce;
+    background: #f3e8ff;
+}
+
 /* SIDEBAR ACTIONS */
 .action-box {
     display: flex;
@@ -1175,6 +1181,15 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                     <div class="stat-card-val" id="valSaQ">0</div>
                     <div class="stat-card-desc">Điền số / đáp số</div>
                 </div>
+
+                <div class="stat-card" onclick="filterQuestionCategory('essay')">
+                    <div class="stat-card-header">
+                        <span class="stat-card-title">TỰ LUẬN</span>
+                        <i class="ri-file-text-line stat-card-icon" style="color: #d8b4fe;"></i>
+                    </div>
+                    <div class="stat-card-val" id="valEssayQ">0</div>
+                    <div class="stat-card-desc">Tự luận / tự luận tự chấm</div>
+                </div>
             </div>
         </section>
 
@@ -1196,13 +1211,13 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                     <!-- Tên bài thi -->
                     <div class="form-group">
                         <label class="form-label" for="txtQuizTitle">Tên bài kiểm tra / đề thi <span style="color: var(--pub-danger);">*</span></label>
-                        <input type="text" id="txtQuizTitle" class="form-input" placeholder="VD: Đề kiểm tra 45 phút - Giữa học kỳ môn Toán">
+                        <input type="text" id="txtQuizTitle" class="form-input" placeholder="VD: Đề kiểm tra 45 phút - giữa học kỳ môn Toán">
                     </div>
 
                     <!-- Lời dặn / Ghi chú -->
                     <div class="form-group">
-                        <label class="form-label" for="txtQuizDescription">Lời dặn của giáo viên / Hướng dẫn làm bài</label>
-                        <textarea id="txtQuizDescription" class="form-textarea" rows="2" placeholder="VD: Học sinh không được sử dụng tài liệu, chuẩn bị sẵn giấy nháp và máy tính cầm tay..."></textarea>
+                        <label class="form-label" for="txtQuizDescription">Lời dặn của giáo viên / hướng dẫn làm bài</label>
+                        <textarea id="txtQuizDescription" class="form-textarea" rows="2" placeholder="VD: học sinh không được sử dụng tài liệu, chuẩn bị sẵn giấy nháp và máy tính cầm tay..."></textarea>
                     </div>
 
                     <!-- Hình thức thi (Radio Cards) -->
@@ -1219,7 +1234,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                             <div class="radio-card active" id="cardModeExam" onclick="setQuizMode('exam')">
                                 <div class="radio-card-head">
-                                    <span class="radio-card-title"><i class="ri-timer-flash-line"></i> Thi thử / Kiểm tra</span>
+                                    <span class="radio-card-title"><i class="ri-timer-flash-line"></i> Thi thử / kiểm tra</span>
                                     <input type="radio" name="rdQuizMode" value="exam" checked style="accent-color: var(--pub-primary);">
                                 </div>
                                 <div class="radio-card-desc">Có đồng hồ bấm giờ đếm ngược. Làm xong hết toàn bài mới nộp và chấm điểm tổng kết.</div>
@@ -1229,8 +1244,8 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                     <!-- Thời gian làm bài & Chips chọn nhanh -->
                     <div class="form-group">
-                        <label class="form-label" for="numTimeLimit">Thời gian làm bài (Phút)</label>
-                        <input type="number" id="numTimeLimit" class="form-input" placeholder="0 = Không giới hạn thời gian" min="0" max="360" value="45">
+                        <label class="form-label" for="numTimeLimit">Thời gian làm bài (phút)</label>
+                        <input type="number" id="numTimeLimit" class="form-input" placeholder="0 = không giới hạn thời gian" min="0" max="360" value="45">
                         <div class="quick-time-chips">
                             <span class="time-chip" onclick="setTimeChip(15)">15 phút</span>
                             <span class="time-chip active" onclick="setTimeChip(45)">45 phút</span>
@@ -1253,7 +1268,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                     <!-- Mật khẩu phòng thi -->
                     <div class="form-group" style="margin-top: 14px;">
-                        <label class="form-label" for="txtQuizPassword">Mật khẩu vào phòng thi (Tùy chọn)</label>
+                        <label class="form-label" for="txtQuizPassword">Mật khẩu vào phòng thi (tùy chọn)</label>
                         <div style="position: relative;">
                             <input type="text" id="txtQuizPassword" class="form-input" placeholder="Để trống nếu cho phép học sinh vào tự do...">
                             <span style="position: absolute; right: 12px; top: 11px; color: #94a3b8; font-size: 0.9rem;"><i class="ri-lock-line"></i></span>
@@ -1289,11 +1304,11 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label" for="dtStartTime">Thời gian mở ca thi (Cho phép vào từ)</label>
+                                <label class="form-label" for="dtStartTime">Thời gian mở ca thi (cho phép vào từ)</label>
                                 <input type="datetime-local" id="dtStartTime" class="form-input">
                             </div>
                             <div class="form-group">
-                                <label class="form-label" for="dtEndTime">Thời gian đóng ca thi (Khóa đề thi sau)</label>
+                                <label class="form-label" for="dtEndTime">Thời gian đóng ca thi (khóa đề thi sau)</label>
                                 <input type="datetime-local" id="dtEndTime" class="form-input">
                             </div>
                         </div>
@@ -1301,8 +1316,8 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         <div class="form-group">
                             <label class="form-label" for="selMaxAttempts">Số lượt làm bài tối đa cho mỗi học sinh</label>
                             <select id="selMaxAttempts" class="form-select">
-                                <option value="0" selected>Không giới hạn (Phù hợp ôn tập)</option>
-                                <option value="1">Chỉ được làm 1 lần duy nhất (Kiểm tra chính thức)</option>
+                                <option value="0" selected>Không giới hạn (phù hợp ôn tập)</option>
+                                <option value="1">Chỉ được làm 1 lần duy nhất (kiểm tra chính thức)</option>
                                 <option value="2">Tối đa 2 lần</option>
                                 <option value="3">Tối đa 3 lần</option>
                             </select>
@@ -1319,7 +1334,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                                 <select id="selShowScore" class="form-select">
                                     <option value="immediate" selected>Hiển thị điểm ngay sau khi nộp bài</option>
                                     <option value="after_closed">Chỉ xem điểm khi hết giờ ca thi</option>
-                                    <option value="hidden">Ẩn điểm hoàn toàn (Giáo viên công bố sau)</option>
+                                    <option value="hidden">Ẩn điểm hoàn toàn (giáo viên công bố sau)</option>
                                 </select>
                             </div>
 
@@ -1349,7 +1364,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                         <label class="switch-item">
                             <div class="switch-info">
-                                <span class="switch-title"><i class="ri-fullscreen-line" style="color: #2563eb;"></i> Bắt buộc chế độ toàn màn hình (Full-screen)</span>
+                                <span class="switch-title"><i class="ri-fullscreen-line" style="color: #2563eb;"></i> Bắt buộc chế độ toàn màn hình (full-screen)</span>
                                 <span class="switch-desc">Yêu cầu thí sinh mở toàn màn hình khi làm bài; cảnh báo khi thu nhỏ cửa sổ.</span>
                             </div>
                             <input type="checkbox" id="chkFullScreen" style="display: none;">
@@ -1368,7 +1383,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         <div class="form-group">
                             <label class="form-label" for="selMaxTabViolations">Tự động nộp bài nếu vi phạm chuyển tab quá mức</label>
                             <select id="selMaxTabViolations" class="form-select">
-                                <option value="0" selected>Chỉ ghi nhận và cảnh báo (Không tự thu bài)</option>
+                                <option value="0" selected>Chỉ ghi nhận và cảnh báo (không tự thu bài)</option>
                                 <option value="3">Tự động thu bài khi chuyển tab quá 3 lần</option>
                                 <option value="5">Tự động thu bài khi chuyển tab quá 5 lần</option>
                             </select>
@@ -1400,11 +1415,11 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
                                 <input type="checkbox" id="chkReqName" checked disabled style="accent-color: var(--pub-primary);">
-                                Họ và tên (Bắt buộc)
+                                Họ và tên (bắt buộc)
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
                                 <input type="checkbox" id="chkReqClass" checked style="accent-color: var(--pub-primary);">
-                                Lớp / Nhóm học tập
+                                Lớp / nhóm học tập
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
                                 <input type="checkbox" id="chkReqSchool" style="accent-color: var(--pub-primary);">
@@ -1412,8 +1427,127 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
                                 <input type="checkbox" id="chkReqSBD" style="accent-color: var(--pub-primary);">
-                                Số báo danh (SBD) / Mã HS
+                                Số báo danh (SBD) / mã HS
                             </label>
+                        </div>
+
+                        <!-- E. THANG ĐIỂM & CHIA ĐIỂM TỪNG PHẦN -->
+                        <div class="sub-section-title">
+                            <i class="ri-calculator-line" style="color: #0284c7;"></i> E. Thang điểm &amp; chia điểm từng phần
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label" for="selScoringMode">Chế độ chia điểm</label>
+                            <select id="selScoringMode" class="form-select" onchange="onScoringModeChange()">
+                                <option value="auto" selected>Tự động chia đều theo câu (tổng 10 điểm)</option>
+                                <option value="gdpt2018">Chuẩn Bộ GD&ĐT (GDPT 2018: Phần I: 3đ • Phần II: 4đ • Phần III: 3đ)</option>
+                                <option value="custom">Tùy chỉnh điểm cho từng phần</option>
+                            </select>
+                        </div>
+
+                        <div id="scoringSectionsContainer" style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+                            <div style="font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                                <span><i class="ri-pie-chart-line" style="color: #0284c7;"></i> Phân bổ điểm theo phần cấu trúc đề:</span>
+                                <span id="lblTotalQuizScore" style="background: #ecfdf5; color: #047857; padding: 2px 8px; border-radius: 6px; font-weight: 800; border: 1px solid #a7f3d0;">Tổng: 10.0 điểm</span>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <div id="scoringEmptyNotice" style="display: none; padding: 12px; text-align: center; color: #64748b; font-size: 0.82rem; font-style: italic;">Đề thi chưa có câu hỏi để chia điểm.</div>
+
+                                <!-- Phần I: Trắc nghiệm -->
+                                <div class="scoring-row" id="rowPart1Scoring" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; transition: all 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                        <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; border: 1px solid #bfdbfe; flex-shrink: 0;">
+                                            I
+                                        </div>
+                                        <div style="min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 0.85rem; color: #1e3a8a; line-height: 1.3;">Phần I: Trắc nghiệm 4 lựa chọn</div>
+                                            <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                                <span id="lblPart1Count" style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 4px; font-weight: 600;">0</span> câu
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                        <div style="display: flex; align-items: center; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px;">
+                                            <input type="number" id="numPart1Pt" step="0.05" min="0" max="10" value="0.25" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.86rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onScoringInputChanged('part1')">
+                                            <span style="font-size: 0.74rem; color: #64748b; font-weight: 500;">đ/câu</span>
+                                        </div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #0369a1; min-width: 54px; text-align: right;" id="lblPart1Total">= 0.0đ</span>
+                                    </div>
+                                </div>
+
+                                <!-- Phần II: Đúng / sai -->
+                                <div class="scoring-row" id="rowPart2Scoring" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; transition: all 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                        <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; border: 1px solid #a7f3d0; flex-shrink: 0;">
+                                            II
+                                        </div>
+                                        <div style="min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 0.85rem; color: #065f46; line-height: 1.3;">Phần II: Trắc nghiệm đúng / sai</div>
+                                            <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                                <span id="lblPart2Count" style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 4px; font-weight: 600;">0</span> câu (4 ý a, b, c, d)
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                        <div style="display: flex; align-items: center; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px;">
+                                            <input type="number" id="numPart2Pt" step="0.1" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.86rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onScoringInputChanged('part2')">
+                                            <span style="font-size: 0.74rem; color: #64748b; font-weight: 500;">đ/câu</span>
+                                        </div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #047857; min-width: 54px; text-align: right;" id="lblPart2Total">= 0.0đ</span>
+                                    </div>
+                                </div>
+
+                                <!-- Phần III: Trả lời ngắn -->
+                                <div class="scoring-row" id="rowPart3Scoring" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; transition: all 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                        <div style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; border: 1px solid #fde68a; flex-shrink: 0;">
+                                            III
+                                        </div>
+                                        <div style="min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 0.85rem; color: #92400e; line-height: 1.3;">Phần III: Câu hỏi trả lời ngắn</div>
+                                            <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                                <span id="lblPart3Count" style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 4px; font-weight: 600;">0</span> câu
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                        <div style="display: flex; align-items: center; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px;">
+                                            <input type="number" id="numPart3Pt" step="0.05" min="0" max="10" value="0.5" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.86rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onScoringInputChanged('part3')">
+                                            <span style="font-size: 0.74rem; color: #64748b; font-weight: 500;">đ/câu</span>
+                                        </div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #b45309; min-width: 54px; text-align: right;" id="lblPart3Total">= 0.0đ</span>
+                                    </div>
+                                </div>
+
+                                <!-- Phần IV: Tự luận -->
+                                <div class="scoring-row" id="rowPart4Scoring" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #ffffff; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #e2e8f0; transition: all 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                        <div style="width: 32px; height: 32px; border-radius: 8px; background: #faf5ff; color: #9333ea; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem; border: 1px solid #e9d5ff; flex-shrink: 0;">
+                                            IV
+                                        </div>
+                                        <div style="min-width: 0;">
+                                            <div style="font-weight: 700; font-size: 0.85rem; color: #7e22ce; line-height: 1.3;">Phần IV: Câu hỏi tự luận</div>
+                                            <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                                <span id="lblPart4Count" style="background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 4px; font-weight: 600;">0</span> câu
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                                        <div style="display: flex; align-items: center; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px;">
+                                            <input type="number" id="numPart4Pt" step="0.25" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.86rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onScoringInputChanged('part4')">
+                                            <span style="font-size: 0.74rem; color: #64748b; font-weight: 500;">đ/câu</span>
+                                        </div>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #7e22ce; min-width: 54px; text-align: right;" id="lblPart4Total">= 0.0đ</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chú thích hỗ trợ dưới chân -->
+                            <div id="publishScoringHelperNote" style="margin-top: 10px; padding: 8px 12px; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; display: flex; align-items: center; gap: 6px;">
+                                <i class="ri-sparkling-fill" style="color: #2563eb; font-size: 0.9rem;"></i>
+                                <span id="publishScoringHelperText">Điểm số tự động chia đều theo số câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.</span>
+                            </div>
                         </div>
 
                     </div>
@@ -1568,6 +1702,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
     </div>
 
     <!-- SCRIPT XỬ LÝ TRANG XUẤT BẢN -->
+    <script src="/hc-select.js?v=20261113_ui_v2"></script>
     <script>
         let currentQuiz = {
             id: null,
@@ -1588,12 +1723,49 @@ input[type="checkbox"]:checked + .switch-toggle::after {
         }
 
         let authToken = getAuthToken();
+        let hasCompletedFinalPublish = false;
+        let hasPendingPublishChanges = false;
+        let isInitializingPublishUI = true;
+
+        function markPublishFormDirty() {
+            if (!isInitializingPublishUI && !hasCompletedFinalPublish) {
+                hasPendingPublishChanges = true;
+            }
+        }
+
+        function shouldWarnOnPublishExit() {
+            if (hasCompletedFinalPublish) return false;
+            const hasQuestions = Array.isArray(currentQuiz.questions) && currentQuiz.questions.length > 0;
+            if (!currentQuiz.id && hasQuestions) return true;
+            return !!hasPendingPublishChanges;
+        }
+
+        window.addEventListener('beforeunload', (e) => {
+            if (shouldWarnOnPublishExit()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
+            if (typeof window.initPublishCustomSelects === 'function') {
+                window.initPublishCustomSelects();
+            }
+            const mainCol = document.querySelector('.pub-main-col');
+            if (mainCol) {
+                mainCol.addEventListener('input', markPublishFormDirty);
+                mainCol.addEventListener('change', markPublishFormDirty);
+                mainCol.addEventListener('click', (e) => {
+                    if (e.target && e.target.closest('.mode-card, .time-chip')) {
+                        markPublishFormDirty();
+                    }
+                });
+            }
             initPublishPage();
         });
 
         async function initPublishPage() {
+            isInitializingPublishUI = true;
             authToken = getAuthToken();
 
             // 1. Đọc tham số URL
@@ -1609,7 +1781,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             if (targetId) {
                 currentQuiz.id = targetId;
                 document.getElementById('lblQuizId').textContent = targetId;
-                updateShareLinks(targetId);
+                updateShareLinks(currentQuiz.id);
                 const lnkStudio = document.getElementById('lnkModalBackStudio');
                 if (lnkStudio) lnkStudio.href = `/editor.html?id=${encodeURIComponent(targetId)}`;
             }
@@ -1651,28 +1823,231 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                     console.error("Fetch quiz error:", err);
                 }
             }
+
+            const hasLoadedQuestions = Array.isArray(currentQuiz.questions) && currentQuiz.questions.length > 0;
+            if ((loadedFromSession && hasLoadedQuestions) || (!currentQuiz.id && hasLoadedQuestions)) {
+                hasPendingPublishChanges = true;
+            }
+            isInitializingPublishUI = false;
         }
 
         function getQuestionType(q) {
             if (!q) return 'mcq';
+            const grp = String(q.group_title || '').toUpperCase();
+            const t = String(q.type || '').toLowerCase();
+            if (t === 'essay' || t === 'tu_luan') return 'essay';
+            if (grp.includes('TỰ LUẬN') || grp.includes('PHẦN IV')) return 'essay';
+
             const opts = Array.isArray(q.options) ? q.options : [];
             const mcqCount = opts.filter(o => /^\s*(?:\*\s*)?\(?\[?(\*?[A-F])[\.\:\)]/.test(String(o).trim())).length;
             const tfCount = opts.filter(o => /^\s*(?:\*\s*)?\(?\[?(\*?[a-d])[\)\.\:\-\]\/]/.test(String(o).trim())).length;
             if (mcqCount >= 2 && mcqCount >= tfCount) return 'mcq';
             if (tfCount >= 2 && tfCount > mcqCount) return 'true_false';
 
-            const grp = String(q.group_title || '').toUpperCase();
             if (opts.length === 0) {
                 if (grp.includes('TRẢ LỜI NGẮN') || grp.includes('PHẦN III')) return 'short_answer';
                 if (grp.includes('ĐÚNG SAI') || grp.includes('PHẦN II')) return 'true_false';
             }
-            const t = String(q.type || '').toLowerCase();
             if (t === 'true_false' || t === 'tf') return 'true_false';
             if (t === 'short_answer' || t === 'sa') return 'short_answer';
             if (typeof q.correct_answer === 'object' && q.correct_answer !== null && Object.keys(q.correct_answer).length > 0) {
                 return 'true_false';
             }
             return 'mcq';
+        }
+
+        let quizScoringStats = { mcq: 0, tf: 0, sa: 0, essay: 0, total: 0 };
+
+        function initScoringUI(scoringCfg) {
+            const mcqCount = quizScoringStats.mcq;
+            const tfCount = quizScoringStats.tf;
+            const saCount = quizScoringStats.sa;
+            const essayCount = quizScoringStats.essay;
+            const totalCount = quizScoringStats.total;
+
+            const elP1 = document.getElementById('lblPart1Count');
+            if (elP1) elP1.textContent = mcqCount;
+            const elP2 = document.getElementById('lblPart2Count');
+            if (elP2) elP2.textContent = tfCount;
+            const elP3 = document.getElementById('lblPart3Count');
+            if (elP3) elP3.textContent = saCount;
+            const elP4 = document.getElementById('lblPart4Count');
+            if (elP4) elP4.textContent = essayCount;
+
+            // Chỉ hiển thị các phần có câu hỏi trong đề; phần nào có 0 câu thì ẩn hẳn đi để không gây hiểu lầm
+            const rowPart1 = document.getElementById('rowPart1Scoring');
+            if (rowPart1) rowPart1.style.display = mcqCount > 0 ? 'flex' : 'none';
+            const rowPart2 = document.getElementById('rowPart2Scoring');
+            if (rowPart2) rowPart2.style.display = tfCount > 0 ? 'flex' : 'none';
+            const rowPart3 = document.getElementById('rowPart3Scoring');
+            if (rowPart3) rowPart3.style.display = saCount > 0 ? 'flex' : 'none';
+            const rowPart4 = document.getElementById('rowPart4Scoring');
+            if (rowPart4) rowPart4.style.display = essayCount > 0 ? 'flex' : 'none';
+
+            const emptyNotice = document.getElementById('scoringEmptyNotice');
+            if (emptyNotice) {
+                emptyNotice.style.display = (totalCount === 0) ? 'block' : 'none';
+            }
+
+            const selMode = document.getElementById('selScoringMode');
+            if (selMode) {
+                // Kiểm tra xem đề có các phần theo cấu trúc GDPT 2018 (có đúng / sai hoặc trả lời ngắn) không
+                const optGdpt = selMode.querySelector('option[value="gdpt2018"]');
+                const hasGdptParts = (tfCount > 0 || saCount > 0);
+                if (optGdpt) {
+                    if (!hasGdptParts) {
+                        optGdpt.disabled = true;
+                        optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (đề cần có phần đúng / sai hoặc trả lời ngắn)';
+                    } else {
+                        optGdpt.disabled = false;
+                        optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: Phần I: 3đ • Phần II: 4đ • Phần III: 3đ)';
+                    }
+                }
+
+                if (scoringCfg && scoringCfg.mode) {
+                    selMode.value = scoringCfg.mode;
+                    if (scoringCfg.part1_point_per_q !== undefined) document.getElementById('numPart1Pt').value = scoringCfg.part1_point_per_q;
+                    if (scoringCfg.part2_point_per_q !== undefined) document.getElementById('numPart2Pt').value = scoringCfg.part2_point_per_q;
+                    if (scoringCfg.part3_point_per_q !== undefined) document.getElementById('numPart3Pt').value = scoringCfg.part3_point_per_q;
+                    if (scoringCfg.part4_point_per_q !== undefined) document.getElementById('numPart4Pt').value = scoringCfg.part4_point_per_q;
+                } else {
+                    if (tfCount > 0 || saCount > 0) {
+                        selMode.value = 'gdpt2018';
+                    } else {
+                        selMode.value = 'auto';
+                    }
+                    applyScoringPresets();
+                }
+            }
+            recalcScoringTotals();
+        }
+
+        function onScoringModeChange() {
+            applyScoringPresets();
+            recalcScoringTotals();
+        }
+
+        function applyScoringPresets() {
+            const sel = document.getElementById('selScoringMode');
+            if (!sel) return;
+            const mode = sel.value;
+            const mcqCount = quizScoringStats.mcq;
+            const tfCount = quizScoringStats.tf;
+            const saCount = quizScoringStats.sa;
+            const essayCount = quizScoringStats.essay;
+            const totalCount = quizScoringStats.total;
+
+            const el1 = document.getElementById('numPart1Pt');
+            const el2 = document.getElementById('numPart2Pt');
+            const el3 = document.getElementById('numPart3Pt');
+            const el4 = document.getElementById('numPart4Pt');
+
+            if (mode === 'auto') {
+                const pt = totalCount > 0 ? (10.0 / totalCount) : 0;
+                const roundedPt = Math.round(pt * 1000) / 1000;
+                // Chỉ gán điểm cho phần có câu hỏi, phần 0 câu thì gán 0
+                if (el1) el1.value = mcqCount > 0 ? roundedPt : 0;
+                if (el2) el2.value = tfCount > 0 ? roundedPt : 0;
+                if (el3) el3.value = saCount > 0 ? roundedPt : 0;
+                if (el4) el4.value = essayCount > 0 ? roundedPt : 0;
+            } else if (mode === 'gdpt2018') {
+                const pt1 = mcqCount > 0 ? (3.0 / mcqCount) : 0;
+                const pt2 = tfCount > 0 ? (4.0 / tfCount) : 0;
+                const pt3 = saCount > 0 ? (3.0 / saCount) : 0;
+                if (el1) el1.value = mcqCount > 0 ? (Math.round(pt1 * 100) / 100) : 0;
+                if (el2) el2.value = tfCount > 0 ? (Math.round(pt2 * 100) / 100) : 0;
+                if (el3) el3.value = saCount > 0 ? (Math.round(pt3 * 100) / 100) : 0;
+                if (el4) el4.value = essayCount > 0 ? 1.0 : 0;
+            }
+        }
+
+        function onScoringInputChanged(part) {
+            const selMode = document.getElementById('selScoringMode');
+            if (selMode && selMode.value !== 'custom') {
+                selMode.value = 'custom';
+            }
+            recalcScoringTotals();
+        }
+
+        function recalcScoringTotals() {
+            const mcqCount = quizScoringStats.mcq;
+            const tfCount = quizScoringStats.tf;
+            const saCount = quizScoringStats.sa;
+            const essayCount = quizScoringStats.essay;
+            const totalCount = quizScoringStats.total;
+
+            const elPt1 = document.getElementById('numPart1Pt');
+            const elPt2 = document.getElementById('numPart2Pt');
+            const elPt3 = document.getElementById('numPart3Pt');
+            const elPt4 = document.getElementById('numPart4Pt');
+            if (!elPt1 || !elPt2 || !elPt3 || !elPt4) return 10.0;
+
+            const selMode = document.getElementById('selScoringMode');
+            const mode = selMode ? selMode.value : 'auto';
+
+            const pt1 = parseFloat(elPt1.value) || 0;
+            const pt2 = parseFloat(elPt2.value) || 0;
+            const pt3 = parseFloat(elPt3.value) || 0;
+            const pt4 = parseFloat(elPt4.value) || 0;
+
+            let tot1 = 0, tot2 = 0, tot3 = 0, tot4 = 0, totalScore = 10.0;
+
+            if (mode === 'auto') {
+                // Tự động chia đều theo câu:
+                // Tính điểm từng phần theo tỷ lệ số câu của phần đó trên tổng số câu (tổng tròn 10.0 điểm)
+                tot1 = totalCount > 0 ? (mcqCount / totalCount) * 10.0 : 0;
+                tot2 = totalCount > 0 ? (tfCount / totalCount) * 10.0 : 0;
+                tot3 = totalCount > 0 ? (saCount / totalCount) * 10.0 : 0;
+                tot4 = totalCount > 0 ? (essayCount / totalCount) * 10.0 : 0;
+
+                tot1 = Math.round(tot1 * 100) / 100;
+                tot2 = Math.round(tot2 * 100) / 100;
+                tot3 = Math.round(tot3 * 100) / 100;
+                tot4 = Math.round(tot4 * 100) / 100;
+                totalScore = 10.0;
+            } else {
+                tot1 = Math.round(mcqCount * pt1 * 100) / 100;
+                tot2 = Math.round(tfCount * pt2 * 100) / 100;
+                tot3 = Math.round(saCount * pt3 * 100) / 100;
+                tot4 = Math.round(essayCount * pt4 * 100) / 100;
+                totalScore = Math.round((tot1 + tot2 + tot3 + tot4) * 100) / 100;
+            }
+
+            const elT1 = document.getElementById('lblPart1Total');
+            if (elT1) elT1.textContent = `= ${tot1}đ`;
+            const elT2 = document.getElementById('lblPart2Total');
+            if (elT2) elT2.textContent = `= ${tot2}đ`;
+            const elT3 = document.getElementById('lblPart3Total');
+            if (elT3) elT3.textContent = `= ${tot3}đ`;
+            const elT4 = document.getElementById('lblPart4Total');
+            if (elT4) elT4.textContent = `= ${tot4}đ`;
+
+            const badge = document.getElementById('lblTotalQuizScore');
+            if (badge) {
+                if (Math.abs(totalScore - 10.0) < 0.05) {
+                    badge.innerHTML = `<i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm`;
+                    badge.style.background = '#ecfdf5';
+                    badge.style.color = '#047857';
+                    badge.style.borderColor = '#a7f3d0';
+                } else {
+                    badge.innerHTML = `<i class="ri-error-warning-fill" style="color: #f59e0b;"></i> Tổng: ${totalScore} điểm`;
+                    badge.style.background = '#fef3c7';
+                    badge.style.color = '#b45309';
+                    badge.style.borderColor = '#fde68a';
+                }
+            }
+
+            const helperText = document.getElementById('publishScoringHelperText');
+            if (helperText) {
+                if (mode === 'auto') {
+                    helperText.innerHTML = 'Điểm số tự động chia đều theo câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.';
+                } else if (mode === 'gdpt2018') {
+                    helperText.innerHTML = 'Phân bổ theo chuẩn Bộ GD&ĐT: Phần I (3.0đ) • Phần II (4.0đ) • Phần III (3.0đ).';
+                } else {
+                    helperText.innerHTML = 'Chế độ tự do: Bạn có thể nhập điểm tùy ý cho từng câu của mỗi phần.';
+                }
+            }
+            return totalScore;
         }
 
         function applyQuizToUI(data) {
@@ -1705,6 +2080,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             let mcqCount = 0;
             let tfCount = 0;
             let saCount = 0;
+            let essayCount = 0;
             const chipsContainer = document.getElementById('sidebarChipsGrid');
             chipsContainer.innerHTML = '';
 
@@ -1712,22 +2088,30 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 const type = getQuestionType(q);
                 if (type === 'true_false') tfCount++;
                 else if (type === 'short_answer') saCount++;
+                else if (type === 'essay') essayCount++;
                 else mcqCount++;
 
                 const chip = document.createElement('div');
-                chip.className = `q-chip chip-${type === 'true_false' ? 'tf' : (type === 'short_answer' ? 'sa' : 'mcq')}`;
+                chip.className = `q-chip chip-${type === 'true_false' ? 'tf' : (type === 'short_answer' ? 'sa' : (type === 'essay' ? 'essay' : 'mcq'))}`;
                 chip.textContent = idx + 1;
-                chip.title = `Câu ${idx + 1} (${type === 'true_false' ? 'Đúng/Sai' : (type === 'short_answer' ? 'Trả lời ngắn' : 'Trắc nghiệm')})`;
+                chip.title = `Câu ${idx + 1} (${type === 'true_false' ? 'đúng/sai' : (type === 'short_answer' ? 'trả lời ngắn' : (type === 'essay' ? 'tự luận' : 'trắc nghiệm'))})`;
                 chipsContainer.appendChild(chip);
             });
 
             const total = questions.length;
+            quizScoringStats = { mcq: mcqCount, tf: tfCount, sa: saCount, essay: essayCount, total: total };
+
             document.getElementById('valTotalQ').textContent = total;
             document.getElementById('valMcqQ').textContent = mcqCount;
             document.getElementById('valTfQ').textContent = tfCount;
             document.getElementById('valSaQ').textContent = saCount;
+            const elValEssay = document.getElementById('valEssayQ');
+            if (elValEssay) elValEssay.textContent = essayCount;
+
             document.getElementById('sidebarQCount').textContent = `${total} câu`;
-            document.getElementById('navbarQuizMeta').textContent = `${total} câu (${mcqCount} TN • ${tfCount} Đ/S • ${saCount} TLN)`;
+            let metaParts = [`${mcqCount} TN`, `${tfCount} Đ/S`, `${saCount} TLN`];
+            if (essayCount > 0) metaParts.push(`${essayCount} TL`);
+            document.getElementById('navbarQuizMeta').textContent = `${total} câu (${metaParts.join(' • ')})`;
 
             // Cấu hình thời gian & chế độ nếu có
             if (data.time_limit !== undefined) {
@@ -1741,9 +2125,11 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 document.getElementById('chkShuffle').checked = !!data.is_shuffle;
             }
 
-            // Cấu hình nâng cao nếu có
+            // Cấu hình nâng cao & thang điểm nếu có
+            let scoringCfg = null;
             if (data.settings && typeof data.settings === 'object') {
                 const s = data.settings;
+                if (s.scoring) scoringCfg = s.scoring;
                 if (s.start_time) document.getElementById('dtStartTime').value = s.start_time;
                 if (s.end_time) document.getElementById('dtEndTime').value = s.end_time;
                 if (s.max_attempts !== undefined) document.getElementById('selMaxAttempts').value = s.max_attempts;
@@ -1759,6 +2145,9 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 if (s.req_school !== undefined) document.getElementById('chkReqSchool').checked = !!s.req_school;
                 if (s.req_sbd !== undefined) document.getElementById('chkReqSBD').checked = !!s.req_sbd;
             }
+
+            // Khởi tạo bảng chia điểm
+            initScoringUI(scoringCfg);
         }
 
         function setQuizMode(mode) {
@@ -1810,6 +2199,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 else if (cat === 'mcq') c.style.display = c.classList.contains('chip-mcq') ? 'flex' : 'none';
                 else if (cat === 'true_false') c.style.display = c.classList.contains('chip-tf') ? 'flex' : 'none';
                 else if (cat === 'short_answer') c.style.display = c.classList.contains('chip-sa') ? 'flex' : 'none';
+                else if (cat === 'essay') c.style.display = c.classList.contains('chip-essay') ? 'flex' : 'none';
             });
         }
 
@@ -1865,7 +2255,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             }
 
             if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
-                return alert("Không tìm thấy nội dung câu hỏi để xuất bản! Vui lòng quay lại Trình soạn thảo Studio để kiểm tra lại.");
+                return alert("Không tìm thấy nội dung câu hỏi để xuất bản! Vui lòng quay lại trình soạn thảo Studio để kiểm tra lại.");
             }
 
             const timeLimit = parseInt(document.getElementById('numTimeLimit').value) || 0;
@@ -1873,8 +2263,46 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             const description = document.getElementById('txtQuizDescription').value.trim();
             const password = document.getElementById('txtQuizPassword').value.trim();
 
+            // Thu thập cấu hình chia điểm
+            const scoringMode = (document.getElementById('selScoringMode') && document.getElementById('selScoringMode').value) || 'auto';
+            const totalCount = quizScoringStats.total;
+            let part1Pt = parseFloat(document.getElementById('numPart1Pt') && document.getElementById('numPart1Pt').value) || 0;
+            let part2Pt = parseFloat(document.getElementById('numPart2Pt') && document.getElementById('numPart2Pt').value) || 0;
+            let part3Pt = parseFloat(document.getElementById('numPart3Pt') && document.getElementById('numPart3Pt').value) || 0;
+            let part4Pt = parseFloat(document.getElementById('numPart4Pt') && document.getElementById('numPart4Pt').value) || 0;
+
+            if (scoringMode === 'auto') {
+                const autoPt = totalCount > 0 ? (Math.round((10.0 / totalCount) * 1000) / 1000) : 0;
+                part1Pt = quizScoringStats.mcq > 0 ? autoPt : 0;
+                part2Pt = quizScoringStats.tf > 0 ? autoPt : 0;
+                part3Pt = quizScoringStats.sa > 0 ? autoPt : 0;
+                part4Pt = quizScoringStats.essay > 0 ? autoPt : 0;
+            }
+            const totalScore = recalcScoringTotals();
+
+            const scoringSettings = {
+                mode: scoringMode,
+                total_score: totalScore,
+                part1_point_per_q: part1Pt,
+                part2_point_per_q: part2Pt,
+                part3_point_per_q: part3Pt,
+                part4_point_per_q: part4Pt
+            };
+
+            // Gán điểm trực tiếp vào từng câu hỏi
+            if (Array.isArray(currentQuiz.questions)) {
+                currentQuiz.questions.forEach(q => {
+                    const t = getQuestionType(q);
+                    if (t === 'true_false') q.points = part2Pt;
+                    else if (t === 'short_answer') q.points = part3Pt;
+                    else if (t === 'essay') q.points = part4Pt;
+                    else q.points = part1Pt;
+                });
+            }
+
             // Thu thập cấu hình nâng cao
             const settings = {
+                scoring: scoringSettings,
                 start_time: document.getElementById('dtStartTime').value || null,
                 end_time: document.getElementById('dtEndTime').value || null,
                 max_attempts: parseInt(document.getElementById('selMaxAttempts').value) || 0,
@@ -1898,7 +2326,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
             const setLoading = (loading) => {
                 if (btnSidebar) { 
-                    btnSidebar.innerHTML = loading ? `<i class="ri-loader-4-line ri-spin"></i> Đang lưu & xuất bản...` : `<i class="ri-send-plane-fill"></i> Hoàn tất & Xuất bản ngay`; 
+                    btnSidebar.innerHTML = loading ? `<i class="ri-loader-4-line ri-spin"></i> Đang lưu & xuất bản...` : `<i class="ri-send-plane-fill"></i> Hoàn tất & xuất bản ngay`; 
                     btnSidebar.disabled = loading; 
                 }
                 if (btnMobile) { 
@@ -1937,6 +2365,8 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 });
                 const result = await res.json();
                 if (res.ok && (result.status === 'success' || result.quiz_id || result.id)) {
+                    hasCompletedFinalPublish = true;
+                    hasPendingPublishChanges = false;
                     const finalId = result.quiz_id || result.id || currentQuiz.id;
                     currentQuiz.id = finalId;
                     document.getElementById('lblQuizId').textContent = finalId;
@@ -1990,7 +2420,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             const shareUrl = `${window.location.origin}/?id=${encodeURIComponent(currentQuiz.id)}`;
             const embed = `<iframe src="${shareUrl}" width="100%" height="800" frameborder="0" allowfullscreen style="border: 1px solid #cbd5e1; border-radius: 12px;"></iframe>`;
             navigator.clipboard.writeText(embed);
-            showToast("✓ Đã chép mã nhúng Iframe vào bộ nhớ tạm!");
+            showToast("✓ Đã chép mã nhúng iframe vào bộ nhớ tạm!");
         }
 
         function downloadQrCodeImage() {

@@ -452,11 +452,11 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
     
                         "error_code": "SCANNED_PDF_NEEDS_AI",
     
-                        "error_name": "Phát hiện file PDF Scan / Ảnh chụp (Chưa bật AI)",
+                        "error_name": "Phát hiện file PDF scan / ảnh chụp (chưa bật AI)",
     
                         "cause": f"Tệp PDF của bạn có {tot_pages} trang nhưng chỉ có khoảng {tot_txt} ký tự văn bản số hóa. Đây là dạng tài liệu scan hoặc ảnh chụp tài liệu mà thuật toán nội bộ không thể đọc trực tiếp nếu không dùng AI.",
     
-                        "solution": "1. Vui lòng BẬT nút 'Dùng AI bóc tách siêu chuẩn' khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã được cấu hình Gemini API Key trong Cài đặt Admin.\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lại lớp chữ số hóa gốc.",
+                        "solution": "1. Vui lòng BẬT nút 'Dùng AI bóc tách siêu chuẩn' khi tải tệp để AI Vision OCR đọc chữ từ ảnh scan.\n2. Đảm bảo hệ thống đã được cấu hình Gemini API Key trong cài đặt quản trị (Admin).\n3. Hoặc xuất lại file PDF từ Word/Docs để giữ lại lớp chữ số hóa gốc.",
     
                         "detail": "Tệp PDF scan/ảnh chụp không có lớp chữ số hóa. Vui lòng bật 'Dùng AI bóc tách siêu chuẩn' để AI nhận dạng."
     
@@ -476,7 +476,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
 
                     "cause": f"Tệp PDF là tài liệu scan / ảnh chụp ({tot_pages} trang, {tot_txt} ký tự văn bản), cần AI Vision OCR để nhận diện chữ, nhưng hệ thống chưa có API Key.",
 
-                    "solution": "1. Quản trị viên truy cập Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.",
+                    "solution": "1. Quản trị viên truy cập cài đặt quản trị (Admin) -> cấu hình Gemini API Key.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.",
 
                     "detail": "PDF scan cần Gemini API Key để thực hiện Vision OCR."
 
@@ -572,7 +572,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
 
                     "cause": "Tài liệu ảnh chụp đề thi yêu cầu công nghệ AI Vision OCR để nhận diện chữ và công thức, nhưng hệ thống hiện chưa được cấu hình Google Gemini API Key.",
 
-                    "solution": "1. Quản trị viên truy cập Cài đặt Admin -> Cấu hình Gemini API Keys.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.",
+                    "solution": "1. Quản trị viên truy cập cài đặt quản trị (Admin) -> cấu hình Gemini API Key.\n2. Lấy API Key miễn phí từ Google AI Studio (https://aistudio.google.com/) và lưu vào hệ thống.",
 
                     "detail": "Chưa cấu hình Gemini API Key để thực hiện OCR ảnh."
 
@@ -794,7 +794,7 @@ def process_document_background(task_id: str, temp_file_path: str, ext: str, use
 
                     "cause": "Tài liệu Word không chứa câu hỏi đúng định dạng nhận diện. Hệ thống cần các câu hỏi được đánh số 'Câu 1:' hoặc '1.' và các phương án A, B, C, D.",
 
-                    "solution": "1. Tải 'file Word mẫu chuẩn (Tránh lỗi nhận diện)' ngay trên giao diện trang chủ để tham khảo cấu trúc.\n2. Đảm bảo mỗi câu hỏi bắt đầu bằng 'Câu 1:' (hoặc '1.') và mỗi phương án nằm trên một dòng riêng hoặc cách nhau rõ ràng.\n3. Thử bật 'Dùng AI bóc tách siêu chuẩn' khi tải tệp để AI hỗ trợ nhận dạng linh hoạt.",
+                    "solution": "1. Tải 'file Word mẫu chuẩn (tránh lỗi nhận diện)' ngay trên giao diện trang chủ để tham khảo cấu trúc.\n2. Đảm bảo mỗi câu hỏi bắt đầu bằng 'Câu 1:' (hoặc '1.') và mỗi phương án nằm trên một dòng riêng hoặc cách nhau rõ ràng.\n3. Thử bật 'Dùng AI bóc tách siêu chuẩn' khi tải tệp để AI hỗ trợ nhận dạng linh hoạt.",
 
                     "detail": "Không thể trích xuất câu hỏi từ file. Vui lòng đảm bảo file có chứa câu hỏi dạng 'Câu 1:' hoặc '1.' và các phương án A, B, C, D."
 

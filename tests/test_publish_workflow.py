@@ -375,3 +375,72 @@ def test_require_login_feature_and_verification():
         assert login_res["full_name"] == "Trần Thị Hoa"
         assert login_res["class_name"] == "12A3"
         assert login_res["school"] == "THPT Marie Curie"
+
+
+def test_custom_rich_dropdown_sync_and_syntax():
+    """Kiểm tra thành phần dropdown chọn lựa tùy biến (hc-select) đồng bộ và hợp lệ cú pháp JS."""
+    import subprocess
+
+    static_hc = "static/js/hc-select.js"
+    tpl_hc = "templates/hc-select.js"
+    assert os.path.exists(static_hc), "Thiếu static/js/hc-select.js"
+    assert os.path.exists(tpl_hc), "Thiếu templates/hc-select.js"
+
+    with open(static_hc, "r", encoding="utf-8") as f1, open(tpl_hc, "r", encoding="utf-8") as f2:
+        code1 = f1.read()
+        code2 = f2.read()
+    assert code1 == code2, "templates/hc-select.js chưa đồng bộ với static/js/hc-select.js"
+    assert "initHcCustomSelect" in code1
+    assert "initModalCustomSelects" in code1
+    assert "initPublishCustomSelects" in code1
+    assert "initEditorExtraCustomSelects" in code1
+    assert "initDashboardCustomSelects" in code1
+    assert "initContactCustomSelects" in code1
+    assert "initQuestionTypeCustomSelects" in code1
+
+    node_chk = subprocess.run(["node", "-c", static_hc], capture_output=True, text=True)
+    assert node_chk.returncode == 0, f"Lỗi cú pháp hc-select.js: {node_chk.stderr}"
+
+    for tpl_path in ["templates/editor.html", "templates/index.html", "templates/publish.html", "static/publish.html", "templates/contact.html"]:
+        with open(tpl_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        assert "/hc-select.js" in html, f"{tpl_path} chưa nhúng /hc-select.js"
+
+    for js_path in ["static/js/editor.js", "templates/editor.js"]:
+        with open(js_path, "r", encoding="utf-8") as f:
+            js = f.read()
+        assert "initModalCustomSelects" in js, f"Thiếu initModalCustomSelects trong {js_path}"
+        assert "initQuestionTypeCustomSelects" in js, f"Thiếu initQuestionTypeCustomSelects trong {js_path}"
+        assert "initEditorExtraCustomSelects" in js, f"Thiếu initEditorExtraCustomSelects trong {js_path}"
+
+    for js_path in ["static/js/script.source.js", "static/js/script.js", "templates/script.js"]:
+        with open(js_path, "r", encoding="utf-8") as f:
+            js = f.read()
+        assert "initModalCustomSelects" in js, f"Thiếu initModalCustomSelects trong {js_path}"
+        assert "initDashboardCustomSelects" in js, f"Thiếu initDashboardCustomSelects trong {js_path}"
+
+
+def test_unsaved_exit_beforeunload_guards():
+    """Kiểm tra cơ chế hỏi xác nhận khi rời/tắt tab mà chưa lưu hoặc chưa xuất bản đề thi."""
+    for editor_path in ["static/js/editor.js", "templates/editor.js"]:
+        with open(editor_path, "r", encoding="utf-8") as f:
+            ed_js = f.read()
+        assert "hasPendingStudioExitWarning" in ed_js
+        assert "hasUnsavedStudioChanges" in ed_js
+        assert "beforeunload" in ed_js
+        assert "pagehide" in ed_js
+
+    for pub_path in ["templates/publish.html", "static/publish.html"]:
+        with open(pub_path, "r", encoding="utf-8") as f:
+            pub_html = f.read()
+        assert "shouldWarnOnPublishExit" in pub_html
+        assert "hasCompletedFinalPublish" in pub_html
+        assert "beforeunload" in pub_html
+
+    for script_path in ["static/js/script.source.js", "static/js/script.js", "templates/script.js"]:
+        with open(script_path, "r", encoding="utf-8") as f:
+            sc_js = f.read()
+        assert "hasUnsavedIndexQuiz" in sc_js or "allowIndexExitWithoutPrompt" in sc_js
+        assert "beforeunload" in sc_js
+
+

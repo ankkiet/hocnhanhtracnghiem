@@ -23,6 +23,7 @@ from app.utils.helpers import (
     evaluate_mcq_answer,
     evaluate_short_answer,
     evaluate_true_false_answer,
+    resolve_question_type,
 )
 from core.logging_config import get_logger
 from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SUBMISSIONS_CACHE
@@ -57,6 +58,57 @@ def _get_user_from_token(token: str, db: Any):
                     pass
     from core.security import get_user_from_token as sec_get_user
     return sec_get_user(token, db)
+
+def resolve_question_points(q: dict, total_q: int, scoring_cfg: dict) -> float:
+    """
+    Xác định điểm số tối đa của một câu hỏi dựa trên cấu hình đề thi:
+    1. Điểm được gán trực tiếp trên từng câu (q.points)
+    2. Điểm theo cấu hình phân bổ điểm (scoring: auto, gdpt2018, custom)
+    3. Mặc định 1.0 điểm nếu không có cấu hình
+    """
+    if q.get('points') is not None:
+        try:
+            val = float(q.get('points'))
+            if val >= 0:
+                return val
+        except (ValueError, TypeError):
+            pass
+
+    if scoring_cfg and isinstance(scoring_cfg, dict):
+        mode = scoring_cfg.get('mode', 'auto')
+        if mode == 'auto':
+            try:
+                total_pts = float(scoring_cfg.get('total_score', 10.0) or 10.0)
+                return round(total_pts / max(1, total_q), 3)
+            except (ValueError, TypeError):
+                pass
+        elif mode in ('gdpt2018', 'custom'):
+            q_type = resolve_question_type(q)
+            key_map = {
+                'mcq': 'part1_point_per_q',
+                'true_false': 'part2_point_per_q',
+                'short_answer': 'part3_point_per_q',
+                'essay': 'part4_point_per_q'
+            }
+            target_key = key_map.get(q_type)
+            if target_key and scoring_cfg.get(target_key) is not None:
+                try:
+                    return float(scoring_cfg[target_key])
+                except (ValueError, TypeError):
+                    pass
+            # Nếu là chế độ chuẩn GDPT 2018 mà chưa có điểm chi tiết từng câu, áp dụng định mức chuẩn Bộ GD&ĐT:
+            # Phần I (MCQ): 0.25đ/câu; Phần II (Đúng/Sai): 1.0đ/câu; Phần III (Trả lời ngắn): 0.5đ/câu; Phần IV: 1.0đ/câu
+            if mode == 'gdpt2018':
+                gdpt_defaults = {
+                    'mcq': 0.25,
+                    'true_false': 1.0,
+                    'short_answer': 0.5,
+                    'essay': 1.0
+                }
+                return gdpt_defaults.get(q_type, 1.0)
+
+    return 1.0
+
 
 class StudentService:
     """
@@ -148,9 +200,11 @@ class StudentService:
             raise HTTPException(status_code=403, detail="Bài thi này đã bị giáo viên tạm khóa.")
 
         questions = quiz_data.get('data') or quiz_data.get('questions') or []
+        scoring_settings = quiz_data.get('scoring') or (quiz_data.get('settings') or {}).get('scoring') or {}
 
-        score = 0
+        score = 0.0
         results = []
+        total_max_points = 0.0
 
         for idx, q in enumerate(questions):
             # Lấy câu trả lời của học sinh (hỗ trợ cả key dạng chuỗi "0" hoặc int 0)
@@ -158,22 +212,29 @@ class StudentService:
             if user_ans is None:
                 user_ans = req.answers.get(idx)
 
-            q_type = q.get('type', 'mcq')
+            q_type = resolve_question_type(q)
             correct_ans = q.get('correct_answer')
             is_correct = False
             earned = 0.0
+            q_pt = resolve_question_points(q, len(questions), scoring_settings)
+            total_max_points += q_pt
 
             if q_type == 'true_false' or isinstance(correct_ans, dict):
-                is_correct, earned = evaluate_true_false_answer(user_ans, correct_ans)
+                is_correct, raw_earned = evaluate_true_false_answer(user_ans, correct_ans)
+                earned = round(raw_earned * q_pt, 3)
                 score += earned
             elif q_type == 'short_answer':
                 is_correct = evaluate_short_answer(user_ans, correct_ans)
-                earned = 1.0 if is_correct else 0.0
+                earned = q_pt if is_correct else 0.0
                 score += earned
+            elif q_type == 'essay':
+                # Câu hỏi tự luận: Lưu bài làm của học sinh, chờ giáo viên chấm
+                is_correct = None
+                earned = 0.0
             else:
                 # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt, miễn nhiễm đảo vị trí phương án
                 is_correct = evaluate_mcq_answer(user_ans, correct_ans, q.get('options'))
-                earned = 1.0 if is_correct else 0.0
+                earned = q_pt if is_correct else 0.0
                 score += earned
 
             results.append({
@@ -186,7 +247,8 @@ class StudentService:
                 "user_answer": user_ans,
                 "correct_answer": correct_ans,
                 "is_correct": is_correct,
-                "earned": earned,
+                "earned": round(earned, 2),
+                "max_points": round(q_pt, 2),
                 "explain": q.get('explain', '')
             })
 
@@ -210,6 +272,7 @@ class StudentService:
             'school_name': getattr(req, 'school_name', '') or '',
             'sbd': getattr(req, 'sbd', '') or '',
             'score': round(score, 2),
+            'max_score': round(total_max_points, 2),
             'total_questions': total_questions,
             'time_elapsed': req.time_elapsed,
             'tab_switch_count': tab_switches,
@@ -244,6 +307,7 @@ class StudentService:
                     'quiz_id': req.quiz_id,
                     'quiz_title': quiz_title,
                     'score': round(score, 2),
+                    'max_score': round(total_max_points, 2),
                     'total_questions': total_questions,
                     'time_elapsed': req.time_elapsed,
                     'submitted_at': now_iso,
@@ -280,6 +344,7 @@ class StudentService:
         return {
             "status": "success",
             "score": round(score, 2),
+            "max_score": round(total_max_points, 2),
             "total_questions": total_questions,
             "time_elapsed": req.time_elapsed,
             "tab_switch_count": tab_switches,
@@ -431,12 +496,19 @@ class StudentService:
                 if quiz_total_q and quiz_total_q > 0:
                     total = quiz_total_q
 
+            raw_max = data.get('max_score')
+            try:
+                max_score_val = round(float(raw_max), 2) if (raw_max is not None and float(raw_max) > 0) else None
+            except (ValueError, TypeError):
+                max_score_val = None
+
             results.append({
                 'student_name': data.get('student_name', 'Ẩn danh'),
                 'class_name': str(data.get('class_name') or '').strip(),
                 'school_name': str(data.get('school_name') or '').strip(),
                 'sbd': str(data.get('sbd') or '').strip(),
                 'score': score,
+                'max_score': max_score_val,
                 'total_questions': total,
                 'time_elapsed': time_elapsed
             })
@@ -622,6 +694,7 @@ class StudentService:
                 'quiz_id': item.quiz_id,
                 'quiz_title': item.quiz_title or f"Đề thi #{item.quiz_id}",
                 'score': round(float(item.score), 2),
+                'max_score': round(float(item.max_score), 2) if (item.max_score is not None and item.max_score > 0) else None,
                 'total_questions': int(item.total_questions),
                 'time_elapsed': int(item.time_elapsed),
                 'submitted_at': item.submitted_at or now_utc.isoformat(),

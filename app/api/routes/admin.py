@@ -255,7 +255,7 @@ async def get_audit_logs(admin_token: str, limit: int = 50, action: Optional[str
     }
 
 
-@router.get("/gemini_stats", summary="Thống kê Quota & Chi phí Gemini (Admin)")
+@router.get("/gemini_stats", summary="Thống kê quota & chi phí Gemini (Admin)")
 async def get_gemini_stats(admin_token: str):
     """Lấy số liệu thống kê chi tiết: số lần gọi, trạng thái từng key, lỗi theo ngày và ước tính chi phí."""
     db = _get_db()
@@ -314,7 +314,7 @@ async def ping_gemini_key(req: PingKeyRequest):
                     "state": "healthy",
                     "result": "Hoạt động tốt (Healthy)",
                     "latency_ms": duration_ms,
-                    "message": f"Khóa API hoạt động tốt với {m} (Phản hồi sau {duration_ms}ms)"
+                    "message": f"Khóa API hoạt động tốt với {m} (phản hồi sau {duration_ms}ms)"
                 }
             except Exception as e_model:
                 last_e = e_model

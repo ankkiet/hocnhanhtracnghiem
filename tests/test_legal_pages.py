@@ -96,8 +96,8 @@ def test_fastapi_legal_routes():
     routes_to_test = [
         ("/privacy", "Chính sách bảo mật"),
         ("/terms", "Điều khoản"),
-        ("/about", "Về Chúng Tôi"),
-        ("/contact", "Liên Hệ & Hỗ Trợ Kỹ Thuật"),
+        ("/about", "Về chúng tôi"),
+        ("/contact", "Liên hệ & hỗ trợ kỹ thuật"),
     ]
 
     for path, expected_text in routes_to_test:

@@ -4,11 +4,11 @@
     <base href="/">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HocNhanhTN Studio - Biên tập & Soát lỗi Đề thi</title>
+    <title>HocNhanhTN Studio - Biên tập & soát lỗi đề thi</title>
     <meta name="description" content="Studio biên tập đề thi trắc nghiệm thông minh, tích hợp AI bóc tách công thức toán học và hình ảnh chuẩn GDPT 2018.">
     <link rel="icon" type="image/png" href="/logohocnhanhtn.png">
     <link rel="apple-touch-icon" href="/logohocnhanhtn.png">
-    <meta property="og:title" content="HocNhanhTN Studio - Biên tập & Soát lỗi Đề thi">
+    <meta property="og:title" content="HocNhanhTN Studio - Biên tập & soát lỗi đề thi">
     <meta property="og:description" content="Studio biên tập đề thi trắc nghiệm thông minh, tích hợp AI bóc tách công thức toán học và hình ảnh chuẩn GDPT 2018.">
     <meta property="og:image" content="https://hocnhanhtn.online/unnamed.jpg">
     <meta property="og:type" content="website">
@@ -25,7 +25,53 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css?v=20261106_mathtype_bulletproof_v2">
-    <link rel="stylesheet" href="/editor.css?v=20261107_image_drag_drop_caret_v1">
+    <link rel="stylesheet" href="/editor.css?v=20261112_cortex_fix_v12">
+    <!-- MathLive Virtual Keyboard & LaTeX Modal Layering -->
+    <style id="mathlive-overlay-layering-fix">
+        :root, body {
+            --keyboard-zindex: 2147483647 !important;
+        }
+        /* Container bao quanh full màn hình phải để pointer-events: none để không chặn click chuột vào modal */
+        .ML__keyboard,
+        div.ML__keyboard,
+        .ML__keyboard-sink {
+            z-index: 2147483647 !important;
+            position: fixed !important;
+            pointer-events: none !important;
+        }
+        /* Chỉ bàn phím thực sự ở đáy màn hình mới nhận click */
+        .ML__keyboard.is-visible > .MLK__backdrop,
+        .ML__keyboard .MLK__backdrop,
+        .ML__keyboard .MLK__plate,
+        .ML__keyboard .MLK__rows,
+        .ML__keyboard .MLK__row,
+        .ML__keyboard .MLK__keycap,
+        .ML__keyboard [role="button"],
+        .ML__keyboard button {
+            pointer-events: all !important;
+        }
+        #latexMathModal.studio-modal-overlay,
+        #latexMathModal.mathtype-modal-overlay,
+        #latexMathModal {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            background: rgba(15, 23, 42, 0.55) !important;
+            backdrop-filter: blur(4px) !important;
+            align-items: flex-start !important;
+            justify-content: center !important;
+            z-index: 10000 !important;
+            padding: 24px 16px 360px 16px !important;
+            overflow-y: auto !important;
+        }
+        #latexMathModal .mathtype-modal-container {
+            margin: 0 auto !important;
+            pointer-events: auto !important;
+        }
+    </style>
+
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
     <script>
         window.MathJax = {
@@ -65,6 +111,13 @@
             };
             document.head.appendChild(s);
         }
+    </script>
+    <!-- CortexJS Compute Engine (ESM) -->
+    <script type="module">
+        import { ComputeEngine } from 'https://cdn.jsdelivr.net/npm/@cortex-js/compute-engine/+esm';
+        window.ComputeEngine = ComputeEngine;
+        window.ce = new ComputeEngine();
+        document.dispatchEvent(new CustomEvent('compute-engine-ready'));
     </script>
 
     <!-- CRITICAL STYLES CHO HIỆU ỨNG LOADING HOCNHANHTN BAN ĐẦU (Chuẩn hieuung.html) -->
@@ -295,8 +348,8 @@
             </div>
 
             <!-- Action buttons -->
-            <button id="btnToggleAIPanel" class="btn-studio-ai" onclick="toggleAIPanel()" title="AI Rà soát & Thống kê lỗi">
-                <i class="ri-sparkling-fill"></i> <span class="btn-action-text">AI Rà soát lỗi</span>
+            <button id="btnToggleAIPanel" class="btn-studio-ai" onclick="toggleAIPanel()" title="AI rà soát & thống kê lỗi">
+                <i class="ri-sparkling-fill"></i> <span class="btn-action-text">AI rà soát lỗi</span>
             </button>
 
             <button id="btnExportWord" class="btn-studio-outline" onclick="exportWordDocument()" title="Xuất đề Microsoft Word">
@@ -308,7 +361,7 @@
             </button>
 
             <button id="btnOpenPublish" class="btn-studio-primary" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
-                <i class="ri-send-plane-fill"></i> <span class="btn-action-text">Lưu & Xuất bản</span>
+                <i class="ri-send-plane-fill"></i> <span class="btn-action-text">Lưu & xuất bản</span>
             </button>
         </div>
     </header>
@@ -339,9 +392,9 @@
 
             <!-- Khung nhập prompt tùy chọn kiểm tra AI -->
             <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu AI (VD: Bổ sung lời giải, Xóa câu 2, chuyển câu 3 sang Đúng/Sai, sửa công thức... Để trống để rà soát tổng thể)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
+                <input type="text" id="aiCustomPrompt" placeholder="Yêu cầu AI (VD: bổ sung lời giải, xóa câu 2, chuyển câu 3 sang đúng/sai, sửa công thức... Để trống để rà soát tổng thể)" style="flex: 1; min-width: 280px; margin: 0; padding: 10px 14px; border: 1.5px solid #d8b4fe; border-radius: 8px;">
                 <button id="btnAICheck" class="btn-primary" style="background: #9333ea; white-space: nowrap; margin: 0; padding: 10px 20px;" onclick="runAICheck()">
-                    <i class="ri-search-eye-line"></i> Chạy AI Quét lỗi
+                    <i class="ri-search-eye-line"></i> Chạy AI quét lỗi
                 </button>
                 <button id="btnCrossCheckAI" class="btn-outline" style="border-color: #f59e0b; color: #b45309; background: #fffbeb; font-weight: 700; white-space: nowrap; margin: 0; padding: 10px 18px;" onclick="runCrossCheckAI()">
                     <i class="ri-scales-3-line"></i> Kiểm tra chéo đáp án
@@ -359,8 +412,8 @@
                 <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Kiểm tra và chuẩn hóa công thức Toán/Lý/Hóa LaTeX')">
                     <i class="ri-functions" style="color: #ea580c;"></i> Chuẩn hóa công thức LaTeX
                 </button>
-                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng Đúng/Sai chuẩn Bộ GD&ĐT')">
-                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng Đúng/Sai Bộ GD&ĐT
+                <button type="button" class="ai-quick-chip" onclick="setAIQuickPrompt('Chuyển các câu phù hợp sang định dạng đúng/sai chuẩn Bộ GD&ĐT')">
+                    <i class="ri-swap-line" style="color: #9333ea;"></i> Đổi dạng đúng/sai Bộ GD&ĐT
                 </button>
             </div>
 
@@ -371,10 +424,10 @@
         <!-- CHUYỂN ĐỔI CHẾ ĐỘ XEM TRÊN ĐIỆN THOẠI (TAB SOẠN THẢO / XEM TRƯỚC) -->
         <div class="studio-mobile-view-tabs" id="studioMobileViewTabs">
             <button type="button" class="studio-m-tab-btn active" id="mTabCode" onclick="switchStudioMobileTab('code')">
-                <i class="ri-code-s-slash-line"></i> Soạn thảo Code
+                <i class="ri-code-s-slash-line"></i> Soạn thảo code
             </button>
             <button type="button" class="studio-m-tab-btn" id="mTabPreview" onclick="switchStudioMobileTab('preview')">
-                <i class="ri-eye-line"></i> Xem trước Học sinh
+                <i class="ri-eye-line"></i> Xem trước học sinh
             </button>
         </div>
 
@@ -387,7 +440,7 @@
                         <i class="ri-eye-line" style="color: var(--studio-primary);"></i> XEM TRƯỚC (GIAO DIỆN HỌC SINH)
                     </div>
                     <div style="font-size: 0.85rem; color: var(--studio-text-muted);">
-                        Click vào câu hỏi để cuộn đến Code tương ứng
+                        Click vào câu hỏi để cuộn đến code tương ứng
                     </div>
                 </div>
                 <div class="studio-pane-body" id="preview-content">
@@ -458,13 +511,32 @@
                         <span id="studioQCountBadge" class="studio-badge" title="Số câu hỏi hiện tại">0 câu hỏi</span>
                         <span id="autosaveIndicator" class="studio-autosave" title="Trạng thái tự động lưu"><i class="ri-check-line"></i> Đã lưu nháp</span>
                     </div>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
                         <button class="btn-studio-outline" style="padding: 5px 10px; font-size: 0.82rem;" onclick="formatEditorCode()">
                             <i class="ri-magic-line"></i> Chuẩn hóa định dạng
                         </button>
-                        <button class="btn-studio-primary" style="padding: 5px 12px; font-size: 0.82rem;" onclick="insertQuestionTemplate()">
-                            <i class="ri-add-line"></i> Thêm Câu hỏi
-                        </button>
+                        <div style="position: relative; display: inline-flex;" id="btnAddQuestionDropdownGroup">
+                            <button class="btn-studio-primary" style="padding: 5px 10px; font-size: 0.82rem; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid rgba(255,255,255,0.25);" onclick="insertQuestionTemplate('mcq')" title="Thêm câu hỏi trắc nghiệm mới">
+                                <i class="ri-add-line"></i> Thêm câu hỏi
+                            </button>
+                            <button class="btn-studio-primary" style="padding: 5px 8px; font-size: 0.82rem; border-top-left-radius: 0; border-bottom-left-radius: 0;" onclick="toggleAddQuestionMenu(event)" title="Chọn dạng câu hỏi cần thêm">
+                                <i class="ri-arrow-down-s-line"></i>
+                            </button>
+                            <div id="addQuestionMenuDropdown" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); z-index: 1000; min-width: 210px; padding: 4px 0;">
+                                <button type="button" style="width: 100%; text-align: left; padding: 8px 14px; background: none; border: none; font-size: 0.85rem; color: #1e293b; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'" onclick="insertQuestionTemplate('mcq'); closeAddQuestionMenu();">
+                                    <i class="ri-radio-button-line" style="color: #2563eb;"></i> Trắc nghiệm (A, B, C, D)
+                                </button>
+                                <button type="button" style="width: 100%; text-align: left; padding: 8px 14px; background: none; border: none; font-size: 0.85rem; color: #1e293b; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'" onclick="insertQuestionTemplate('true_false'); closeAddQuestionMenu();">
+                                    <i class="ri-checkbox-circle-line" style="color: #059669;"></i> Đúng / sai (a, b, c, d)
+                                </button>
+                                <button type="button" style="width: 100%; text-align: left; padding: 8px 14px; background: none; border: none; font-size: 0.85rem; color: #1e293b; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'" onclick="insertQuestionTemplate('short_answer'); closeAddQuestionMenu();">
+                                    <i class="ri-edit-line" style="color: #d97706;"></i> Trả lời ngắn
+                                </button>
+                                <button type="button" style="width: 100%; text-align: left; padding: 8px 14px; background: none; border: none; font-size: 0.85rem; color: #1e293b; display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'" onclick="insertQuestionTemplate('essay'); closeAddQuestionMenu();">
+                                    <i class="ri-file-text-line" style="color: #7e22ce;"></i> Tự luận
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
@@ -488,8 +560,8 @@
                             <button type="button" class="toolbar-btn" id="btnFormatItalic" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('italic')" title="In nghiêng (Ctrl+I)"><i class="ri-italic"></i></button>
                             <button type="button" class="toolbar-btn" id="btnFormatUnderline" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('underline')" title="Gạch chân (Ctrl+U)"><i class="ri-underline"></i></button>
                             <button type="button" class="toolbar-btn" id="btnFormatStrike" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('strikeThrough')" title="Gạch ngang"><i class="ri-strikethrough"></i></button>
-                            <button type="button" class="toolbar-btn" id="btnFormatSub" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('subscript')" title="Chỉ số dưới (Ví dụ: H₂O, x₁)"><i class="ri-subscript"></i></button>
-                            <button type="button" class="toolbar-btn" id="btnFormatSup" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('superscript')" title="Chỉ số trên (Ví dụ: x², m³)"><i class="ri-superscript"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatSub" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('subscript')" title="Chỉ số dưới (ví dụ: H₂O, x₁)"><i class="ri-subscript"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnFormatSup" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('superscript')" title="Chỉ số trên (ví dụ: x², m³)"><i class="ri-superscript"></i></button>
                         </div>
                         <span class="toolbar-divider"></span>
 
@@ -506,7 +578,7 @@
                                     <div class="palette-colors">
                                         <span class="palette-color-box" style="background:#0f172a;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#0f172a')" title="Đen mặc định"></span>
                                         <span class="palette-color-box" style="background:#dc2626;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#dc2626')" title="Đỏ tươi"></span>
-                                        <span class="palette-color-box" style="background:#b91c1c;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#b91c1c')" title="Đỏ đậm (Đáp án đúng)"></span>
+                                        <span class="palette-color-box" style="background:#b91c1c;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#b91c1c')" title="Đỏ đậm (đáp án đúng)"></span>
                                         <span class="palette-color-box" style="background:#2563eb;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#2563eb')" title="Xanh dương"></span>
                                         <span class="palette-color-box" style="background:#1d4ed8;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#1d4ed8')" title="Xanh đậm"></span>
                                         <span class="palette-color-box" style="background:#16a34a;" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="applyTextColor('#16a34a')" title="Xanh lá"></span>
@@ -545,14 +617,14 @@
                             <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyLeft')" title="Căn trái"><i class="ri-align-left"></i></button>
                             <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyCenter')" title="Căn giữa"><i class="ri-align-center"></i></button>
                             <button type="button" class="toolbar-btn" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="formatDoc('justifyRight')" title="Căn phải"><i class="ri-align-right"></i></button>
-                            <button type="button" class="toolbar-btn" id="btnClearFormatting" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="clearEditorFormatting()" title="Xóa định dạng (Về chữ chuẩn)"><i class="ri-format-clear"></i></button>
+                            <button type="button" class="toolbar-btn" id="btnClearFormatting" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="clearEditorFormatting()" title="Xóa định dạng (về chữ chuẩn)"><i class="ri-format-clear"></i></button>
                         </div>
                         <span class="toolbar-divider"></span>
 
                         <!-- Nhóm Chèn Hình ảnh (Tải lên / Nhập URL / Hướng dẫn dán) -->
                         <div class="toolbar-group">
                             <div class="toolbar-dropdown-wrapper">
-                                <button type="button" class="toolbar-btn toolbar-btn-highlighted" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="toggleImageMenu()" title="Chèn & Chỉnh sửa hình ảnh">
+                                <button type="button" class="toolbar-btn toolbar-btn-highlighted" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="toggleImageMenu()" title="Chèn & chỉnh sửa hình ảnh">
                                     <i class="ri-image-add-line"></i> <span class="btn-text-sm">Hình ảnh</span> <i class="ri-arrow-down-s-line arrow-down"></i>
                                 </button>
                                 <div class="toolbar-dropdown-menu" id="imageInsertMenu" style="display: none;">
@@ -573,7 +645,7 @@
                                 <input type="file" id="editorHiddenImageInput" accept="image/*" style="display: none;" onchange="handleImageFileSelected(this)">
                             </div>
 
-                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection();" onclick="openLatexMathModal()" title="Chèn & Xem trước công thức Toán học LaTeX">
+                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection();" onclick="openLatexMathModal()" title="Chèn & xem trước công thức toán học LaTeX">
                                 <i class="ri-functions" style="color: #ea580c;"></i> <span class="btn-text-sm">LaTeX</span>
                             </button>
                         </div>
@@ -581,10 +653,10 @@
 
                         <!-- Nhóm Bảng toán & Bảng số liệu -->
                         <div class="toolbar-group">
-                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('bbt')" title="Chèn Bảng biến thiên Toán học">
+                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('bbt')" title="Chèn bảng biến thiên toán học">
                                 <i class="ri-line-chart-line" style="color: #1d4ed8;"></i> <span class="btn-text-sm">Bảng biến thiên</span>
                             </button>
-                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('general')" title="Chèn Bảng dữ liệu / Số liệu">
+                            <button type="button" class="toolbar-btn toolbar-btn-subtle" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="insertTableToEditor('general')" title="Chèn bảng dữ liệu / số liệu">
                                 <i class="ri-table-line" style="color: #047857;"></i> <span class="btn-text-sm">Bảng số liệu</span>
                             </button>
                         </div>
@@ -635,7 +707,7 @@
                     <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.95rem;">Bạn đang ở chế độ làm thử để trải nghiệm góc nhìn của học sinh trước khi xuất bản.</p>
                 </div>
                 <button class="btn-studio-primary" onclick="switchStudioMode('edit')">
-                    <i class="ri-arrow-left-line"></i> Quay lại Biên tập
+                    <i class="ri-arrow-left-line"></i> Quay lại biên tập
                 </button>
             </div>
             
@@ -657,7 +729,7 @@
             <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 14px;">
                 <div>
                     <h2 style="color: #1e3a8a; font-size: 1.25rem; font-weight: 800; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px;">
-                        <i class="ri-checkbox-circle-fill" style="color: #2563eb;"></i> Kiểm tra &amp; Thống kê Đề thi trước Xuất bản
+                        <i class="ri-checkbox-circle-fill" style="color: #2563eb;"></i> Kiểm tra &amp; thống kê đề thi trước khi xuất bản
                     </h2>
                     <p style="color: #64748b; font-size: 0.86rem; margin: 0;">
                         Thống kê cơ cấu câu hỏi chuẩn GDPT 2018. Bấm vào từng loại câu để xem số câu và nhảy đến vị trí câu hỏi trên đề thi.
@@ -672,39 +744,46 @@
                 <!-- Quick Exam Title Input -->
                 <div style="margin-bottom: 14px;">
                     <label style="font-size: 0.86rem; font-weight: 700; color: #334155; display: block; margin-bottom: 5px;">
-                        Tên bài kiểm tra / Đề thi <span style="color: #dc2626;">*</span>
+                        Tên bài kiểm tra / đề thi <span style="color: #dc2626;">*</span>
                     </label>
                     <input type="text" id="modalQuizTitle" placeholder="VD: Đề kiểm tra 15 phút - Chương 1..." style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-family: inherit; outline: none; box-sizing: border-box;">
                 </div>
 
-                <!-- 4 Summary / Filter Cards -->
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
+                <!-- 5 Summary / Filter Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 10px; margin-bottom: 16px;" id="pubStatCardsGroup">
                     <!-- Total -->
                     <div class="pub-type-card active" id="cardStatTotal" onclick="filterPublishType('all')" style="cursor: pointer; background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">TỔNG SỐ CÂU</div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #475569; text-transform: uppercase;">Tổng số câu</div>
                         <div id="statTotalCount" style="font-size: 1.5rem; font-weight: 800; color: #1e293b; margin: 2px 0;">0</div>
                         <div style="font-size: 0.72rem; color: #2563eb; font-weight: 600;">Xem tất cả</div>
                     </div>
 
                     <!-- MCQ (TN) -->
                     <div class="pub-type-card" id="cardStatMcq" onclick="filterPublishType('mcq')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase;">TRẮC NGHIỆM</div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #2563eb; text-transform: uppercase;">Trắc nghiệm</div>
                         <div id="statMcqCount" style="font-size: 1.5rem; font-weight: 800; color: #2563eb; margin: 2px 0;">0</div>
                         <div style="font-size: 0.72rem; color: #64748b;">(A, B, C, D)</div>
                     </div>
 
                     <!-- True / False (Đ/S) -->
                     <div class="pub-type-card" id="cardStatTf" onclick="filterPublishType('true_false')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #059669; text-transform: uppercase;">ĐÚNG / SAI</div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #059669; text-transform: uppercase;">Đúng / Sai</div>
                         <div id="statTfCount" style="font-size: 1.5rem; font-weight: 800; color: #059669; margin: 2px 0;">0</div>
                         <div style="font-size: 0.72rem; color: #64748b;">(Ý a, b, c, d)</div>
                     </div>
 
                     <!-- Short Answer (TLN) -->
                     <div class="pub-type-card" id="cardStatSa" onclick="filterPublishType('short_answer')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
-                        <div style="font-size: 0.72rem; font-weight: 700; color: #d97706; text-transform: uppercase;">TRẢ LỜI NGẮN</div>
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #d97706; text-transform: uppercase;">Trả lời ngắn</div>
                         <div id="statSaCount" style="font-size: 1.5rem; font-weight: 800; color: #d97706; margin: 2px 0;">0</div>
-                        <div style="font-size: 0.72rem; color: #64748b;">(Điền số)</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">(điền số)</div>
+                    </div>
+
+                    <!-- Essay (TL) -->
+                    <div class="pub-type-card" id="cardStatEssay" onclick="filterPublishType('essay')" style="cursor: pointer; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 8px; text-align: center; transition: all 0.2s;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: #7e22ce; text-transform: uppercase;">Tự luận</div>
+                        <div id="statEssayCount" style="font-size: 1.5rem; font-weight: 800; color: #7e22ce; margin: 2px 0;">0</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">(Tự luận)</div>
                     </div>
                 </div>
 
@@ -712,7 +791,7 @@
                 <div style="background: #f8fafc; border-radius: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; margin-bottom: 14px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                         <span style="font-size: 0.82rem; font-weight: 700; color: #334155; display: inline-flex; align-items: center; gap: 6px;">
-                            <i class="ri-list-check-2"></i> Danh sách câu hỏi <span id="pubFilterLabel" style="font-weight: 600; color: #2563eb;">(Tất cả)</span>:
+                            <i class="ri-list-check-2"></i> Danh sách câu hỏi <span id="pubFilterLabel" style="font-weight: 600; color: #2563eb;">(tất cả)</span>:
                         </span>
                         <span style="font-size: 0.75rem; color: #64748b;">
                             Bấm vào số câu để nhảy đến kiểm tra trên đề
@@ -726,30 +805,168 @@
                 </div>
 
                 <!-- Optional Quick Settings Accordion -->
-                <details style="background: #f1f5f9; border-radius: 10px; padding: 8px 12px; font-size: 0.85rem; color: #475569; margin-bottom: 10px;">
-                    <summary style="font-weight: 700; cursor: pointer; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
-                        <i class="ri-equalizer-line"></i> Tùy chọn nhanh đề thi (Chế độ, thời gian, đảo đề)
+                <details class="modal-accordion-card">
+                    <summary>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 26px; height: 26px; border-radius: 7px; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; border: 1px solid #bfdbfe;">
+                                <i class="ri-equalizer-line"></i>
+                            </span>
+                            <span style="font-size: 0.88rem; font-weight: 700; color: #0f172a;">Tùy chọn nhanh đề thi (chế độ, thời gian, đảo đề)</span>
+                        </span>
+                        <i class="ri-arrow-down-s-line accordion-chevron"></i>
                     </summary>
-                    <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>
-                            <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Chế độ hiển thị</label>
-                            <select id="modalQuizMode" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
-                                <option value="practice">🎯 Luyện tập (Học sinh biết ngay đúng/sai và giải thích)</option>
-                                <option value="exam" selected>📝 Thi thử (Làm xong toàn bộ mới nộp và chấm điểm)</option>
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Chế độ hiển thị</label>
+                            <select id="modalQuizMode" style="width: 100%; padding: 8px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem;">
+                                <option value="practice">Luyện tập (biết ngay đúng / sai và giải thích)</option>
+                                <option value="exam" selected>Thi thử (làm xong toàn bộ mới nộp và chấm điểm)</option>
                             </select>
                         </div>
                         <div>
-                            <label style="font-weight: 600; display: block; margin-bottom: 4px; font-size: 0.8rem;">Thời gian làm bài (Phút)</label>
-                            <input type="number" id="modalQuizTime" placeholder="0 = Không giới hạn" min="0" max="300" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; box-sizing: border-box;">
+                            <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Thời gian làm bài (phút)</label>
+                            <input type="number" id="modalQuizTime" placeholder="0 = không giới hạn" min="0" max="300" style="width: 100%; min-height: 42px; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 0.86rem; font-weight: 600; color: #0f172a; box-sizing: border-box; outline: none;" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.12)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
                         </div>
                     </div>
-                    <div style="margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.82rem; font-weight: 600;">
-                            <input type="checkbox" id="modalQuizShuffle" style="width: 16px; height: 16px; margin-right: 8px;" checked>
-                            <i class="ri-shuffle-line" style="color: #2563eb; margin-right: 4px;"></i> Tự động đảo ngẫu nhiên thứ tự câu hỏi &amp; đáp án
+                    <div style="margin-top: 10px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.83rem; font-weight: 600; color: #334155;">
+                            <input type="checkbox" id="modalQuizShuffle" style="width: 16px; height: 16px; margin-right: 8px; accent-color: #2563eb;" checked>
+                            <i class="ri-shuffle-line" style="color: #2563eb; margin-right: 5px;"></i> Tự động đảo ngẫu nhiên thứ tự câu hỏi &amp; đáp án
                         </label>
                     </div>
                 </details>
+
+                <!-- Thang điểm & chia điểm từng phần -->
+                <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);" id="modalScoringDetails">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 28px; height: 28px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; border: 1px solid #bfdbfe;">
+                                <i class="ri-scales-3-line"></i>
+                            </span>
+                            <span>
+                                <span style="font-size: 0.9rem; font-weight: 700; color: #0f172a; display: block; line-height: 1.2;">Thang điểm &amp; chia điểm</span>
+                                <span style="font-size: 0.74rem; color: #64748b;">Phân bổ điểm cho từng phần câu hỏi</span>
+                            </span>
+                        </span>
+                        <span id="modalScoringBadge" style="font-size: 0.78rem; font-weight: 800; background: #ecfdf5; color: #047857; padding: 4px 10px; border-radius: 20px; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm
+                        </span>
+                    </div>
+
+                    <div style="padding-top: 10px; border-top: 1px solid #f1f5f9;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 5px; font-size: 0.78rem; color: #475569;">Chế độ chia điểm</label>
+                        <div style="position: relative; margin-bottom: 10px;">
+                            <select id="modalScoringMode" style="width: 100%; padding: 8px 36px 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: #ffffff; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; transition: border-color 0.15s, box-shadow 0.15s;" onchange="onModalScoringModeChange()" onfocus="this.style.borderColor='#2563eb'; this.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
+                                <option value="auto" selected>Tự động chia đều theo câu (tổng 10 điểm)</option>
+                                <option value="gdpt2018">Chuẩn Bộ GD&ĐT (GDPT 2018: 3đ - 4đ - 3đ)</option>
+                                <option value="custom">Tùy chỉnh điểm cho từng phần</option>
+                            </select>
+                            <i class="ri-arrow-down-s-line" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #64748b; font-size: 1.15rem;"></i>
+                        </div>
+
+                        <!-- Danh sách các phần câu hỏi (full-width stack hiện đại) -->
+                        <div id="modalScoringInputs" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Phần I -->
+                            <div id="modalScoringPart1Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #bfdbfe; flex-shrink: 0;">
+                                        I
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 700; font-size: 0.86rem; color: #1e3a8a; line-height: 1.3;">Phần I: Trắc nghiệm 4 lựa chọn</div>
+                                        <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                            <span id="modalPart1CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <input type="number" id="modalPtPart1" step="0.05" min="0" max="10" value="0.25" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part1')">
+                                        <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                    </div>
+                                    <span id="modalPart1Total" style="font-size: 0.88rem; font-weight: 800; color: #0369a1; min-width: 60px; text-align: right;">= 0.0đ</span>
+                                </div>
+                            </div>
+
+                            <!-- Phần II -->
+                            <div id="modalScoringPart2Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #a7f3d0; flex-shrink: 0;">
+                                        II
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 700; font-size: 0.86rem; color: #065f46; line-height: 1.3;">Phần II: Trắc nghiệm đúng / sai</div>
+                                        <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                            <span id="modalPart2CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu (4 ý a, b, c, d)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <input type="number" id="modalPtPart2" step="0.1" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part2')">
+                                        <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                    </div>
+                                    <span id="modalPart2Total" style="font-size: 0.88rem; font-weight: 800; color: #047857; min-width: 60px; text-align: right;">= 0.0đ</span>
+                                </div>
+                            </div>
+
+                            <!-- Phần III -->
+                            <div id="modalScoringPart3Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #fde68a; flex-shrink: 0;">
+                                        III
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 700; font-size: 0.86rem; color: #92400e; line-height: 1.3;">Phần III: Câu hỏi trả lời ngắn</div>
+                                        <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                            <span id="modalPart3CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <input type="number" id="modalPtPart3" step="0.05" min="0" max="10" value="0.5" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part3')">
+                                        <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                    </div>
+                                    <span id="modalPart3Total" style="font-size: 0.88rem; font-weight: 800; color: #b45309; min-width: 60px; text-align: right;">= 0.0đ</span>
+                                </div>
+                            </div>
+
+                            <!-- Phần IV -->
+                            <div id="modalScoringPart4Box" class="modal-scoring-card" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; transition: all 0.2s;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: #faf5ff; color: #9333ea; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; border: 1px solid #e9d5ff; flex-shrink: 0;">
+                                        IV
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 700; font-size: 0.86rem; color: #7e22ce; line-height: 1.3;">Phần IV: Câu hỏi tự luận</div>
+                                        <div style="font-size: 0.74rem; color: #64748b; margin-top: 2px;">
+                                            <span id="modalPart4CountBadge" style="background: #e2e8f0; color: #334155; padding: 1px 7px; border-radius: 4px; font-weight: 600;">0 câu</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                                    <div style="display: flex; align-items: center; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 3px 8px; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                        <input type="number" id="modalPtPart4" step="0.25" min="0" max="10" value="1.0" style="width: 54px; padding: 2px 0; border: none; background: transparent; font-size: 0.88rem; font-weight: 700; color: #0f172a; text-align: center; outline: none;" oninput="onModalScoringInputChanged('part4')">
+                                        <span style="font-size: 0.74rem; color: #64748b; font-weight: 600;">đ/câu</span>
+                                    </div>
+                                    <span id="modalPart4Total" style="font-size: 0.88rem; font-weight: 800; color: #7e22ce; min-width: 60px; text-align: right;">= 0.0đ</span>
+                                </div>
+                            </div>
+
+                            <!-- Thông báo trống khi chưa có câu hỏi -->
+                            <div id="modalScoringEmptyNotice" style="display: none; padding: 14px; text-align: center; color: #64748b; font-size: 0.82rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+                                <i class="ri-information-line" style="margin-right: 4px;"></i> Đề thi hiện chưa có câu hỏi để chia điểm.
+                            </div>
+                        </div>
+
+                        <!-- Chú thích hỗ trợ dưới chân -->
+                        <div id="modalScoringHelperNote" style="margin-top: 10px; padding: 8px 12px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 0.78rem; color: #475569; display: flex; align-items: center; gap: 6px;">
+                            <i class="ri-sparkling-fill" style="color: #2563eb; font-size: 0.9rem;"></i>
+                            <span id="modalScoringHelperText">Điểm số tự động chia đều theo số câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.</span>
+                        </div>
+                    </div>
+                </div>
 
             </div>
 
@@ -790,7 +1007,7 @@
             <div style="font-size: 3.5rem; color: var(--studio-success); margin-bottom: 10px;">
                 <i class="ri-checkbox-circle-fill"></i>
             </div>
-            <h2 style="color: var(--studio-success); margin-top: 0; font-size: 1.5rem;">Xuất bản Đề thi Thành công!</h2>
+            <h2 style="color: var(--studio-success); margin-top: 0; font-size: 1.5rem;">Xuất bản đề thi thành công!</h2>
             <p style="color: var(--studio-text-muted); font-size: 0.95rem; margin-bottom: 20px;">
                 Đề thi đã được lưu an toàn lên hệ thống đám mây. Bạn có thể sao chép link bên dưới để gửi cho học sinh làm bài ngay.
             </p>
@@ -816,7 +1033,7 @@
                     <i class="ri-eye-line"></i> Xem với tư cách học sinh
                 </button>
                 <button class="btn-studio-primary" onclick="window.location.href = 'index.html'">
-                    <i class="ri-dashboard-line"></i> Về Quản lý Đề thi
+                    <i class="ri-dashboard-line"></i> Về quản lý đề thi
                 </button>
             </div>
         </div>
@@ -932,7 +1149,7 @@
     </div>
 
         <!-- NÚT NỔI CHUYỂN ĐỔI NHANH XEM TRƯỚC / SOẠN THẢO TRÊN ĐIỆN THOẠI -->
-    <button id="studioMobileFloatToggle" class="studio-mobile-float-toggle" onclick="toggleStudioMobileTab()" title="Chuyển đổi Soạn thảo / Xem trước">
+    <button id="studioMobileFloatToggle" class="studio-mobile-float-toggle" onclick="toggleStudioMobileTab()" title="Chuyển đổi soạn thảo / xem trước">
         <i class="ri-eye-line"></i> <span>Xem trước</span>
     </button>
 
@@ -960,21 +1177,21 @@
                         <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                             <input type="radio" name="simMode" value="change_numbers" checked>
                             <div>
-                                <div style="font-weight:700; color:#1e293b;">🔢 Đổi số liệu (Khuyên dùng cho Toán / Lý / Hóa)</div>
+                                <div style="font-weight:700; color:#1e293b;">🔢 Đổi số liệu (khuyên dùng cho Toán / Lý / Hóa)</div>
                                 <div style="font-size:0.82rem; color:#64748b;">Giữ nguyên cấu trúc bài toán, thay đổi số liệu và tính toán lại 100% đáp án đúng.</div>
                             </div>
                         </label>
                         <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                             <input type="radio" name="simMode" value="change_context">
                             <div>
-                                <div style="font-weight:700; color:#1e293b;">🌍 Đổi ngữ cảnh / Tình huống thực tế</div>
+                                <div style="font-weight:700; color:#1e293b;">🌍 Đổi ngữ cảnh / tình huống thực tế</div>
                                 <div style="font-size:0.82rem; color:#64748b;">Đổi hiện tượng, tên nhân vật, vật thể đời sống nhưng giữ nguyên mô hình lý thuyết.</div>
                             </div>
                         </label>
                         <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer; background:#fff;">
                             <input type="radio" name="simMode" value="both">
                             <div>
-                                <div style="font-weight:700; color:#1e293b;">⚡ Kết hợp cả hai (Số liệu & Ngữ cảnh mới)</div>
+                                <div style="font-weight:700; color:#1e293b;">⚡ Kết hợp cả hai (số liệu & ngữ cảnh mới)</div>
                                 <div style="font-size:0.82rem; color:#64748b;">Tạo ra bài toán hoàn toàn mới có cùng độ khó và dạng tư duy.</div>
                             </div>
                         </label>
@@ -995,8 +1212,8 @@
                         <label style="font-weight:700; color:#334155; display:block; margin-bottom:6px; font-size:0.92rem;">3. Độ khó:</label>
                         <select id="simDifficultySelect" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.95rem;">
                             <option value="keep" selected>Giữ nguyên độ khó</option>
-                            <option value="easier">Dễ hơn (Cơ bản)</option>
-                            <option value="harder">Nâng cao (Vận dụng)</option>
+                            <option value="easier">Dễ hơn (cơ bản)</option>
+                            <option value="harder">Nâng cao (vận dụng)</option>
                         </select>
                     </div>
                 </div>
@@ -1053,7 +1270,7 @@
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <label id="cardAudienceTeacher" style="border:2px solid #2563eb; background:#eff6ff; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                             <div style="display:flex; align-items:center; justify-content:space-between;">
-                                <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho Giáo viên</span>
+                                <span style="font-weight:700; font-size:0.92rem; color:#1e40af;">👩‍🏫 Cho giáo viên</span>
                                 <input type="radio" name="docxAudience" value="teacher" checked onchange="onDocxAudienceChange('teacher')" style="accent-color:#2563eb; width:16px; height:16px;">
                             </div>
                             <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Có đáp án tô đỏ, bảng đáp án và lời giải chi tiết.</span>
@@ -1061,7 +1278,7 @@
 
                         <label id="cardAudienceStudent" style="border:2px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
                             <div style="display:flex; align-items:center; justify-content:space-between;">
-                                <span style="font-weight:700; font-size:0.92rem; color:#334155;">👨‍🎓 Cho Học sinh</span>
+                                <span style="font-weight:700; font-size:0.92rem; color:#334155;">👨‍🎓 Cho học sinh</span>
                                 <input type="radio" name="docxAudience" value="student" onchange="onDocxAudienceChange('student')" style="accent-color:#2563eb; width:16px; height:16px;">
                             </div>
                             <span style="font-size:0.78rem; color:#475569; line-height:1.35;">Đề thi sạch làm bài, không đáp án, không lời giải.</span>
@@ -1072,7 +1289,7 @@
                 <!-- 2. Định dạng trang & Tiết kiệm giấy -->
                 <div>
                     <label style="display:block; font-size:0.82rem; font-weight:700; color:#1e293b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
-                        2. Chế độ in ấn & Tiết kiệm giấy
+                        2. Chế độ in ấn & tiết kiệm giấy
                     </label>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <label id="cardLayoutCompact" style="border:2px solid #16a34a; background:#f0fdf4; border-radius:12px; padding:12px; cursor:pointer; display:flex; flex-direction:column; gap:4px; transition:all 0.2s;">
@@ -1099,10 +1316,10 @@
                         3. Bố cục các đáp án (A, B, C, D)
                     </label>
                     <select id="docxOptionsLayout" style="width:100%; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:10px; font-size:0.9rem; color:#1e293b; background:#ffffff; outline:none; transition:border-color 0.2s;">
-                        <option value="auto" selected>⚡ Tự động thông minh (Khuyên dùng: 1 - 2 - 4 hàng tùy độ dài)</option>
-                        <option value="4_col">4 cột (Dồn cả 4 đáp án trên 1 hàng ngang nếu đủ chỗ)</option>
-                        <option value="2_col">2 cột (Chia 2 đáp án mỗi hàng)</option>
-                        <option value="1_col">1 cột (Mỗi đáp án 1 hàng riêng truyền thống)</option>
+                        <option value="auto" selected>Tự động thông minh (khuyên dùng: 1 - 2 - 4 hàng tùy độ dài)</option>
+                        <option value="4_col">4 cột (dồn cả 4 đáp án trên 1 hàng ngang nếu đủ chỗ)</option>
+                        <option value="2_col">2 cột (chia 2 đáp án mỗi hàng)</option>
+                        <option value="1_col">1 cột (mỗi đáp án 1 hàng riêng truyền thống)</option>
                     </select>
                     <div style="font-size:0.76rem; color:#64748b; margin-top:4px;">
                         <i class="ri-information-line"></i> Khi chọn tự động: công thức/từ ngắn dồn 4 cột, trung bình 2 cột, dài để 1 cột.
@@ -1117,7 +1334,7 @@
 
                     <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
                         <input type="checkbox" id="docxShowAnswers" checked style="width:17px; height:17px; accent-color:#2563eb;">
-                        <span>Đánh dấu đáp án đúng trong câu hỏi (Gạch chân & tô đỏ)</span>
+                        <span>Đánh dấu đáp án đúng trong câu hỏi (gạch chân & tô đỏ)</span>
                     </label>
 
                     <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; color:#1e293b;">
@@ -1162,7 +1379,7 @@
             <div class="cropper-modal-header">
                 <div class="cropper-modal-title">
                     <i class="ri-crop-2-line" style="color: #2563eb; font-size: 1.3rem;"></i>
-                    <span>Cắt & Chỉnh sửa hình ảnh trực tiếp</span>
+                    <span>Cắt & chỉnh sửa hình ảnh trực tiếp</span>
                 </div>
                 <button type="button" class="cropper-btn-close" onclick="closeImageCropperModal()">&times;</button>
             </div>
@@ -1220,337 +1437,77 @@
 
     
 
-        <!-- MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG MATHTYPE CHUẨN GDPT 2018 -->
-    <div id="latexMathModal" class="studio-modal-overlay mathtype-modal-overlay" style="display: none; z-index: 9999999;" onclick="if(event.target === this) closeLatexMathModal()">
+        <!-- MODAL SOẠN THẢO CÔNG THỨC TOÁN HỌC WYSIWYG CORTEXJS + MATHLIVE -->
+    <div id="latexMathModal" class="studio-modal-overlay mathtype-modal-overlay" style="display: none; z-index: 10000; align-items: flex-start; padding-top: 24px; padding-bottom: 340px; overflow-y: auto;" onclick="if(event.target === this) closeLatexMathModal()">
         <div class="studio-modal-box mathtype-modal-container">
             <!-- Header chuẩn theo thiết kế người dùng -->
             <div class="mathtype-modal-header">
-                <div class="mathtype-title-main">Soạn thảo công thức</div>
+                <div class="mathtype-title-main">
+                    <i class="ri-functions" style="color: #059669; font-size: 1.25rem;"></i>
+                    <span id="latexModalTitleText">Soạn thảo công thức</span>
+                </div>
                 <button type="button" class="mathtype-btn-close" onclick="closeLatexMathModal()">&times;</button>
             </div>
 
-            <!-- Khu vực nhập liệu WYSIWYG trực quan chuẩn MathType -->
+            <!-- Khu vực nhập liệu WYSIWYG MathLive & Trợ lý CortexJS -->
             <div class="mathtype-wysiwyg-area">
-                <math-field id="mathLiveEditor" class="mathtype-math-field"></math-field>
-                <div class="mathtype-action-bar">
-                    <span class="mathtype-hint-text"><i class="ri-keyboard-line"></i> Nhập trực tiếp từ bàn phím (gõ /, ^, sqrt...) hoặc bấm các phím mẫu bên dưới</span>
-                    <div class="mathtype-quick-actions">
-                        <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="clearMathField()" title="Xóa toàn bộ">
-                            <i class="ri-delete-bin-line"></i> Xóa hết
+                <div class="mathtype-mathfield-wrapper" id="mathFieldWrapper">
+                    <math-field id="mathLiveEditor" class="mathtype-math-field" smart-fence="true" smart-mode="true" math-virtual-keyboard-policy="manual"></math-field>
+                </div>
+
+                <!-- Phím tắt nhanh -->
+                <div class="mathtype-shortcut-hints">
+                    <span>Phím tắt nhanh:</span>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('frac')" title="Chèn phân số">/ phân số</button>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('pow')" title="Chèn số mũ">^ số mũ</button>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('sub')" title="Chèn chỉ số">_ chỉ số</button>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('sqrt')" title="Chèn căn bậc hai">sqrt căn thức</button>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('pi')" title="Chèn số pi">pi số π</button>
+                    <button type="button" class="mathtype-shortcut-pill" onclick="insertShortcutSymbol('paren')" title="Chèn dấu ngoặc">( tự đóng ngoặc</button>
+                </div>
+
+                <!-- Thanh trợ lý thông minh Compute Engine -->
+                <div class="mathtype-assistant-bar">
+                    <div class="mathtype-status-badge" id="latexSyntaxStatus">
+                        <i class="ri-checkbox-circle-fill" style="color: #059669;"></i>
+                        <span style="color: #059669; font-weight: 600;">Cú pháp hợp lệ</span>
+                    </div>
+                    <div class="mathtype-assistant-actions">
+                        <button type="button" class="mathtype-assistant-btn primary" onclick="handleLatexComputeSimplify()" title="Rút gọn biểu thức hoặc tính giá trị số">
+                            <i class="ri-magic-line"></i> Rút gọn
                         </button>
-                        <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="backspaceMathField()" title="Xóa lùi 1 ký tự">
-                            <i class="ri-backspace-line"></i> Xóa lùi
+                        <button type="button" class="mathtype-assistant-btn" onclick="handleLatexDerivative()" title="Tính đạo hàm f'(x) theo biến x">
+                            <i class="ri-function-line"></i> Đạo hàm
                         </button>
-                        <button type="button" class="mathtype-action-btn" onmousedown="event.preventDefault();" onclick="copyMathField()" title="Sao chép mã LaTeX">
+                        <button type="button" class="mathtype-assistant-btn" onclick="handleLatexExpand()" title="Khai triển đa thức">
+                            <i class="ri-arrow-left-right-line"></i> Khai triển
+                        </button>
+                        <button type="button" class="mathtype-assistant-btn" onclick="copyMathField('mathml')" title="Sao chép MathML để dán trực tiếp vào Microsoft Word thành công thức">
+                            <i class="ri-file-word-line"></i> MathML (Word)
+                        </button>
+                        <button type="button" class="mathtype-assistant-btn" onclick="copyMathField('latex')" title="Sao chép mã LaTeX">
                             <i class="ri-file-copy-line"></i> Sao chép
                         </button>
+                        <button type="button" class="mathtype-assistant-btn danger" onclick="clearMathField()" title="Xóa toàn bộ">
+                            <i class="ri-delete-bin-line"></i> Xóa hết
+                        </button>
                     </div>
+                </div>
+
+                <!-- Thẻ hiển thị kết quả tính nhanh -->
+                <div id="latexEvalResultCard" class="mathtype-eval-card" style="display: none;">
+                    <div class="mathtype-eval-content">
+                        <span class="mathtype-eval-label">Kết quả tính:</span>
+                        <math-field id="latexEvalResultMath" read-only math-virtual-keyboard-policy="manual" class="mathtype-eval-math"></math-field>
+                        <span class="mathtype-eval-note" id="latexEvalResultNote"></span>
+                    </div>
+                    <button type="button" class="mathtype-assistant-btn primary" onclick="applyLatexEvalResult()" title="Dùng kết quả này">
+                        <i class="ri-check-line"></i> Dùng kết quả này
+                    </button>
                 </div>
             </div>
 
-                        <!-- MathType Virtual Keyboard (Bàn phím ảo phân nhóm trực quan - 100% data-snippet không lỗi escape) -->
-            <div class="mathtype-keyboard-container">
-                <!-- Navigation Tabs -->
-                <div class="mathtype-tabs-nav" id="mathTypeTabsNav">
-                    <button type="button" class="mathtype-tab-btn active" data-tab="algebra" onclick="switchMathTypeTab('algebra', this)">
-                        <i class="ri-divide-line"></i> Đại số & Phân số
-                    </button>
-                    <button type="button" class="mathtype-tab-btn" data-tab="calculus" onclick="switchMathTypeTab('calculus', this)">
-                        <i class="ri-line-chart-line"></i> Giải tích & Lượng giác
-                    </button>
-                    <button type="button" class="mathtype-tab-btn" data-tab="geometry" onclick="switchMathTypeTab('geometry', this)">
-                        <i class="ri-compass-3-line"></i> Hình học & Vectơ
-                    </button>
-                    <button type="button" class="mathtype-tab-btn" data-tab="matrix" onclick="switchMathTypeTab('matrix', this)">
-                        <i class="ri-brackets-line"></i> Hệ PT & Ma trận
-                    </button>
-                    <button type="button" class="mathtype-tab-btn" data-tab="greek" onclick="switchMathTypeTab('greek', this)">
-                        <i class="ri-omega"></i> Ký tự Hy Lạp & Logic
-                    </button>
-                    <button type="button" class="mathtype-tab-btn" data-tab="numpad" onclick="switchMathTypeTab('numpad', this)">
-                        <i class="ri-grid-line"></i> Phím số & Ký hiệu
-                    </button>
-                </div>
-
-                <!-- Tab Panes (Keyboards) -->
-                <div class="mathtype-tab-content">
-                    <!-- Tab 1: Đại số & Phân số -->
-                    <div class="mathtype-pane" id="mathPane-algebra" style="display: flex;">
-                        <!-- Nhóm Phân số & Căn -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Phân số & Căn thức</div>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{#0}{#?}" title="Phân số">\(\frac{a}{b}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{1}{2}" title="Một phần hai">\(\frac{1}{2}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{\partial y}{\partial x}" title="Đạo hàm riêng">\(\frac{\partial y}{\partial x}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sqrt{#0}" title="Căn bậc hai">\(\sqrt{x}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sqrt[3]{#0}" title="Căn bậc ba">\(\sqrt[3]{x}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sqrt[#?]{#0}" title="Căn bậc n">\(\sqrt[n]{x}\)</button>
-                        </div>
-
-                        <!-- Nhóm Mũ & Chỉ số -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Mũ & Chỉ số</div>
-                            <button type="button" class="mathtype-key" data-snippet="#?^{2}" title="Mũ 2">\(x^2\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?^{3}" title="Mũ 3">\(x^3\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?^{#0}" title="Mũ n">\(x^n\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?_{1}" title="Chỉ số 1">\(x_1\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?_{2}" title="Chỉ số 2">\(x_2\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?_{#0}" title="Chỉ số n">\(x_n\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="#?_{#?}^{#0}" title="Cả mũ và chỉ số">\(x_1^2\)</button>
-                        </div>
-
-                        <!-- Nhóm Dấu ngoặc -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Dấu ngoặc</div>
-                            <button type="button" class="mathtype-key" data-snippet="\left( #0 \right)" title="Ngoặc đơn">\((x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\left[ #0 \right]" title="Ngoặc vuông">\([x]\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\left\{ #0 \right\}" title="Ngoặc nhọn">\(\{x\}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\left| #0 \right|" title="Trị tuyệt đối">\(|x|\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\left( \frac{#0}{#?} \right)" title="Ngoặc phân số lớn">\(\left(\frac{a}{b}\right)\)</button>
-                        </div>
-
-                        <!-- Nhóm Phép toán & So sánh -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Phép toán & So sánh</div>
-                            <button type="button" class="mathtype-key" data-snippet="\pm" title="Cộng trừ (±)">±</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mp" title="Trừ cộng (∓)">∓</button>
-                            <button type="button" class="mathtype-key" data-snippet="\times" title="Nhân (×)">×</button>
-                            <button type="button" class="mathtype-key" data-snippet="\div" title="Chia (÷)">÷</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cdot" title="Chấm nhân (·)">·</button>
-                            <button type="button" class="mathtype-key" data-snippet="\neq" title="Khác (≠)" style="font-weight: 700; font-size: 1.15rem;">≠</button>
-                            <button type="button" class="mathtype-key" data-snippet="\le" title="Nhỏ hơn hoặc bằng (≤)">≤</button>
-                            <button type="button" class="mathtype-key" data-snippet="\ge" title="Lớn hơn hoặc bằng (≥)">≥</button>
-                            <button type="button" class="mathtype-key" data-snippet="\approx" title="Xấp xỉ (≈)">≈</button>
-                            <button type="button" class="mathtype-key" data-snippet="\equiv" title="Đồng nhất (≡)">≡</button>
-                            <button type="button" class="mathtype-key" data-snippet="\infty" title="Vô cùng (∞)">∞</button>
-                        </div>
-                    </div>
-
-                    <!-- Tab 2: Giải tích & Lượng giác -->
-                    <div class="mathtype-pane" id="mathPane-calculus" style="display: none;">
-                        <!-- Tích phân & Giới hạn -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Tích phân & Giới hạn</div>
-                            <button type="button" class="mathtype-key" data-snippet="\int #0 \, dx" title="Nguyên hàm">\(\int f(x)dx\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\int_{#?}^{#?} #0 \, dx" title="Tích phân xác định">\(\int_{a}^{b} f(x)dx\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\iint" title="Tích phân kép">\(\iint\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\lim_{x \to 0} #0" title="Giới hạn về 0">\(\lim_{x \to 0}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\lim_{x \to +\infty} #0" title="Giới hạn về dương vô cùng">\(\lim_{x \to +\infty}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\lim_{x \to -\infty} #0" title="Giới hạn về âm vô cùng">\(\lim_{x \to -\infty}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\lim_{x \to x_0} #0" title="Giới hạn tại x0">\(\lim_{x \to x_0}\)</button>
-                        </div>
-
-                        <!-- Đạo hàm & Tổng -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Đạo hàm & Tổng chuỗi</div>
-                            <button type="button" class="mathtype-key" data-snippet="f'(#0)" title="Đạo hàm f'(x)">\(f'(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="f''(#0)" title="Đạo hàm cấp 2">\(f''(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="y'" title="y'">\(y'\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="y''" title="y''">\(y''\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{df}{dx}" title="df/dx">\(\frac{df}{dx}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sum_{i=1}^{n} #0" title="Tổng Sigma">\(\sum_{i=1}^{n}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\prod_{i=1}^{n} #0" title="Tích Pi">\(\prod_{i=1}^{n}\)</button>
-                        </div>
-
-                        <!-- Hàm mũ & Logarit -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Mũ & Logarit</div>
-                            <button type="button" class="mathtype-key" data-snippet="e^{#0}" title="Hàm số mũ e^x">\(e^x\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\ln(#0)" title="Logarit tự nhiên">\(\ln(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\log_{#?}(#0)" title="Logarit cơ số a">\(\log_a(b)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\log(#0)" title="Logarit thập phân">\(\log(x)\)</button>
-                        </div>
-
-                        <!-- Lượng giác -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Hàm lượng giác</div>
-                            <button type="button" class="mathtype-key" data-snippet="\sin(#0)" title="Sin">\(\sin(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cos(#0)" title="Cos">\(\cos(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\tan(#0)" title="Tan">\(\tan(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cot(#0)" title="Cot">\(\cot(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sin^2(#0)" title="Sin bình">\(\sin^2(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cos^2(#0)" title="Cos bình">\(\cos^2(x)\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\arcsin(#0)" title="Arcsin">\(\arcsin\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\arccos(#0)" title="Arccos">\(\arccos\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\arctan(#0)" title="Arctan">\(\arctan\)</button>
-                        </div>
-                    </div>
-
-                    <!-- Tab 3: Hình học & Vectơ -->
-                    <div class="mathtype-pane" id="mathPane-geometry" style="display: none;">
-                        <!-- Vectơ -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Vectơ & Tọa độ</div>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{a}" title="Vectơ a">\(\vec{a}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{b}" title="Vectơ b">\(\vec{b}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{u}" title="Vectơ chỉ phương u">\(\vec{u}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{n}" title="Vectơ pháp tuyến n">\(\vec{n}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{0}" title="Vectơ không">\(\vec{0}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\overrightarrow{AB}" title="Vectơ AB">\(\overrightarrow{AB}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{#0}" title="Vectơ tùy chỉnh">\(\vec{x}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="|\vec{#0}|" title="Độ dài vectơ">\(|\vec{a}|\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\vec{a} \cdot \vec{b}" title="Tích vô hướng">\(\vec{a} \cdot \vec{b}\)</button>
-                        </div>
-
-                        <!-- Góc, Tam giác & Quan hệ -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Góc, Tam giác & Quan hệ</div>
-                            <button type="button" class="mathtype-key" data-snippet="\angle A" title="Góc A">\(\angle A\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\widehat{ABC}" title="Góc ABC">\(\widehat{ABC}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\triangle ABC" title="Tam giác ABC">\(\triangle ABC\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="^{\circ}" title="Ký hiệu độ (°)">&deg;</button>
-                            <button type="button" class="mathtype-key" data-snippet="90^{\circ}" title="90 độ">90&deg;</button>
-                            <button type="button" class="mathtype-key" data-snippet="180^{\circ}" title="180 độ">180&deg;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\parallel" title="Song song (∥)">∥</button>
-                            <button type="button" class="mathtype-key" data-snippet="\perp" title="Vuông góc (⊥)">⊥</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cong" title="Bằng nhau (≅)">≅</button>
-                        </div>
-
-                        <!-- Mặt phẳng & Hằng số -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Mặt phẳng & Hằng số</div>
-                            <button type="button" class="mathtype-key" data-snippet="(P)" title="Mặt phẳng (P)">(P)</button>
-                            <button type="button" class="mathtype-key" data-snippet="(Q)" title="Mặt phẳng (Q)">(Q)</button>
-                            <button type="button" class="mathtype-key" data-snippet="(\alpha)" title="Mặt phẳng Alpha">(&alpha;)</button>
-                            <button type="button" class="mathtype-key" data-snippet="(\beta)" title="Mặt phẳng Beta">(&beta;)</button>
-                            <button type="button" class="mathtype-key" data-snippet="(Oxyz)" title="Hệ tọa độ Oxyz">(Oxyz)</button>
-                            <button type="button" class="mathtype-key" data-snippet="(Oxy)" title="Hệ tọa độ Oxy">(Oxy)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\pi" title="Số Pi">&pi;</button>
-                            <button type="button" class="mathtype-key" data-snippet="2\pi" title="2 Pi">2&pi;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{\pi}{2}" title="Pi / 2">\(\frac{\pi}{2}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{\pi}{3}" title="Pi / 3">\(\frac{\pi}{3}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{\pi}{4}" title="Pi / 4">\(\frac{\pi}{4}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\frac{\pi}{6}" title="Pi / 6">\(\frac{\pi}{6}\)</button>
-                        </div>
-                    </div>
-
-                    <!-- Tab 4: Hệ PT & Ma trận -->
-                    <div class="mathtype-pane" id="mathPane-matrix" style="display: none;">
-                        <!-- Hệ phương trình -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Hệ phương trình</div>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{cases} #0 \\ #? \end{cases}" style="min-width: 90px;" title="Hệ 2 phương trình">\(\begin{cases} x+y=1 \\ x-y=0 \end{cases}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{cases} #0 \\ #? \\ #? \end{cases}" style="min-width: 100px;" title="Hệ 3 phương trình">\(\begin{cases} x+y+z=1 \\ \dots \end{cases}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{cases} #0 \\ #? \end{cases}" style="min-width: 60px;" title="Khung hệ 2 dòng">\(\begin{cases} a \\ b \end{cases}\)</button>
-                        </div>
-
-                        <!-- Tuyển điều kiện -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Tuyển điều kiện (Hoặc)</div>
-                            <button type="button" class="mathtype-key" data-snippet="\left[ \begin{array}{l} #0 \\ #? \end{array} \right." style="min-width: 75px;" title="Ngoặc vuông 2 nghiệm">\(\left[ \begin{array}{l} x = a \\ x = b \end{array} \right.\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\left[ \begin{array}{l} #0 \\ #? \\ #? \end{array} \right." style="min-width: 85px;" title="Ngoặc vuông 3 nghiệm">\(\left[ \begin{array}{l} x=1 \\ x=-1 \\ x=0 \end{array} \right.\)</button>
-                        </div>
-
-                        <!-- Ma trận & Định thức -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Ma trận & Định thức</div>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{pmatrix} #0 & #? \\ #? & #? \end{pmatrix}" style="min-width: 70px;" title="Ma trận 2x2">\(\begin{pmatrix} a & b \\ c & d \end{pmatrix}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{pmatrix} #0 & #? & #? \\ #? & #? & #? \\ #? & #? & #? \end{pmatrix}" style="min-width: 85px;" title="Ma trận 3x3">\(\begin{pmatrix} a & b & c \\ \dots \end{pmatrix}\)</button>
-                            <button type="button" class="mathtype-key" data-snippet="\begin{vmatrix} #0 & #? \\ #? & #? \end{vmatrix}" style="min-width: 70px;" title="Định thức cấp 2">\(\begin{vmatrix} a & b \\ c & d \end{vmatrix}\)</button>
-                        </div>
-                    </div>
-
-                    <!-- Tab 5: Ký tự Hy Lạp & Logic -->
-                    <div class="mathtype-pane" id="mathPane-greek" style="display: none;">
-                        <!-- Ký tự Hy Lạp thường -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Ký tự Hy Lạp thường</div>
-                            <button type="button" class="mathtype-key" data-snippet="\alpha" title="Alpha (&alpha;)">&alpha;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\beta" title="Beta (&beta;)">&beta;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\gamma" title="Gamma (&gamma;)">&gamma;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\delta" title="Delta (&delta;)">&delta;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\varepsilon" title="Epsilon (&epsilon;)">&epsilon;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\theta" title="Theta (&theta;)">&theta;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\lambda" title="Lambda (&lambda;)">&lambda;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mu" title="Mu (&mu;)">&mu;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\rho" title="Rho (&rho;)">&rho;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\sigma" title="Sigma (&sigma;)">&sigma;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\tau" title="Tau (&tau;)">&tau;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\varphi" title="Phi (&phi;)">&phi;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\omega" title="Omega (&omega;)">&omega;</button>
-                        </div>
-
-                        <!-- Ký tự Hy Lạp hoa & Tập số -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Ký tự hoa & Tập hợp số</div>
-                            <button type="button" class="mathtype-key" data-snippet="\Delta" title="Delta hoa (&Delta;)">&Delta;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\Omega" title="Omega hoa (&Omega;)">&Omega;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\Sigma" title="Sigma hoa (&Sigma;)">&Sigma;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\Phi" title="Phi hoa (&Phi;)">&Phi;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mathbb{R}" title="Tập số thực R">&#8477;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mathbb{N}" title="Tập số tự nhiên N">&#8469;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mathbb{Z}" title="Tập số nguyên Z">&#8484;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mathbb{Q}" title="Tập số hữu tỉ Q">&#8474;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\mathbb{C}" title="Tập số phức C">&#8450;</button>
-                        </div>
-
-                        <!-- Tập hợp & Mệnh đề logic -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Tập hợp & Logic</div>
-                            <button type="button" class="mathtype-key" data-snippet="\in" title="Thuộc (&isin;)">&isin;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\notin" title="Không thuộc (&notin;)">&notin;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\subset" title="Tập con (&sub;)">&sub;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\supset" title="Chứa (&sup;)">&sup;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cup" title="Hợp (&cup;)">&cup;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\cap" title="Giao (&cap;)">&cap;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\setminus" title="Hiệu tập hợp (∖)">∖</button>
-                            <button type="button" class="mathtype-key" data-snippet="\emptyset" title="Tập rỗng (&empty;)">&empty;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\forall" title="Với mọi (&forall;)">&forall;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\exists" title="Tồn tại (&exist;)">&exist;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\Rightarrow" title="Suy ra (&rArr;)">&rArr;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\Leftrightarrow" title="Tương đương (&hArr;)">&hArr;</button>
-                        </div>
-                    </div>
-
-                    <!-- Tab 6: Phím số & Ký hiệu -->
-                    <div class="mathtype-pane" id="mathPane-numpad" style="display: none;">
-                        <!-- Chữ số -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Bàn phím số</div>
-                            <button type="button" class="mathtype-key" data-snippet="7">7</button>
-                            <button type="button" class="mathtype-key" data-snippet="8">8</button>
-                            <button type="button" class="mathtype-key" data-snippet="9">9</button>
-                            <button type="button" class="mathtype-key" data-snippet="4">4</button>
-                            <button type="button" class="mathtype-key" data-snippet="5">5</button>
-                            <button type="button" class="mathtype-key" data-snippet="6">6</button>
-                            <button type="button" class="mathtype-key" data-snippet="1">1</button>
-                            <button type="button" class="mathtype-key" data-snippet="2">2</button>
-                            <button type="button" class="mathtype-key" data-snippet="3">3</button>
-                            <button type="button" class="mathtype-key" data-snippet="0">0</button>
-                            <button type="button" class="mathtype-key" data-snippet=".">.</button>
-                            <button type="button" class="mathtype-key" data-snippet=",">,</button>
-                        </div>
-
-                        <!-- Biến số thông dụng -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Biến số</div>
-                            <button type="button" class="mathtype-key" data-snippet="x"><i>x</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="y"><i>y</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="z"><i>z</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="t"><i>t</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="n"><i>n</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="k"><i>k</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="m"><i>m</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="a"><i>a</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="b"><i>b</i></button>
-                            <button type="button" class="mathtype-key" data-snippet="c"><i>c</i></button>
-                        </div>
-
-                        <!-- Phép toán & Ký hiệu -->
-                        <div class="mathtype-key-group">
-                            <div class="mathtype-group-title">Ký hiệu toán</div>
-                            <button type="button" class="mathtype-key" data-snippet=" + ">+</button>
-                            <button type="button" class="mathtype-key" data-snippet=" - ">-</button>
-                            <button type="button" class="mathtype-key" data-snippet=" = ">=</button>
-                            <button type="button" class="mathtype-key" data-snippet=" < ">&lt;</button>
-                            <button type="button" class="mathtype-key" data-snippet=" > ">&gt;</button>
-                            <button type="button" class="mathtype-key" data-snippet="\quad" title="Dấu cách (Space)">space</button>
-                            <button type="button" class="mathtype-key" data-snippet="\dots" title="Dấu ba chấm">&hellip;</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+                                    <!-- Footer -->
             <div class="mathtype-modal-footer">
                 <div class="mathtype-display-mode">
                     <span class="mathtype-mode-label">Kiểu hiển thị:</span>
@@ -1562,8 +1519,11 @@
                     </label>
                 </div>
                 <div class="mathtype-footer-actions">
+                    <button type="button" class="mathtype-btn-toggle-kb" onclick="toggleLatexVirtualKeyboard()">
+                        <i class="ri-keyboard-box-line"></i> Bàn phím ảo
+                    </button>
                     <button type="button" class="btn-studio-outline" onclick="closeLatexMathModal()">Đóng</button>
-                    <button type="button" class="btn-studio-primary mathtype-btn-insert" onclick="confirmInsertLatexFormula()">
+                    <button type="button" class="btn-studio-primary mathtype-btn-insert" id="btnConfirmLatexInsert" onclick="confirmInsertLatexFormula()">
                         Chèn
                     </button>
                 </div>
@@ -1571,7 +1531,8 @@
         </div>
     </div>
 
-    <script src="/editor.js?v=20261110_fix_studio_v3"></script>
+    <script src="/hc-select.js?v=20261113_ui_v2"></script>
+    <script src="/editor.js?v=20261113_ai_check_v1"></script>
     <script>
         // Safety Fallback Watchdog: Đảm bảo preloader luôn biến mất kể cả khi mạng chậm
         (function() {

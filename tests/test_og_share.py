@@ -94,7 +94,7 @@ def test_og_share():
 
     res_dethi = client.get('/de-thi')
     assert res_dethi.status_code == 200
-    assert 'Danh sách Đề thi' in res_dethi.text
+    assert 'Danh sách đề thi' in res_dethi.text
 
     res_kq = client.get('/ket-qua/sub_test_01')
     assert res_kq.status_code == 200
@@ -106,7 +106,7 @@ def test_og_share():
 
     res_gv = client.get('/giao-vien')
     assert res_gv.status_code == 200
-    assert 'Bảng điều khiển Giáo viên' in res_gv.text
+    assert 'Bảng điều khiển giáo viên' in res_gv.text
 
     res_admin = client.get('/admin')
     assert res_admin.status_code == 200

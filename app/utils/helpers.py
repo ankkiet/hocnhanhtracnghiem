@@ -147,14 +147,24 @@ def evaluate_true_false_answer(user_ans: Any, correct_ans: Any) -> Tuple[bool, f
                 else:
                     continue
 
-            if isinstance(v, bool):
+            if v is None:
+                continue
+            elif isinstance(v, bool):
                 res[clean_k] = v
             elif isinstance(v, (int, float)):
                 res[clean_k] = bool(v)
             elif isinstance(v, str):
-                res[clean_k] = v.strip().lower() in ['true', 't', 'đúng', 'dung', 'đ', 'd', '1', 'yes', 'y']
+                val_l = v.strip().lower()
+                if not val_l:
+                    continue
+                if val_l in ('true', 't', 'đúng', 'dung', 'đ', 'd', '1', 'yes', 'y'):
+                    res[clean_k] = True
+                elif val_l in ('false', 'f', 'sai', 's', '0', 'no', 'n'):
+                    res[clean_k] = False
+                else:
+                    continue
             else:
-                res[clean_k] = bool(v)
+                continue
         return res
 
     u_norm = norm_tf(user_ans)
@@ -249,3 +259,64 @@ def evaluate_short_answer(user_ans: Any, correct_ans: Any) -> bool:
         return any(compare_single(user_ans, cand) for cand in candidates)
 
     return compare_single(user_ans, correct_ans)
+
+
+_MCQ_OPT_RE = re.compile(
+    r'^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?'
+    r'(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*</u>)*(?:\s*</MARK>)*[.:)]'
+)
+_TF_OPT_RE = re.compile(
+    r'^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:</MARK>\s*|</u>\s*)*)?'
+    r'(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*</u>)*(?:\s*</MARK>)*[).:\-\]/]'
+)
+
+
+def resolve_question_type(q: dict) -> str:
+    """Chuẩn hóa loại câu hỏi (mcq, true_false, short_answer, essay) đồng nhất với Frontend getRealQuestionType."""
+    if not isinstance(q, dict):
+        return 'mcq'
+    opts = q.get('options') if isinstance(q.get('options'), list) else []
+    mcq_count = sum(1 for o in opts if _MCQ_OPT_RE.match(str(o).strip()))
+    tf_count = sum(1 for o in opts if _TF_OPT_RE.match(str(o).strip()))
+
+    if mcq_count >= 2 and mcq_count >= tf_count:
+        return 'mcq'
+    if tf_count >= 2 and tf_count > mcq_count:
+        return 'true_false'
+
+    raw_type = str(q.get('type') or '').strip().lower()
+    grp = str(q.get('group_title') or '').upper()
+    correct_ans = q.get('correct_answer')
+
+    if len(opts) == 0:
+        if any(k in grp for k in ('TỰ LUẬN', 'TU LUAN', 'PHẦN IV', 'PHAN IV', 'PART IV')) or re.search(r'\bPHẦN\s+4\b', grp, re.I):
+            return 'essay'
+        if any(k in grp for k in ('TRẢ LỜI NGẮN', 'TRA LOI NGAN', 'PHẦN III', 'PHAN III', 'PART III')) or re.search(r'\bPHẦN\s+3\b', grp, re.I):
+            return 'short_answer'
+        if any(k in grp for k in ('ĐÚNG SAI', 'DUNG SAI', 'PHẦN II', 'PHAN II', 'PART II')) or re.search(r'\bPHẦN\s+2\b', grp, re.I):
+            return 'true_false'
+        if raw_type in ('essay', 'tu_luan', 'tự luận', 'tuluan'):
+            return 'essay'
+        if raw_type in ('short_answer', 'sa', 'tra_loi_ngan'):
+            return 'short_answer'
+        if raw_type in ('true_false', 'tf', 'dung_sai'):
+            return 'true_false'
+        if isinstance(correct_ans, dict) and len(correct_ans) > 0:
+            return 'true_false'
+        if isinstance(correct_ans, str) and correct_ans.strip():
+            if not re.match(r'^[A-F]$', correct_ans.strip(), re.I):
+                return 'short_answer'
+
+    if raw_type in ('essay', 'tu_luan', 'tự luận', 'tuluan') and mcq_count == 0 and tf_count < 2:
+        return 'essay'
+    if raw_type in ('true_false', 'tf', 'dung_sai') and mcq_count == 0:
+        return 'true_false'
+    if raw_type in ('short_answer', 'sa', 'tra_loi_ngan') and mcq_count == 0 and tf_count < 2:
+        return 'short_answer'
+    if raw_type == 'mcq':
+        return 'mcq'
+
+    if isinstance(correct_ans, dict) and len(correct_ans) > 0 and mcq_count == 0:
+        return 'true_false'
+
+    return 'mcq'

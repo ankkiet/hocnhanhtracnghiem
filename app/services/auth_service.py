@@ -222,7 +222,7 @@ class AuthService:
                         "phone": user_data.get('phone', ''),
                         "school": user_data.get('school', ''),
                         "avatar": picture or user_data.get('avatar', ''),
-                        "message": "Vui lòng hoàn tất thông tin cá nhân và chọn bạn là Học sinh hay Giáo viên để tiếp tục."
+                        "message": "Vui lòng hoàn tất thông tin cá nhân và chọn bạn là học sinh hay giáo viên để tiếp tục."
                     }
 
                 if current_role == 'teacher' and current_status != 'approved':
@@ -359,7 +359,7 @@ class AuthService:
         }
         jwt_token = create_access_token(token_payload)
         refresh_token = create_refresh_token(token_payload)
-        role_msg = "Đăng ký vai trò Giáo viên thành công! Bạn có thể sử dụng tất cả tính năng ngay bây giờ." if selected_role == 'teacher' else "Cập nhật thông tin thành công! Chúc bạn học tập hiệu quả."
+        role_msg = "Đăng ký vai trò giáo viên thành công! Bạn có thể sử dụng tất cả tính năng ngay bây giờ." if selected_role == 'teacher' else "Cập nhật thông tin thành công! Chúc bạn học tập hiệu quả."
         return {
             "status": "success",
             "token": jwt_token,
@@ -666,7 +666,7 @@ class AuthService:
         if role == "admin" or username in ADMIN_EMAILS:
             raise HTTPException(
                 status_code=403,
-                detail="Tài khoản Quản trị viên hệ thống không thể tự xóa qua cổng người dùng."
+                detail="Tài khoản quản trị viên hệ thống không thể tự xóa qua cổng người dùng."
             )
 
         db = _get_db()

@@ -459,7 +459,7 @@ Trình bày khoa học, dễ hiểu, dùng gạch đầu dòng rõ ràng, công 
             } else if (state.status === 'unsupported') {
                 loadingView.innerHTML = `
                     <div style="color: #b91c1c; background: #fef2f2; padding: 12px; border-radius: 8px; border: 1px solid #fecaca;">
-                        <b>⚠️ Không thể chạy Gia sư AI:</b> ${state.errorMessage}<br>
+                        <b>⚠️ Không thể chạy gia sư AI:</b> ${state.errorMessage}<br>
                         <span style="font-size: 0.85rem; color: #7f1d1d; margin-top: 4px; display: inline-block;">
                             Gợi ý: Dùng Google Chrome hoặc Microsoft Edge phiên bản mới nhất và bật Hardware Acceleration.
                         </span>
@@ -533,8 +533,8 @@ Trình bày khoa học, dễ hiểu, dùng gạch đầu dòng rõ ràng, công 
             margin-top: 8px;
         `;
         btn.innerHTML = isMistake 
-            ? `<span>🤖</span> Xem Gia sư AI giải thích vì sao sai`
-            : `<span>💡</span> Xem giải thích chi tiết (Gia sư AI)`;
+            ? `<span>🤖</span> Xem gia sư AI giải thích vì sao sai`
+            : `<span>💡</span> Xem giải thích chi tiết (gia sư AI)`;
         
         btn.onmouseover = () => { btn.style.transform = "translateY(-1px)"; btn.style.boxShadow = "0 4px 14px rgba(99, 102, 241, 0.4)"; };
         btn.onmouseout = () => { btn.style.transform = "none"; btn.style.boxShadow = "0 2px 8px rgba(99, 102, 241, 0.25)"; };
@@ -609,7 +609,7 @@ Trình bày khoa học, dễ hiểu, dùng gạch đầu dòng rõ ràng, công 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 1.5rem;">🤖</span>
-                            <h3 style="margin: 0; font-size: 1.2rem; color: #1e293b;">Gia sư AI Cục bộ (WebLLM)</h3>
+                            <h3 style="margin: 0; font-size: 1.2rem; color: #1e293b;">Gia sư AI cục bộ (WebLLM)</h3>
                         </div>
                         <button type="button" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b;" onclick="window.WebLLMTutor.closeSettingsModal()">✕</button>
                     </div>
@@ -617,26 +617,26 @@ Trình bày khoa học, dễ hiểu, dùng gạch đầu dòng rõ ràng, công 
                     <div style="background: #eef2ff; border: 1px solid #c7d2fe; padding: 12px 14px; border-radius: 10px; margin-bottom: 18px; font-size: 0.9rem; color: #3730a3; display: flex; align-items: flex-start; gap: 10px;">
                         <span style="font-size: 1.2rem; line-height: 1;">💡</span>
                         <div>
-                            <b>Hoàn toàn miễn phí & Riêng tư:</b> Mô hình chạy trực tiếp 100% bằng GPU của trình duyệt của bạn qua WebGPU. Không gửi câu hỏi lên máy chủ trả phí.
+                            <b>Hoàn toàn miễn phí & riêng tư:</b> Mô hình chạy trực tiếp 100% bằng GPU của trình duyệt của bạn qua WebGPU. Không gửi câu hỏi lên máy chủ trả phí.
                         </div>
                     </div>
 
                     <div style="margin-bottom: 16px;">
-                        <label style="font-weight: 700; display: block; margin-bottom: 8px; font-size: 0.95rem; color: #0f172a;">Chọn mô hình Gia sư AI:</label>
+                        <label style="font-weight: 700; display: block; margin-bottom: 8px; font-size: 0.95rem; color: #0f172a;">Chọn mô hình gia sư AI:</label>
                         <div id="webllmModelList" style="display: flex; flex-direction: column; gap: 8px;"></div>
                     </div>
 
                     <div style="margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 0.95rem; font-weight: 600; color: #1e293b;">
                             <input type="checkbox" id="webllmAutoExplainCheck" style="width: 18px; height: 18px; cursor: pointer;" onchange="window.WebLLMTutor.setAutoExplainOnMistake(this.checked)">
-                            <span>Tự động gợi ý Gia sư AI khi học sinh làm sai câu hỏi</span>
+                            <span>Tự động gợi ý gia sư AI khi học sinh làm sai câu hỏi</span>
                         </label>
                     </div>
 
                     <div id="webllmModalStatusArea" style="margin-bottom: 20px; font-size: 0.9rem;"></div>
 
                     <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" class="btn-outline" style="margin: 0; padding: 10px 18px;" onclick="window.WebLLMTutor.preload()">🔄 Tải lại / Khởi động</button>
+                        <button type="button" class="btn-outline" style="margin: 0; padding: 10px 18px;" onclick="window.WebLLMTutor.preload()">🔄 Tải lại / khởi động</button>
                         <button type="button" class="btn-primary" style="margin: 0; padding: 10px 22px;" onclick="window.WebLLMTutor.closeSettingsModal()">Xong</button>
                     </div>
                 </div>

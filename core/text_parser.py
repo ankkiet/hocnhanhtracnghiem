@@ -103,9 +103,9 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             raw_text = raw_text[:pos]
             break
 
-    # 2. Phân đoạn theo các PHẦN (nếu đề có PHẦN I, PHẦN II, PHẦN III)
+    # 2. Phân đoạn theo các PHẦN (nếu đề có PHẦN I, PHẦN II, PHẦN III, PHẦN IV / TỰ LUẬN)
     section_split_pat = re.compile(
-        r'(?:^|\n)\s*(?:<[^>]+>\s*)*((?:PHẦN\s+(?:III|II|I|3|2|1)|(?:III|II|I)\.|\bPHẦN\s+THỨ\b)[^\n]*)',
+        r'(?:^|\n)\s*(?:<[^>]+>\s*)*((?:PHẦN\s+(?:IV|III|II|I|4|3|2|1)\b|PHẦN\s+TỰ\s*LUẬN\b|PHẦN\s+[A-D]\b|(?:IV|III|II|I)\.|\bPHẦN\s+THỨ\b|\bPHẦN\s+TỰ\s*LUẬN\b)[^\n]*)',
         re.IGNORECASE
     )
     section_matches = list(section_split_pat.finditer(raw_text))
@@ -130,7 +130,10 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
             content = raw_text[sec_start:sec_end].strip()
 
             h_upper = header.upper()
-            if "III" in h_upper or "TRẢ LỜI NGẮN" in h_upper:
+            if "TỰ LUẬN" in h_upper or "TU LUAN" in h_upper or re.search(r'\b(?:PHẦN\s+(?:IV|4)|IV\.)\b', h_upper):
+                sec_type = "essay"
+                part_num = 4
+            elif "III" in h_upper or "TRẢ LỜI NGẮN" in h_upper:
                 sec_type = "short_answer"
                 part_num = 3
             elif "II" in h_upper or "ĐÚNG SAI" in h_upper or "ĐÚNG - SAI" in h_upper:
@@ -213,6 +216,39 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
             sub_matches = [m for m in sub_opt_pattern.finditer(block) if not is_inside_table(m.start())]
             mcq_matches = [m for m in mcq_opt_pattern.finditer(block) if not is_inside_table(m.start())]
+
+            # 0. Nếu là phần Tự luận (PHẦN IV / TỰ LUẬN): Nhận là essay khi KHÔNG có phương án trắc nghiệm A-D và KHÔNG có ý đúng sai a-d
+            is_explicit_essay = (sec_type == "essay") or bool(re.search(r'\(?\[?\s*Tự\s*luận\s*\]?\)?', raw_block, re.IGNORECASE))
+            if is_explicit_essay and len(mcq_matches) < 2 and len(sub_matches) < 2:
+                ans_val = ""
+                ans_m = re.search(
+                    r'(?:<[^>]+>\s*)*(?:\(?\s*(?:Hướng dẫn chấm|Thang điểm|Biểu điểm|Đáp án và thang điểm|Gợi ý làm bài|Đáp án|Đáp số|ĐS|Ans|Answer)\s*[\:\.\-\=]?\s*)(?:</[^>]+>\s*)*([\s\S]+)',
+                    block,
+                    re.IGNORECASE
+                )
+                if ans_m:
+                    ans_val = ans_m.group(1).strip()
+                    stem = block[:ans_m.start()].strip()
+                elif explain:
+                    ans_val = explain
+                    stem = block
+                else:
+                    stem = block
+
+                # Làm sạch nhãn [Tự luận] hoặc (Tự luận) ở đầu câu hỏi nếu có
+                stem = re.sub(r'^\s*(?:<[^>]+>\s*)*\(?\[?\s*Tự\s*luận\s*\]?\)?\s*[\:\-\.]?\s*', '', stem, flags=re.IGNORECASE).strip()
+
+                results.append({
+                    "question_number": raw_q_num,
+                    "part": sec_part,
+                    "type": "essay",
+                    "group_title": sec_header if i == 0 else "",
+                    "question": stem,
+                    "options": [],
+                    "correct_answer": ans_val,
+                    "explain": explain
+                })
+                continue
 
             # 1. Nếu là phần Trả lời ngắn (PHẦN III): Chỉ nhận là short_answer khi KHÔNG có phương án trắc nghiệm A-D và KHÔNG có ý đúng sai a-d
             if sec_type == "short_answer" and len(mcq_matches) < 2 and len(sub_matches) < 2:
@@ -504,7 +540,7 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         })
                     else:
                         ans_val = ""
-                        ans_match = re.search(r'(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*([^\n\r\;]+)', block, re.IGNORECASE)
+                        ans_match = re.search(r'(?:Hướng dẫn chấm|Thang điểm|Biểu điểm|Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]?\s*([^\n\r\;]+)', block, re.IGNORECASE)
                         if ans_match:
                             ans_val = ans_match.group(1).strip()
                             stem = block[:ans_match.start()].strip() + " " + block[ans_match.end():].strip()
@@ -512,10 +548,13 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         else:
                             stem = block
 
+                        is_essay_fallback = (sec_type == "essay") or bool(re.search(r'\(?\[?\s*Tự\s*luận\s*\]?\)?', raw_block, re.IGNORECASE))
+                        fallback_type = "essay" if is_essay_fallback else "short_answer"
+
                         results.append({
                             "question_number": raw_q_num,
                             "part": sec_part,
-                            "type": "short_answer",
+                            "type": fallback_type,
                             "group_title": sec_header if i == 0 else "",
                             "question": stem,
                             "options": [],

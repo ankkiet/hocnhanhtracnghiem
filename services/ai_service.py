@@ -106,7 +106,7 @@ def diagnose_gemini_error(
             "error_code": "NO_API_KEYS",
             "error_name": "Chưa cấu hình Google Gemini API Key",
             "cause": "Hệ thống chưa có khóa API nào trong cơ sở dữ liệu (Firestore settings/gemini) hoặc biến môi trường (GEMINI_API_KEYS).",
-            "solution": "1. Đăng nhập tài khoản Quản trị (Admin) -> Cài đặt hệ thống.\n2. Lấy API Key miễn phí tại Google AI Studio (https://aistudio.google.com/).\n3. Dán khóa API vào mục Cấu hình Gemini API Keys và lưu lại.",
+            "solution": "1. Đăng nhập tài khoản quản trị (Admin) -> cài đặt hệ thống.\n2. Lấy API Key miễn phí tại Google AI Studio (https://aistudio.google.com/).\n3. Dán khóa API vào mục cấu hình Gemini API Key và lưu lại.",
             "technical_detail": clean_err or "api_keys list is empty",
             "models_tried": models_tried,
             "keys_count": 0
@@ -119,7 +119,7 @@ def diagnose_gemini_error(
             "error_code": "QUOTA_EXCEEDED_429",
             "error_name": "Quá hạn mức gọi API Google Gemini (Quota Exceeded - 429)",
             "cause": "Tài khoản Google AI Studio đã chạm trần tốc độ gọi (thường là 15 yêu cầu/phút - 15 RPM ở gói Free Tier), hoặc đã hết hạn mức token được cấp miễn phí trong ngày.",
-            "solution": "1. Vui lòng đợi khoảng 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm 2-3 API Key từ các tài khoản Google khác nhau vào Cài đặt Admin để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ tín dụng (Pay-as-you-go) trên Google Cloud Console để mở rộng hạn mức lên 1000 RPM.",
+            "solution": "1. Vui lòng đợi khoảng 30 - 60 giây để Google hồi lại quota rồi bấm thử lại.\n2. Quản trị viên: Thêm 2-3 API Key từ các tài khoản Google khác nhau vào cài đặt quản trị (Admin) để hệ thống tự động luân chuyển khi một key bị chạm quota.\n3. Hoặc liên kết thẻ tín dụng (Pay-as-you-go) trên Google Cloud Console để mở rộng hạn mức lên 1000 RPM.",
             "technical_detail": clean_err,
             "models_tried": models_tried,
             "keys_count": len(keys_tried)
@@ -132,7 +132,7 @@ def diagnose_gemini_error(
             "error_code": "INVALID_API_KEY",
             "error_name": "Khóa API Google Gemini không hợp lệ hoặc đã bị vô hiệu hóa",
             "cause": "Khóa API được lưu trong hệ thống không chính xác, đã bị xóa/thu hồi trên Google Cloud Console, hoặc nhập sai định dạng.",
-            "solution": "1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Vào trang Admin Settings -> Ping kiểm tra khóa -> Cập nhật khóa mới và xóa các khóa đã hỏng.",
+            "solution": "1. Quản trị viên truy cập https://aistudio.google.com/app/apikey để tạo khóa mới (bắt đầu bằng AIzaSy...).\n2. Vào trang cài đặt quản trị (Admin) -> ping kiểm tra khóa -> cập nhật khóa mới và xóa các khóa đã hỏng.",
             "technical_detail": clean_err,
             "models_tried": models_tried,
             "keys_count": len(keys_tried)
@@ -144,8 +144,8 @@ def diagnose_gemini_error(
             "status": "error",
             "error_code": "MODEL_NOT_FOUND_404",
             "error_name": "Mô hình AI không tồn tại hoặc đã ngừng cung cấp (Model 404)",
-            "cause": "Phiên bản mô hình AI yêu cầu không còn khả dụng trên tài khoản Google này (ví dụ Google đã ngừng gemini-2.5-flash cho tài khoản mới và yêu cầu nâng cấp lên gemini-3.8-flash).",
-            "solution": "1. Hệ thống đã tự động thử các model dự phòng (gemini-3.8-flash, gemini-2.5-flash-lite, gemini-1.5-flash).\n2. Nếu tất cả đều không tìm thấy, vui lòng bấm thử lại hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.",
+            "cause": "Phiên bản mô hình AI yêu cầu không còn khả dụng trên tài khoản Google này hoặc đã bị ngừng hỗ trợ.",
+            "solution": "1. Hệ thống đã tự động chuyển qua các model dự phòng (gemini-2.5-flash, gemini-2.5-flash-lite, gemini-flash-latest, gemini-2.0-flash).\n2. Nếu tất cả đều không tìm thấy, vui lòng bấm thử lại hoặc kiểm tra quyền truy cập mô hình trong Google AI Studio.",
             "technical_detail": clean_err,
             "models_tried": models_tried,
             "keys_count": len(keys_tried)
@@ -184,7 +184,7 @@ def diagnose_gemini_error(
             "error_code": "RESPONSE_PARSE_ERROR",
             "error_name": "Không thể giải mã cấu trúc dữ liệu phản hồi từ AI (Parse Error)",
             "cause": "AI đã phản hồi nhưng nội dung trả về chứa ký tự đặc biệt hoặc cấu trúc JSON bị đứt đoạn bất thường.",
-            "solution": "1. Bấm nút Thử lại để AI sinh lại cấu trúc dữ liệu chuẩn mực.\n2. Bộ lọc tự động sửa JSON (json_repair) đã xử lý, lỗi này xuất hiện khi phản hồi bị ngắt kết nối đột ngột.",
+            "solution": "1. Bấm nút thử lại để AI sinh lại cấu trúc dữ liệu chuẩn mực.\n2. Bộ lọc tự động sửa JSON (json_repair) đã xử lý, lỗi này xuất hiện khi phản hồi bị ngắt kết nối đột ngột.",
             "technical_detail": clean_err,
             "models_tried": models_tried,
             "keys_count": len(keys_tried)
@@ -196,7 +196,7 @@ def diagnose_gemini_error(
         "error_code": "AI_GENERAL_ERROR",
         "error_name": "Lỗi giao tiếp với dịch vụ Google Gemini AI",
         "cause": f"Phát sinh lỗi trong quá trình xử lý: {clean_err[:180]}..." if len(clean_err) > 180 else f"Phát sinh lỗi trong quá trình xử lý: {clean_err}",
-        "solution": "1. Vui lòng kiểm tra lại kết nối mạng và bấm thử lại.\n2. Nếu lỗi vẫn tiếp tục, vui lòng liên hệ Quản trị viên để kiểm tra trạng thái khóa API.",
+        "solution": "1. Vui lòng kiểm tra lại kết nối mạng và bấm thử lại.\n2. Nếu lỗi vẫn tiếp tục, vui lòng liên hệ quản trị viên để kiểm tra trạng thái khóa API.",
         "technical_detail": clean_err,
         "models_tried": models_tried,
         "keys_count": len(keys_tried)
@@ -881,11 +881,20 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
     # 3. Phân loại câu hỏi thông minh & triệt để:
     is_true_false = False
     is_short_answer = False
+    is_essay = False
 
-    if is_all_uppercase_mcq:
+    if raw_type in ["essay", "tu_luan", "tự luận", "tuluan", "descriptive"]:
+        if mcq_count == 0 and tf_count < 2:
+            is_essay = True
+        elif is_all_uppercase_mcq:
+            is_true_false = False
+            is_short_answer = False
+            is_essay = False
+    elif is_all_uppercase_mcq:
         # NẾU CÁC PHƯƠNG ÁN LÀ A, B, C, D (CHỮ IN HOA) -> BẮT BUỘC VÀ DUY NHẤT LÀ MCQ!
         is_true_false = False
         is_short_answer = False
+        is_essay = False
     elif is_tf_paren_options:
         # Nếu đáp án là chọn 1 chữ cái đơn lẻ (MCQ) và không có dấu hiệu Đúng/Sai -> Vẫn là MCQ
         if is_single_choice_ca and not (has_tf_dict or has_tf_str or has_explicit_tf_marks or has_tf_keywords):
@@ -893,20 +902,26 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
         else:
             is_true_false = True
         is_short_answer = False
+        is_essay = False
     elif (has_tf_dict or has_tf_str or has_explicit_tf_marks) and mcq_count == 0:
         is_true_false = True
     elif raw_type in ["true_false", "tf", "dung_sai", "dung-sai", "dung/sai", "dung sai"] and mcq_count == 0:
         is_true_false = True
-    elif raw_type in ["short_answer", "sa", "tra_loi_ngan", "tra-loi-ngan", "short", "dien_khuyet", "tu_luan"]:
+    elif raw_type in ["short_answer", "sa", "tra_loi_ngan", "tra-loi-ngan", "short", "dien_khuyet"]:
         if tf_count >= 2:
             is_true_false = True
         else:
             is_short_answer = True
     elif len(options) == 0:
-        is_short_answer = True
+        grp_u = str(item.get("group_title") or "").upper()
+        if "TỰ LUẬN" in grp_u or "TU LUAN" in grp_u or "PHẦN IV" in grp_u or "PHẦN 4" in grp_u:
+            is_essay = True
+        else:
+            is_short_answer = True
     else:
         is_true_false = False
         is_short_answer = False
+        is_essay = False
 
 
 
@@ -1038,6 +1053,26 @@ def normalize_question_data(item: Dict[str, Any], use_ai: bool = True) -> Dict[s
             item["is_ai_suggested"] = False
 
         item["correct_answer"] = clean_subscripts_and_formulas(raw_ca)
+
+        return item
+
+    # 5b. XỬ LÝ DẠNG TỰ LUẬN (ESSAY)
+
+    elif is_essay:
+
+        item["type"] = "essay"
+
+        item["options"] = []
+
+        raw_ca = str(item.get("correct_answer", "")).strip()
+
+        raw_ca = re.sub(r'^(?:Hướng dẫn chấm|Thang điểm|Biểu điểm|Đáp án và thang điểm|Gợi ý làm bài|Đáp án)\s*[\:\-\=]?\s*', '', raw_ca, flags=re.IGNORECASE).strip()
+
+        item["correct_answer"] = clean_subscripts_and_formulas(raw_ca) if raw_ca else ""
+
+        if "is_ai_suggested" not in item:
+
+            item["is_ai_suggested"] = False
 
         return item
 
@@ -1223,12 +1258,13 @@ async def call_gemini_with_fallback(
     prompt: Any,
     api_keys: List[str],
     system_instruction: Optional[str] = None,
-    thinking_budget: Optional[int] = 0
+    thinking_budget: Optional[int] = 0,
+    timeout: float = 30.0,
 ):
     """
     Gọi Gemini AI với cơ chế tối ưu hiệu năng và giám sát Quota:
     - Sử dụng Client Pool tái sử dụng kết nối
-    - Tối ưu hóa chuỗi model: gemini-2.5-flash (siêu tốc ~1.4s) -> gemini-3.8-flash -> gemini-2.5-flash-lite -> gemini-flash-latest
+    - Tối ưu hóa chuỗi model: gemini-2.5-flash (siêu tốc ~1.4s) -> gemini-2.5-flash-lite -> gemini-3.8-flash -> gemini-flash-latest -> gemini-1.5-flash
     - Hỗ trợ đa phương thức Multimodal (chữ + hình ảnh/PDF scan)
     - Tự động ghi nhận số lượt gọi, lỗi 429 quota, tính chi phí qua gemini_tracker
     - Tự động luân chuyển Key khi gặp 429 Quota Exceeded
@@ -1236,6 +1272,8 @@ async def call_gemini_with_fallback(
     if not api_keys:
         diag = diagnose_gemini_error(Exception("Chưa cấu hình API Key"), keys_tried=[])
         raise GeminiAPIException(diag)
+
+    request_timeout = max(5.0, float(timeout)) if timeout is not None else 30.0
 
     # Đo độ dài prompt để ước tính token
     prompt_chars = 0
@@ -1252,126 +1290,142 @@ async def call_gemini_with_fallback(
 
     t_start = time.time()
 
-    # Danh sách model tối ưu cho thế hệ mới nhất
+    # Danh sách model tối ưu: ưu tiên gemini-2.5-flash ổn định và phản hồi nhanh nhất,
+    # dự phòng qua các nhóm model khác nhau nếu Google gặp quá tải 503 cục bộ
     models_to_try = [
-        'gemini-3.8-flash',
         'gemini-2.5-flash',
         'gemini-2.5-flash-lite',
-        'gemini-1.5-flash',
-        'gemini-flash-latest'
+        'gemini-flash-latest',
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-3.8-flash',
     ]
 
     last_error = None
+    saw_transient_503 = False
 
-    for key in api_keys:
-        key = key.strip()
-        if not key:
-            continue
-
-        try:
-            client = get_gemini_client(key)
-        except Exception as e:
-            last_error = e
-            gemini_tracker.record_call(
-                api_key=key,
-                model="unknown",
-                success=False,
-                error_message=f"Client pool error: {str(e)}",
-                prompt_chars=prompt_chars,
-                duration_ms=(time.time() - t_start) * 1000
-            )
-            continue
-
-        from google.genai import types
-
-        for model_name in models_to_try:
-            # Cấu hình tối ưu tốc độ
-            config_params = {
-                "temperature": 0.1,
-                "response_mime_type": "application/json"
-            }
-
-            if system_instruction:
-                config_params["system_instruction"] = system_instruction
-
-            if thinking_budget is not None and hasattr(types, "ThinkingConfig"):
-                config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
+    async def _attempt_once(candidate_models: List[str]):
+        nonlocal last_error, saw_transient_503
+        for key in api_keys:
+            key = key.strip()
+            if not key:
+                continue
 
             try:
-                response = await asyncio.wait_for(
-                    client.aio.models.generate_content(
-                        model=model_name,
-                        contents=prompt,
-                        config=types.GenerateContentConfig(**config_params)
-                    ),
-                    timeout=12.0
-                )
-
-                resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
-                gemini_tracker.record_call(
-                    api_key=key,
-                    model=model_name,
-                    success=True,
-                    prompt_chars=prompt_chars,
-                    response_chars=resp_len,
-                    duration_ms=(time.time() - t_start) * 1000
-                )
-                return response
-
+                client = get_gemini_client(key)
             except Exception as e:
-                error_str = str(e).lower()
-
-                # Nếu model không hỗ trợ thinking_budget, thử lại ngay không kèm thinking_config
-                if "thinking" in error_str or "invalid argument" in error_str:
-                    try:
-                        fallback_params = {k: v for k, v in config_params.items() if k != "thinking_config"}
-                        response = await asyncio.wait_for(
-                            client.aio.models.generate_content(
-                                model=model_name,
-                                contents=prompt,
-                                config=types.GenerateContentConfig(**fallback_params)
-                            ),
-                            timeout=12.0
-                        )
-
-                        resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
-                        gemini_tracker.record_call(
-                            api_key=key,
-                            model=model_name,
-                            success=True,
-                            prompt_chars=prompt_chars,
-                            response_chars=resp_len,
-                            duration_ms=(time.time() - t_start) * 1000
-                        )
-                        return response
-
-                    except Exception as inner_e:
-                        error_str = str(inner_e).lower()
-                        last_error = inner_e
-                else:
-                    last_error = e
-
+                last_error = e
                 gemini_tracker.record_call(
                     api_key=key,
-                    model=model_name,
+                    model="unknown",
                     success=False,
-                    error_message=str(last_error),
+                    error_message=f"Client pool error: {str(e)}",
                     prompt_chars=prompt_chars,
                     duration_ms=(time.time() - t_start) * 1000
                 )
+                continue
 
-                if "api key not valid" in error_str or "invalid api key" in error_str:
-                    break  # Key lỗi, chuyển key kế tiếp
-                elif "404" in error_str or "not found" in error_str or "unsupported" in error_str or "no longer available" in error_str:
-                    continue  # Model không hỗ trợ hoặc giới hạn với key này, thử model tiếp theo
-                elif "503" in error_str or "unavailable" in error_str or "high demand" in error_str or "overloaded" in error_str:
-                    continue  # Model này đang quá tải tạm thời, thử ngay model tiếp theo của cùng key
-                elif "429" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
-                    break  # Hết quota lượt gọi của key này, chuyển sang API Key tiếp theo
-                elif "deadline" in error_str or "timeout" in error_str:
-                    continue
-                else:
-                    continue
+            from google.genai import types
+
+            for model_name in candidate_models:
+                config_params = {
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json"
+                }
+
+                if system_instruction:
+                    config_params["system_instruction"] = system_instruction
+
+                if thinking_budget is not None and hasattr(types, "ThinkingConfig"):
+                    config_params["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
+
+                try:
+                    response = await asyncio.wait_for(
+                        client.aio.models.generate_content(
+                            model=model_name,
+                            contents=prompt,
+                            config=types.GenerateContentConfig(**config_params)
+                        ),
+                        timeout=request_timeout
+                    )
+
+                    resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
+                    gemini_tracker.record_call(
+                        api_key=key,
+                        model=model_name,
+                        success=True,
+                        prompt_chars=prompt_chars,
+                        response_chars=resp_len,
+                        duration_ms=(time.time() - t_start) * 1000
+                    )
+                    return response
+
+                except Exception as e:
+                    error_str = str(e).lower()
+
+                    if "thinking" in error_str or "invalid argument" in error_str:
+                        try:
+                            fallback_params = {k: v for k, v in config_params.items() if k != "thinking_config"}
+                            response = await asyncio.wait_for(
+                                client.aio.models.generate_content(
+                                    model=model_name,
+                                    contents=prompt,
+                                    config=types.GenerateContentConfig(**fallback_params)
+                                ),
+                                timeout=request_timeout
+                            )
+
+                            resp_len = len(response.text) if hasattr(response, "text") and response.text else 500
+                            gemini_tracker.record_call(
+                                api_key=key,
+                                model=model_name,
+                                success=True,
+                                prompt_chars=prompt_chars,
+                                response_chars=resp_len,
+                                duration_ms=(time.time() - t_start) * 1000
+                            )
+                            return response
+
+                        except Exception as inner_e:
+                            error_str = str(inner_e).lower()
+                            last_error = inner_e
+                    else:
+                        last_error = e
+
+                    gemini_tracker.record_call(
+                        api_key=key,
+                        model=model_name,
+                        success=False,
+                        error_message=str(last_error),
+                        prompt_chars=prompt_chars,
+                        duration_ms=(time.time() - t_start) * 1000
+                    )
+
+                    if "api key not valid" in error_str or "invalid api key" in error_str:
+                        break  # Key lỗi, chuyển key kế tiếp
+                    elif "404" in error_str or "not found" in error_str or "unsupported" in error_str or "no longer available" in error_str:
+                        continue
+                    elif "503" in error_str or "unavailable" in error_str or "high demand" in error_str or "overloaded" in error_str:
+                        saw_transient_503 = True
+                        continue
+                    elif "429" in error_str or "quota" in error_str or "resource_exhausted" in error_str:
+                        break  # Hết quota lượt gọi của key này, chuyển sang API Key tiếp theo
+                    elif "deadline" in error_str or "timeout" in error_str:
+                        continue
+                    else:
+                        continue
+        return None
+
+    res = await _attempt_once(models_to_try)
+    if res is not None:
+        return res
+
+    # Nếu gặp quá tải 503 tạm thời từ Google, chờ 1.8s rồi thử lại nhanh với các model chính
+    if saw_transient_503:
+        await asyncio.sleep(1.8)
+        res_retry = await _attempt_once(['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'])
+        if res_retry is not None:
+            return res_retry
 
     diag = diagnose_gemini_error(last_error, keys_tried=api_keys, models_tried=models_to_try)
     raise GeminiAPIException(diag)
@@ -2313,6 +2367,56 @@ async def process_image_with_ocr(
     return []
 
 
+def compact_quiz_for_ai_prompt(
+    quiz_data: List[Dict[str, Any]],
+    include_answers: bool = True,
+    include_explain: bool = True,
+    indices: Optional[List[int]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Rút gọn dữ liệu câu hỏi trước khi gửi vào prompt Gemini:
+    - Loại bỏ Base64 image data URIs (thay bằng placeholder ngắn) và metadata UI thừa.
+    - Chuẩn hóa loại câu hỏi qua resolve_question_type.
+    - Không làm thay đổi (mutate) danh sách câu hỏi gốc.
+    """
+    from app.utils.helpers import resolve_question_type
+
+    compacted = []
+    target_pairs = (
+        [(idx, quiz_data[idx]) for idx in indices if 0 <= idx < len(quiz_data)]
+        if indices is not None
+        else list(enumerate(quiz_data or []))
+    )
+
+    for idx, q in target_pairs:
+        if not isinstance(q, dict):
+            continue
+        q_type = resolve_question_type(q)
+        item: Dict[str, Any] = {
+            "index": idx,
+            "type": q_type,
+            "question": q.get("question", ""),
+        }
+        opts = q.get("options")
+        if isinstance(opts, list) and len(opts) > 0:
+            item["options"] = opts
+        if q.get("group_title"):
+            item["group_title"] = q.get("group_title")
+        if q.get("passage"):
+            item["passage"] = q.get("passage")
+        img = q.get("image")
+        if img:
+            img_str = str(img)
+            item["image"] = "[CÓ_HÌNH_ẢNH]" if (img_str.startswith("data:") or len(img_str) > 300) else img_str
+        if include_answers and q.get("correct_answer") not in (None, ""):
+            item["correct_answer"] = q.get("correct_answer")
+        if include_explain and q.get("explain"):
+            item["explain"] = q.get("explain")
+        compacted.append(item)
+
+    return compacted
+
+
 async def cross_check_answers(
     quiz_data: List[Dict[str, Any]],
     api_keys: List[str]
@@ -2337,15 +2441,34 @@ async def cross_check_answers(
 
     num_keys = len(valid_keys)
 
-    # Chuẩn bị dữ liệu chỉ chứa câu hỏi và phương án (loại bỏ correct_answer để AI không bị thiên vị)
-    blind_questions = []
-    for idx, q in enumerate(quiz_data):
-        blind_questions.append({
-            "index": idx,
-            "type": q.get("type", "mcq"),
-            "question": q.get("question", ""),
-            "options": q.get("options", [])
-        })
+    from app.utils.helpers import (
+        evaluate_mcq_answer,
+        evaluate_short_answer,
+        evaluate_true_false_answer,
+        resolve_question_type,
+    )
+
+    # Chuẩn bị dữ liệu gọn nhẹ chỉ chứa câu hỏi và phương án (bỏ qua câu tự luận mở)
+    compacted_all = compact_quiz_for_ai_prompt(quiz_data, include_answers=False, include_explain=False)
+    blind_questions = [item for item in compacted_all if item.get("type") != "essay"]
+
+    if not blind_questions:
+        cleaned = []
+        for orig_q in quiz_data:
+            q_copy = dict(orig_q)
+            q_copy["has_cross_check_warning"] = False
+            q_copy["cross_check_info"] = None
+            cleaned.append(q_copy)
+        return {
+            "status": "success",
+            "total_checked": len(quiz_data),
+            "total_questions": len(quiz_data),
+            "mismatch_count": 0,
+            "mismatches_found": 0,
+            "mismatches": [],
+            "quiz_data": cleaned,
+            "data": cleaned,
+        }
 
     system_instruction = (
         "Bạn là Giám khảo Khảo thí Độc lập và Chuyên gia Giải đề cấp cao. "
@@ -2397,11 +2520,11 @@ async def cross_check_answers(
                         break
 
             if isinstance(batch_list, list):
-                return batch_list
-            return []
+                return {"items": batch_list, "error": None}
+            return {"items": [], "error": None}
         except Exception as e:
             logger.warning(f"Lỗi khi giải chéo batch {b_idx + 1}: {e}")
-            return []
+            return {"items": [], "error": e}
 
     # Phân phối đều các batch cho từng API Key theo Round-Robin
     batch_tasks = []
@@ -2410,10 +2533,14 @@ async def cross_check_answers(
         batch_tasks.append(solve_single_batch(b_idx, b_q, b_keys))
 
     batch_results = await asyncio.gather(*batch_tasks)
+    if batch_results and all(br.get("error") is not None for br in batch_results):
+        raise batch_results[0]["error"]
+
     solved_list = []
     for br in batch_results:
-        if br:
-            solved_list.extend(br)
+        items = br.get("items") if isinstance(br, dict) else br
+        if items:
+            solved_list.extend(items)
 
     solved_map = {}
     for item in solved_list:
@@ -2440,9 +2567,9 @@ async def cross_check_answers(
     for idx, orig_q in enumerate(quiz_data):
         q_copy = dict(orig_q)
         teacher_ca = q_copy.get("correct_answer")
-        q_type = q_copy.get("type", "mcq")
+        q_type = resolve_question_type(q_copy)
 
-        if idx in solved_map:
+        if q_type != "essay" and idx in solved_map:
             ai_item = solved_map[idx]
             ai_ans = (
                 ai_item.get("ai_solved_answer") or
@@ -2460,39 +2587,25 @@ async def cross_check_answers(
                 ""
             )
 
-            # So sánh đáp án
+            # So sánh đáp án bằng bộ chuẩn hóa thống nhất của hệ thống
             is_different = False
             if ai_ans is not None:
                 if q_type == "mcq":
                     t_str = str(teacher_ca or "").strip()
                     a_str = str(ai_ans or "").strip()
-                    t_match = re.search(r'\b([A-F])\b', t_str.upper()) or re.search(r'^([A-F])', t_str.upper())
-                    a_match = re.search(r'\b([A-F])\b', a_str.upper()) or re.search(r'^([A-F])', a_str.upper())
-                    t_char = t_match.group(1).upper() if t_match else ""
-                    a_char = a_match.group(1).upper() if a_match else ""
-                    if t_char and a_char:
-                        if t_char != a_char:
-                            is_different = True
-                    elif t_str and a_str:
-                        if t_str.lower() != a_str.lower():
-                            is_different = True
+                    if t_str and a_str:
+                        is_different = not evaluate_mcq_answer(a_str, t_str, q_copy.get("options"))
                 elif q_type == "true_false":
                     t_tf = parse_tf_answer(teacher_ca)
                     a_tf = parse_tf_answer(ai_ans)
-                    for sub_k in ["a", "b", "c", "d"]:
-                        if sub_k in t_tf and sub_k in a_tf:
-                            if bool(t_tf[sub_k]) != bool(a_tf[sub_k]):
-                                is_different = True
-                                break
-                else: # short_answer
-                    t_clean = re.sub(r'^(đáp án|đáp số|kết quả|ans|x\s*=)\s*[:=]?\s*', '', str(teacher_ca or '').lower().strip())
-                    a_clean = re.sub(r'^(đáp án|đáp số|kết quả|ans|x\s*=)\s*[:=]?\s*', '', str(ai_ans or '').lower().strip())
-                    t_clean = t_clean.replace(',', '.')
-                    a_clean = a_clean.replace(',', '.')
-                    t_clean = re.sub(r'\s+', '', t_clean)
-                    a_clean = re.sub(r'\s+', '', a_clean)
-                    if t_clean and a_clean and t_clean != a_clean:
-                        is_different = True
+                    if t_tf and a_tf:
+                        is_same, _ = evaluate_true_false_answer(a_tf, t_tf)
+                        is_different = not is_same
+                else:  # short_answer
+                    t_str = str(teacher_ca or "").strip()
+                    a_str = str(ai_ans or "").strip()
+                    if t_str and a_str:
+                        is_different = not evaluate_short_answer(a_str, t_str)
 
             if is_different:
                 mismatch_record = {
@@ -2501,7 +2614,7 @@ async def cross_check_answers(
                     "ai_answer": ai_ans,
                     "ai_explain": ai_explain,
                     "reason": f"AI giải ra kết quả khác: {ai_ans}",
-                    "warning_message": f"Cảnh báo lệch đáp án: Giáo viên chọn [{teacher_ca}], AI giải ra [{ai_ans}]. Cần rà soát lại."
+                    "warning_message": f"Cảnh báo lệch đáp án: giáo viên chọn [{teacher_ca}], AI giải ra [{ai_ans}]. Cần rà soát lại."
                 }
                 mismatches.append(mismatch_record)
                 q_copy["has_cross_check_warning"] = True

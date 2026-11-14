@@ -197,7 +197,7 @@ def _render_publish_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
         html_content = f.read()
 
     if quiz_title:
-        title = f"Tùy chọn Xuất bản: {quiz_title} - HocNhanhTN"
+        title = f"Tùy chọn xuất bản: {quiz_title} - HocNhanhTN"
         html_content = re.sub(r'<title>.*?</title>', f'<title>{html.escape(title)}</title>', html_content, flags=re.IGNORECASE)
 
     return HTMLResponse(content=html_content, media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
@@ -206,7 +206,7 @@ def _render_publish_with_meta(quiz_title: Optional[str] = None) -> HTMLResponse:
 # -------------------------------------------------------------
 # 1. TRANG CHỦ & ĐỀ THI TRỰC TIẾP (?id=... / ?quiz_id=...)
 # -------------------------------------------------------------
-@router.get("/", response_class=HTMLResponse, summary="Giao diện chính & Đề thi trắc nghiệm")
+@router.get("/", response_class=HTMLResponse, summary="Giao diện chính & đề thi trắc nghiệm")
 @router.get("/index.html", response_class=HTMLResponse, summary="Giao diện chính")
 async def home_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     target_quiz_id = quiz_id or id
@@ -231,10 +231,10 @@ async def home_page(request: Request, id: Optional[str] = None, quiz_id: Optiona
 # -------------------------------------------------------------
 # 2. ĐĂNG NHẬP & ĐĂNG KÝ (/dang-nhap, /login, /register, /auth)
 # -------------------------------------------------------------
-@router.get("/dang-nhap", response_class=HTMLResponse, summary="Trang Đăng nhập tài khoản")
-@router.get("/login", response_class=HTMLResponse, summary="Trang Đăng nhập (alias)")
-@router.get("/register", response_class=HTMLResponse, summary="Trang Đăng ký (alias)")
-@router.get("/auth", response_class=HTMLResponse, summary="Trang Xác thực (alias)")
+@router.get("/dang-nhap", response_class=HTMLResponse, summary="Trang đăng nhập tài khoản")
+@router.get("/login", response_class=HTMLResponse, summary="Trang đăng nhập (alias)")
+@router.get("/register", response_class=HTMLResponse, summary="Trang đăng ký (alias)")
+@router.get("/auth", response_class=HTMLResponse, summary="Trang xác thực (alias)")
 async def login_page(request: Request):
     site_domain, og_image_url = _get_site_urls(request)
     return _render_index_with_meta(
@@ -254,8 +254,8 @@ async def login_page(request: Request):
 async def quiz_list_page(request: Request):
     site_domain, og_image_url = _get_site_urls(request)
     return _render_index_with_meta(
-        title="Danh sách Đề thi - Kho đề trắc nghiệm chuẩn GDPT 2018 - HocNhanhTN",
-        og_title="Danh sách Đề thi - Kho đề trắc nghiệm chuẩn GDPT 2018 - HocNhanhTN",
+        title="Danh sách đề thi - Kho đề trắc nghiệm chuẩn GDPT 2018 - HocNhanhTN",
+        og_title="Danh sách đề thi - Kho đề trắc nghiệm chuẩn GDPT 2018 - HocNhanhTN",
         description="Khám phá danh sách các đề thi trắc nghiệm phong phú bám sát cấu trúc Bộ Giáo dục và Đào tạo mới nhất.",
         canonical_url=f"{site_domain}/de-thi",
         og_image_url=og_image_url,
@@ -328,8 +328,8 @@ async def result_page(request: Request, submission_id: str):
 async def history_page(request: Request):
     site_domain, og_image_url = _get_site_urls(request)
     return _render_index_with_meta(
-        title="Lịch sử làm bài & Bảng điểm học sinh - HocNhanhTN",
-        og_title="Lịch sử làm bài & Bảng điểm học sinh - HocNhanhTN",
+        title="Lịch sử làm bài & bảng điểm học sinh - HocNhanhTN",
+        og_title="Lịch sử làm bài & bảng điểm học sinh - HocNhanhTN",
         description="Xem lại lịch sử các bài kiểm tra đã làm, đối chiếu bảng điểm và lời giải chi tiết từng câu hỏi.",
         canonical_url=f"{site_domain}/lich-su",
         og_image_url=og_image_url,
@@ -369,8 +369,8 @@ async def leaderboard_page(request: Request, quiz_id: str, slug: Optional[str] =
 async def teacher_page(request: Request):
     site_domain, og_image_url = _get_site_urls(request)
     return _render_index_with_meta(
-        title="Bảng điều khiển Giáo viên - HocNhanhTN",
-        og_title="Bảng điều khiển Giáo viên - HocNhanhTN",
+        title="Bảng điều khiển giáo viên - HocNhanhTN",
+        og_title="Bảng điều khiển giáo viên - HocNhanhTN",
         description="Quản lý kho đề thi, số hóa đề từ Word/PDF bằng AI và theo dõi kết quả làm bài của học sinh.",
         canonical_url=f"{site_domain}/giao-vien",
         og_image_url=og_image_url,
@@ -404,7 +404,7 @@ async def teacher_quiz_detail_page(request: Request, quiz_id: str):
 # -------------------------------------------------------------
 # 10. STUDIO BIÊN TẬP & SOÁT LỖI ĐỀ THI (/editor, /editor/{id})
 # -------------------------------------------------------------
-@router.get("/editor", response_class=HTMLResponse, summary="Giao diện Studio Biên tập & Soát lỗi Đề thi")
+@router.get("/editor", response_class=HTMLResponse, summary="Giao diện studio biên tập & soát lỗi đề thi")
 def get_editor_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     target_quiz_id = quiz_id or id
     quiz_title = None
@@ -413,7 +413,7 @@ def get_editor_page(request: Request, id: Optional[str] = None, quiz_id: Optiona
     return _render_editor_with_meta(quiz_title=quiz_title or target_quiz_id)
 
 
-@router.get("/editor/{quiz_id}", response_class=HTMLResponse, summary="Soát lỗi đề thi cụ thể trong Studio")
+@router.get("/editor/{quiz_id}", response_class=HTMLResponse, summary="Soát lỗi đề thi cụ thể trong studio")
 async def editor_quiz_page(request: Request, quiz_id: str):
     guard = _guard_static_asset(quiz_id)
     if guard:
@@ -426,7 +426,7 @@ async def editor_quiz_page(request: Request, quiz_id: str):
 # -------------------------------------------------------------
 # 10b. STUDIO XUẤT BẢN & XEM TRƯỚC WORD/PDF (/export, /export/{id})
 # -------------------------------------------------------------
-@router.get("/export", response_class=HTMLResponse, summary="Giao diện Studio Xuất bản Word/PDF")
+@router.get("/export", response_class=HTMLResponse, summary="Giao diện studio xuất bản Word/PDF")
 def get_export_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     target_quiz_id = quiz_id or id
     quiz_title = None
@@ -448,7 +448,7 @@ async def export_quiz_page(request: Request, quiz_id: str):
 # -------------------------------------------------------------
 # 10c. TRANG TÙY CHỌN XUẤT BẢN RIÊNG (/publish, /publish/{id})
 # -------------------------------------------------------------
-@router.get("/publish", response_class=HTMLResponse, summary="Giao diện Tùy chọn Xuất bản riêng")
+@router.get("/publish", response_class=HTMLResponse, summary="Giao diện tùy chọn xuất bản riêng")
 def get_publish_page(request: Request, id: Optional[str] = None, quiz_id: Optional[str] = None):
     target_quiz_id = quiz_id or id
     quiz_title = None
@@ -476,7 +476,7 @@ async def admin_page(request: Request):
     return _render_index_with_meta(
         title="Quản trị hệ thống - HocNhanhTN",
         og_title="Quản trị hệ thống - HocNhanhTN",
-        description="Trang quản trị toàn diện: Thống kê Quota & Chi phí Gemini AI, danh sách đề thi và tài khoản người dùng.",
+        description="Trang quản trị toàn diện: thống kê quota & chi phí Gemini AI, danh sách đề thi và tài khoản người dùng.",
         canonical_url=f"{site_domain}/admin",
         og_image_url=og_image_url,
         route_class="hntn-not-home-route hntn-is-admin-route",
@@ -510,13 +510,13 @@ async def terms_page(request: Request):
     return _render_static_page("terms.html")
 
 
-@router.get("/about", response_class=HTMLResponse, summary="Giới thiệu về Dự án HocNhanhTN")
+@router.get("/about", response_class=HTMLResponse, summary="Giới thiệu về dự án HocNhanhTN")
 @router.get("/about/", response_class=HTMLResponse, include_in_schema=False)
 async def about_page(request: Request):
     return _render_static_page("about.html")
 
 
-@router.get("/contact", response_class=HTMLResponse, summary="Liên hệ & Hỗ trợ kỹ thuật")
+@router.get("/contact", response_class=HTMLResponse, summary="Liên hệ & hỗ trợ kỹ thuật")
 @router.get("/contact/", response_class=HTMLResponse, include_in_schema=False)
 async def contact_page(request: Request):
     return _render_static_page("contact.html")
@@ -530,7 +530,7 @@ async def huong_dan_tao_de_page(request: Request):
     return _render_static_page("huong-dan-tao-de.html")
 
 
-@router.get("/cam-nang", response_class=HTMLResponse, summary="Cẩm nang ôn thi & Hướng dẫn GDPT 2018")
+@router.get("/cam-nang", response_class=HTMLResponse, summary="Cẩm nang ôn thi & hướng dẫn GDPT 2018")
 @router.get("/cam-nang/", response_class=HTMLResponse, include_in_schema=False)
 async def cam_nang_hub(request: Request):
     return _render_static_page("cam-nang.html")

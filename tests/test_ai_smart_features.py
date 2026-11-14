@@ -389,5 +389,212 @@ class TestScannedPdfAndImageOCR(unittest.TestCase):
         self.assertIn(".webp", allowed)
 
 
+class TestAICheckReliability(unittest.TestCase):
+    @patch("app.api.routes.teacher._get_db")
+    @patch("app.api.routes.teacher.call_gemini_with_fallback")
+    def test_check_quiz_ai_allows_null_token_and_preserves_image_and_points(self, mock_gemini, mock_get_db):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api.routes.teacher import SETTINGS_CACHE, router as teacher_router
+
+        SETTINGS_CACHE.pop("gemini", None)
+        mock_get_db.return_value = None
+
+        huge_b64 = "data:image/png;base64," + ("A" * 400)
+        captured_prompts = []
+
+        async def fake_call(prompt, api_keys, system_instruction=None, thinking_budget=0, timeout=30.0):
+            captured_prompts.append(str(prompt))
+            resp = MagicMock()
+            resp.text = json.dumps({
+                "summary": "Đã bổ sung lời giải cho câu 1.",
+                "feedback": [{
+                    "question_index": 0,
+                    "action": "modify",
+                    "category": "explanation",
+                    "category_name": "Bổ sung lời giải chi tiết",
+                    "reason": "Bổ sung hướng dẫn giải chi tiết.",
+                    "corrected_data": {
+                        "question": "Tính 2 + 2 = ?",
+                        "options": ["A. 3", "B. 4", "C. 5", "D. 6"],
+                        "correct_answer": "B. 4",
+                        "explain": "2 + 2 = 4",
+                        "image": "[CÓ_HÌNH_ẢNH]"
+                    }
+                }]
+            }, ensure_ascii=False)
+            return resp
+
+        mock_gemini.side_effect = fake_call
+
+        app = FastAPI()
+        app.include_router(teacher_router)
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key-ai"}):
+            resp = client.post(
+                "/api/teacher/check_quiz_ai",
+                json={
+                    "teacher_token": None,
+                    "quiz_data": [{
+                        "question": "Tính 2 + 2 = ?",
+                        "options": ["A. 3", "B. 4", "C. 5", "D. 6"],
+                        "correct_answer": "B. 4",
+                        "image": huge_b64,
+                        "points": 0.5,
+                        "scoring": {"per_correct": 0.5},
+                        "type": "mcq"
+                    }],
+                    "custom_prompt": "Thêm lời giải chi tiết"
+                }
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "success")
+        self.assertTrue(len(captured_prompts) == 1)
+        self.assertNotIn("A" * 100, captured_prompts[0])
+        self.assertIn("[CÓ_HÌNH_ẢNH]", captured_prompts[0])
+        self.assertEqual(data["feedback"][0]["corrected_data"]["image"], huge_b64)
+        self.assertEqual(data["feedback"][0]["corrected_data"]["points"], 0.5)
+        self.assertEqual(data["new_quiz_data"][0]["image"], huge_b64)
+        self.assertEqual(data["new_quiz_data"][0]["points"], 0.5)
+
+    @patch("app.api.routes.teacher._get_db")
+    @patch("app.api.routes.teacher.call_gemini_with_fallback")
+    def test_check_quiz_ai_batches_and_reports_diagnostic_on_error(self, mock_gemini, mock_get_db):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+        from app.api.routes.teacher import SETTINGS_CACHE, router as teacher_router
+        from services.ai_service import GeminiAPIException
+
+        SETTINGS_CACHE.pop("gemini", None)
+        mock_get_db.return_value = None
+
+        quiz_15 = [
+            {
+                "question": f"Câu {i + 1}: 1 + {i} = ?",
+                "options": [f"A. {i}", f"B. {i + 1}", f"C. {i + 2}", f"D. {i + 3}"],
+                "correct_answer": f"B. {i + 1}",
+                "type": "mcq"
+            }
+            for i in range(15)
+        ]
+
+        mock_resp = MagicMock()
+        mock_resp.text = json.dumps({"summary": "Đề đạt chuẩn.", "feedback": []}, ensure_ascii=False)
+        mock_gemini.return_value = mock_resp
+
+        app = FastAPI()
+        app.include_router(teacher_router)
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key-ai"}):
+            resp_ok = client.post(
+                "/api/teacher/check_quiz_ai",
+                json={"quiz_data": quiz_15, "custom_prompt": ""}
+            )
+            self.assertEqual(resp_ok.status_code, 200)
+            self.assertEqual(mock_gemini.call_count, 2)
+
+            mock_gemini.side_effect = GeminiAPIException({
+                "error_code": "QUOTA_EXCEEDED_429",
+                "error_name": "Quá hạn mức gọi API",
+                "cause": "Hết quota",
+                "solution": "Chờ 60s"
+            })
+            resp_err = client.post(
+                "/api/teacher/check_quiz_ai",
+                json={"quiz_data": quiz_15[:2], "custom_prompt": ""}
+            )
+            self.assertEqual(resp_err.status_code, 500)
+            err_json = resp_err.json()
+            self.assertEqual(err_json["status"], "error")
+            self.assertEqual(err_json["error_code"], "QUOTA_EXCEEDED_429")
+
+    @patch("services.ai_service.call_gemini_with_fallback")
+    def test_cross_check_propagates_error_and_skips_essay(self, mock_gemini):
+        from services.ai_service import GeminiAPIException
+
+        quiz_mixed = [
+            {
+                "question": "Trình bày cảm nhận của em về bài thơ.",
+                "type": "essay",
+                "options": [],
+                "correct_answer": "Học sinh tự nêu cảm nhận."
+            },
+            {
+                "question": "1 chia 2 bằng bao nhiêu?",
+                "type": "short_answer",
+                "options": [],
+                "correct_answer": "1/2"
+            }
+        ]
+
+        mock_resp = MagicMock()
+        mock_resp.text = json.dumps([
+            {"index": 1, "ai_solved_answer": "0,5", "explain": "1/2 = 0.5"}
+        ])
+        mock_gemini.return_value = mock_resp
+
+        res_ok = asyncio.run(cross_check_answers(quiz_mixed, api_keys=["fake-key"]))
+        self.assertEqual(res_ok["status"], "success")
+        self.assertEqual(res_ok["mismatch_count"], 0)
+        sent_prompt = mock_gemini.call_args.kwargs.get("prompt") or mock_gemini.call_args[0][0]
+        self.assertNotIn("cảm nhận", sent_prompt)
+
+        mock_gemini.side_effect = GeminiAPIException({
+            "error_code": "REQUEST_TIMEOUT",
+            "error_name": "Hết thời gian chờ",
+            "cause": "Timeout",
+            "solution": "Thử lại"
+        })
+        with self.assertRaises(GeminiAPIException):
+            asyncio.run(cross_check_answers(quiz_mixed, api_keys=["fake-key"]))
+
+    def test_call_gemini_timeout_and_model_priority(self):
+        import inspect
+        from unittest.mock import AsyncMock
+        from services.ai_service import call_gemini_with_fallback
+
+        sig = inspect.signature(call_gemini_with_fallback)
+        self.assertGreaterEqual(sig.parameters["timeout"].default, 30.0)
+
+        mock_resp = MagicMock()
+        mock_resp.text = "ok"
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_resp)
+
+        with patch("services.ai_service.get_gemini_client", return_value=mock_client):
+            asyncio.run(call_gemini_with_fallback(prompt="ping", api_keys=["k1"]))
+
+        first_model = mock_client.aio.models.generate_content.call_args_list[0].kwargs["model"]
+        self.assertEqual(first_model, "gemini-2.5-flash")
+
+    def test_call_gemini_retries_transient_503(self):
+        from unittest.mock import AsyncMock
+        from services.ai_service import call_gemini_with_fallback
+
+        mock_resp = MagicMock()
+        mock_resp.text = '{"ok": true}'
+        calls = {"n": 0}
+
+        async def flaky_generate(**kwargs):
+            calls["n"] += 1
+            if calls["n"] <= 6:
+                raise Exception("503 UNAVAILABLE. This model is currently experiencing high demand.")
+            return mock_resp
+
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(side_effect=flaky_generate)
+
+        with patch("services.ai_service.get_gemini_client", return_value=mock_client), \
+             patch("services.ai_service.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+            res = asyncio.run(call_gemini_with_fallback(prompt="ping", api_keys=["k1"]))
+
+        self.assertIs(res, mock_resp)
+        mock_sleep.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
