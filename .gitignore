@@ -72,9 +72,16 @@ Desktop.ini
 .taste-skill/
 .gemini/
 .antigravity/
+.cursor/
+.windsurf/
 .system_generated/
 .user_uploaded/
 node_modules/
+package-lock.json.bak
+
+# --- Cloudflare & Edge Build Artifacts ---
+.wrangler/
+.mf/
 
 # --- Browser Automation & Test Profiles ---
 .edge*
@@ -82,6 +89,9 @@ node_modules/
 test-results/
 playwright-report/
 blob-report/
+*.docx.tmp
+test_*.docx
+de_thi_*.docx
 
 # --- Logs & Runtime Output ---
 *.log

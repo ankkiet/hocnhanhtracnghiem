@@ -741,3 +741,45 @@ Question 9. A. dev<u>o</u>te\t<MARK><u>B. blockbuster</u></MARK>\tC. diagn<u>o</
     assert questions[1]["correct_answer"].startswith("D.")
     assert questions[2]["correct_answer"].startswith("B.")
 
+
+def test_reading_passage_tf_prompt_list_does_not_swallow_quote_or_drop_options():
+    """Kiểm tra đoạn tư liệu đọc hiểu có chứa câu hướng dẫn 'ở mỗi ý a, b, c, d.' không bị nuốt trích dẫn vào phương án d"""
+    from core.text_parser import extract_questions_from_text_bulletproof
+
+    raw_text = """PHẦN 2: TRẮC NGHIỆM ĐÚNG - SAI
+Câu 1. Đọc đoạn tư liệu dưới đây, chọn đúng hoặc sai ở mỗi ý a, b, c, d.
+"Duy trì hoà bình và an ninh quốc tế, và để đạt được mục đích đó, thi hành những biện pháp tập thể có hiệu quả..."
+(Trích: Điều 1, Hiến chương Liên hợp quốc)
+a) Mục tiêu của tổ chức Liên hợp quốc được quy định tại Điều 1.
+b) Duy trì hòa bình và an ninh thế giới là mục tiêu quan trọng nhất.
+c) Những nỗ lực của Liên hợp quốc đã ngăn chặn hoàn toàn mọi xung đột.
+d) Hiện nay một số khu vực trên thế giới đang đứng trước những thách thức.
+
+Câu 2. Đọc đoạn tư liệu sau:
+"Không phải Nhật bại là nước ta tự nhiên được độc lập. Nhiều sự gay go trở ngại sẽ xảy ra. Chúng ta phải khôn khéo và kiên quyết. Khôn khéo để tránh những sự không lợi cho ta. Kiên quyết để giành cho được nền hoàn toàn độc lập. Trên thế giới, sau cuộc chiến tranh này, một dân tộc quyết tâm và nhất trí đòi quyền độc lập thì nhất định được độc lập. Chúng ta sẽ thắng."
+(Đảng Cộng sản Việt Nam: Văn kiện Đảng, Toàn tập)
+a) Nhật Bản đầu hàng quân đồng minh không điều kiện là cơ hội.
+b) Thắng lợi của cách mạng tháng Tám là sự kết hợp giữa khách quan và chủ quan.
+c) Cách mạng tháng Tám là cuộc nổi dậy của toàn dân tộc.
+d) Cách mạng tháng Tám đã vận dụng tốt nghệ thuật chớp thời cơ.
+"""
+    questions = extract_questions_from_text_bulletproof(raw_text)
+    assert len(questions) == 2
+
+    # Câu 1
+    assert "Duy trì hoà bình và an ninh quốc tế" in questions[0]["question"]
+    assert "Hiến chương Liên hợp quốc" in questions[0]["question"]
+    assert len(questions[0]["options"]) == 4
+    assert questions[0]["options"][0].startswith("a)")
+    assert questions[0]["options"][1].startswith("b)")
+    assert questions[0]["options"][2].startswith("c)")
+    assert questions[0]["options"][3].startswith("d)")
+
+    # Câu 2
+    assert "Không phải Nhật bại là nước ta tự nhiên được độc lập" in questions[1]["question"]
+    assert "Chúng ta sẽ thắng" in questions[1]["question"]
+    assert len(questions[1]["options"]) == 4
+    assert questions[1]["options"][0].startswith("a)")
+    assert questions[1]["options"][3].startswith("d)")
+
+

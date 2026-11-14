@@ -2508,17 +2508,7 @@ async function initApp() {
                 window.currentQuizSettings = result.settings || {};
                 window.currentQuizHasPassword = Boolean(result.has_password || result.password);
 
-                // 1. Áp dụng Lời dặn của giáo viên / Hướng dẫn
-                const teacherCard = document.getElementById('teacherInstructionCard');
-                const teacherContent = document.getElementById('teacherInstructionContent');
-                if (teacherCard && teacherContent) {
-                    if (window.currentQuizDescription && window.currentQuizDescription.trim()) {
-                        teacherContent.textContent = window.currentQuizDescription.trim();
-                        teacherCard.style.display = 'block';
-                    } else {
-                        teacherCard.style.display = 'none';
-                    }
-                }
+                // 1. Áp dụng lời dặn của giáo viên / hướng dẫn
                 const examNoteBanner = document.getElementById('examTeacherNoteBanner');
                 const examNoteContent = document.getElementById('examTeacherNoteBannerContent');
                 const btnViewNote = document.getElementById('btnViewTeacherNote');
@@ -3690,7 +3680,7 @@ function renderFilteredQuizzes() {
                     <button class="btn-azota-sub" style="color: #4f46e5; border-color: #c7d2fe; background: #eef2ff; font-weight: 600;" onclick="editPublishSettings('${q.id}')" title="Cài đặt & sửa xuất bản đề thi (thời gian, mật khẩu, giám sát...)">
                         <i class="ri-settings-4-line"></i> Sửa xuất bản
                     </button>
-                    <button class="btn-azota-sub" onclick="exportQuizDocx('${q.id}')" title="Tải file Word (.docx)">
+                    <button class="btn-azota-sub" onclick="exportQuizDocx('${q.id}', '${(q.title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" title="Tải file Word (.docx)">
                         <i class="ri-file-word-2-line"></i> Word
                     </button>
                     <button class="btn-azota-sub" style="font-weight: 600; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;" onclick="openQuizStats('${q.id}', '${(q.title || '').replace(/'/g, "\\'")}')" title="Thống kê điểm thi & chi tiết bài làm học sinh">
@@ -4467,6 +4457,19 @@ function exportQuizDocx(quizId, quizTitle = "") {
         window.location.href = '/export';
         return;
     }
+    try {
+        const transient = sessionStorage.getItem('export_quiz_data');
+        if (transient) {
+            const parsed = JSON.parse(transient);
+            const trId = parsed.quiz_id || parsed.id;
+            if (trId && trId !== quizId) {
+                sessionStorage.removeItem('export_quiz_data');
+            }
+        }
+        if (quizTitle) {
+            sessionStorage.setItem(`export_quiz_title_${quizId}`, quizTitle);
+        }
+    } catch (e) {}
     window.location.href = `/export/${encodeURIComponent(quizId)}`;
 }
 
@@ -9225,9 +9228,9 @@ function parseEditorText(text) {
             const fullOpt = `${char}) ${optContent}`;
             currentQ.options.push(fullOpt);
             currentQ.correct_answer[char] = isTrue;
-        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
-            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN
-            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+        } else if (currentQ && currentQ.type === 'true_false' && currentQ.options && currentQ.options.length >= 2 && trimmed.length <= 60 && (trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi) || []).length === 4) {
+            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN (chỉ nhận sau khi đã có các phương án a, b, c, d)
+            const seq = trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi);
             ['a', 'b', 'c', 'd'].forEach((k, idx) => {
                 currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
             });
@@ -9240,7 +9243,7 @@ function parseEditorText(text) {
                 const tfOptsCount = (currentQ.options || []).filter(opt => /^\s*(?:(?:<MARK>\s*|<u>\s*)*\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*(?:<\/MARK>\s*|<\/u>\s*)*)?(?:<MARK>\s*|<u>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/]/.test(opt)).length;
 
                 const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
-                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
+                    || ((ansContent.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai)(?![a-zA-ZÀ-ỹ])/gi) || []).length >= 3);
 
                 if (mcqOptsCount >= 2 || (currentQ.type === 'mcq' && currentQ.options.length >= 2)) {
                     // ƯU TIÊN TUYỆT ĐỐI CHO MCQ: KHÔNG BAO GIỜ CHUYỂN SANG ĐÚNG/SAI HAY TRẢ LỜI NGẮN
@@ -9268,7 +9271,7 @@ function parseEditorText(text) {
                             tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
                         }
                     });
-                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+                    const seq = ansContent.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi);
                     if (seq && seq.length === 4) {
                         ['a', 'b', 'c', 'd'].forEach((k, idx) => {
                             tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
@@ -10257,44 +10260,58 @@ async function fetchLeaderboard(quizId) {
         const myTime = (quizProgress && quizProgress.timeElapsed) ? quizProgress.timeElapsed : (startTime > 0 ? Math.floor((Date.now() - startTime) / 1000) : 45);
         const myTotalQ = (quizProgress && quizProgress.totalQuestions) || (Array.isArray(currentData) ? currentData.length : 0);
 
-        // Nếu danh sách từ server rỗng và học sinh đã làm xong, tạo bản ghi của chính học sinh để luôn hiển thị
-        const hasCompleted = (quizProgress && quizProgress.completed) || (myScore > 0 && startTime > 0);
-        
-        if (listData.length === 0) {
-            if (hasCompleted) {
-                listData = [{
-                    student_name: currentStudent,
-                    class_name: (quizProgress && quizProgress.studentClass) || '',
-                    school_name: (quizProgress && quizProgress.studentSchool) || '',
-                    sbd: (quizProgress && quizProgress.studentSbd) || '',
-                    score: myScore,
-                    max_score: (quizProgress && quizProgress.maxScore) || null,
-                    total_questions: myTotalQ,
-                    time_elapsed: myTime
-                }];
-            }
-        } else {
-            // Kiểm tra xem học sinh hiện tại đã có trong danh sách chưa
-            if (hasCompleted) {
-                const found = listData.some(item => item.student_name && item.student_name.trim().toLowerCase() === currentStudent.toLowerCase());
-                if (!found) {
-                    listData.push({
-                        student_name: currentStudent,
-                        class_name: (quizProgress && quizProgress.studentClass) || '',
-                        school_name: (quizProgress && quizProgress.studentSchool) || '',
-                        sbd: (quizProgress && quizProgress.studentSbd) || '',
-                        score: myScore,
-                        max_score: (quizProgress && quizProgress.maxScore) || null,
-                        total_questions: myTotalQ,
-                        time_elapsed: myTime
-                    });
-                    listData.sort((a, b) => b.score - a.score || a.time_elapsed - b.time_elapsed);
+        // Hàm lọc mỗi thí sinh chỉ xuất hiện đúng 1 lần với điểm số cao nhất
+        function deduplicateLeaderboardItems(items) {
+            if (!Array.isArray(items)) return [];
+            const sorted = [...items].sort((a, b) => {
+                const sDiff = (Number(b.score) || 0) - (Number(a.score) || 0);
+                if (sDiff !== 0) return sDiff;
+                return (Number(a.time_elapsed) || 0) - (Number(b.time_elapsed) || 0);
+            });
+            const distinct = [];
+            const seen = new Set();
+            for (const item of sorted) {
+                const idKey = (item.student_id && String(item.student_id).trim()) || '';
+                const nameKey = (item.student_name && String(item.student_name).trim().toLowerCase()) || 'ẩn danh';
+                const sbdKey = (item.sbd && String(item.sbd).trim().toLowerCase()) || '';
+                const clsKey = (item.class_name && String(item.class_name).trim().toLowerCase()) || '';
+                let key = '';
+                if (idKey) {
+                    key = `id:${idKey}`;
+                } else if (sbdKey) {
+                    key = `sbd:${sbdKey}::${nameKey}`;
+                } else if (clsKey && nameKey !== 'ẩn danh') {
+                    key = `class:${clsKey}::${nameKey}`;
+                } else if (nameKey !== 'ẩn danh' && nameKey !== 'thí sinh' && nameKey !== 'học sinh') {
+                    key = `name:${nameKey}`;
+                } else {
+                    key = `anon:${item.id || item.session_id || Math.random()}`;
+                }
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    distinct.push(item);
                 }
             }
+            return distinct;
         }
 
-        // Chỉ lấy và hiển thị đúng Top 5 người cao điểm nhất
-        listData = listData.slice(0, 5);
+        const hasCompleted = (quizProgress && quizProgress.completed) || (myScore > 0 && startTime > 0);
+        if (hasCompleted) {
+            listData.push({
+                student_name: currentStudent,
+                student_id: (typeof currentUser !== 'undefined' && currentUser && currentUser.id) ? currentUser.id : '',
+                class_name: (quizProgress && quizProgress.studentClass) || '',
+                school_name: (quizProgress && quizProgress.studentSchool) || '',
+                sbd: (quizProgress && quizProgress.studentSbd) || '',
+                score: myScore,
+                max_score: (quizProgress && quizProgress.maxScore) || null,
+                total_questions: myTotalQ,
+                time_elapsed: myTime
+            });
+        }
+
+        // Lọc đảm bảo mỗi thí sinh chỉ xuất hiện đúng 1 lần điểm cao nhất và lấy Top 5
+        listData = deduplicateLeaderboardItems(listData).slice(0, 5);
 
         // Cập nhật số lượng thí sinh
         if (badgeEl) {
@@ -13814,6 +13831,18 @@ function destroyExamSessionUnique() {
 }
 
 window.openDedicatedExportPageFromIndex = function() {
+    if (currentExportQuizId) {
+        try {
+            const transient = sessionStorage.getItem('export_quiz_data');
+            if (transient) {
+                const parsed = JSON.parse(transient);
+                const trId = parsed.quiz_id || parsed.id;
+                if (trId && trId !== currentExportQuizId) {
+                    sessionStorage.removeItem('export_quiz_data');
+                }
+            }
+        } catch (e) {}
+    }
     const targetUrl = currentExportQuizId ? `/export/${encodeURIComponent(currentExportQuizId)}` : '/export';
     window.open(targetUrl, '_blank');
     if (typeof closeExportDocxModal === 'function') closeExportDocxModal();

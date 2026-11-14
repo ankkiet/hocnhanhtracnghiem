@@ -592,53 +592,89 @@
     async function loadQuizData() {
         showLoadingState(true);
 
-        // 1. Kiểm tra dữ liệu được truyền qua sessionStorage
+        let loadedFromCache = false;
+
+        // 1. Trường hợp có ID đề thi cụ thể trong URL (/export/:id hoặc /export?id=...)
         if (quizData.id) {
+            // 1a. Thử nạp từ cache riêng của đề này để hiển thị ngay tức thì (giảm cảm giác chờ)
             const cached = sessionStorage.getItem(`export_quiz_${quizData.id}`) || localStorage.getItem(`export_quiz_${quizData.id}`);
             if (cached) {
                 try {
                     const parsed = JSON.parse(cached);
-                    applyLoadedQuiz(parsed);
-                    showLoadingState(false);
+                    if (parsed && (Array.isArray(parsed.data) || Array.isArray(parsed.questions) || Array.isArray(parsed))) {
+                        applyLoadedQuiz(parsed);
+                        loadedFromCache = true;
+                    }
                 } catch (e) {
                     console.warn("Parse cache error:", e);
                 }
             }
-        }
 
-        // 2. Kiểm tra dữ liệu tạm 'export_quiz_data' nếu người dùng vừa bấm xuất từ Editor
-        const transientData = sessionStorage.getItem('export_quiz_data');
-        if (transientData && !quizData.questions.length) {
-            try {
-                const parsed = JSON.parse(transientData);
-                applyLoadedQuiz(parsed);
-                showLoadingState(false);
-                return;
-            } catch (e) {}
-        }
+            // 1b. Kiểm tra dữ liệu tạm 'export_quiz_data': CHỈ DÙNG NẾU ID TRÙNG KHỚP VỚI quizData.id!
+            const transientData = sessionStorage.getItem('export_quiz_data');
+            if (transientData) {
+                try {
+                    const parsed = JSON.parse(transientData);
+                    const transId = parsed.quiz_id || parsed.id;
+                    if (transId && transId === quizData.id) {
+                        if (!loadedFromCache) {
+                            applyLoadedQuiz(parsed);
+                            loadedFromCache = true;
+                        }
+                    } else if (transId && transId !== quizData.id) {
+                        // Dữ liệu tạm thuộc về đề khác, dọn dẹp ngay để tránh hiển thị sai đề
+                        sessionStorage.removeItem('export_quiz_data');
+                    }
+                } catch (e) {}
+            }
 
-        // 3. Gọi API lấy dữ liệu thực tế từ máy chủ
-        if (quizData.id) {
+            // 1c. Đọc tiêu đề gợi ý nếu được truyền từ danh sách đề thi
+            const passedTitle = sessionStorage.getItem(`export_quiz_title_${quizData.id}`);
+            if (passedTitle) {
+                exportConfig.exam_title = passedTitle;
+                quizData.title = passedTitle;
+                const navTitle = document.getElementById('navDocTitle');
+                if (navTitle) navTitle.textContent = passedTitle;
+                const inputTitle = document.getElementById('inputExamTitle');
+                if (inputTitle) inputTitle.value = passedTitle;
+            }
+
+            // 1d. LUÔN LUÔN gọi API từ máy chủ để lấy dữ liệu đề thi mới nhất (đặc biệt là tiêu đề vừa xuất bản)
             try {
                 const tokenParam = authToken ? `?teacher_token=${encodeURIComponent(authToken)}` : '';
                 const res = await fetch(`${API_BASE_URL}/api/get_quiz/${encodeURIComponent(quizData.id)}${tokenParam}`);
                 if (res.ok) {
                     const json = await res.json();
                     applyLoadedQuiz(json);
-                } else {
+                    // Cập nhật lại cache đồng bộ
+                    try {
+                        sessionStorage.setItem(`export_quiz_${quizData.id}`, JSON.stringify(json));
+                        sessionStorage.setItem('export_quiz_data', JSON.stringify(json));
+                    } catch (e) {}
+                } else if (!loadedFromCache) {
                     console.warn("Could not fetch quiz from API, status:", res.status);
-                    if (!quizData.questions.length) {
-                        loadSampleData();
-                    }
+                    loadSampleData();
                 }
             } catch (err) {
                 console.error("Fetch quiz error:", err);
-                if (!quizData.questions.length) {
+                if (!loadedFromCache) {
                     loadSampleData();
                 }
             }
-        } else if (!quizData.questions.length) {
-            loadSampleData();
+        } else {
+            // 2. Không có ID trong URL (ví dụ mở từ Editor dạng bản nháp chưa lưu ID)
+            const transientData = sessionStorage.getItem('export_quiz_data');
+            let loadedTransient = false;
+            if (transientData) {
+                try {
+                    const parsed = JSON.parse(transientData);
+                    applyLoadedQuiz(parsed);
+                    loadedTransient = true;
+                } catch (e) {}
+            }
+            if (!loadedTransient) {
+                loadSampleData();
+            }
         }
 
         showLoadingState(false);

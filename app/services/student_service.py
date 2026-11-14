@@ -121,6 +121,68 @@ class StudentService:
     def get_user(self, token: str, db: Any):
         return _get_user_from_token(token, db)
 
+    def _get_candidate_key(self, item: dict) -> str:
+        """
+        Tạo mã định danh duy nhất cho mỗi thí sinh để đảm bảo mỗi người chỉ xuất hiện 1 lần trên bảng xếp hạng:
+        - Ưu tiên 1: student_id nếu học sinh đã đăng nhập tài khoản.
+        - Ưu tiên 2: sbd (Số báo danh) + họ tên nếu có số báo danh.
+        - Ưu tiên 3: lớp + họ tên nếu có tên lớp và tên không phải ẩn danh.
+        - Ưu tiên 4: họ tên chuẩn hóa nếu họ tên hợp lệ.
+        - Mặc định: session_id hoặc id bài nộp cho thí sinh ẩn danh không tên.
+        """
+        student_id = str(item.get('student_id') or '').strip()
+        if student_id:
+            return f"id:{student_id}"
+
+        student_name = str(item.get('student_name') or 'Ẩn danh').strip()
+        sbd = str(item.get('sbd') or '').strip()
+        class_name = str(item.get('class_name') or '').strip()
+
+        name_norm = student_name.lower()
+        if sbd:
+            return f"sbd:{sbd.lower()}::{name_norm}"
+        if class_name and name_norm not in ('ẩn danh', 'thí sinh', 'học sinh'):
+            return f"class:{class_name.lower()}::{name_norm}"
+        if name_norm not in ('ẩn danh', 'thí sinh', 'học sinh'):
+            return f"name:{name_norm}"
+
+        return f"anon:{item.get('session_id') or item.get('id') or id(item)}"
+
+    def _deduplicate_leaderboard(self, items: list, limit: int = 5) -> list:
+        """
+        Sắp xếp và lọc bảng xếp hạng:
+        Mỗi thí sinh chỉ xuất hiện đúng 1 lần với điểm số cao nhất (và thời gian làm nhanh nhất nếu bằng điểm).
+        """
+        if not items:
+            return []
+
+        def _sort_key(x):
+            try:
+                score = float(x.get('score', 0))
+            except (ValueError, TypeError):
+                score = 0.0
+            try:
+                time_elapsed = int(x.get('time_elapsed', 999999))
+            except (ValueError, TypeError):
+                time_elapsed = 999999
+            return (-score, time_elapsed)
+
+        sorted_items = sorted(items, key=_sort_key)
+
+        distinct_results = []
+        seen_candidates = set()
+
+        for item in sorted_items:
+            cand_key = self._get_candidate_key(item)
+            if cand_key not in seen_candidates:
+                seen_candidates.add(cand_key)
+                clean_item = {k: v for k, v in item.items() if not k.startswith('_')}
+                distinct_results.append(clean_item)
+                if len(distinct_results) >= limit:
+                    break
+
+        return distinct_results
+
     async def start_exam(self, req: StartExamRequest):
         """
         BẢO MẬT & CHỐNG GIAN LẬN:
@@ -326,18 +388,23 @@ class StudentService:
 
         lb_entry = {
             'student_name': submission_data['student_name'],
+            'student_id': submission_data.get('student_id', ''),
             'class_name': submission_data.get('class_name', ''),
             'school_name': submission_data.get('school_name', ''),
             'sbd': submission_data.get('sbd', ''),
             'score': submission_data['score'],
+            'max_score': submission_data.get('max_score'),
             'total_questions': total_questions,
-            'time_elapsed': req.time_elapsed
+            'time_elapsed': req.time_elapsed,
+            'session_id': submission_data.get('session_id', ''),
+            'id': submission_data.get('id', '')
         }
         if req.quiz_id in LEADERBOARD_CACHE:
             curr_lb = LEADERBOARD_CACHE[req.quiz_id]['data']
-            curr_lb.append(lb_entry)
-            curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-            LEADERBOARD_CACHE[req.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
+            LEADERBOARD_CACHE[req.quiz_id] = {
+                'time': now_ts,
+                'data': self._deduplicate_leaderboard(curr_lb + [lb_entry], limit=5)
+            }
         else:
             LEADERBOARD_CACHE.pop(req.quiz_id, None)
 
@@ -373,16 +440,18 @@ class StudentService:
             SUBMISSIONS_CACHE[request.quiz_id]['data'].append(sub_data)
             SUBMISSIONS_CACHE[request.quiz_id]['time'] = now_ts
 
+        sub_entry = {
+            'student_name': request.student_name,
+            'score': float(request.score),
+            'total_questions': request.total_questions,
+            'time_elapsed': request.time_elapsed
+        }
         if request.quiz_id in LEADERBOARD_CACHE:
             curr_lb = LEADERBOARD_CACHE[request.quiz_id]['data']
-            curr_lb.append({
-                'student_name': request.student_name,
-                'score': float(request.score),
-                'total_questions': request.total_questions,
-                'time_elapsed': request.time_elapsed
-            })
-            curr_lb.sort(key=lambda x: (-x['score'], x['time_elapsed']))
-            LEADERBOARD_CACHE[request.quiz_id] = {'time': now_ts, 'data': curr_lb[:5]}
+            LEADERBOARD_CACHE[request.quiz_id] = {
+                'time': now_ts,
+                'data': self._deduplicate_leaderboard(curr_lb + [sub_entry], limit=5)
+            }
         else:
             LEADERBOARD_CACHE.pop(request.quiz_id, None)
 
@@ -458,10 +527,10 @@ class StudentService:
         else:
             subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
             try:
-                # Lấy top 20 bài điểm cao nhất từ Firestore để xét chuẩn tie-break theo time_elapsed
-                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(20).get()
+                # Lấy tối đa 100 bài điểm cao nhất từ Firestore để xét chuẩn tie-break và lọc thí sinh duy nhất
+                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(100).get()
             except Exception:
-                docs = subs_ref.limit(20).get()
+                docs = subs_ref.limit(100).get()
             raw_submissions = [doc.to_dict() for doc in docs]
             SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': raw_submissions}
 
@@ -504,17 +573,19 @@ class StudentService:
 
             results.append({
                 'student_name': data.get('student_name', 'Ẩn danh'),
+                'student_id': str(data.get('student_id') or '').strip(),
                 'class_name': str(data.get('class_name') or '').strip(),
                 'school_name': str(data.get('school_name') or '').strip(),
                 'sbd': str(data.get('sbd') or '').strip(),
                 'score': score,
                 'max_score': max_score_val,
                 'total_questions': total,
-                'time_elapsed': time_elapsed
+                'time_elapsed': time_elapsed,
+                'session_id': str(data.get('session_id') or '').strip(),
+                'id': str(data.get('id') or '').strip()
             })
-        results.sort(key=lambda x: (-x['score'], x['time_elapsed']))
 
-        final_results = results[:5]
+        final_results = self._deduplicate_leaderboard(results, limit=5)
         LEADERBOARD_CACHE[quiz_id] = {'time': now, 'data': final_results}
 
         return {"status": "success", "data": final_results}

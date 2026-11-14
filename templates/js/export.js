@@ -24,7 +24,7 @@
         API_BASE_URL = window.location.origin;
     }
 
-    const authToken = localStorage.getItem('teacher_token') || localStorage.getItem('access_token') || '';
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('teacher_token') || localStorage.getItem('access_token') || '';
 
     // 2. Trạng thái dữ liệu đề thi & Tùy chọn xuất bản
     let quizData = {
@@ -491,6 +491,9 @@
                     const isMcq = (!q.type || q.type === 'mcq') && Array.isArray(q.options) && q.options.length >= 2;
                     if (!isMcq) return;
 
+                    // Không đảo phương án nếu câu hỏi có đáp án phụ thuộc vị trí ("Cả A và B", "Tất cả các đáp án trên")
+                    if (hasPositionDependentOptions(q.options)) return;
+
                     // Xác định nội dung đáp án đúng trước khi trộn
                     let correctContent = null;
                     q.options.forEach((opt, oIdx) => {
@@ -589,53 +592,89 @@
     async function loadQuizData() {
         showLoadingState(true);
 
-        // 1. Kiểm tra dữ liệu được truyền qua sessionStorage
+        let loadedFromCache = false;
+
+        // 1. Trường hợp có ID đề thi cụ thể trong URL (/export/:id hoặc /export?id=...)
         if (quizData.id) {
+            // 1a. Thử nạp từ cache riêng của đề này để hiển thị ngay tức thì (giảm cảm giác chờ)
             const cached = sessionStorage.getItem(`export_quiz_${quizData.id}`) || localStorage.getItem(`export_quiz_${quizData.id}`);
             if (cached) {
                 try {
                     const parsed = JSON.parse(cached);
-                    applyLoadedQuiz(parsed);
-                    showLoadingState(false);
+                    if (parsed && (Array.isArray(parsed.data) || Array.isArray(parsed.questions) || Array.isArray(parsed))) {
+                        applyLoadedQuiz(parsed);
+                        loadedFromCache = true;
+                    }
                 } catch (e) {
                     console.warn("Parse cache error:", e);
                 }
             }
-        }
 
-        // 2. Kiểm tra dữ liệu tạm 'export_quiz_data' nếu người dùng vừa bấm xuất từ Editor
-        const transientData = sessionStorage.getItem('export_quiz_data');
-        if (transientData && !quizData.questions.length) {
-            try {
-                const parsed = JSON.parse(transientData);
-                applyLoadedQuiz(parsed);
-                showLoadingState(false);
-                return;
-            } catch (e) {}
-        }
+            // 1b. Kiểm tra dữ liệu tạm 'export_quiz_data': CHỈ DÙNG NẾU ID TRÙNG KHỚP VỚI quizData.id!
+            const transientData = sessionStorage.getItem('export_quiz_data');
+            if (transientData) {
+                try {
+                    const parsed = JSON.parse(transientData);
+                    const transId = parsed.quiz_id || parsed.id;
+                    if (transId && transId === quizData.id) {
+                        if (!loadedFromCache) {
+                            applyLoadedQuiz(parsed);
+                            loadedFromCache = true;
+                        }
+                    } else if (transId && transId !== quizData.id) {
+                        // Dữ liệu tạm thuộc về đề khác, dọn dẹp ngay để tránh hiển thị sai đề
+                        sessionStorage.removeItem('export_quiz_data');
+                    }
+                } catch (e) {}
+            }
 
-        // 3. Gọi API lấy dữ liệu thực tế từ máy chủ
-        if (quizData.id) {
+            // 1c. Đọc tiêu đề gợi ý nếu được truyền từ danh sách đề thi
+            const passedTitle = sessionStorage.getItem(`export_quiz_title_${quizData.id}`);
+            if (passedTitle) {
+                exportConfig.exam_title = passedTitle;
+                quizData.title = passedTitle;
+                const navTitle = document.getElementById('navDocTitle');
+                if (navTitle) navTitle.textContent = passedTitle;
+                const inputTitle = document.getElementById('inputExamTitle');
+                if (inputTitle) inputTitle.value = passedTitle;
+            }
+
+            // 1d. LUÔN LUÔN gọi API từ máy chủ để lấy dữ liệu đề thi mới nhất (đặc biệt là tiêu đề vừa xuất bản)
             try {
                 const tokenParam = authToken ? `?teacher_token=${encodeURIComponent(authToken)}` : '';
                 const res = await fetch(`${API_BASE_URL}/api/get_quiz/${encodeURIComponent(quizData.id)}${tokenParam}`);
                 if (res.ok) {
                     const json = await res.json();
                     applyLoadedQuiz(json);
-                } else {
+                    // Cập nhật lại cache đồng bộ
+                    try {
+                        sessionStorage.setItem(`export_quiz_${quizData.id}`, JSON.stringify(json));
+                        sessionStorage.setItem('export_quiz_data', JSON.stringify(json));
+                    } catch (e) {}
+                } else if (!loadedFromCache) {
                     console.warn("Could not fetch quiz from API, status:", res.status);
-                    if (!quizData.questions.length) {
-                        loadSampleData();
-                    }
+                    loadSampleData();
                 }
             } catch (err) {
                 console.error("Fetch quiz error:", err);
-                if (!quizData.questions.length) {
+                if (!loadedFromCache) {
                     loadSampleData();
                 }
             }
-        } else if (!quizData.questions.length) {
-            loadSampleData();
+        } else {
+            // 2. Không có ID trong URL (ví dụ mở từ Editor dạng bản nháp chưa lưu ID)
+            const transientData = sessionStorage.getItem('export_quiz_data');
+            let loadedTransient = false;
+            if (transientData) {
+                try {
+                    const parsed = JSON.parse(transientData);
+                    applyLoadedQuiz(parsed);
+                    loadedTransient = true;
+                } catch (e) {}
+            }
+            if (!loadedTransient) {
+                loadSampleData();
+            }
         }
 
         showLoadingState(false);
@@ -1087,16 +1126,33 @@
         return 1;
     }
 
+    function hasPositionDependentOptions(options) {
+        if (!Array.isArray(options)) return false;
+        const depRegex = /(cả\s+[a-d]\s+và\s+[a-d]|tất\s+cả\s+(các\s+)?đáp\s+án|tất\s+cả\s+(các\s+)?phương\s+án|không\s+có\s+đáp\s+án\s+nào|cả\s+[a-d]\s*,\s*[a-d]|all\s+of\s+the\s+above|none\s+of\s+the\s+above)/i;
+        return options.some(opt => depRegex.test(String(opt)));
+    }
+
     function isOptionCorrect(optIdx, optText, rawCa) {
         if (rawCa === null || rawCa === undefined) return false;
         const letter = String.fromCharCode(65 + optIdx);
         if (typeof rawCa === 'string') {
             const cleanCa = rawCa.trim().toUpperCase();
-            if (cleanCa === letter) return true;
+            const cleanCaNoStar = cleanCa.replace(/^\*+\s*/, '');
+            if (cleanCa === letter || cleanCaNoStar === letter) return true;
             if (cleanCa.startsWith(letter + '.') || cleanCa.startsWith(letter + ')') || cleanCa.startsWith(letter + ':')) return true;
+            if (cleanCaNoStar.startsWith(letter + '.') || cleanCaNoStar.startsWith(letter + ')') || cleanCaNoStar.startsWith(letter + ':')) return true;
         }
         if (typeof rawCa === 'number' && rawCa === optIdx) return true;
         if (optText.trim().startsWith('*')) return true;
+
+        // So khớp nội dung làm sạch (hỗ trợ cả khi correct_answer lưu text thuần)
+        const norm = (s) => String(s || '').replace(/<[^>]+>/g, '').replace(/^(\*?\s*[A-Fa-f][\.\:\)])\s*/, '').replace(/[\s\u00a0]+/g, ' ').trim().toLowerCase();
+        const normOpt = norm(optText);
+        const normCa = norm(rawCa);
+        if (normOpt && normCa && (normOpt === normCa || normOpt === norm(String(rawCa)))) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1122,12 +1178,14 @@
         }
 
         const s = String(rawCa).trim().toUpperCase();
-        for (let c of ['A', 'B', 'C', 'D']) {
-            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c) {
+        const sNoStar = s.replace(/^\*+\s*/, '');
+        for (let c of ['A', 'B', 'C', 'D', 'E', 'F']) {
+            if (s.startsWith(c + '.') || s.startsWith(c + ')') || s.startsWith(c + ':') || s === c
+                || sNoStar.startsWith(c + '.') || sNoStar.startsWith(c + ')') || sNoStar.startsWith(c + ':') || sNoStar === c) {
                 return c;
             }
         }
-        return s.slice(0, 3);
+        return sNoStar.slice(0, 3);
     }
 
     function formatText(text) {

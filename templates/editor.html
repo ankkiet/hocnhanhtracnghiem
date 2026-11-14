@@ -540,7 +540,7 @@
                     </div>
                 </div>
                 <div style="background: #f1f5f9; padding: 8px 16px; font-size: 0.85rem; color: #475569; border-bottom: 1px solid var(--studio-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                    <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Thêm dấu <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>). Gõ <code>câu</code> rồi nhấn <b>Tab</b> để tạo nhanh khung câu mới.</span>
+                    <span><i class="ri-lightbulb-line" style="color: #eab308; font-size: 1.1rem; vertical-align: middle;"></i> <b>Mẹo:</b> Nhấn <b>Tab</b> để tạo nhanh câu mới • Gõ <code>/</code> mở menu lệnh nhanh • Nhấn <b>Enter</b> trên phương án để sinh tiếp • Thêm <code>*</code> trước đáp án đúng (ví dụ: <code>*A.</code>).</span>
                     <a href="/huong-dan-tao-de" target="_blank" style="color: var(--studio-primary); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
                         <i class="ri-book-open-line"></i> Xem cẩm nang tạo đề <i class="ri-external-link-line" style="font-size: 0.8rem;"></i>
                     </a>
@@ -695,6 +695,30 @@
                     <!-- Caret nhấp nháy chỉ báo vị trí thả ảnh chuẩn xác -->
                     <div id="editorDropCaret" class="editor-drop-caret" style="display: none;"></div>
                     <div id="codeEditor" class="studio-code-font" contenteditable="true" spellcheck="false" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></div>
+
+                    <!-- Menu lệnh nhanh / (Floating Slash Command Palette) -->
+                    <div id="editorSlashMenu" class="editor-slash-menu" style="display: none;" onmousedown="event.preventDefault();">
+                        <div class="slash-menu-header">
+                            <span>Lệnh nhanh</span>
+                            <span class="slash-menu-hint">↑↓ chọn • Enter/Tab chèn • Esc đóng</span>
+                        </div>
+                        <div class="slash-menu-list" id="slashMenuList"></div>
+                    </div>
+
+                    <!-- Thanh trạng thái bộ soạn thảo thông minh -->
+                    <div id="editorStatusBar" class="editor-status-bar">
+                        <div class="status-bar-left">
+                            <span class="status-pill status-pill-q" id="statusCurrentQuestion" title="Nhấn để cuộn đến câu này trong bản xem trước"><i class="ri-map-pin-2-line"></i> Đang soạn: Câu 1 / 1</span>
+                            <span class="status-divider"></span>
+                            <span class="status-text-count" id="statusCounts"><i class="ri-file-text-line"></i> 0 từ • 0 ký tự</span>
+                        </div>
+                        <div class="status-bar-right">
+                            <span class="status-shortcut-hint" title="Nhấn Tab để tạo nhanh câu mới (hoặc gõ câu rồi nhấn Tab)" onclick="insertNewQuestionSnippet('mcq')" style="cursor: pointer;"><kbd>Tab</kbd> câu</span>
+                            <span class="status-shortcut-hint hide-on-compact" title="Nhấn Enter trên dòng phương án để tự động sinh phương án kế tiếp"><kbd>Enter</kbd> phương án</span>
+                            <span class="status-shortcut-hint" title="Gõ / để mở danh sách lệnh nhanh" onclick="showSlashMenu()" style="cursor: pointer;"><kbd>/</kbd> lệnh</span>
+                            <span class="status-shortcut-hint hide-on-compact" title="Gõ $ để chèn hoặc bao bọc công thức toán"><kbd>$</kbd> toán</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1532,7 +1556,7 @@
     </div>
 
     <script src="/hc-select.js?v=20261113_ui_v2"></script>
-    <script src="/editor.js?v=20261113_ai_check_v1"></script>
+    <script src="/editor.js?v=20261114_tab_engine_v3"></script>
     <script>
         // Safety Fallback Watchdog: Đảm bảo preloader luôn biến mất kể cả khi mạng chậm
         (function() {

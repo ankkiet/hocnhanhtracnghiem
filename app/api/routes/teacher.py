@@ -837,14 +837,19 @@ async def export_quiz_docx(
         show_explains=show_explains,
         include_student_answer_grid=bool(include_student_answer_grid),
     )
-    safe_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', quiz_id)
+    from urllib.parse import quote
+    safe_id = re.sub(r'[^a-zA-Z0-9_\-]', '_', quiz_id)
+    raw_title = title if title and title != "Đề thi trắc nghiệm" else quiz_id
+    clean_title = re.sub(r'[^a-zA-Z0-9_\-À-ỹ\s]', '', raw_title).strip().replace(' ', '_')[:40] or safe_id
     audience_suffix = "_hoc_sinh" if target_audience == "student" else "_giao_vien"
+    encoded_filename = quote(f"{clean_title}{audience_suffix}.docx")
+    ascii_filename = re.sub(r'[^a-zA-Z0-9_\-]', '_', clean_title) or safe_id
     
     return StreamingResponse(
         docx_stream,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
-            "Content-Disposition": f"attachment; filename=de_thi_{safe_filename}{audience_suffix}.docx"
+            "Content-Disposition": f"attachment; filename=de_thi_{ascii_filename}{audience_suffix}.docx; filename*=UTF-8''{encoded_filename}"
         }
     )
 

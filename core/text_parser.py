@@ -74,6 +74,55 @@ def extract_unlabeled_tf_statements(block: str) -> tuple:
 
     return None, None, None
 
+
+def filter_valid_option_sequence(matches: list, is_upper: bool = False) -> list:
+    """
+    Lọc danh sách matches phương án để chọn chuỗi phương án chuẩn xác nhất:
+    - Bắt đầu bằng 'a' (hoặc 'A' nếu is_upper).
+    - Tiến dần theo thứ tự: a -> b -> c -> d (hoặc A -> B -> C -> D).
+    - Nếu có nhiều ứng viên (ví dụ 'd.' trong 'ở mỗi ý a, b, c, d.' hoặc 'A.' ngẫu nhiên trong đề bài),
+      chọn chuỗi dài nhất và ưu tiên chuỗi ở cuối khối câu hỏi.
+    """
+    if not matches:
+        return []
+
+    first_char = 'A' if is_upper else 'a'
+    expected_order = ['A', 'B', 'C', 'D', 'E', 'F'] if is_upper else ['a', 'b', 'c', 'd', 'e', 'f']
+
+    # Tìm tất cả các index của match có char == first_char
+    candidate_start_indices = []
+    for idx, m in enumerate(matches):
+        char = m.group(2 if len(m.groups()) >= 2 and m.group(2) else 1).replace('*', '').strip()
+        if (char.upper() if is_upper else char.lower()) == first_char:
+            candidate_start_indices.append(idx)
+
+    if not candidate_start_indices:
+        return matches
+
+    best_sequence = []
+
+    for start_idx in candidate_start_indices:
+        current_seq = [matches[start_idx]]
+        next_exp_idx = 1
+        for m in matches[start_idx + 1:]:
+            char = m.group(2 if len(m.groups()) >= 2 and m.group(2) else 1).replace('*', '').strip()
+            char_norm = char.upper() if is_upper else char.lower()
+            if next_exp_idx < len(expected_order) and char_norm == expected_order[next_exp_idx]:
+                current_seq.append(m)
+                next_exp_idx += 1
+                if next_exp_idx >= 4:
+                    break
+        if len(current_seq) > len(best_sequence):
+            best_sequence = current_seq
+        elif len(current_seq) == len(best_sequence) and len(current_seq) >= 2:
+            best_sequence = current_seq
+
+    if len(best_sequence) >= 2:
+        return best_sequence
+
+    return matches
+
+
 def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict = None) -> List[Dict[str, Any]]:
     """
     Bộ bóc tách câu hỏi siêu bền vững theo chuẩn Bộ GD&ĐT (GDPT 2018):
@@ -216,6 +265,8 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
 
             sub_matches = [m for m in sub_opt_pattern.finditer(block) if not is_inside_table(m.start())]
             mcq_matches = [m for m in mcq_opt_pattern.finditer(block) if not is_inside_table(m.start())]
+            sub_matches = filter_valid_option_sequence(sub_matches, is_upper=False)
+            mcq_matches = filter_valid_option_sequence(mcq_matches, is_upper=True)
 
             # 0. Nếu là phần Tự luận (PHẦN IV / TỰ LUẬN): Nhận là essay khi KHÔNG có phương án trắc nghiệm A-D và KHÔNG có ý đúng sai a-d
             is_explicit_essay = (sec_type == "essay") or bool(re.search(r'\(?\[?\s*Tự\s*luận\s*\]?\)?', raw_block, re.IGNORECASE))

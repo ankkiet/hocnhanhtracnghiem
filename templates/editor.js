@@ -973,6 +973,969 @@ function getRichEditorText(node) {
     return result;
 }
 
+// ==========================================================================
+// SMART TYPING, SLASH COMMAND PALETTE & KEYBOARD AUTOMATION ENGINE
+// ==========================================================================
+
+const SLASH_COMMANDS = [
+    {
+        id: 'mcq',
+        title: 'Trắc nghiệm 4 lựa chọn',
+        desc: 'Khung câu hỏi A, B, C, D với đáp án đúng',
+        icon: 'ri-list-check-2',
+        color: '#2563eb',
+        badge: 'câu / mcq',
+        keywords: ['mcq', 'trac nghiem', 'cau', 'câu', 'lua chon', 'abcd']
+    },
+    {
+        id: 'tf',
+        title: 'Trắc nghiệm đúng / sai',
+        desc: 'Mệnh đề a, b, c, d chuẩn GDPT 2018',
+        icon: 'ri-checkbox-circle-line',
+        color: '#059669',
+        badge: 'ds / tf',
+        keywords: ['tf', 'dung sai', 'đúng sai', 'ds', 'menh de', 'mệnh đề', 'gdpt']
+    },
+    {
+        id: 'sa',
+        title: 'Trả lời ngắn',
+        desc: 'Điền số hoặc đáp án ngắn gọn',
+        icon: 'ri-edit-line',
+        color: '#d97706',
+        badge: 'sa / ngan',
+        keywords: ['sa', 'tra loi ngan', 'trả lời ngắn', 'ngan', 'ngắn', 'short', 'dien so']
+    },
+    {
+        id: 'essay',
+        title: 'Câu hỏi tự luận',
+        desc: 'Đề bài và hướng dẫn chấm / biểu điểm',
+        icon: 'ri-file-text-line',
+        color: '#7e22ce',
+        badge: 'tl / tuan',
+        keywords: ['essay', 'tu luan', 'tự luận', 'tl', 'tuan', 'cham diem']
+    },
+    {
+        id: 'math',
+        title: 'Công thức toán học ($...$)',
+        desc: 'Chèn cặp dấu công thức inline với con trỏ ở giữa',
+        icon: 'ri-functions',
+        color: '#dc2626',
+        badge: '$ / toan',
+        keywords: ['math', 'toan', 'toán', 'latex', 'cong thuc', 'công thức', 'formula']
+    },
+    {
+        id: 'bbt',
+        title: 'Bảng biến thiên',
+        desc: 'Khung bảng biến thiên hàm số mẫu chuẩn',
+        icon: 'ri-line-chart-line',
+        color: '#1d4ed8',
+        badge: 'bbt',
+        keywords: ['bbt', 'bang bien thien', 'bảng biến thiên', 'ham so', 'hàm số']
+    },
+    {
+        id: 'table',
+        title: 'Bảng số liệu / thống kê',
+        desc: 'Khung bảng dữ liệu nhiều cột dòng',
+        icon: 'ri-table-line',
+        color: '#047857',
+        badge: 'bang',
+        keywords: ['table', 'bang', 'bảng', 'so lieu', 'số liệu', 'thong ke', 'thống kê']
+    },
+    {
+        id: 'solution',
+        title: 'Lời giải chi tiết',
+        desc: 'Thêm phần hướng dẫn giải cho câu hỏi',
+        icon: 'ri-lightbulb-line',
+        color: '#eab308',
+        badge: 'lg / loigiai',
+        keywords: ['solution', 'loi giai', 'lời giải', 'giai thich', 'giải thích', 'huong dan', 'hướng dẫn']
+    },
+    {
+        id: 'image',
+        title: 'Chèn ảnh minh họa',
+        desc: 'Tải ảnh từ máy tính hoặc dán ảnh',
+        icon: 'ri-image-add-line',
+        color: '#0284c7',
+        badge: 'anh',
+        keywords: ['image', 'anh', 'ảnh', 'hinh anh', 'hình ảnh', 'photo', 'picture']
+    }
+];
+
+let currentSlashQuery = '';
+let activeSlashIndex = 0;
+let filteredSlashCommands = [...SLASH_COMMANDS];
+
+function isCaretOnEmptyLine() {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return false;
+
+    // Nếu toàn bộ editor trống
+    if (!codeEditor.textContent.trim()) return true;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!codeEditor.contains(range.startContainer)) return false;
+
+    // Trường hợp 1: startContainer là chính codeEditor (con trỏ ở giữa hoặc cuối các div)
+    if (range.startContainer === codeEditor) {
+        const offset = range.startOffset;
+        const child = codeEditor.childNodes[offset] || codeEditor.childNodes[offset - 1] || codeEditor.lastChild;
+        if (!child) return true;
+        const text = (child.textContent || '').replace(/[\u200B\u00A0\s\r\n]/g, '');
+        return text.length === 0;
+    }
+
+    // Trường hợp 2: startContainer nằm trong một node con
+    let lineNode = range.startContainer;
+    while (lineNode && lineNode.parentNode && lineNode.parentNode !== codeEditor) {
+        lineNode = lineNode.parentNode;
+    }
+    if (!lineNode || lineNode === codeEditor) {
+        lineNode = range.startContainer;
+    }
+
+    const lineText = (lineNode.textContent || '').replace(/[\u200B\u00A0\s\r\n]/g, '');
+    return lineText.length === 0;
+}
+
+function getEditorCurrentLineInfo() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor || !codeEditor.contains(range.startContainer)) return null;
+
+    let lineEl = range.startContainer;
+    while (lineEl && lineEl.parentElement && lineEl.parentElement !== codeEditor) {
+        lineEl = lineEl.parentElement;
+    }
+
+    let lineBefore = '';
+    let lineAfter = '';
+    let isLineEmpty = false;
+
+    if (lineEl && lineEl !== codeEditor) {
+        try {
+            const preRange = document.createRange();
+            preRange.setStart(lineEl, 0);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            lineBefore = preRange.toString();
+
+            const postRange = document.createRange();
+            postRange.setStart(range.startContainer, range.startOffset);
+            postRange.setEndAfter(lineEl.lastChild || lineEl);
+            lineAfter = postRange.toString();
+        } catch (e) {
+            lineBefore = (range.startContainer.textContent || '').slice(0, range.startOffset);
+        }
+        const fullClean = (lineEl.textContent || '').replace(/[\u200B\u00A0\s\r\n]/g, '');
+        isLineEmpty = fullClean.length === 0;
+    } else {
+        // range.startContainer === codeEditor
+        const offset = range.startOffset;
+        const child = codeEditor.childNodes[offset] || codeEditor.childNodes[offset - 1] || codeEditor.lastChild;
+        const fullClean = (child ? child.textContent : '').replace(/[\u200B\u00A0\s\r\n]/g, '');
+        isLineEmpty = fullClean.length === 0;
+        lineEl = child || codeEditor;
+    }
+
+    // Chuẩn hóa khoảng trắng & ký tự vô hình
+    lineBefore = lineBefore.replace(/\u200B/g, '').replace(/\u00A0/g, ' ');
+    lineAfter = lineAfter.replace(/\u200B/g, '').replace(/\u00A0/g, ' ');
+
+    return {
+        lineBefore: lineBefore,
+        lineAfter: lineAfter,
+        fullLine: lineBefore + lineAfter,
+        lineEl: lineEl,
+        range: range,
+        isLineEmpty: isLineEmpty
+    };
+}
+
+function deleteSlashTrigger() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const deleteLen = 1 + currentSlashQuery.length;
+
+    try {
+        const node = range.startContainer;
+        const offset = range.startOffset;
+        if (node.nodeType === Node.TEXT_NODE && offset >= deleteLen) {
+            range.setStart(node, offset - deleteLen);
+            range.setEnd(node, offset);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('delete', false, null);
+        } else {
+            for (let i = 0; i < deleteLen; i++) {
+                document.execCommand('delete', false, null);
+            }
+        }
+    } catch (e) {
+        for (let i = 0; i < deleteLen; i++) {
+            document.execCommand('delete', false, null);
+        }
+    }
+}
+
+function replaceTokenBeforeCaret(tokenLen, replacement = '') {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    try {
+        if (node.nodeType === Node.TEXT_NODE && offset >= tokenLen) {
+            range.setStart(node, offset - tokenLen);
+            range.setEnd(node, offset);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('delete', false, null);
+            if (replacement) {
+                document.execCommand('insertText', false, replacement);
+            }
+        } else {
+            for (let i = 0; i < tokenLen; i++) {
+                document.execCommand('delete', false, null);
+            }
+            if (replacement) {
+                document.execCommand('insertText', false, replacement);
+            }
+        }
+    } catch (e) {
+        // Fallback
+    }
+}
+
+function outdentCurrentLine() {
+    const lineInfo = getEditorCurrentLineInfo();
+    if (lineInfo && lineInfo.lineBefore.startsWith('    ')) {
+        replaceTokenBeforeCaret(4, '');
+    } else if (lineInfo && lineInfo.lineBefore.startsWith('  ')) {
+        replaceTokenBeforeCaret(2, '');
+    }
+}
+
+function updateEditorStatusBar() {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+
+    const fullText = getRichEditorText(codeEditor);
+
+    // 1. Đếm từ và ký tự
+    const words = (fullText.trim().match(/\S+/g) || []).length;
+    const chars = fullText.length;
+
+    const countsEl = document.getElementById('statusCounts');
+    if (countsEl) {
+        countsEl.innerHTML = `<i class="ri-file-text-line"></i> ${words.toLocaleString()} từ • ${chars.toLocaleString()} ký tự`;
+    }
+    const wordEl = document.getElementById('statusWordCount');
+    const charEl = document.getElementById('statusCharCount');
+    if (wordEl) wordEl.innerHTML = `<i class="ri-file-word-line"></i> ${words.toLocaleString()} từ`;
+    if (charEl) charEl.textContent = `${chars.toLocaleString()} ký tự`;
+
+    // 2. Xác định câu hỏi hiện tại dưới con trỏ
+    const totalQ = currentData ? currentData.length : 0;
+    let currentQText = totalQ > 0 ? `Câu 1 / ${totalQ}` : 'Chưa có câu hỏi';
+    let activeQIdx = totalQ > 0 ? 0 : -1;
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && codeEditor.contains(sel.anchorNode)) {
+        let preCaretText = "";
+        try {
+            const range = sel.getRangeAt(0).cloneRange();
+            range.selectNodeContents(codeEditor);
+            range.setEnd(sel.anchorNode, sel.anchorOffset);
+            preCaretText = range.toString();
+        } catch (e) {
+            preCaretText = fullText;
+        }
+
+        const qMatches = preCaretText.match(/(?:^|[\r\n\s\.\;\:\>])(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?/gi);
+        if (qMatches && qMatches.length > 0) {
+            const lastMatch = qMatches[qMatches.length - 1];
+            const numMatch = lastMatch.match(/\d+/);
+            const qNum = numMatch ? parseInt(numMatch[0], 10) : qMatches.length;
+            activeQIdx = Math.max(0, qNum - 1);
+            currentQText = `Câu ${qNum} / ${totalQ > 0 ? totalQ : qMatches.length}`;
+        } else if (totalQ > 0) {
+            currentQText = `Câu 1 / ${totalQ}`;
+            activeQIdx = 0;
+        }
+    }
+
+    const qEl = document.getElementById('statusCurrentQuestion');
+    if (qEl) {
+        qEl.innerHTML = `<i class="ri-map-pin-2-line"></i> Đang soạn: <b>${escapeHtml(currentQText)}</b>`;
+        if (activeQIdx >= 0) {
+            qEl.onclick = () => scrollToCurrentQuestionInPreview(activeQIdx);
+            qEl.style.cursor = 'pointer';
+        } else {
+            qEl.onclick = null;
+            qEl.style.cursor = 'default';
+        }
+    }
+}
+
+function scrollToCurrentQuestionInPreview(qIdx) {
+    if (qIdx < 0) return;
+    const prevEl = document.getElementById(`preview_q_${qIdx}`);
+    if (prevEl) {
+        prevEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        prevEl.style.transition = 'background-color 0.4s ease';
+        const origBg = prevEl.style.backgroundColor;
+        prevEl.style.backgroundColor = '#fef08a';
+        setTimeout(() => {
+            prevEl.style.backgroundColor = origBg;
+        }, 1200);
+    }
+}
+
+function positionSlashMenu() {
+    const slashMenu = document.getElementById('editorSlashMenu');
+    const codeEditor = document.getElementById('codeEditor');
+    if (!slashMenu || !codeEditor) return;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    const range = sel.getRangeAt(0);
+    let rect = range.getBoundingClientRect();
+
+    if (rect.top === 0 && rect.bottom === 0) {
+        const span = document.createElement('span');
+        span.textContent = '\u200b';
+        const clone = range.cloneRange();
+        clone.insertNode(span);
+        rect = span.getBoundingClientRect();
+        span.remove();
+    }
+
+    const wrapper = codeEditor.closest('.studio-editor-wrapper');
+    if (!wrapper) return;
+    const wrapperRect = wrapper.getBoundingClientRect();
+
+    const menuWidth = 320;
+    const menuHeight = 310;
+
+    let top = (rect.bottom - wrapperRect.top) + 6;
+    let left = (rect.left - wrapperRect.left);
+
+    if (top + menuHeight > wrapperRect.height - 40) {
+        top = (rect.top - wrapperRect.top) - menuHeight - 6;
+    }
+
+    if (left + menuWidth > wrapperRect.width - 16) {
+        left = Math.max(16, wrapperRect.width - menuWidth - 16);
+    }
+    if (left < 16) left = 16;
+    if (top < 10) top = 10;
+
+    slashMenu.style.top = top + 'px';
+    slashMenu.style.left = left + 'px';
+}
+
+function showSlashMenu(query = '') {
+    const slashMenu = document.getElementById('editorSlashMenu');
+    if (!slashMenu) return;
+
+    query = query.trim().toLowerCase().normalize('NFC');
+    if (!query) {
+        filteredSlashCommands = [...SLASH_COMMANDS];
+    } else {
+        filteredSlashCommands = SLASH_COMMANDS.filter(cmd =>
+            cmd.title.toLowerCase().normalize('NFC').includes(query) ||
+            cmd.id.includes(query) ||
+            cmd.badge.toLowerCase().normalize('NFC').includes(query) ||
+            cmd.keywords.some(k => k.toLowerCase().normalize('NFC').includes(query))
+        );
+    }
+
+    activeSlashIndex = 0;
+    renderSlashList();
+    positionSlashMenu();
+    slashMenu.style.display = 'flex';
+}
+window.showSlashMenu = showSlashMenu;
+
+function hideSlashMenu() {
+    const slashMenu = document.getElementById('editorSlashMenu');
+    if (slashMenu) {
+        slashMenu.style.display = 'none';
+    }
+    currentSlashQuery = '';
+    activeSlashIndex = 0;
+}
+window.hideSlashMenu = hideSlashMenu;
+
+function moveSlashSelection(step) {
+    if (filteredSlashCommands.length === 0) return;
+    activeSlashIndex = (activeSlashIndex + step + filteredSlashCommands.length) % filteredSlashCommands.length;
+    renderSlashList();
+    const list = document.getElementById('slashMenuList');
+    if (list) {
+        const activeItem = list.children[activeSlashIndex];
+        if (activeItem) {
+            activeItem.scrollIntoView({ block: 'nearest' });
+        }
+    }
+}
+
+function renderSlashList() {
+    const list = document.getElementById('slashMenuList');
+    if (!list) return;
+
+    if (filteredSlashCommands.length === 0) {
+        list.innerHTML = `
+            <div class="slash-menu-empty">
+                <i class="ri-search-line"></i>
+                <span>Không có lệnh phù hợp với "<b>${escapeHtml(currentSlashQuery)}</b>"</span>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = filteredSlashCommands.map((cmd, idx) => {
+        const isActive = idx === activeSlashIndex;
+        return `
+            <div class="slash-menu-item ${isActive ? 'active' : ''}" data-index="${idx}" onmousedown="event.preventDefault();" onclick="executeSelectedSlashItem(${idx})">
+                <div class="slash-item-icon" style="background: ${cmd.color}15; color: ${cmd.color};">
+                    <i class="${cmd.icon}"></i>
+                </div>
+                <div class="slash-item-content">
+                    <div class="slash-item-title">${escapeHtml(cmd.title)}</div>
+                    <div class="slash-item-desc">${escapeHtml(cmd.desc)}</div>
+                </div>
+                <div class="slash-item-badge">${escapeHtml(cmd.badge)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function getNextEditorQuestionNum() {
+    const codeEditor = document.getElementById('codeEditor');
+    let maxNum = 0;
+    if (codeEditor) {
+        const text = getRichEditorText(codeEditor);
+        const matches = [...text.matchAll(/(?:^|[\r\n\s\.\;\:\>])(?:Câu|Bài|Question|Q)\s*(\d+)[\.\:\-\/\)]?/gi)];
+        for (const m of matches) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n > maxNum) maxNum = n;
+        }
+    }
+    if (maxNum > 0) return maxNum + 1;
+    if (Array.isArray(currentData) && currentData.length > 0) return currentData.length + 1;
+    return 1;
+}
+
+function insertNewQuestionSnippet(type = 'mcq') {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+
+    codeEditor.focus();
+
+    const nextQNum = getNextEditorQuestionNum();
+    let promptText = 'Nội dung câu hỏi ở đây?';
+    let optionsHtml = '';
+
+    if (type === 'true_false' || type === 'tf' || type === 'ds') {
+        promptText = 'Cho các mệnh đề sau:';
+        optionsHtml = `<div><span style="color: #059669; font-weight: bold;">*a) </span>Mệnh đề đúng</div>` +
+                      `<div><span style="color: #0ea5e9; font-weight: bold;">b) </span>Mệnh đề sai</div>` +
+                      `<div><span style="color: #059669; font-weight: bold;">*c) </span>Mệnh đề đúng</div>` +
+                      `<div><span style="color: #0ea5e9; font-weight: bold;">d) </span>Mệnh đề sai</div><div><br></div>`;
+    } else if (type === 'short_answer' || type === 'sa' || type === 'ngan') {
+        promptText = 'Nội dung câu hỏi trả lời ngắn...';
+        optionsHtml = `<div><span style="color: #059669; font-weight: bold;">Đáp án: </span>10</div><div><br></div>`;
+    } else if (type === 'essay' || type === 'tl' || type === 'tuan') {
+        promptText = 'Nội dung câu hỏi tự luận...';
+        optionsHtml = `<div><span style="color: #059669; font-weight: bold;">Hướng dẫn chấm: </span>Biểu điểm chi tiết...</div><div><br></div>`;
+    } else {
+        // Mặc định: MCQ 4 lựa chọn
+        promptText = 'Nội dung câu hỏi ở đây?';
+        optionsHtml = `<div><span style="color: #059669; font-weight: bold;">*A. </span>Phương án đúng</div>` +
+                      `<div><span style="color: #7c3aed; font-weight: bold;">B. </span>Phương án hai</div>` +
+                      `<div><span style="color: #7c3aed; font-weight: bold;">C. </span>Phương án ba</div>` +
+                      `<div><span style="color: #7c3aed; font-weight: bold;">D. </span>Phương án bốn</div><div><br></div>`;
+    }
+
+    const tempPromptId = 'snippet_prompt_' + Date.now();
+    const snippetHtml = `<div style="margin-top: 14px;"><span style="color: #2563eb; font-weight: bold;">Câu ${nextQNum}: </span><span id="${tempPromptId}">${promptText}</span></div>${optionsHtml}`;
+
+    const sel = window.getSelection();
+    let insertedCleanly = false;
+
+    if (sel && sel.rangeCount > 0 && codeEditor.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        let curLine = range.startContainer;
+        while (curLine && curLine.parentNode && curLine.parentNode !== codeEditor) {
+            curLine = curLine.parentNode;
+        }
+
+        const isLineEmpty = !curLine || curLine === codeEditor ||
+            (curLine.textContent || '').replace(/[\u200B\u00A0\s\r\n]/g, '').length === 0;
+
+        if (curLine && curLine !== codeEditor && isLineEmpty) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = snippetHtml;
+            const parent = curLine.parentNode || codeEditor;
+            while (tempDiv.firstChild) {
+                parent.insertBefore(tempDiv.firstChild, curLine);
+            }
+            parent.removeChild(curLine);
+            insertedCleanly = true;
+        }
+    }
+
+    if (!insertedCleanly) {
+        document.execCommand('insertHTML', false, snippetHtml);
+    }
+
+    // Đặt con trỏ chuẩn xác tại phần văn bản câu hỏi mới và collapse để tránh bôi đen làm mất tính năng Tab tiếp theo
+    const promptSpan = document.getElementById(tempPromptId);
+    if (promptSpan && sel) {
+        try {
+            const r = document.createRange();
+            r.selectNodeContents(promptSpan);
+            sel.removeAllRanges();
+            sel.addRange(r);
+        } catch (e) {}
+        promptSpan.removeAttribute('id');
+    }
+
+    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    updateEditorStatusBar();
+    if (typeof showToast === 'function') {
+        showToast(`Đã tạo nhanh Câu ${nextQNum}!`);
+    }
+}
+window.insertNewQuestionSnippet = insertNewQuestionSnippet;
+
+function executeSelectedSlashItem(customIndex = null) {
+    const idx = customIndex !== null ? customIndex : activeSlashIndex;
+    if (idx < 0 || idx >= filteredSlashCommands.length) return;
+    const cmd = filteredSlashCommands[idx];
+    if (!cmd) return;
+
+    deleteSlashTrigger();
+    hideSlashMenu();
+
+    const codeEditor = document.getElementById('codeEditor');
+
+    switch (cmd.id) {
+        case 'mcq':
+            insertNewQuestionSnippet('mcq');
+            break;
+        case 'tf':
+            insertNewQuestionSnippet('tf');
+            break;
+        case 'sa':
+            insertNewQuestionSnippet('sa');
+            break;
+        case 'essay':
+            insertNewQuestionSnippet('essay');
+            break;
+        case 'math': {
+            document.execCommand('insertText', false, '$$');
+            try {
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0) {
+                    const r = sel.getRangeAt(0);
+                    r.setStart(r.startContainer, r.startOffset - 1);
+                    r.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(r);
+                }
+            } catch (err) {}
+            if (codeEditor) {
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            break;
+        }
+        case 'bbt':
+            insertTableToEditor('bbt');
+            break;
+        case 'table':
+            insertTableToEditor('general');
+            break;
+        case 'solution': {
+            const html = `<div><span style="color: #059669; font-weight: bold;">Lời giải: </span>Nội dung giải thích chi tiết...</div><div><br></div>`;
+            document.execCommand('insertHTML', false, html);
+            if (codeEditor) {
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            break;
+        }
+        case 'image':
+            if (typeof triggerImageUpload === 'function') {
+                triggerImageUpload();
+            }
+            break;
+    }
+
+    if (codeEditor) {
+        codeEditor.focus();
+    }
+}
+
+function handleEditorSlashInput() {
+    const lineInfo = getEditorCurrentLineInfo();
+    if (!lineInfo) {
+        hideSlashMenu();
+        return;
+    }
+    const line = lineInfo.lineBefore;
+    const slashMatch = line.match(/(?:^|\s)\/([a-zA-Z0-9_\$à-ỹÀ-Ỹ]*)$/);
+    if (!slashMatch) {
+        hideSlashMenu();
+        return;
+    }
+
+    currentSlashQuery = slashMatch[1].toLowerCase().normalize('NFC');
+    showSlashMenu(currentSlashQuery);
+}
+
+function handleEditorSmartKeydown(e) {
+    const codeEditor = document.getElementById('codeEditor');
+    if (!codeEditor) return;
+
+    // 1. Xử lý điều hướng bàn phím khi Slash Menu đang mở
+    const slashMenu = document.getElementById('editorSlashMenu');
+    const isSlashMenuOpen = slashMenu && slashMenu.style.display !== 'none';
+
+    if (isSlashMenuOpen) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            moveSlashSelection(1);
+            return;
+        }
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            moveSlashSelection(-1);
+            return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            executeSelectedSlashItem();
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            hideSlashMenu();
+            return;
+        }
+    }
+
+    // 2. Không can thiệp khi đang gõ tiếng Việt qua bộ gõ IME (Unikey, EVKey), trừ các phím điều khiển rõ ràng
+    if ((e.isComposing || e.keyCode === 229) && e.key !== 'Enter' && e.key !== 'Tab' && e.key !== 'Escape') {
+        return;
+    }
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const selectedText = sel.toString();
+
+    // 3. Tự động bao bọc vùng chọn hoặc chèn cặp ký tự: $, (, [, {, ", *
+    if (e.key === '$' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        if (selectedText.length > 0) {
+            document.execCommand('insertText', false, `$${selectedText}$`);
+        } else {
+            document.execCommand('insertText', false, '$$');
+            try {
+                const range = sel.getRangeAt(0);
+                range.setStart(range.startContainer, range.startOffset - 1);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } catch (err) {}
+        }
+        return;
+    }
+
+    if (e.key === '(' && !e.ctrlKey && !e.altKey && !e.metaKey && selectedText.length > 0) {
+        e.preventDefault();
+        document.execCommand('insertText', false, `(${selectedText})`);
+        return;
+    }
+
+    if (e.key === '[' && !e.ctrlKey && !e.altKey && !e.metaKey && selectedText.length > 0) {
+        e.preventDefault();
+        document.execCommand('insertText', false, `[${selectedText}]`);
+        return;
+    }
+
+    if (e.key === '{' && !e.ctrlKey && !e.altKey && !e.metaKey && selectedText.length > 0) {
+        e.preventDefault();
+        document.execCommand('insertText', false, `{${selectedText}}`);
+        return;
+    }
+
+    if (e.key === '"' && !e.ctrlKey && !e.altKey && !e.metaKey && selectedText.length > 0) {
+        e.preventDefault();
+        document.execCommand('insertText', false, `"${selectedText}"`);
+        return;
+    }
+
+    // Đánh dấu hoặc bỏ đánh dấu đáp án đúng * trên nhãn phương án
+    if (e.key === '*' && !e.ctrlKey && !e.altKey && !e.metaKey && selectedText.length > 0) {
+        const optMatch = selectedText.match(/^(\s*)(\*?)([A-Da-d][\.\:\)])(\s*)$/);
+        if (optMatch) {
+            e.preventDefault();
+            const leadingSpace = optMatch[1];
+            const hasStar = !!optMatch[2];
+            const label = optMatch[3];
+            const trailingSpace = optMatch[4];
+            const toggled = hasStar ? `${leadingSpace}${label}${trailingSpace}` : `${leadingSpace}*${label}${trailingSpace}`;
+            document.execCommand('insertText', false, toggled);
+            return;
+        }
+    }
+
+    // 4. Xóa cặp rỗng khi nhấn Backspace giữa $$, (), [], {}, ""
+    if (e.key === 'Backspace' && !selectedText) {
+        const range = sel.getRangeAt(0);
+        const node = range.startContainer;
+        const offset = range.startOffset;
+        if (node.nodeType === Node.TEXT_NODE && offset > 0 && offset < node.textContent.length) {
+            const charBefore = node.textContent[offset - 1];
+            const charAfter = node.textContent[offset];
+            const isPair = (charBefore === '$' && charAfter === '$') ||
+                           (charBefore === '(' && charAfter === ')') ||
+                           (charBefore === '[' && charAfter === ']') ||
+                           (charBefore === '{' && charAfter === '}') ||
+                           (charBefore === '"' && charAfter === '"');
+            if (isPair) {
+                e.preventDefault();
+                range.setStart(node, offset - 1);
+                range.setEnd(node, offset + 1);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('delete', false, null);
+                return;
+            }
+        }
+    }
+
+    // 5. Phím Enter: Tự động sinh phương án kế tiếp hoặc hủy tiền tố rỗng
+    if (e.key === 'Enter' && !e.shiftKey) {
+        const lineInfo = getEditorCurrentLineInfo();
+        if (lineInfo) {
+            const line = lineInfo.lineBefore;
+
+            // 5a. Hủy tiền tố rỗng: Người dùng nhấn Enter trên phương án chưa có nội dung (ví dụ D. hoặc *d) )
+            const emptyMatch = line.match(/^(\s*\*?(?:[A-D][\.\:\)]|[a-d][\)\.]))\s*$/);
+            if (emptyMatch) {
+                e.preventDefault();
+                if (lineInfo.lineEl && lineInfo.lineEl !== codeEditor && lineInfo.lineEl.parentNode) {
+                    lineInfo.lineEl.innerHTML = '<br>';
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(lineInfo.lineEl);
+                    newRange.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(newRange);
+                } else {
+                    replaceTokenBeforeCaret(emptyMatch[0].length, '');
+                }
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+
+            // 5b. Tự động sinh phương án trắc nghiệm MCQ: A. -> B., B. -> C., C. -> D.
+            const mcqMatch = line.match(/^(\s*)(\*?)([A-D])([\.\:\)])(\s+)(.+)$/);
+            if (mcqMatch) {
+                const currentLetter = mcqMatch[3];
+                const delim = mcqMatch[4];
+                const nextMap = { 'A': 'B', 'B': 'C', 'C': 'D' };
+                const nextLetter = nextMap[currentLetter];
+                if (nextLetter) {
+                    e.preventDefault();
+                    const newDiv = document.createElement('div');
+                    newDiv.innerHTML = `<span style="color: #7c3aed; font-weight: bold;">${nextLetter}${delim} </span>&nbsp;`;
+                    if (lineInfo.lineEl && lineInfo.lineEl.parentNode && lineInfo.lineEl !== codeEditor) {
+                        lineInfo.lineEl.parentNode.insertBefore(newDiv, lineInfo.lineEl.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(newDiv);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        document.execCommand('insertHTML', false, `<div><span style="color: #7c3aed; font-weight: bold;">${nextLetter}${delim} </span>&nbsp;</div>`);
+                    }
+                    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                    return;
+                }
+            }
+
+            // 5c. Tự động sinh mệnh đề đúng/sai: a) -> b), b) -> c), c) -> d)
+            const tfMatch = line.match(/^(\s*)(\*?)([a-d])([\)\.])(\s+)(.+)$/);
+            if (tfMatch) {
+                const currentLetter = tfMatch[3];
+                const delim = tfMatch[4];
+                const nextMap = { 'a': 'b', 'b': 'c', 'c': 'd' };
+                const nextLetter = nextMap[currentLetter];
+                if (nextLetter) {
+                    e.preventDefault();
+                    const newDiv = document.createElement('div');
+                    newDiv.innerHTML = `<span style="color: #0ea5e9; font-weight: bold;">${nextLetter}${delim} </span>&nbsp;`;
+                    if (lineInfo.lineEl && lineInfo.lineEl.parentNode && lineInfo.lineEl !== codeEditor) {
+                        lineInfo.lineEl.parentNode.insertBefore(newDiv, lineInfo.lineEl.nextSibling);
+                        const newRange = document.createRange();
+                        newRange.selectNodeContents(newDiv);
+                        newRange.collapse(false);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                    } else {
+                        document.execCommand('insertHTML', false, `<div><span style="color: #0ea5e9; font-weight: bold;">${nextLetter}${delim} </span>&nbsp;</div>`);
+                    }
+                    codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                    return;
+                }
+            }
+        }
+    }
+
+    // 6. Phím Tab: Tạo nhanh câu hỏi mới, mở rộng snippet hoặc thụt lề
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            outdentCurrentLine();
+            return;
+        }
+
+        const codeEditor = document.getElementById('codeEditor');
+        const sel = window.getSelection();
+
+        // 6a. Nếu cả bộ soạn thảo rỗng -> Tạo ngay Câu 1
+        const fullEditorText = getRichEditorText(codeEditor).trim();
+        if (!fullEditorText) {
+            insertNewQuestionSnippet('mcq');
+            return;
+        }
+
+        // Xử lý bôi đen: nếu là placeholder văn bản mẫu thì thoát bôi chọn
+        if (selectedText.length > 0) {
+            const isPlaceholderSelected = /(?:Nội dung câu hỏi|Cho các mệnh đề|Phương án đúng)/i.test(selectedText);
+            if (isPlaceholderSelected) {
+                if (sel) sel.collapseToEnd();
+            } else {
+                document.execCommand('insertText', false, '\u00A0\u00A0\u00A0\u00A0');
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+        }
+
+        const lineInfo = getEditorCurrentLineInfo();
+        const onEmptyLine = isCaretOnEmptyLine();
+
+        // 6b. Kiểm tra xem người dùng có vừa gõ từ khóa snippet ở trước con trỏ không
+        if (lineInfo && lineInfo.lineBefore) {
+            const rawBefore = lineInfo.lineBefore.normalize('NFC').trimEnd();
+
+            // Nhận diện từ khóa trắc nghiệm (câu, cau, câu 2, cau 2, mcq, +,...)
+            const qMatch = rawBefore.match(/(?:^|[\s\r\n])((?:câu\s*hỏi|câu|cau|mcq|tạo\s*câu|thêm\s*câu|\+)\s*\d*[\:\.\-\/\)]*)$/i);
+            if (qMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(qMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '');
+                insertNewQuestionSnippet('mcq');
+                return;
+            }
+
+            // Nhận diện từ khóa đúng/sai (ds, tf, đúng sai, dung sai,...)
+            const tfMatch = rawBefore.match(/(?:^|[\s\r\n])((?:đúng\s*sai|dung\s*sai|ds|tf|đ\/s|d\/s)\s*\d*[\:\.\-\/\)]*)$/i);
+            if (tfMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(tfMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '');
+                insertNewQuestionSnippet('tf');
+                return;
+            }
+
+            // Nhận diện từ khóa trả lời ngắn (sa, ngan, ngắn, trả lời ngắn,...)
+            const saMatch = rawBefore.match(/(?:^|[\s\r\n])((?:trả\s*lời\s*ngắn|tra\s*loi\s*ngan|sa|ngắn|ngan|short)\s*\d*[\:\.\-\/\)]*)$/i);
+            if (saMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(saMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '');
+                insertNewQuestionSnippet('sa');
+                return;
+            }
+
+            // Nhận diện từ khóa tự luận (tl, tự luận, tu luan, essay,...)
+            const essayMatch = rawBefore.match(/(?:^|[\s\r\n])((?:tự\s*luận|tu\s*luan|tl|essay)\s*\d*[\:\.\-\/\)]*)$/i);
+            if (essayMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(essayMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '');
+                insertNewQuestionSnippet('essay');
+                return;
+            }
+
+            // Nhận diện công thức toán học ($ hoặc toan, math,...)
+            const mathMatch = rawBefore.match(/(?:^|[\s\r\n])((?:toán|toan|math|latex|\$))$/i);
+            if (mathMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(mathMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '$$');
+                try {
+                    const r = sel.getRangeAt(0);
+                    r.setStart(r.startContainer, r.startOffset - 1);
+                    r.collapse(true);
+                    sel.removeAllRanges();
+                    sel.addRange(r);
+                } catch (err) {}
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+
+            // Nhận diện lời giải chi tiết (loigiai, lg, giải, hướng dẫn,...)
+            const solMatch = rawBefore.match(/(?:^|[\s\r\n])((?:lời\s*giải|loi\s*giai|lg|giải|giai|hd|hướng\s*dẫn))$/i);
+            if (solMatch) {
+                const tokenLen = lineInfo.lineBefore.length - lineInfo.lineBefore.normalize('NFC').lastIndexOf(solMatch[1]);
+                replaceTokenBeforeCaret(tokenLen, '');
+                document.execCommand('insertHTML', false, `<div><span style="color: #059669; font-weight: bold;">Lời giải: </span>&nbsp;</div>`);
+                codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
+
+            // Nhận diện bảng biến thiên
+            if (rawBefore.endsWith('bbt')) {
+                replaceTokenBeforeCaret(3, '');
+                insertTableToEditor('bbt');
+                return;
+            }
+
+            // Nhận diện bảng dữ liệu
+            if (rawBefore.endsWith('bang')) {
+                replaceTokenBeforeCaret(4, '');
+                insertTableToEditor('general');
+                return;
+            }
+        }
+
+        // 6c. Nếu con trỏ đang ở dòng trống -> Luôn tạo câu hỏi mới!
+        if (onEmptyLine || (lineInfo && lineInfo.isLineEmpty)) {
+            insertNewQuestionSnippet('mcq');
+            return;
+        }
+
+        // 6d. Nếu con trỏ đang ở cuối phương án cuối cùng (phương án D hoặc d) -> Nhấn Tab cũng tạo ngay câu mới!
+        if (lineInfo && lineInfo.lineBefore) {
+            const rawLine = lineInfo.fullLine || lineInfo.lineBefore;
+            const isLastOptionLine = /^(\s*\*?(?:[Dd][\.\:\)]|[4][\.\:\)])\s+.+)$/.test(rawLine.trim()) && !lineInfo.lineAfter.trim();
+            if (isLastOptionLine) {
+                insertNewQuestionSnippet('mcq');
+                return;
+            }
+        }
+
+        // 6e. Mặc định khi đang ở giữa văn bản: chèn thụt lề 4 khoảng trắng không gãy (\u00A0)
+        document.execCommand('insertText', false, '\u00A0\u00A0\u00A0\u00A0');
+        codeEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
 function setupEditorEvents() {
     const codeEditor = document.getElementById('codeEditor');
     if (!codeEditor) return;
@@ -982,6 +1945,16 @@ function setupEditorEvents() {
         window.hasUnsavedStudioChanges = true;
         const indicator = document.getElementById('autosaveIndicator');
         if (indicator) indicator.innerText = "⏳ Đang gõ...";
+        const dot = document.getElementById('statusSaveDot');
+        const saveText = document.getElementById('statusSaveText');
+        if (dot) {
+            dot.className = 'status-dot typing';
+            dot.title = 'Đang gõ...';
+        }
+        if (saveText) saveText.textContent = 'Đang gõ...';
+
+        updateEditorStatusBar();
+        handleEditorSlashInput();
 
         clearTimeout(editTimeout);
         editTimeout = setTimeout(() => {
@@ -989,41 +1962,70 @@ function setupEditorEvents() {
             renderPreviewAll();
             updateQCountBadge();
             saveDraftToSession();
-        }, 300);
+            if (indicator) indicator.innerText = "Đã lưu nháp";
+            if (dot) {
+                dot.className = 'status-dot ready';
+                dot.title = 'Đã lưu nháp';
+            }
+            if (saveText) saveText.textContent = 'Đã lưu';
+            updateEditorStatusBar();
+        }, 450);
     });
 
     // Theo dõi và bảo toàn vùng chọn (Selection Range) của codeEditor
-    codeEditor.addEventListener('mouseup', saveCurrentEditorSelection);
-    codeEditor.addEventListener('keyup', saveCurrentEditorSelection);
-    codeEditor.addEventListener('touchend', saveCurrentEditorSelection);
+    codeEditor.addEventListener('mouseup', function() {
+        saveCurrentEditorSelection();
+        updateEditorStatusBar();
+    });
+    codeEditor.addEventListener('keyup', function() {
+        saveCurrentEditorSelection();
+        updateEditorStatusBar();
+    });
+    codeEditor.addEventListener('touchend', function() {
+        saveCurrentEditorSelection();
+        updateEditorStatusBar();
+    });
     document.addEventListener('selectionchange', function() {
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0) {
             const ed = document.getElementById('codeEditor');
             if (ed && ed.contains(sel.anchorNode)) {
                 savedEditorSelection = sel.getRangeAt(0).cloneRange();
+                updateEditorStatusBar();
             }
         }
     });
 
-    // Auto-complete bằng phím Tab
-    initEditorImageInteractions();
-
-    codeEditor.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            document.execCommand('insertText', false, '    ');
+    // Đóng slash menu khi click ra ngoài
+    document.addEventListener('click', function(e) {
+        const slashMenu = document.getElementById('editorSlashMenu');
+        if (slashMenu && slashMenu.style.display !== 'none' && !slashMenu.contains(e.target) && e.target !== codeEditor) {
+            hideSlashMenu();
         }
     });
 
+    // Khởi tạo các tính năng tương tác ảnh và phím thông minh
+    initEditorImageInteractions();
+
+    codeEditor.addEventListener('keydown', handleEditorSmartKeydown);
+
     // Tự động đóng gói công thức toán mới gõ thành thẻ .editor-formula khi rời con trỏ
-    codeEditor.addEventListener('blur', function() {
+    codeEditor.addEventListener('blur', function(e) {
+        // Nếu chuyển focus sang chính Slash Menu thì không đóng ngay
+        const slashMenu = document.getElementById('editorSlashMenu');
+        if (slashMenu && slashMenu.contains(e.relatedTarget)) {
+            return;
+        }
         const currentHtml = codeEditor.innerHTML;
         const highlighted = highlightFormulasInHtml(currentHtml);
         if (highlighted !== currentHtml) {
             codeEditor.innerHTML = highlighted;
         }
+        hideSlashMenu();
     });
+
+    // Khởi tạo trạng thái ban đầu cho thanh trạng thái
+    setTimeout(updateEditorStatusBar, 300);
 }
 
 function setupTitleEvents() {
@@ -1447,9 +2449,9 @@ function parseEditorText(text) {
             const fullOpt = `${char}) ${optContent}`;
             currentQ.options.push(fullOpt);
             currentQ.correct_answer[char] = isTrue;
-        } else if (currentQ && currentQ.type === 'true_false' && (trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi) || []).length === 4) {
-            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN
-            const seq = trimmed.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+        } else if (currentQ && currentQ.type === 'true_false' && currentQ.options && currentQ.options.length >= 2 && trimmed.length <= 60 && (trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi) || []).length === 4) {
+            // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN (chỉ nhận sau khi đã có các phương án a, b, c, d)
+            const seq = trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi);
             ['a', 'b', 'c', 'd'].forEach((k, idx) => {
                 currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
             });
@@ -1462,7 +2464,7 @@ function parseEditorText(text) {
                 const tfOptsCount = (currentQ.options || []).filter(opt => tfOptRegex.test(opt)).length;
 
                 const isTfAns = /(?:[a-d][\.\:\)\/\-\s]*(?:Đ|S|Đúng|Sai)|(?:Đ|S|Đúng|Sai)\s*[\,\;\-]\s*(?:Đ|S|Đúng|Sai))/i.test(ansContent)
-                    || ((ansContent.match(/\b(Đ|S|Đúng|Sai)\b/gi) || []).length >= 3);
+                    || ((ansContent.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai)(?![a-zA-ZÀ-ỹ])/gi) || []).length >= 3);
 
                 if (mcqOptsCount >= 2 || (currentQ.type === 'mcq' && currentQ.options.length >= 2)) {
                     // ƯU TIÊN TUYỆT ĐỐI CHO MCQ: KHÔNG BAO GIỜ CHUYỂN SANG ĐÚNG/SAI HAY TRẢ LỜI NGẮN
@@ -1490,7 +2492,7 @@ function parseEditorText(text) {
                             tfDict[k] = ['đ', 'đúng', 'dung', 'true', 't', '1'].includes(v);
                         }
                     });
-                    const seq = ansContent.match(/\b(Đ|S|Đúng|Sai|True|False)\b/gi);
+                    const seq = ansContent.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi);
                     if (seq && seq.length === 4) {
                         ['a', 'b', 'c', 'd'].forEach((k, idx) => {
                             tfDict[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
@@ -1887,6 +2889,7 @@ function formatSubscriptsAndFormulas(text, convertNewlines = false) {
 function renderPreviewAll() {
     const previewContent = document.getElementById('preview-content');
     if (!previewContent) return;
+    const savedScrollTop = previewContent.scrollTop;
     previewContent.innerHTML = '';
     
     if (currentData.length === 0) {
@@ -2258,6 +3261,9 @@ function renderPreviewAll() {
         window.initQuestionTypeCustomSelects(previewContent);
     }
     renderMathJax(previewContent);
+    if (savedScrollTop > 0) {
+        previewContent.scrollTop = savedScrollTop;
+    }
 }
 
 function scrollToQuestionInEditor(qIndex) {
@@ -3088,6 +4094,8 @@ async function exportWordDocument() {
     else if (editingQuizSettings && editingQuizSettings.title) quizTitle = editingQuizSettings.title;
 
     const exportData = {
+        id: editingQuizId || null,
+        quiz_id: editingQuizId || null,
         title: quizTitle,
         questions: currentData || [],
         time_limit: (editingQuizSettings && editingQuizSettings.timeLimit) || 0
@@ -4498,6 +5506,8 @@ window.openDedicatedExportPage = function() {
     }
 
     const exportData = {
+        id: window.currentQuizId || null,
+        quiz_id: window.currentQuizId || null,
         title: quizTitle,
         questions: questions,
         time_limit: parseInt(document.getElementById('quizTimeLimit')?.value || '45', 10) || 45

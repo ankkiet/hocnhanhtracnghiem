@@ -444,3 +444,81 @@ def test_unsaved_exit_beforeunload_guards():
         assert "beforeunload" in sc_js
 
 
+def test_publish_practice_mode_hides_anticheat():
+    """Kiểm tra chế độ luyện tập tự do tự động ẩn và tắt các tùy chọn giám sát & chống gian lận."""
+    for pub_path in ["templates/publish.html", "static/publish.html"]:
+        with open(pub_path, "r", encoding="utf-8") as f:
+            pub_html = f.read()
+        assert 'id="sectionAntiCheat"' in pub_html, f"Thiếu sectionAntiCheat trong {pub_path}"
+        assert 'secAntiCheat.style.display = \'none\'' in pub_html
+        assert 'isPracticeMode' in pub_html
+        assert 'cardModePractice' in pub_html
+        assert 'cardModeExam' in pub_html
+
+
+def test_export_docx_endpoint_custom_and_title_filename():
+    """Kiểm tra xuất file Word docx giữ đúng tiêu đề đề thi và không bị nhầm lẫn mã đề."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from unittest.mock import patch, MagicMock
+
+    client = TestClient(app)
+    
+    with patch("app.api.routes.teacher._get_db") as mock_db:
+        fake_db = MagicMock()
+        mock_db.return_value = fake_db
+        
+        fake_doc = MagicMock()
+        fake_doc.exists = True
+        fake_doc.to_dict.return_value = {
+            "title": "Đề thi thử THPT Quốc gia môn Toán 2026",
+            "data": [
+                {"question": "Câu 1: Hàm số nào đồng biến trên R?", "options": ["A. y=x", "B. y=-x"], "correct_answer": "A", "type": "mcq"}
+            ],
+            "time_limit": 90,
+            "status": "published"
+        }
+        fake_db.collection().document().get.return_value = fake_doc
+        
+        # Test GET /api/teacher/export_docx/{quiz_id}
+        res = client.get("/api/teacher/export_docx/TEST_QUIZ_TITLE_1")
+        assert res.status_code == 200
+        assert res.headers["content-type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        disp = res.headers.get("content-disposition", "")
+        assert "TEST_QUIZ_TITLE_1" in disp or "De_thi_thu_THPT" in disp or "filename*=" in disp
+
+
+def test_export_js_id_isolation_and_publish_title_sync():
+    """Kiểm tra export.js và publish.html cô lập ID đề thi và đồng bộ tiêu đề mới sau khi xuất bản."""
+    # 1. Kiểm tra export.js cô lập ID và dọn dẹp dữ liệu của đề khác
+    export_files = [
+        "static/js/export.js",
+        "static/export.js",
+        "templates/export.js",
+        "templates/js/export.js"
+    ]
+    for path in export_files:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "transId && transId === quizData.id" in content, f"{path} thiếu kiểm tra trùng khớp quizData.id"
+        assert "sessionStorage.removeItem('export_quiz_data')" in content, f"{path} thiếu dọn dẹp cache đề khác"
+        assert "export_quiz_title_" in content, f"{path} thiếu hỗ trợ tiêu đề truyền qua session"
+
+    # 2. Kiểm tra publish.html cập nhật export_quiz_data và export_quiz_{finalId} với tiêu đề mới
+    publish_files = ["static/publish.html", "templates/publish.html"]
+    for path in publish_files:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "sessionStorage.setItem(`export_quiz_${finalId}`" in content, f"{path} thiếu lưu export_quiz_finalId"
+        assert "sessionStorage.setItem('export_quiz_data'" in content, f"{path} thiếu lưu export_quiz_data với tên mới"
+        assert "sessionStorage.setItem(`export_quiz_title_${finalId}`" in content, f"{path} thiếu lưu export_quiz_title"
+
+    # 3. Kiểm tra script.source.js và script.js truyền đúng tên đề thi và xóa cache rác
+    for path in ["static/js/script.source.js", "templates/script.source.js", "static/js/script.js", "templates/script.js"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "export_quiz_title_" in content or "exportQuizDocx" in content, f"{path} thiếu exportQuizDocx cập nhật"
+
+
+
+

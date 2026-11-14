@@ -155,3 +155,74 @@ def test_leaderboard_auto_populates_missing_total_questions():
         data = res.json()["data"]
         assert len(data) == 1
         assert data[0]["total_questions"] == 40
+
+def test_leaderboard_deduplicates_same_student_keeps_highest_score():
+    """Kiểm tra mỗi thí sinh chỉ xuất hiện 1 lần duy nhất với điểm cao nhất trên bảng xếp hạng."""
+    mock_db = MagicMock()
+    
+    # Danh sách nộp bài gồm nhiều lần thi của cùng 1 thí sinh:
+    # - Nguyen Van A nộp 3 lần: 7.0 (100s), 10.0 (120s), 9.0 (60s) -> Phải giữ lần 10.0 (120s)
+    # - Tran Thi B nộp 2 lần cùng 9.5đ: 9.5 (150s), 9.5 (50s) -> Phải giữ lần 9.5 (50s) nhanh hơn
+    # - Le Van C (đã đăng nhập, có student_id: 'user_c') nộp 2 lần: 6.0 (80s), 9.8 (70s) -> Phải giữ 9.8 (70s)
+    # - Pham Thi D nộp 1 lần: 8.5 (90s)
+    # - Hoang Van E nộp 1 lần: 8.0 (100s)
+    # - Vu Thi F nộp 1 lần: 7.5 (110s)
+    submissions = [
+        {"student_name": "Nguyen Van A", "score": 7.0, "time_elapsed": 100, "total_questions": 10},
+        {"student_name": "Nguyen Van A", "score": 10.0, "time_elapsed": 120, "total_questions": 10},
+        {"student_name": "Nguyen Van A", "score": 9.0, "time_elapsed": 60, "total_questions": 10},
+        {"student_name": "Tran Thi B", "score": 9.5, "time_elapsed": 150, "total_questions": 10},
+        {"student_name": "Tran Thi B", "score": 9.5, "time_elapsed": 50, "total_questions": 10},
+        {"student_name": "Le Van C", "student_id": "user_c", "score": 6.0, "time_elapsed": 80, "total_questions": 10},
+        {"student_name": "Le Van C", "student_id": "user_c", "score": 9.8, "time_elapsed": 70, "total_questions": 10},
+        {"student_name": "Pham Thi D", "score": 8.5, "time_elapsed": 90, "total_questions": 10},
+        {"student_name": "Hoang Van E", "score": 8.0, "time_elapsed": 100, "total_questions": 10},
+        {"student_name": "Vu Thi F", "score": 7.5, "time_elapsed": 110, "total_questions": 10},
+    ]
+
+    mock_docs = []
+    for s in submissions:
+        doc = MagicMock()
+        doc.to_dict.return_value = s
+        mock_docs.append(doc)
+
+    mock_query = MagicMock()
+    mock_query.get.return_value = mock_docs
+    mock_subs_ref = MagicMock()
+    mock_subs_ref.order_by.return_value.limit.return_value = mock_query
+    mock_db.collection.return_value.document.return_value.collection.return_value = mock_subs_ref
+
+    with patch.object(student_service, "get_db", return_value=mock_db):
+        res = client.get("/api/leaderboard/QUIZ_DEDUP")
+        assert res.status_code == 200
+        data = res.json()["data"]
+
+        # Bảng xếp hạng chỉ lấy Top 5 thí sinh duy nhất
+        assert len(data) == 5
+
+        # Danh sách tên thí sinh không được trùng lặp
+        names = [item["student_name"] for item in data]
+        assert len(names) == len(set(names))
+
+        # Hạng 1: Nguyen Van A với điểm cao nhất là 10.0 (120s)
+        assert data[0]["student_name"] == "Nguyen Van A"
+        assert data[0]["score"] == 10.0
+        assert data[0]["time_elapsed"] == 120
+
+        # Hạng 2: Le Van C với điểm cao nhất là 9.8 (70s)
+        assert data[1]["student_name"] == "Le Van C"
+        assert data[1]["score"] == 9.8
+        assert data[1]["time_elapsed"] == 70
+
+        # Hạng 3: Tran Thi B với điểm 9.5 và thời gian nhanh hơn là 50s
+        assert data[2]["student_name"] == "Tran Thi B"
+        assert data[2]["score"] == 9.5
+        assert data[2]["time_elapsed"] == 50
+
+        # Hạng 4: Pham Thi D với điểm 8.5
+        assert data[3]["student_name"] == "Pham Thi D"
+        assert data[3]["score"] == 8.5
+
+        # Hạng 5: Hoang Van E với điểm 8.0
+        assert data[4]["student_name"] == "Hoang Van E"
+        assert data[4]["score"] == 8.0

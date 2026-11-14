@@ -1358,45 +1358,47 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         </label>
 
                         <!-- C. GIÁM SÁT CHỐNG GIAN LẬN NÂNG CAO -->
-                        <div class="sub-section-title">
-                            <i class="ri-shield-keyhole-line" style="color: #dc2626;"></i> C. Giám sát phòng thi &amp; chống gian lận
+                        <div id="sectionAntiCheat">
+                            <div class="sub-section-title">
+                                <i class="ri-shield-keyhole-line" style="color: #dc2626;"></i> C. Giám sát phòng thi &amp; chống gian lận
+                            </div>
+
+                            <label class="switch-item">
+                                <div class="switch-info">
+                                    <span class="switch-title"><i class="ri-fullscreen-line" style="color: #2563eb;"></i> Bắt buộc chế độ toàn màn hình (full-screen)</span>
+                                    <span class="switch-desc">Yêu cầu thí sinh mở toàn màn hình khi làm bài; cảnh báo khi thu nhỏ cửa sổ.</span>
+                                </div>
+                                <input type="checkbox" id="chkFullScreen" style="display: none;">
+                                <span class="switch-toggle"></span>
+                            </label>
+
+                            <label class="switch-item">
+                                <div class="switch-info">
+                                    <span class="switch-title"><i class="ri-alert-line" style="color: #ea580c;"></i> Phát hiện &amp; ghi nhận nhật ký chuyển tab</span>
+                                    <span class="switch-desc">Ghi nhận số lần học sinh chuyển sang ứng dụng hoặc tab khác trong quá trình thi.</span>
+                                </div>
+                                <input type="checkbox" id="chkDetectTabSwitch" style="display: none;" checked>
+                                <span class="switch-toggle"></span>
+                            </label>
+
+                            <div class="form-group">
+                                <label class="form-label" for="selMaxTabViolations">Tự động nộp bài nếu vi phạm chuyển tab quá mức</label>
+                                <select id="selMaxTabViolations" class="form-select">
+                                    <option value="0" selected>Chỉ ghi nhận và cảnh báo (không tự thu bài)</option>
+                                    <option value="3">Tự động thu bài khi chuyển tab quá 3 lần</option>
+                                    <option value="5">Tự động thu bài khi chuyển tab quá 5 lần</option>
+                                </select>
+                            </div>
+
+                            <label class="switch-item">
+                                <div class="switch-info">
+                                    <span class="switch-title"><i class="ri-file-copy-2-line" style="color: #475569;"></i> Khóa chống sao chép &amp; chống sao chép đề thi</span>
+                                    <span class="switch-desc">Vô hiệu hóa thao tác bôi đen chữ, click chuột phải và các phím tắt sao chép đề thi.</span>
+                                </div>
+                                <input type="checkbox" id="chkAntiCopy" style="display: none;" checked>
+                                <span class="switch-toggle"></span>
+                            </label>
                         </div>
-
-                        <label class="switch-item">
-                            <div class="switch-info">
-                                <span class="switch-title"><i class="ri-fullscreen-line" style="color: #2563eb;"></i> Bắt buộc chế độ toàn màn hình (full-screen)</span>
-                                <span class="switch-desc">Yêu cầu thí sinh mở toàn màn hình khi làm bài; cảnh báo khi thu nhỏ cửa sổ.</span>
-                            </div>
-                            <input type="checkbox" id="chkFullScreen" style="display: none;">
-                            <span class="switch-toggle"></span>
-                        </label>
-
-                        <label class="switch-item">
-                            <div class="switch-info">
-                                <span class="switch-title"><i class="ri-alert-line" style="color: #ea580c;"></i> Phát hiện &amp; ghi nhận nhật ký chuyển tab</span>
-                                <span class="switch-desc">Ghi nhận số lần học sinh chuyển sang ứng dụng hoặc tab khác trong quá trình thi.</span>
-                            </div>
-                            <input type="checkbox" id="chkDetectTabSwitch" style="display: none;" checked>
-                            <span class="switch-toggle"></span>
-                        </label>
-
-                        <div class="form-group">
-                            <label class="form-label" for="selMaxTabViolations">Tự động nộp bài nếu vi phạm chuyển tab quá mức</label>
-                            <select id="selMaxTabViolations" class="form-select">
-                                <option value="0" selected>Chỉ ghi nhận và cảnh báo (không tự thu bài)</option>
-                                <option value="3">Tự động thu bài khi chuyển tab quá 3 lần</option>
-                                <option value="5">Tự động thu bài khi chuyển tab quá 5 lần</option>
-                            </select>
-                        </div>
-
-                        <label class="switch-item">
-                            <div class="switch-info">
-                                <span class="switch-title"><i class="ri-file-copy-2-line" style="color: #475569;"></i> Khóa chống sao chép &amp; chống sao chép đề thi</span>
-                                <span class="switch-desc">Vô hiệu hóa thao tác bôi đen chữ, click chuột phải và các phím tắt sao chép đề thi.</span>
-                            </div>
-                            <input type="checkbox" id="chkAntiCopy" style="display: none;" checked>
-                            <span class="switch-toggle"></span>
-                        </label>
 
                         <!-- D. THÔNG TIN THÍ SINH YÊU CẦU & XÁC MINH DANH TÍNH -->
                         <div class="sub-section-title">
@@ -2118,9 +2120,6 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 document.getElementById('numTimeLimit').value = data.time_limit;
                 highlightMatchingTimeChip(data.time_limit);
             }
-            if (data.mode) {
-                setQuizMode(data.mode);
-            }
             if (data.is_shuffle !== undefined) {
                 document.getElementById('chkShuffle').checked = !!data.is_shuffle;
             }
@@ -2146,9 +2145,14 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 if (s.req_sbd !== undefined) document.getElementById('chkReqSBD').checked = !!s.req_sbd;
             }
 
+            // Đồng bộ chế độ thi và tự động ẩn/tắt các tùy chọn chống gian lận nếu là luyện tập
+            setQuizMode(data.mode || currentQuiz.mode || 'exam');
+
             // Khởi tạo bảng chia điểm
             initScoringUI(scoringCfg);
         }
+
+        let _savedExamAntiCheat = null;
 
         function setQuizMode(mode) {
             currentQuiz.mode = mode;
@@ -2156,15 +2160,61 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             const cardExam = document.getElementById('cardModeExam');
             const rdPrac = document.querySelector('input[name="rdQuizMode"][value="practice"]');
             const rdExam = document.querySelector('input[name="rdQuizMode"][value="exam"]');
+            const secAntiCheat = document.getElementById('sectionAntiCheat');
+
+            const chkFull = document.getElementById('chkFullScreen');
+            const chkTab = document.getElementById('chkDetectTabSwitch');
+            const selTabViolations = document.getElementById('selMaxTabViolations');
+            const chkCopy = document.getElementById('chkAntiCopy');
 
             if (mode === 'practice') {
-                cardPrac.classList.add('active');
-                cardExam.classList.remove('active');
+                if (cardPrac) cardPrac.classList.add('active');
+                if (cardExam) cardExam.classList.remove('active');
                 if (rdPrac) rdPrac.checked = true;
+
+                // Lưu lại trạng thái của chế độ thi thử trước khi chuyển sang luyện tập
+                if (chkFull && chkTab && selTabViolations && chkCopy) {
+                    _savedExamAntiCheat = {
+                        full_screen: chkFull.checked,
+                        detect_tab: chkTab.checked,
+                        max_tab_violations: selTabViolations.value,
+                        anti_copy: chkCopy.checked
+                    };
+                    // Chế độ luyện tập tự do: tắt toàn bộ các tùy chọn giám sát & chống gian lận
+                    chkFull.checked = false;
+                    chkTab.checked = false;
+                    selTabViolations.value = "0";
+                    chkCopy.checked = false;
+                }
+
+                // Ẩn toàn bộ mục C. Giám sát phòng thi & chống gian lận
+                if (secAntiCheat) {
+                    secAntiCheat.style.display = 'none';
+                }
             } else {
-                cardExam.classList.add('active');
-                cardPrac.classList.remove('active');
+                if (cardExam) cardExam.classList.add('active');
+                if (cardPrac) cardPrac.classList.remove('active');
                 if (rdExam) rdExam.checked = true;
+
+                // Khôi phục lại trạng thái của chế độ thi thử
+                if (chkFull && chkTab && selTabViolations && chkCopy) {
+                    if (_savedExamAntiCheat) {
+                        chkFull.checked = !!_savedExamAntiCheat.full_screen;
+                        chkTab.checked = !!_savedExamAntiCheat.detect_tab;
+                        selTabViolations.value = _savedExamAntiCheat.max_tab_violations || "0";
+                        chkCopy.checked = !!_savedExamAntiCheat.anti_copy;
+                    } else {
+                        chkFull.checked = false;
+                        chkTab.checked = true;
+                        selTabViolations.value = "0";
+                        chkCopy.checked = true;
+                    }
+                }
+
+                // Hiển thị lại mục C. Giám sát phòng thi & chống gian lận
+                if (secAntiCheat) {
+                    secAntiCheat.style.display = '';
+                }
             }
         }
 
@@ -2301,6 +2351,7 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             }
 
             // Thu thập cấu hình nâng cao
+            const isPracticeMode = (currentQuiz.mode === 'practice');
             const settings = {
                 scoring: scoringSettings,
                 start_time: document.getElementById('dtStartTime').value || null,
@@ -2309,10 +2360,10 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 show_score: document.getElementById('selShowScore').value,
                 show_answers: document.getElementById('selShowAnswers').value,
                 leaderboard: document.getElementById('chkLeaderboard').checked,
-                full_screen: document.getElementById('chkFullScreen').checked,
-                detect_tab: document.getElementById('chkDetectTabSwitch').checked,
-                max_tab_violations: parseInt(document.getElementById('selMaxTabViolations').value) || 0,
-                anti_copy: document.getElementById('chkAntiCopy').checked,
+                full_screen: isPracticeMode ? false : document.getElementById('chkFullScreen').checked,
+                detect_tab: isPracticeMode ? false : document.getElementById('chkDetectTabSwitch').checked,
+                max_tab_violations: isPracticeMode ? 0 : (parseInt(document.getElementById('selMaxTabViolations').value) || 0),
+                anti_copy: isPracticeMode ? false : document.getElementById('chkAntiCopy').checked,
                 require_login: document.getElementById('chkReqLogin').checked,
                 req_login: document.getElementById('chkReqLogin').checked,
                 req_name: true,
@@ -2374,10 +2425,14 @@ input[type="checkbox"]:checked + .switch-toggle::after {
 
                     // Cập nhật lại session storage để Studio & Trang chủ có dữ liệu mới nhất
                     try {
-                        const updatedQuizObj = { ...payload, id: finalId, quiz_id: finalId };
+                        const updatedQuizObj = { ...payload, id: finalId, quiz_id: finalId, title: title };
                         sessionStorage.setItem('pending_publish_quiz', JSON.stringify(updatedQuizObj));
                         sessionStorage.setItem('editor_quiz_data', JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem('editor_quiz_title', title);
                         sessionStorage.setItem(`publish_quiz_${finalId}`, JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem(`export_quiz_${finalId}`, JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem('export_quiz_data', JSON.stringify(updatedQuizObj));
+                        sessionStorage.setItem(`export_quiz_title_${finalId}`, title);
                     } catch(e) {}
 
                     // Cập nhật các liên kết trong modal thành công
