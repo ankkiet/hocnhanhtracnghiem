@@ -5047,9 +5047,14 @@ body.minimal-mode #publicLandingExtras {
                             <span style="font-size: 0.74rem; color: #64748b;">Phân bổ điểm cho từng phần câu hỏi</span>
                         </span>
                     </span>
-                    <span id="modalScoringBadge" style="font-size: 0.78rem; font-weight: 800; background: #ecfdf5; color: #047857; padding: 4px 10px; border-radius: 20px; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); display: inline-flex; align-items: center; gap: 5px;">
-                        <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button type="button" class="btn-sm" onclick="autoBalanceModalScoringTo10()" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; cursor: pointer;" title="Tự động cân bằng điểm các phần về đúng 10.0 điểm">
+                            <i class="ri-scales-3-line"></i> Cân bằng về 10 điểm
+                        </button>
+                        <span id="modalScoringBadge" style="font-size: 0.78rem; font-weight: 800; background: #ecfdf5; color: #047857; padding: 4px 10px; border-radius: 20px; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(16,185,129,0.08); display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="ri-checkbox-circle-fill" style="color: #10b981;"></i> Tổng: 10.0 điểm
+                        </span>
+                    </div>
                 </div>
 
                 <div style="padding-top: 10px; border-top: 1px solid #f1f5f9;">

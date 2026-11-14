@@ -520,5 +520,104 @@ def test_export_js_id_isolation_and_publish_title_sync():
         assert "export_quiz_title_" in content or "exportQuizDocx" in content, f"{path} thiếu exportQuizDocx cập nhật"
 
 
+def test_publish_share_url_format_with_slug():
+    """Kiểm tra trang xuất bản tạo link chia sẻ chuẩn SEO /thi/{id}/{slug} thay vì link cũ ?id=."""
+    for path in ["static/publish.html", "templates/publish.html"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "function slugifyVietnamese(" in content, f"{path} thiếu hàm slugifyVietnamese"
+        assert "function getQuizExamUrl(" in content, f"{path} thiếu hàm getQuizExamUrl"
+        assert "getQuizExamUrl(quizId" in content, f"{path} thiếu gọi getQuizExamUrl trong updateShareLinks"
+        assert "/thi/${cleanId}/${slug}" in content, f"{path} thiếu định dạng link /thi/id/slug"
+        assert "const shareUrl = `${window.location.origin}/?id=${encodeURIComponent(quizId)}`;" not in content, \
+            f"{path} vẫn còn link dạng ?id= trong updateShareLinks"
+
+
+def test_publish_scoring_ui_and_validation_to_ten_points():
+    """Kiểm tra mục chia điểm trên giao diện xuất bản đảm bảo tổng 10.0 điểm, có nút cân bằng và kiểm tra trước khi xuất bản."""
+    # 1. Kiểm tra publish.html & templates/publish.html
+    for path in ["static/publish.html", "templates/publish.html"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "autoBalanceQuizScoreTo10" in content, f"{path} thiếu hàm autoBalanceQuizScoreTo10"
+        assert "assignExactPointsToQuestions" in content, f"{path} thiếu hàm assignExactPointsToQuestions"
+        assert "Cân bằng về 10 điểm" in content, f"{path} thiếu nút 'Cân bằng về 10 điểm'"
+        assert "Math.abs(totalScore - 10.0) >= 0.05" in content, f"{path} thiếu kiểm tra tổng 10 điểm trước khi xuất bản"
+
+    # 2. Kiểm tra editor.js & templates/editor.js
+    for path in ["static/js/editor.js", "templates/editor.js"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "autoBalanceModalScoringTo10" in content, f"{path} thiếu hàm autoBalanceModalScoringTo10"
+        assert "assignExactPointsToEditorQuestions" in content, f"{path} thiếu hàm assignExactPointsToEditorQuestions"
+        assert "Math.abs(totalScore - 10.0) >= 0.05" in content, f"{path} thiếu kiểm tra tổng 10 điểm trước khi xuất bản"
+
+    # 3. Kiểm tra script.source.js & templates/script.source.js
+    for path in ["static/js/script.source.js", "templates/script.source.js"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "autoBalanceModalScoringTo10" in content, f"{path} thiếu hàm autoBalanceModalScoringTo10"
+        assert "assignExactPointsToIndexQuestions" in content, f"{path} thiếu hàm assignExactPointsToIndexQuestions"
+        assert "Math.abs(totalScore - 10.0) >= 0.05" in content, f"{path} thiếu kiểm tra tổng 10 điểm trước khi xuất bản"
+
+    # 4. Kiểm tra nút bấm trên editor.html và index.html
+    for path in ["templates/editor.html", "templates/index.html"]:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        assert "autoBalanceModalScoringTo10()" in content, f"{path} thiếu gọi autoBalanceModalScoringTo10"
+        assert "Cân bằng về 10 điểm" in content, f"{path} thiếu nút 'Cân bằng về 10 điểm'"
+
+
+def test_student_submit_exam_exact_ten_points_with_fractional_questions():
+    """Kiểm tra chấm bài thi với số câu không chia hết cho 10 (ví dụ 30 câu), đảm bảo học sinh làm đúng 100% đạt đúng 10.0 điểm."""
+    import asyncio
+    from unittest.mock import MagicMock, patch
+    from app.services.student_service import StudentService
+    from app.schemas.student import SubmitExamRequest
+
+    service = StudentService()
+    mock_db = MagicMock()
+    mock_quiz_doc = MagicMock()
+    mock_quiz_doc.exists = True
+
+    # 30 câu hỏi MCQ, chế độ tự động chia đều thang 10
+    total_q = 30
+    questions = [
+        {"question": f"Câu {i+1}", "type": "mcq", "options": ["A. Đúng", "B. Sai"], "correct_answer": "A. Đúng"}
+        for i in range(total_q)
+    ]
+    mock_quiz_doc.to_dict.return_value = {
+        "title": "Đề thi trắc nghiệm 30 câu",
+        "questions": questions,
+        "settings": {
+            "scoring": {
+                "mode": "auto",
+                "total_score": 10.0
+            }
+        }
+    }
+    mock_db.collection.return_value.document.return_value.get.return_value = mock_quiz_doc
+    mock_sub_ref = MagicMock()
+    mock_sub_ref.id = "sub_exact_10_test"
+    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_sub_ref
+
+    # Học sinh làm đúng tất cả 30 câu
+    answers = {str(i): "A. Đúng" for i in range(total_q)}
+    req = SubmitExamRequest(
+        quiz_id="QUIZ_30_Q",
+        student_name="Nguyễn Văn Hoàn Hảo",
+        answers=answers,
+        time_elapsed=600
+    )
+
+    with patch.object(service, 'get_db', return_value=mock_db):
+        res = asyncio.run(service.submit_exam(req))
+        assert res["status"] == "success"
+        assert res["max_score"] == 10.0, f"max_score phải là 10.0 nhưng nhận {res['max_score']}"
+        assert res["score"] == 10.0, f"score phải là 10.0 nhưng nhận {res['score']}"
+
+
+
+
 
 

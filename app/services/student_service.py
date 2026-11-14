@@ -79,7 +79,7 @@ def resolve_question_points(q: dict, total_q: int, scoring_cfg: dict) -> float:
         if mode == 'auto':
             try:
                 total_pts = float(scoring_cfg.get('total_score', 10.0) or 10.0)
-                return round(total_pts / max(1, total_q), 3)
+                return total_pts / max(1, total_q)
             except (ValueError, TypeError):
                 pass
         elif mode in ('gdpt2018', 'custom'):
@@ -268,6 +268,8 @@ class StudentService:
         results = []
         total_max_points = 0.0
 
+        all_correct = True if questions else False
+
         for idx, q in enumerate(questions):
             # Lấy câu trả lời của học sinh (hỗ trợ cả key dạng chuỗi "0" hoặc int 0)
             user_ans = req.answers.get(str(idx))
@@ -285,19 +287,26 @@ class StudentService:
                 is_correct, raw_earned = evaluate_true_false_answer(user_ans, correct_ans)
                 earned = round(raw_earned * q_pt, 3)
                 score += earned
+                if raw_earned < 1.0:
+                    all_correct = False
             elif q_type == 'short_answer':
                 is_correct = evaluate_short_answer(user_ans, correct_ans)
                 earned = q_pt if is_correct else 0.0
                 score += earned
+                if not is_correct:
+                    all_correct = False
             elif q_type == 'essay':
                 # Câu hỏi tự luận: Lưu bài làm của học sinh, chờ giáo viên chấm
                 is_correct = None
                 earned = 0.0
+                all_correct = False
             else:
                 # MCQ 4 lựa chọn: Chuẩn hóa so khớp đáp án linh hoạt, miễn nhiễm đảo vị trí phương án
                 is_correct = evaluate_mcq_answer(user_ans, correct_ans, q.get('options'))
                 earned = q_pt if is_correct else 0.0
                 score += earned
+                if not is_correct:
+                    all_correct = False
 
             results.append({
                 "question_index": idx,
@@ -315,6 +324,13 @@ class StudentService:
             })
 
         total_questions = len(questions)
+
+        # Chuẩn hóa max_score: Nếu tổng điểm câu hỏi xấp xỉ 10.0 (sai số làm tròn <= 0.08) thì chốt max_score = 10.0
+        final_max_score = round(total_max_points, 2)
+        if abs(total_max_points - 10.0) <= 0.08:
+            final_max_score = 10.0
+            if total_questions > 0 and (all_correct or abs(score - total_max_points) < 0.05):
+                score = 10.0
 
         # Lưu bản ghi nộp bài đã được xác thực an toàn vào Firestore
         submission_ref = db.collection('quizzes').document(req.quiz_id).collection('submissions').document()
@@ -334,7 +350,7 @@ class StudentService:
             'school_name': getattr(req, 'school_name', '') or '',
             'sbd': getattr(req, 'sbd', '') or '',
             'score': round(score, 2),
-            'max_score': round(total_max_points, 2),
+            'max_score': final_max_score,
             'total_questions': total_questions,
             'time_elapsed': req.time_elapsed,
             'tab_switch_count': tab_switches,
@@ -369,7 +385,7 @@ class StudentService:
                     'quiz_id': req.quiz_id,
                     'quiz_title': quiz_title,
                     'score': round(score, 2),
-                    'max_score': round(total_max_points, 2),
+                    'max_score': final_max_score,
                     'total_questions': total_questions,
                     'time_elapsed': req.time_elapsed,
                     'submitted_at': now_iso,
@@ -411,7 +427,7 @@ class StudentService:
         return {
             "status": "success",
             "score": round(score, 2),
-            "max_score": round(total_max_points, 2),
+            "max_score": final_max_score,
             "total_questions": total_questions,
             "time_elapsed": req.time_elapsed,
             "tab_switch_count": tab_switches,

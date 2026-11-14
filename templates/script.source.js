@@ -6468,14 +6468,25 @@ function initModalScoringUI(mcqCount, tfCount, saCount, essayCount, totalCount) 
 
     if (selMode) {
         const optGdpt = selMode.querySelector('option[value="gdpt2018"]');
-        const hasGdptParts = (tfCount > 0 || saCount > 0);
         if (optGdpt) {
-            if (!hasGdptParts) {
+            if (totalCount === 0) {
                 optGdpt.disabled = true;
-                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (đề cần có đúng / sai hoặc trả lời ngắn)';
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: tổng 10 điểm)';
+            } else if (mcqCount > 0 && tfCount > 0 && saCount > 0) {
+                optGdpt.disabled = false;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: Phần I: 3đ • Phần II: 4đ • Phần III: 3đ = 10đ)';
+            } else if (mcqCount > 0 && tfCount > 0) {
+                optGdpt.disabled = false;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: Phần I: 6đ • Phần II: 4đ = 10đ)';
+            } else if (mcqCount > 0 && saCount > 0) {
+                optGdpt.disabled = false;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: Phần I: 6đ • Phần III: 4đ = 10đ)';
+            } else if (tfCount > 0 && saCount > 0) {
+                optGdpt.disabled = false;
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: Phần II: 6đ • Phần III: 4đ = 10đ)';
             } else {
                 optGdpt.disabled = false;
-                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: 3đ - 4đ - 3đ)';
+                optGdpt.textContent = 'Chuẩn Bộ GD&ĐT (GDPT 2018: tổng 10 điểm)';
             }
         }
     }
@@ -6516,6 +6527,139 @@ function onModalScoringInputChanged(part) {
     updateModalScoringTotal();
 }
 
+function autoBalanceModalScoringTo10() {
+    const mcqCount = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
+    const tfCount = (window.currentPublishTfList && window.currentPublishTfList.length) || 0;
+    const saCount = (window.currentPublishSaList && window.currentPublishSaList.length) || 0;
+    const essayCount = (window.currentPublishEssayList && window.currentPublishEssayList.length) || 0;
+    const totalCount = mcqCount + tfCount + saCount + essayCount;
+    if (totalCount === 0) return;
+
+    const elPt1 = document.getElementById('modalPtPart1');
+    const elPt2 = document.getElementById('modalPtPart2');
+    const elPt3 = document.getElementById('modalPtPart3');
+    const elPt4 = document.getElementById('modalPtPart4');
+    if (!elPt1 || !elPt2 || !elPt3 || !elPt4) return;
+
+    const pt1 = parseFloat(elPt1.value) || 0;
+    const pt2 = parseFloat(elPt2.value) || 0;
+    const pt3 = parseFloat(elPt3.value) || 0;
+    const pt4 = parseFloat(elPt4.value) || 0;
+
+    const currentSum = (mcqCount * pt1) + (tfCount * pt2) + (saCount * pt3) + (essayCount * pt4);
+
+    if (currentSum <= 0.01) {
+        const eqPt = Math.round((10.0 / totalCount) * 1000) / 1000;
+        if (elPt1 && mcqCount > 0) elPt1.value = eqPt;
+        if (elPt2 && tfCount > 0) elPt2.value = eqPt;
+        if (elPt3 && saCount > 0) elPt3.value = eqPt;
+        if (elPt4 && essayCount > 0) elPt4.value = eqPt;
+    } else {
+        const factor = 10.0 / currentSum;
+        if (elPt1 && mcqCount > 0 && pt1 > 0) elPt1.value = Math.round(pt1 * factor * 100) / 100;
+        if (elPt2 && tfCount > 0 && pt2 > 0) elPt2.value = Math.round(pt2 * factor * 100) / 100;
+        if (elPt3 && saCount > 0 && pt3 > 0) elPt3.value = Math.round(pt3 * factor * 100) / 100;
+        if (elPt4 && essayCount > 0 && pt4 > 0) elPt4.value = Math.round(pt4 * factor * 100) / 100;
+    }
+
+    updateModalScoringTotal();
+    if (typeof showToast === 'function') {
+        showToast("✓ Đã cân bằng thang điểm về đúng 10.0 điểm!");
+    }
+}
+
+function assignExactPointsToIndexQuestions(questions, mode, partPoints) {
+    if (!Array.isArray(questions) || questions.length === 0) return;
+
+    const mcqList = [];
+    const tfList = [];
+    const saList = [];
+    const essayList = [];
+
+    questions.forEach(q => {
+        const t = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
+        if (t === 'true_false' || t === 'tf') tfList.push(q);
+        else if (t === 'short_answer' || t === 'sa') saList.push(q);
+        else if (t === 'essay' || t === 'tu_luan') essayList.push(q);
+        else mcqList.push(q);
+    });
+
+    const totalCount = questions.length;
+
+    if (mode === 'auto') {
+        const totalCents = 1000;
+        const baseCents = Math.floor(totalCents / totalCount);
+        const remainderCents = totalCents - (baseCents * totalCount);
+
+        questions.forEach((q, idx) => {
+            const cents = (idx < remainderCents) ? (baseCents + 1) : baseCents;
+            q.points = Math.round(cents) / 100;
+        });
+        return;
+    }
+
+    let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+    if (mode === 'gdpt2018') {
+        if (essayList.length > 0) {
+            t4 = 3.0;
+            if (mcqList.length > 0 && tfList.length > 0 && saList.length > 0) { t1 = 2.5; t2 = 3.0; t3 = 1.5; }
+            else if (mcqList.length > 0 && tfList.length > 0) { t1 = 4.0; t2 = 3.0; }
+            else if (mcqList.length > 0 && saList.length > 0) { t1 = 4.0; t3 = 3.0; }
+            else if (tfList.length > 0 && saList.length > 0) { t2 = 4.0; t3 = 3.0; }
+            else if (mcqList.length > 0) t1 = 7.0;
+            else if (tfList.length > 0) t2 = 7.0;
+            else if (saList.length > 0) t3 = 7.0;
+        } else if (mcqList.length > 0 && tfList.length > 0 && saList.length > 0) {
+            t1 = 3.0; t2 = 4.0; t3 = 3.0;
+        } else if (mcqList.length > 0 && tfList.length > 0) {
+            t1 = 6.0; t2 = 4.0;
+        } else if (mcqList.length > 0 && saList.length > 0) {
+            t1 = 6.0; t3 = 4.0;
+        } else if (tfList.length > 0 && saList.length > 0) {
+            t2 = 6.0; t3 = 4.0;
+        } else if (mcqList.length > 0) t1 = 10.0;
+        else if (tfList.length > 0) t2 = 10.0;
+        else if (saList.length > 0) t3 = 10.0;
+        else if (essayList.length > 0) t4 = 10.0;
+    } else {
+        const raw1 = mcqList.length * (partPoints.pt1 || 0);
+        const raw2 = tfList.length * (partPoints.pt2 || 0);
+        const raw3 = saList.length * (partPoints.pt3 || 0);
+        const raw4 = essayList.length * (partPoints.pt4 || 0);
+        const rawTotal = raw1 + raw2 + raw3 + raw4;
+        if (Math.abs(rawTotal - 10.0) < 0.05) {
+            t1 = raw1; t2 = raw2; t3 = raw3; t4 = raw4;
+        } else if (rawTotal > 0.01) {
+            const factor = 10.0 / rawTotal;
+            t1 = Math.round(raw1 * factor * 100) / 100;
+            t2 = Math.round(raw2 * factor * 100) / 100;
+            t3 = Math.round(raw3 * factor * 100) / 100;
+            t4 = Math.round(10.0 - t1 - t2 - t3, 2);
+        } else {
+            t1 = mcqList.length > 0 ? (mcqList.length / totalCount) * 10.0 : 0;
+            t2 = tfList.length > 0 ? (tfList.length / totalCount) * 10.0 : 0;
+            t3 = saList.length > 0 ? (saList.length / totalCount) * 10.0 : 0;
+            t4 = essayList.length > 0 ? (essayList.length / totalCount) * 10.0 : 0;
+        }
+    }
+
+    function distributePartPoints(list, targetPts) {
+        if (list.length === 0) return;
+        const partCents = Math.round(targetPts * 100);
+        const baseCents = Math.floor(partCents / list.length);
+        const remCents = partCents - (baseCents * list.length);
+        list.forEach((q, idx) => {
+            const cents = (idx < remCents) ? (baseCents + 1) : baseCents;
+            q.points = Math.round(cents) / 100;
+        });
+    }
+
+    distributePartPoints(mcqList, t1);
+    distributePartPoints(tfList, t2);
+    distributePartPoints(saList, t3);
+    distributePartPoints(essayList, t4);
+}
+
 function applyModalScoringPreset(mcqCount, tfCount, saCount, essayCount, totalCount) {
     const sel = document.getElementById('modalScoringMode');
     if (!sel) return;
@@ -6534,13 +6678,33 @@ function applyModalScoringPreset(mcqCount, tfCount, saCount, essayCount, totalCo
         elPt3.value = saCount > 0 ? rounded : 0;
         elPt4.value = essayCount > 0 ? rounded : 0;
     } else if (mode === 'gdpt2018') {
-        const pt1 = mcqCount > 0 ? (3.0 / mcqCount) : 0;
-        const pt2 = tfCount > 0 ? (4.0 / tfCount) : 0;
-        const pt3 = saCount > 0 ? (3.0 / saCount) : 0;
-        elPt1.value = mcqCount > 0 ? Math.round(pt1 * 100) / 100 : 0;
-        elPt2.value = tfCount > 0 ? Math.round(pt2 * 100) / 100 : 0;
-        elPt3.value = saCount > 0 ? Math.round(pt3 * 100) / 100 : 0;
-        elPt4.value = essayCount > 0 ? 1.0 : 0;
+        let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+        if (essayCount > 0) {
+            t4 = 3.0;
+            if (mcqCount > 0 && tfCount > 0 && saCount > 0) { t1 = 2.5; t2 = 3.0; t3 = 1.5; }
+            else if (mcqCount > 0 && tfCount > 0) { t1 = 4.0; t2 = 3.0; }
+            else if (mcqCount > 0 && saCount > 0) { t1 = 4.0; t3 = 3.0; }
+            else if (tfCount > 0 && saCount > 0) { t2 = 4.0; t3 = 3.0; }
+            else if (mcqCount > 0) t1 = 7.0;
+            else if (tfCount > 0) t2 = 7.0;
+            else if (saCount > 0) t3 = 7.0;
+        } else if (mcqCount > 0 && tfCount > 0 && saCount > 0) {
+            t1 = 3.0; t2 = 4.0; t3 = 3.0;
+        } else if (mcqCount > 0 && tfCount > 0) {
+            t1 = 6.0; t2 = 4.0;
+        } else if (mcqCount > 0 && saCount > 0) {
+            t1 = 6.0; t3 = 4.0;
+        } else if (tfCount > 0 && saCount > 0) {
+            t2 = 6.0; t3 = 4.0;
+        } else if (mcqCount > 0) t1 = 10.0;
+        else if (tfCount > 0) t2 = 10.0;
+        else if (saCount > 0) t3 = 10.0;
+        else if (essayCount > 0) t4 = 10.0;
+
+        elPt1.value = mcqCount > 0 ? (Math.round((t1 / mcqCount) * 100) / 100) : 0;
+        elPt2.value = tfCount > 0 ? (Math.round((t2 / tfCount) * 100) / 100) : 0;
+        elPt3.value = saCount > 0 ? (Math.round((t3 / saCount) * 100) / 100) : 0;
+        elPt4.value = essayCount > 0 ? (Math.round((t4 / essayCount) * 100) / 100) : 0;
     }
 }
 
@@ -6576,6 +6740,35 @@ function updateModalScoringTotal() {
         tot2 = Math.round(tot2 * 100) / 100;
         tot3 = Math.round(tot3 * 100) / 100;
         tot4 = Math.round(tot4 * 100) / 100;
+        total = 10.0;
+    } else if (mode === 'gdpt2018') {
+        let t1 = 0, t2 = 0, t3 = 0, t4 = 0;
+        if (essayCount > 0) {
+            t4 = 3.0;
+            if (mcqCount > 0 && tfCount > 0 && saCount > 0) { t1 = 2.5; t2 = 3.0; t3 = 1.5; }
+            else if (mcqCount > 0 && tfCount > 0) { t1 = 4.0; t2 = 3.0; }
+            else if (mcqCount > 0 && saCount > 0) { t1 = 4.0; t3 = 3.0; }
+            else if (tfCount > 0 && saCount > 0) { t2 = 4.0; t3 = 3.0; }
+            else if (mcqCount > 0) t1 = 7.0;
+            else if (tfCount > 0) t2 = 7.0;
+            else if (saCount > 0) t3 = 7.0;
+        } else if (mcqCount > 0 && tfCount > 0 && saCount > 0) {
+            t1 = 3.0; t2 = 4.0; t3 = 3.0;
+        } else if (mcqCount > 0 && tfCount > 0) {
+            t1 = 6.0; t2 = 4.0;
+        } else if (mcqCount > 0 && saCount > 0) {
+            t1 = 6.0; t3 = 4.0;
+        } else if (tfCount > 0 && saCount > 0) {
+            t2 = 6.0; t3 = 4.0;
+        } else if (mcqCount > 0) t1 = 10.0;
+        else if (tfCount > 0) t2 = 10.0;
+        else if (saCount > 0) t3 = 10.0;
+        else if (essayCount > 0) t4 = 10.0;
+
+        tot1 = t1;
+        tot2 = t2;
+        tot3 = t3;
+        tot4 = t4;
         total = 10.0;
     } else {
         tot1 = Math.round(mcqCount * pt1 * 100) / 100;
@@ -6614,9 +6807,18 @@ function updateModalScoringTotal() {
         if (mode === 'auto') {
             helperText.innerHTML = 'Điểm số tự động chia đều theo câu để tổng bài thi đạt đúng <b>10.0 điểm</b>.';
         } else if (mode === 'gdpt2018') {
-            helperText.innerHTML = 'Phân bổ theo chuẩn Bộ GD&ĐT: Phần I (3.0đ) • Phần II (4.0đ) • Phần III (3.0đ).';
+            const partsDesc = [];
+            if (tot1 > 0) partsDesc.push(`Phần I (${tot1}đ)`);
+            if (tot2 > 0) partsDesc.push(`Phần II (${tot2}đ)`);
+            if (tot3 > 0) partsDesc.push(`Phần III (${tot3}đ)`);
+            if (tot4 > 0) partsDesc.push(`Phần IV (${tot4}đ)`);
+            helperText.innerHTML = `Phân bổ chuẩn Bộ GD&ĐT: ${partsDesc.join(' • ')} = <b>10.0 điểm</b>.`;
         } else {
-            helperText.innerHTML = 'Chế độ tự do: Bạn có thể nhập điểm tùy ý cho từng câu của mỗi phần.';
+            if (Math.abs(total - 10.0) < 0.05) {
+                helperText.innerHTML = 'Chế độ tự do: Tổng điểm các phần đạt đúng <b>10.0 điểm</b>.';
+            } else {
+                helperText.innerHTML = `Chế độ tự do: Tổng điểm hiện là <b>${total} điểm</b>. Bấm <a href="javascript:void(0)" onclick="autoBalanceModalScoringTo10()" style="color: #0284c7; font-weight: 700; text-decoration: underline;">Cân bằng về 10 điểm</a> để tự động chuẩn hóa đạt 10.0 điểm.`;
+            }
         }
     }
 
@@ -6625,6 +6827,8 @@ function updateModalScoringTotal() {
 window.onModalScoringModeChange = onModalScoringModeChange;
 window.onModalScoringInputChanged = onModalScoringInputChanged;
 window.updateModalScoringTotal = updateModalScoringTotal;
+window.autoBalanceModalScoringTo10 = autoBalanceModalScoringTo10;
+window.assignExactPointsToIndexQuestions = assignExactPointsToIndexQuestions;
 
 function filterPublishType(type) {
     publishAuditFilter = type;
@@ -6807,25 +7011,37 @@ function proceedToPublishPage() {
         pt3 = saCnt > 0 ? autoPt : 0;
         pt4 = essayCnt > 0 ? autoPt : 0;
     }
-    const totalScore = (typeof updateModalScoringTotal === 'function') ? updateModalScoringTotal() : 10.0;
+    let totalScore = (typeof updateModalScoringTotal === 'function') ? updateModalScoringTotal() : 10.0;
+
+    // Đảm bảo tổng trên 1 đề xuất bản phải đủ 10.0 điểm
+    if (totalCount > 0 && Math.abs(totalScore - 10.0) >= 0.05) {
+        const confirmBal = confirm(
+            `Tổng điểm của đề thi hiện tại là ${totalScore} điểm (chưa đạt chuẩn 10.0 điểm).\n\n` +
+            `Bạn có muốn hệ thống tự động cân bằng điểm các câu để tổng đạt đúng 10.0 điểm rồi tiếp tục không?`
+        );
+        if (confirmBal) {
+            autoBalanceModalScoringTo10();
+            pt1 = parseFloat(document.getElementById('modalPtPart1') && document.getElementById('modalPtPart1').value) || 0;
+            pt2 = parseFloat(document.getElementById('modalPtPart2') && document.getElementById('modalPtPart2').value) || 0;
+            pt3 = parseFloat(document.getElementById('modalPtPart3') && document.getElementById('modalPtPart3').value) || 0;
+            pt4 = parseFloat(document.getElementById('modalPtPart4') && document.getElementById('modalPtPart4').value) || 0;
+            totalScore = 10.0;
+        } else {
+            return;
+        }
+    }
 
     const scoringSettings = {
         mode: scoringMode,
-        total_score: totalScore,
+        total_score: 10.0,
         part1_point_per_q: pt1,
         part2_point_per_q: pt2,
         part3_point_per_q: pt3,
         part4_point_per_q: pt4
     };
 
-    // Gán điểm từng câu trực tiếp vào danh sách câu hỏi
-    questions.forEach(q => {
-        const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
-        if (type === 'true_false' || type === 'tf') q.points = pt2;
-        else if (type === 'short_answer' || type === 'sa') q.points = pt3;
-        else if (type === 'essay' || type === 'tu_luan') q.points = pt4;
-        else q.points = pt1;
-    });
+    // Gán điểm từng câu trực tiếp vào danh sách câu hỏi sao cho tổng đúng 10.00 điểm
+    assignExactPointsToIndexQuestions(questions, scoringMode, { pt1, pt2, pt3, pt4 });
     
     const payload = {
         title: title,
@@ -6917,11 +7133,32 @@ async function confirmPublish() {
             pt3 = saCnt > 0 ? autoPt : 0;
             pt4 = essayCnt > 0 ? autoPt : 0;
         }
-        const totalScore = (typeof updateModalScoringTotal === 'function') ? updateModalScoringTotal() : 10.0;
+        let totalScore = (typeof updateModalScoringTotal === 'function') ? updateModalScoringTotal() : 10.0;
+
+        // Đảm bảo tổng trên 1 đề xuất bản phải đủ 10.0 điểm
+        if (totalCount > 0 && Math.abs(totalScore - 10.0) >= 0.05) {
+            const confirmBal = confirm(
+                `Tổng điểm của đề thi hiện tại là ${totalScore} điểm (chưa đạt chuẩn 10.0 điểm).\n\n` +
+                `Bạn có muốn hệ thống tự động cân bằng điểm các câu để tổng đạt đúng 10.0 điểm rồi tiếp tục xuất bản không?`
+            );
+            if (confirmBal) {
+                autoBalanceModalScoringTo10();
+                pt1 = parseFloat(document.getElementById('modalPtPart1') && document.getElementById('modalPtPart1').value) || 0;
+                pt2 = parseFloat(document.getElementById('modalPtPart2') && document.getElementById('modalPtPart2').value) || 0;
+                pt3 = parseFloat(document.getElementById('modalPtPart3') && document.getElementById('modalPtPart3').value) || 0;
+                pt4 = parseFloat(document.getElementById('modalPtPart4') && document.getElementById('modalPtPart4').value) || 0;
+                totalScore = 10.0;
+            } else {
+                btn.innerText = "🚀 Lưu & xuất bản ngay";
+                btn.disabled = false;
+                hideGlobalLoader();
+                return;
+            }
+        }
 
         const scoringSettings = {
             mode: scoringMode,
-            total_score: totalScore,
+            total_score: 10.0,
             part1_point_per_q: pt1,
             part2_point_per_q: pt2,
             part3_point_per_q: pt3,
@@ -6929,13 +7166,7 @@ async function confirmPublish() {
         };
 
         if (Array.isArray(currentData)) {
-            currentData.forEach(q => {
-                const type = (typeof getRealQuestionType === 'function') ? getRealQuestionType(q) : (q.type || 'mcq');
-                if (type === 'true_false' || type === 'tf') q.points = pt2;
-                else if (type === 'short_answer' || type === 'sa') q.points = pt3;
-                else if (type === 'essay' || type === 'tu_luan') q.points = pt4;
-                else q.points = pt1;
-            });
+            assignExactPointsToIndexQuestions(currentData, scoringMode, { pt1, pt2, pt3, pt4 });
         }
 
         const payload = { 

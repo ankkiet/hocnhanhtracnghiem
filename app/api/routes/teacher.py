@@ -1070,7 +1070,12 @@ async def get_quiz_analytics(quiz_id: str, teacher_token: str, force_refresh: bo
     students_list = []
     
     quiz_scoring_cfg = quiz_data.get('scoring') or (quiz_data.get('settings') or {}).get('scoring') or {}
-    quiz_max_score = round(sum(resolve_question_points(q, total_q, quiz_scoring_cfg) for q in questions), 2) if total_q > 0 else 0
+    raw_quiz_max = round(sum(resolve_question_points(q, total_q, quiz_scoring_cfg) for q in questions), 2) if total_q > 0 else 0
+    target_quiz_score = float(quiz_scoring_cfg.get('total_score', 10.0) or 10.0) if quiz_scoring_cfg else None
+    if target_quiz_score is not None and abs(raw_quiz_max - target_quiz_score) <= 0.08:
+        quiz_max_score = target_quiz_score
+    else:
+        quiz_max_score = raw_quiz_max
 
     for data in submissions:
         raw_score = data.get('score', 0)
