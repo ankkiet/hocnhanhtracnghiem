@@ -61,3 +61,73 @@ def test_normalize_question_data_avoids_false_a_matching():
     norm = normalize_question_data(item)
     # Phải là phương án D. A book, không được gán nhầm sang phương án A
     assert norm["correct_answer"] == "D. A book"
+
+
+def test_search_trailing_tf_safety():
+    """Kiểm tra match trailing TF an toàn, không nhận nhầm đơn vị giây 's' hoặc đường thẳng 'd'."""
+    from core.text_parser import match_trailing_tf
+    # Đơn vị vật lý giây 's' hoặc 'm/s'
+    assert match_trailing_tf("Thời gian rơi là 2 s") is None
+    assert match_trailing_tf("Vận tốc đạt 10 m/s") is None
+    assert match_trailing_tf("Chu kỳ dao động T = 0.5s") is None
+
+    # Ký hiệu toán học đường thẳng d
+    assert match_trailing_tf("Mặt phẳng (P) chứa đường thẳng d") is None
+    assert match_trailing_tf("Tìm hình chiếu trên d") is None
+
+    # Nhãn Đúng / Sai thật sự
+    assert match_trailing_tf("Mệnh đề này là đúng")[2] == "đúng"
+    assert match_trailing_tf("Mệnh đề này là đúng")[0] is True
+    assert match_trailing_tf("Mệnh đề này là Sai")[2] == "Sai"
+    assert match_trailing_tf("Mệnh đề này là Sai")[0] is False
+    assert match_trailing_tf("Phương trình vô nghiệm [Đúng]")[2] == "[Đúng]"
+    assert match_trailing_tf("Phương trình vô nghiệm [Đúng]")[0] is True
+    assert match_trailing_tf("Hàm số đồng biến (S)")[2] == "(S)"
+    assert match_trailing_tf("Hàm số đồng biến (S)")[0] is False
+    assert match_trailing_tf("Tập xác định D: Đ")[2] == "Đ"
+    assert match_trailing_tf("Tập xác định D: Đ")[0] is True
+    assert match_trailing_tf("Tập xác định D - S")[2] == "S"
+    assert match_trailing_tf("Tập xác định D - S")[0] is False
+
+
+def test_physics_units_not_flipping_true_false():
+    """Kiểm tra phương án có đơn vị 2 s không bị lật thành Sai khi có dấu * ở đầu."""
+    from core.text_parser import extract_questions_from_text_bulletproof
+    text = """PHẦN II. Câu trắc nghiệm đúng sai
+Câu 1: Một vật rơi tự do từ độ cao h.
+*a) Thời gian rơi của vật là t = 2 s
+b) Quãng đường vật đi được trong 1 s đầu là 5 m
+*c) Vận tốc lúc chạm đất là v = 20 m/s
+d) Gia tốc của vật là g = 9.8 m/s2
+"""
+    questions = extract_questions_from_text_bulletproof(text)
+    assert len(questions) == 1
+    q = questions[0]
+    assert q["type"] == "true_false"
+    ans = q["correct_answer"]
+    assert ans["a"] is True, "Câu a có 2 s nhưng có dấu * ở đầu phải là True"
+    assert ans["b"] is False, "Câu b không có dấu * phải là False"
+    assert ans["c"] is True, "Câu c có 20 m/s nhưng có dấu * ở đầu phải là True"
+    assert ans["d"] is False, "Câu d không có dấu * phải là False"
+
+
+def test_math_variable_d_not_flipping_to_true():
+    """Kiểm tra phương án có chứa đường thẳng d không bị lật thành Đúng."""
+    from core.text_parser import extract_questions_from_text_bulletproof
+    text = """PHẦN II. Câu trắc nghiệm đúng sai
+Câu 1: Trong không gian Oxyz, cho mặt phẳng (P).
+a) Mặt phẳng (P) đi qua điểm A(1, 0, 0)
+*b) Mặt phẳng (P) song song với trục Oz
+c) Mặt phẳng (P) vuông góc với đường thẳng d
+d) Khoảng cách từ gốc O đến (P) bằng 2
+"""
+    questions = extract_questions_from_text_bulletproof(text)
+    assert len(questions) == 1
+    q = questions[0]
+    assert q["type"] == "true_false"
+    ans = q["correct_answer"]
+    assert ans["a"] is False
+    assert ans["b"] is True
+    assert ans["c"] is False, "Câu c có đường thẳng d không được coi là Đúng"
+    assert ans["d"] is False
+

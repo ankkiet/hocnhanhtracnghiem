@@ -30,6 +30,33 @@ def extract_explain_from_block(text: str) -> tuple:
     return text, ""
 
 
+def match_trailing_tf(text_line: str):
+    """
+    Nhận diện nhãn Đúng/Sai ở cuối dòng an toàn:
+    - Bắt buộc từ rõ ràng (Đúng, Sai, [Đ], [S], [ĐÚNG], [SAI], True, False)
+    - Hoặc chữ in hoa Đ, S sau dấu phân cách rõ ràng
+    - Tuyệt đối không nhận nhầm đơn vị giây 's' (2 s, 10 m/s) hay ký hiệu toán học 'd', 'D', 'S'.
+    Trả về: (is_true: bool, start_idx: int, raw_match: str) hoặc None
+    """
+    if not text_line or not text_line.strip():
+        return None
+    m_exp = re.search(
+        r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$',
+        text_line,
+        re.IGNORECASE
+    )
+    if m_exp:
+        val = re.sub(r'[\[\]\(\)]', '', m_exp.group(1)).upper()
+        is_true = ('Đ' in val or 'D' in val or 'TRUE' in val or val == 'T')
+        return is_true, m_exp.start(), m_exp.group(1)
+
+    m_sep = re.search(r'(?:[\t\xa0]+|[\:\-–—]\s*|(?<=[;\.\:\?!])\s*)([ĐS])\s*$', text_line)
+    if m_sep:
+        return (m_sep.group(1) == 'Đ'), m_sep.start(), m_sep.group(1)
+
+    return None
+
+
 def extract_unlabeled_tf_statements(block: str) -> tuple:
     """
     Cứu hộ câu hỏi Đúng/Sai không có nhãn a), b), c), d) ở đầu dòng
@@ -40,8 +67,13 @@ def extract_unlabeled_tf_statements(block: str) -> tuple:
     if len(lines) < 3:
         return None, None, None
 
-    tf_pattern = re.compile(r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$', re.IGNORECASE)
-    tf_line_indices = [idx for idx, l in enumerate(lines) if tf_pattern.search(l)]
+    def _search_trailing_tf(text_line: str):
+        res = match_trailing_tf(text_line)
+        if res is not None:
+            return res[0], res[1]
+        return None, -1
+
+    tf_line_indices = [idx for idx, l in enumerate(lines) if _search_trailing_tf(l)[0] is not None]
 
     if len(tf_line_indices) >= 2:
         first_opt_idx = tf_line_indices[0]
@@ -53,14 +85,12 @@ def extract_unlabeled_tf_statements(block: str) -> tuple:
         char_code = ord('a')
 
         for l in opt_lines:
-            m = tf_pattern.search(l)
-            if m:
-                tf_val_str = m.group(1).upper()
-                is_true = True if ('Đ' in tf_val_str or 'D' in tf_val_str or 'ĐÚNG' in tf_val_str) else False
-                content = l[:m.start()].strip()
+            is_tr, start_idx = _search_trailing_tf(l)
+            if is_tr is not None:
+                content = l[:start_idx].strip()
                 char = chr(char_code)
                 options.append(f"{char}) {content}")
-                tf_dict[char] = is_true
+                tf_dict[char] = is_tr
                 char_code += 1
             else:
                 if options:
@@ -379,21 +409,30 @@ def extract_questions_from_text_bulletproof(raw_text: str, image_mapping: dict =
                         if last_nl != -1:
                             opt_content_raw = opt_content_raw[:last_nl].strip()
 
-                    m_end_tf = re.search(r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))([ĐS|D]|Đúng|Sai)\s*$', opt_content_raw, re.IGNORECASE)
+                    m_end_tf = re.search(
+                        r'(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$',
+                        opt_content_raw,
+                        re.IGNORECASE
+                    )
                     trailing_tf = None
                     if m_end_tf:
-                        tf_str = m_end_tf.group(1).upper()
-                        trailing_tf = True if ('Đ' in tf_str or tf_str in ['D', 'T', 'TRUE'] or 'ĐÚNG' in tf_str) else False
+                        tf_str = re.sub(r'[\[\]\(\)]', '', m_end_tf.group(1)).upper()
+                        trailing_tf = True if ('Đ' in tf_str or 'D' in tf_str or 'TRUE' in tf_str or tf_str == 'T') else False
                         opt_content_raw = opt_content_raw[:m_end_tf.start()].strip()
+                    else:
+                        m_sep_tf = re.search(r'(?:[\t\xa0]+|[\:\-–—]\s*|(?<=[;\.\:\?!])\s*)([ĐS])\s*$', opt_content_raw)
+                        if m_sep_tf:
+                            trailing_tf = (m_sep_tf.group(1) == 'Đ')
+                            opt_content_raw = opt_content_raw[:m_sep_tf.start()].strip()
 
                     clean_text, is_corr, is_fls, ext_char = clean_option_text(opt_content_raw)
                     options.append(f"{char}) {clean_text}")
-                    if trailing_tf is not None:
-                        opt_tf_marks[char] = trailing_tf
-                    elif is_corr:
+                    if is_corr:
                         opt_tf_marks[char] = True
                     elif is_fls:
                         opt_tf_marks[char] = False
+                    elif trailing_tf is not None:
+                        opt_tf_marks[char] = trailing_tf
 
                 if explicit_ans:
                     tf_dict = explicit_ans

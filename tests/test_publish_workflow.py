@@ -658,6 +658,125 @@ def test_editor_status_bar_responsiveness_and_cache_buster():
         assert "@media (max-width: 1440px)" in css
 
 
+def test_republish_preserves_answers_when_shuffled_or_sanitized():
+    """Kiểm tra cơ chế bảo toàn và khôi phục đáp án gốc khi người dùng xuất bản lại đề thi."""
+    from unittest.mock import MagicMock, patch
+    from app.services.quiz_service import QuizService
+
+    service = QuizService()
+    mock_db = MagicMock()
+
+    # Giả lập bản ghi đề thi cũ trong Firestore có đáp án chính xác
+    fake_old_doc = MagicMock()
+    fake_old_doc.exists = True
+    fake_old_doc.to_dict.return_value = {
+        'creator_id': 'teacher_xyz',
+        'data': [
+            {
+                'question': 'Câu 1: Thủ đô của Việt Nam là gì?',
+                'options': ['A. Hà Nội', 'B. Huế', 'C. Đà Nẵng', 'D. TP.HCM'],
+                'correct_answer': 'A. Hà Nội',
+                'explain': 'Hà Nội là thủ đô của Việt Nam từ năm 1945.'
+            },
+            {
+                'question': 'Câu 2: Xét tính đúng sai:',
+                'type': 'true_false',
+                'options': ['a) 1 + 1 = 2', 'b) 2 + 2 = 5'],
+                'correct_answer': {'a': True, 'b': False}
+            }
+        ]
+    }
+    mock_db.collection.return_value.document.return_value.get.return_value = fake_old_doc
+
+    # Kịch bản 1: Client lỡ gửi câu hỏi bị Anti-cheat làm mất correct_answer khi gọi save_quiz cập nhật
+    new_data_sanitized = [
+        {
+            'question': 'Câu 1: Thủ đô của Việt Nam là gì?',
+            'options': ['A. Hà Nội', 'B. Huế', 'C. Đà Nẵng', 'D. TP.HCM']
+            # Không có correct_answer do bị Anti-cheat ẩn
+        },
+        {
+            'question': 'Câu 2: Xét tính đúng sai:',
+            'type': 'true_false',
+            'options': ['a) 1 + 1 = 2', 'b) 2 + 2 = 5']
+            # Không có correct_answer do bị Anti-cheat ẩn
+        }
+    ]
+
+    with patch('app.services.quiz_service._get_db', return_value=mock_db), \
+         patch('app.services.quiz_service.get_user_from_token', return_value={'id': 'teacher_xyz'}):
+        res = service.save_quiz(
+            title="Đề thi bảo toàn đáp án",
+            data=new_data_sanitized,
+            quiz_id="TEST_REPUBLISH_001",
+            creator_id="teacher_xyz"
+        )
+        assert res['status'] == 'success'
+        saved_call = mock_db.collection.return_value.document.return_value.set.call_args[0][0]
+        saved_data = saved_call['data']
+
+        # Đáp án câu 1 phải được khôi phục nguyên vẹn là 'A. Hà Nội', không bị nhảy về A mặc định do lỗi
+        assert saved_data[0]['correct_answer'] == 'A. Hà Nội'
+        assert '1945' in saved_data[0].get('explain', '')
+
+        # Đáp án câu 2 True/False phải được khôi phục nguyên vẹn
+        assert saved_data[1]['correct_answer'] == {'a': True, 'b': False}
+
+    # Kịch bản 2: Client lỡ gửi câu hỏi đã bị shuffleQuiz đảo vị trí và đảo options
+    new_data_shuffled = [
+        {
+            'question': 'Câu 2: Xét tính đúng sai:',
+            'type': 'true_false',
+            'options': ['a) 1 + 1 = 2', 'b) 2 + 2 = 5'],
+            'correct_answer': {'a': True, 'b': False},
+            '_originalIndex': 1
+        },
+        {
+            'question': 'Câu 1: Thủ đô của Việt Nam là gì?',
+            'options': ['A. Đà Nẵng', 'B. TP.HCM', 'C. Hà Nội', 'D. Huế'], # Đã bị đảo
+            'correct_answer': 'C. Hà Nội', # Đã bị cập nhật theo vị trí mới
+            '_originalIndex': 0,
+            '_originalOptions': ['A. Hà Nội', 'B. Huế', 'C. Đà Nẵng', 'D. TP.HCM'], # Gốc
+            '_originalCorrectAnswer': 'A. Hà Nội' # Gốc
+        }
+    ]
+
+    with patch('app.services.quiz_service._get_db', return_value=mock_db), \
+         patch('app.services.quiz_service.get_user_from_token', return_value={'id': 'teacher_xyz'}):
+        res2 = service.save_quiz(
+            title="Đề thi đảo đề hoàn tác",
+            data=new_data_shuffled,
+            quiz_id="TEST_REPUBLISH_002",
+            creator_id="teacher_xyz"
+        )
+        assert res2['status'] == 'success'
+        saved_call2 = mock_db.collection.return_value.document.return_value.set.call_args[0][0]
+        saved_data2 = saved_call2['data']
+
+        # Phải được hoàn tác lại đúng thứ tự Câu 1 trước, Câu 2 sau
+        assert 'Thủ đô' in saved_data2[0]['question']
+        assert saved_data2[0]['options'][0] == 'A. Hà Nội'
+        assert saved_data2[0]['correct_answer'] == 'A. Hà Nội'
+        assert '_originalIndex' not in saved_data2[0]
+
+
+def test_unshuffled_helper_present_in_all_publish_scripts():
+    """Kiểm tra hàm hoàn tác trộn đề getCleanUnshuffledQuizData hiện diện ở tất cả các file xuất bản."""
+    files_to_check = [
+        "static/js/script.source.js",
+        "templates/script.source.js",
+        "static/js/editor.js",
+        "templates/editor.js",
+        "static/publish.html",
+        "templates/publish.html"
+    ]
+    for fn in files_to_check:
+        with open(fn, "r", encoding="utf-8") as f:
+            code = f.read()
+        assert "getCleanUnshuffledQuizData" in code, f"Thiếu getCleanUnshuffledQuizData trong {fn}"
+
+
+
 
 
 

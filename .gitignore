@@ -7,6 +7,10 @@ quizzes.db
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite-journal
 
 # --- Archives & Build Artifacts ---
 *.zip
@@ -121,10 +125,19 @@ tmp/
 *.bak
 *.orig
 *.rej
+*.patch
+*.diff
 debug_*.py
+debug_*.js
 temp_*.py
+temp_*.js
 tmp_*.py
+tmp_*.js
+scratch_*.py
+scratch_*.js
 test_temp_*.py
+test_reports/
+test-artifacts/
 backup_bgd_feature/
 backup_perf/
 backup_*/

@@ -176,6 +176,89 @@ class QuizService:
         
         return {"status": "error", "valid": False, "detail": "Mật khẩu bài thi không chính xác"}
 
+    def _restore_and_protect_questions(self, new_questions: list, old_questions: Optional[list] = None) -> list:
+        """
+        Bảo toàn toàn diện dữ liệu và đáp án câu hỏi khi lưu hoặc xuất bản lại:
+        1. Hoàn tác xáo trộn (un-shuffle): nếu dữ liệu gửi lên từ client bị mang các trường đảo trộn
+           (_originalIndex, _originalOptions, _originalCorrectAnswer), tự động phục hồi thứ tự gốc,
+           phương án gốc và đáp án gốc ban đầu.
+        2. Bảo vệ và khôi phục đáp án gốc (preserve existing correct answers):
+           Nếu cập nhật đề thi mà câu hỏi mới bị mất đáp án (do Anti-Cheat xóa đáp án khi client nạp đề,
+           hoặc do client gửi thiếu trường correct_answer), tự động khôi phục correct_answer và explain
+           từ bản ghi câu hỏi cũ trong Firestore, ngăn chặn tuyệt đối lỗi nhảy sai đáp án về A.
+        3. Dọn sạch các trường tạm do client sinh ra (_originalIndex, _originalOptions, _originalCorrectAnswer).
+        """
+        if not isinstance(new_questions, list):
+            return new_questions
+
+        import re
+
+        # 1. Nếu có _originalIndex từ shuffleQuiz của client, khôi phục lại thứ tự câu hỏi gốc
+        has_orig_idx = any(isinstance(q, dict) and '_originalIndex' in q for q in new_questions)
+        if has_orig_idx:
+            try:
+                new_questions = sorted(
+                    new_questions,
+                    key=lambda x: x.get('_originalIndex', 999999) if isinstance(x, dict) else 999999
+                )
+            except Exception:
+                pass
+
+        # 2. Hoàn tác options và correct_answer nếu từng bị trộn ở client
+        for q in new_questions:
+            if not isinstance(q, dict):
+                continue
+            if '_originalOptions' in q and isinstance(q['_originalOptions'], list) and len(q['_originalOptions']) > 0:
+                q['options'] = list(q['_originalOptions'])
+            if '_originalCorrectAnswer' in q and q['_originalCorrectAnswer'] is not None:
+                q['correct_answer'] = q['_originalCorrectAnswer']
+
+            # Xóa các thuộc tính tạm của client
+            q.pop('_originalIndex', None)
+            q.pop('_originalOptions', None)
+            q.pop('_originalCorrectAnswer', None)
+
+        # 3. Bảo vệ và khôi phục đáp án từ CSDL cũ nếu dữ liệu mới bị mất đáp án
+        if old_questions and isinstance(old_questions, list):
+            def clean_stem(t):
+                cleaned = re.sub(r'^(?:(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?\s*|\d+[\.\:\)\/])\s*', '', str(t or ''), flags=re.IGNORECASE)
+                cleaned = re.sub(r'<[^>]+>', '', cleaned)
+                return re.sub(r'\s+', '', cleaned).lower()
+
+            old_by_stem = {}
+            for old_q in old_questions:
+                if isinstance(old_q, dict) and old_q.get('correct_answer'):
+                    stem = clean_stem(old_q.get('question', ''))
+                    if stem and stem not in old_by_stem:
+                        old_by_stem[stem] = old_q
+
+            for idx, q in enumerate(new_questions):
+                if not isinstance(q, dict):
+                    continue
+                ca = q.get('correct_answer')
+                has_valid_ca = bool(ca) if not isinstance(ca, dict) else any(bool(v) for v in ca.values())
+
+                if not has_valid_ca:
+                    # Ưu tiên 1: Khôi phục theo đúng vị trí index trong đề cũ
+                    matched_old = None
+                    if idx < len(old_questions) and isinstance(old_questions[idx], dict):
+                        cand = old_questions[idx]
+                        if cand.get('correct_answer'):
+                            matched_old = cand
+
+                    # Ưu tiên 2: Khôi phục theo nội dung thân câu hỏi (stem)
+                    if not matched_old:
+                        stem = clean_stem(q.get('question', ''))
+                        if stem in old_by_stem:
+                            matched_old = old_by_stem[stem]
+
+                    if matched_old:
+                        q['correct_answer'] = matched_old['correct_answer']
+                        if not q.get('explain') and matched_old.get('explain'):
+                            q['explain'] = matched_old['explain']
+
+        return new_questions
+
     def save_quiz(
         self,
         title: str,
@@ -200,18 +283,20 @@ class QuizService:
         user = get_user_from_token(creator_id, db)
         creator_uid = user['id'] if user else creator_id
 
+        old_questions = None
         if quiz_id:
             target_id = quiz_id
             doc_ref = db.collection('quizzes').document(target_id)
             doc = doc_ref.get()
             if doc.exists:
-                stored_creator = doc.to_dict().get('creator_id')
-                if stored_creator != creator_uid and stored_creator != creator_id:
+                old_quiz_data = doc.to_dict()
+                old_questions = old_quiz_data.get('data') or old_quiz_data.get('questions') or []
+                stored_creator = old_quiz_data.get('creator_id')
+                if stored_creator and stored_creator != creator_uid and stored_creator != creator_id:
                     raise HTTPException(status_code=403, detail="Không có quyền cập nhật đề thi này")
 
                 # Dọn dẹp ảnh cũ trong R2 nếu giáo viên xóa hoặc thay thế ảnh
-                old_quiz_data = doc.to_dict()
-                old_imgs = set(storage_service.extract_image_keys(old_quiz_data.get('data', [])))
+                old_imgs = set(storage_service.extract_image_keys(old_questions))
                 new_imgs = set(storage_service.extract_image_keys(data))
                 removed_imgs = old_imgs - new_imgs
                 if removed_imgs:
@@ -220,8 +305,11 @@ class QuizService:
             # Tạo mã ngẫu nhiên dạng AAA-111
             target_id = self._generate_unique_quiz_id(db)
 
+        # Khôi phục và bảo toàn đáp án trước khi chuẩn hóa
+        restored_data = self._restore_and_protect_questions(data, old_questions=old_questions)
+
         from services.ai_service import normalize_question_data
-        clean_quiz_data = [normalize_question_data(q) for q in data] if isinstance(data, list) else data
+        clean_quiz_data = [normalize_question_data(q) for q in restored_data] if isinstance(restored_data, list) else restored_data
 
         doc_ref = db.collection('quizzes').document(target_id)
         data_to_save = {

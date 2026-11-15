@@ -6430,6 +6430,39 @@ function backToDashboard() {
 let publishAuditFilter = 'all';
 let currentAuditViewingIndex = 0;
 
+// --- HÀM KHÔI PHỤC VÀ HOÀN TÁC ĐẢO ĐỀ (BẢO TOÀN ĐÁP ÁN GỐC TRƯỚC KHI XUẤT BẢN) ---
+function getCleanUnshuffledQuizData(dataList) {
+    if (!Array.isArray(dataList) || dataList.length === 0) return [];
+    
+    let cloned = JSON.parse(JSON.stringify(dataList));
+    
+    // Khôi phục thứ tự câu hỏi ban đầu nếu từng bị shuffleQuiz đảo vị trí
+    const hasOrigIdx = cloned.some(q => q && q._originalIndex !== undefined);
+    if (hasOrigIdx) {
+        cloned.sort((a, b) => {
+            const idxA = (a && a._originalIndex !== undefined) ? a._originalIndex : 999999;
+            const idxB = (b && b._originalIndex !== undefined) ? b._originalIndex : 999999;
+            return idxA - idxB;
+        });
+    }
+    
+    // Khôi phục options và correct_answer gốc nếu từng bị đảo phương án
+    cloned.forEach(q => {
+        if (!q) return;
+        if (Array.isArray(q._originalOptions) && q._originalOptions.length > 0) {
+            q.options = [...q._originalOptions];
+        }
+        if (q._originalCorrectAnswer !== undefined && q._originalCorrectAnswer !== null) {
+            q.correct_answer = q._originalCorrectAnswer;
+        }
+        delete q._originalIndex;
+        delete q._originalOptions;
+        delete q._originalCorrectAnswer;
+    });
+    
+    return cloned;
+}
+
 function openPublishModal() {
     const pubHeader = document.getElementById('publicHeader');
     if (pubHeader) pubHeader.style.display = 'none';
@@ -6447,8 +6480,9 @@ function openPublishModal() {
     const modal = document.getElementById('publishModal');
     if (!modal) return;
 
-    // 1. Phân tích loại câu hỏi
-    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    // 1. Phân tích loại câu hỏi (luôn lấy câu hỏi gốc chưa bị trộn)
+    const rawQuestions = (typeof serverData !== 'undefined' && Array.isArray(serverData) && serverData.length > 0) ? serverData : ((typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : []);
+    const questions = getCleanUnshuffledQuizData(rawQuestions);
     let mcqList = [];
     let tfList = [];
     let saList = [];
@@ -7058,7 +7092,8 @@ function proceedToPublishPage() {
     const timeLimit = parseInt(document.getElementById('modalQuizTime') && document.getElementById('modalQuizTime').value) || 0;
     const isShuffle = document.getElementById('modalQuizShuffle') ? document.getElementById('modalQuizShuffle').checked : true;
 
-    const questions = (typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : [];
+    const rawQuestions = (typeof serverData !== 'undefined' && Array.isArray(serverData) && serverData.length > 0) ? serverData : ((typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : []);
+    const questions = getCleanUnshuffledQuizData(rawQuestions);
 
     const scoringMode = (document.getElementById('modalScoringMode') && document.getElementById('modalScoringMode').value) || 'auto';
     const mcqCnt = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
@@ -7182,12 +7217,14 @@ async function confirmPublish() {
     });
 
     try {
+        const rawQuestions = (typeof serverData !== 'undefined' && Array.isArray(serverData) && serverData.length > 0) ? serverData : ((typeof currentData !== 'undefined' && Array.isArray(currentData)) ? currentData : []);
+        const cleanQuestions = getCleanUnshuffledQuizData(rawQuestions);
         const scoringMode = (document.getElementById('modalScoringMode') && document.getElementById('modalScoringMode').value) || 'auto';
         const mcqCnt = (window.currentPublishMcqList && window.currentPublishMcqList.length) || 0;
         const tfCnt = (window.currentPublishTfList && window.currentPublishTfList.length) || 0;
         const saCnt = (window.currentPublishSaList && window.currentPublishSaList.length) || 0;
         const essayCnt = (window.currentPublishEssayList && window.currentPublishEssayList.length) || 0;
-        const totalCount = Array.isArray(currentData) ? currentData.length : 0;
+        const totalCount = cleanQuestions.length;
 
         let pt1 = parseFloat(document.getElementById('modalPtPart1') && document.getElementById('modalPtPart1').value) || 0;
         let pt2 = parseFloat(document.getElementById('modalPtPart2') && document.getElementById('modalPtPart2').value) || 0;
@@ -7233,12 +7270,12 @@ async function confirmPublish() {
             part4_point_per_q: pt4
         };
 
-        if (Array.isArray(currentData)) {
-            assignExactPointsToIndexQuestions(currentData, scoringMode, { pt1, pt2, pt3, pt4 });
+        if (Array.isArray(cleanQuestions)) {
+            assignExactPointsToIndexQuestions(cleanQuestions, scoringMode, { pt1, pt2, pt3, pt4 });
         }
 
         const payload = { 
-            title: title, data: currentData, mode: mode, time_limit: timeLimit, 
+            title: title, data: cleanQuestions, mode: mode, time_limit: timeLimit, 
             is_shuffle: isShuffle, creator_id: authToken, status: "published",
             settings: {
                 scoring: scoringSettings
@@ -7822,7 +7859,7 @@ function renderData() {
             clearTimeout(editTimeout);
             editTimeout = setTimeout(() => {
                 updateSyntaxHighlight(); // Đưa vào timeout để chống lag khi gõ nhanh (Debounce)
-                currentData = parseEditorText(this.value);
+                currentData = parseEditorText(this.value, currentData);
                 renderPreviewAll();
             }, 300);
         });
@@ -7860,7 +7897,7 @@ function renderData() {
                         this.selectionStart = this.selectionEnd = newCursorPos;
                         
                         updateSyntaxHighlight();
-                        currentData = parseEditorText(this.value);
+                        currentData = parseEditorText(this.value, currentData);
                         renderPreviewAll();
                         return; // Kết thúc sớm nếu đã Auto-complete
                     }
@@ -9316,6 +9353,8 @@ function dataToEditorText(data) {
                 let isTrue = (char && tfMap[char] === true) || /^\*[a-d]/.test(optText) || /\[ĐÚNG\]|\(Đúng\)/i.test(optText);
                 let cleanOpt = optText.replace(/^\*?[a-d][\)\.\:\-]\s*/, '');
                 cleanOpt = cleanOpt.replace(/\[(ĐÚNG|SAI|Đ|S)\]|\((Đúng|Sai|Đ|S)\)/gi, '').trim();
+                cleanOpt = cleanOpt.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(?:\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$/i, '').trim();
+                cleanOpt = cleanOpt.replace(/(?:[\t\xa0]+|[\:\-–—]\s*)([ĐS])\s*$/, '').trim();
                 let prefix = isTrue ? `*${char}) ` : `${char}) `;
                 text += `${prefix}${cleanOpt}\n`;
             });
@@ -9381,12 +9420,30 @@ function cleanEditorClosingTags(text) {
                .trim();
 }
 
-function parseEditorText(text) {
+function parseEditorText(text, existingData = null) {
     // Trả lại mã Base64 thật cho các thẻ [HÌNH_ẢNH_X] trước khi bóc tách
     let restoredText = text;
     for (let key in globalEditorImageStorage) {
         restoredText = restoredText.split(key).join(globalEditorImageStorage[key]);
     }
+
+    // Tự động phân tách và chuẩn hóa dòng nếu bị dính liền do người dùng nhấn Backspace / xóa dòng trống:
+    // a. Tách câu hỏi bị dính liền vào phương án trước: "... d) ... Câu 2: ..." -> "...\nCâu 2: ..."
+    restoredText = restoredText.replace(/(?<=[^\n])\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]/gi, '\n$&');
+
+    // b. Tách tiêu đề phần bị dính liền: "... PHẦN II. ..." -> "...\nPHẦN II. ..."
+    restoredText = restoredText.replace(/(?<=[^\n])\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/gi, '\n$&');
+
+    // c. Tách các phương án Đúng / Sai bị dính liền trên cùng dòng:
+    restoredText = restoredText.replace(/([SĐD])\s*([a-d]\))/g, '$1\n$2');
+    restoredText = restoredText.replace(/(?<=[;\.\:\?!>\s])\s*(?:\*\s*)?\(?\[?(\*?[a-d])[\)\.\:\-\]\/](?=\s+\S)/gi, '\n$&');
+
+    // d. Tách các phương án Trắc nghiệm MCQ bị dính liền:
+    restoredText = restoredText.replace(/(?<=[;\.\:\?!>\s])\s*(?:\*\s*)?\(?\[?(\*?[A-F])[\.\:\)](?=\s+\S)/g, '\n$&');
+
+    // e. Tách Lời giải / Đáp án / Hướng dẫn chấm bị dính liền vào dòng trước:
+    restoredText = restoredText.replace(/(?<=[^\n])\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Lời giải|Hướng dẫn giải|Giải thích|HDG|Explain|Hướng dẫn chấm|Thang điểm|Biểu điểm)\s*[\:\-\=]/gi, '\n$&');
+    restoredText = restoredText.replace(/(?<=[^\n])\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)\s*[\:\-\=]/gi, '\n$&');
     
     const data = [];
     let currentQ = null;
@@ -9395,13 +9452,13 @@ function parseEditorText(text) {
     let currentSectionHeader = "";
 
     // Nhận diện dòng Câu hỏi (Câu 1:, Câu 1., Bài 1:, Q1:, vv.) miễn nhiễm hoàn toàn với các thẻ HTML bao ngoài
-    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
+    const qRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[|\()?	*\s*(?:Câu\s*hỏi|Câu|Bài|Question|Q)\s*\d+[\.\:\-\/\)]?(?:\s*<\/[a-zA-Z][^>]*>)*(?:\s*[\.\:\-\/\)])?\s*/i;
 
     // Phương án Trắc nghiệm nhiều lựa chọn (MCQ): BẮT BUỘC là CHỮ IN HOA A-F (A., B., C., D. hoặc A), B), C), D))
     const mcqOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[A-F])(?:\s*<\/[a-zA-Z][^>]*>)*[\.\:\)](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Phương án Trắc nghiệm Đúng / Sai (TF): BẮT BUỘC là CHỮ THƯỜNG a-d (a), b), c), d) hoặc a., b., c., d.)
-    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*[\)\.\:\-\]\/](?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
+    const tfOptRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\]\s*)?(?:<[a-zA-Z][^>]*>\s*)*(?:\*\s*)?\(?\[?(\*?[a-d])(?:\s*<\/[a-zA-Z][^>]*>)*(?:[\)\.\:\-\]\/]|\s+(?=\S))(?:\s*<\/[a-zA-Z][^>]*>)*\s*/;
 
     // Nhận diện Đáp án ngắn: Đáp án: 4, Đáp số: 10, ĐS: 2.5, Ans: 1, vv.
     const shortAnsRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(?:Đáp án|Đáp số|ĐS|Kết quả|Ans|Answer)(?:\s*<\/[a-zA-Z][^>]*>)*\s*[\:\-\=]\s*(?:<\/[a-zA-Z][^>]*>)*\s*(.*)$/i;
@@ -9414,6 +9471,53 @@ function parseEditorText(text) {
 
     // Nhận diện Tiêu đề Phần / Nhóm (PHẦN I, PHẦN II, PHẦN III, BÀI TẬP...)
     const groupRegex = /^\s*(?:<[a-zA-Z][^>]*>\s*)*(PHẦN|PART|CHƯƠNG|BÀI TẬP|I{1,3}\.|IV\.|V\.|VI{0,3}\.)\b/i;
+
+    // Hàm nhận diện chuẩn xác nhãn Đúng/Sai ở cuối dòng (Không bao giờ match nhầm đơn vị giây 's' hay ký hiệu 'd', 'D', 'S')
+    function matchTrailingTf(lineStr) {
+        const mExplicit = lineStr.match(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$/i);
+        if (mExplicit) {
+            const val = mExplicit[1].toUpperCase().replace(/[\[\]\(\)]/g, '');
+            return { isTrue: /Đ|DUNG|TRUE|T/i.test(val), raw: mExplicit[0] };
+        }
+        const mSep = lineStr.match(/(?:[\t\xa0]+|[\:\-–—]\s*|(?<=[;\.\:\?!])\s*)([ĐS])\s*$/);
+        if (mSep) {
+            return { isTrue: mSep[1] === 'Đ', raw: mSep[0] };
+        }
+        return null;
+    }
+
+    // Hàm nhận diện chuỗi đáp án 4 ý Đúng/Sai trên 1 dòng
+    function matchTf4Sequence(lineStr) {
+        const trimmedStr = lineStr.trim();
+        if (trimmedStr.length > 80) return null;
+        const cleaned = trimmedStr.replace(/^(?:Đáp án|Đáp số|ĐS|Key|Ans)\s*[\:\-\=]?\s*/i, '');
+        
+        if (/(?:^|[\s,;])a[\.\:\-\)\s]+(Đúng|Sai|True|False|Đ|S)/i.test(cleaned)) {
+            const dict = {};
+            let foundCount = 0;
+            ['a', 'b', 'c', 'd'].forEach(k => {
+                const m = cleaned.match(new RegExp('(?:^|[\\s,;\\(\\[])' + k + '[\\.\\:\\-\\)\\s=]+(Đúng|Sai|True|False|Đ|S)(?![a-zA-ZÀ-ỹ])', 'i'));
+                if (m) {
+                    foundCount++;
+                    dict[k] = ['đ', 'đúng', 'true'].includes(m[1].toLowerCase());
+                }
+            });
+            if (foundCount >= 3) return dict;
+        }
+
+        const tokens = cleaned.split(/[\s\t\,\;\-\–\/\|]+/).filter(t => t);
+        if (tokens.length === 4) {
+            const isAllTf = tokens.every(t => /^(?:Đ|S|Đúng|Sai|True|False)$/i.test(t) && (t.length > 1 || t === 'Đ' || t === 'S'));
+            if (isAllTf) {
+                const dict = {};
+                ['a', 'b', 'c', 'd'].forEach((k, idx) => {
+                    dict[k] = ['đ', 'đúng', 'true'].includes(tokens[idx].toLowerCase());
+                });
+                return dict;
+            }
+        }
+        return null;
+    }
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -9494,7 +9598,7 @@ function parseEditorText(text) {
             const char = charRaw.replace('*', '').trim();
             
             // Nhận diện đánh dấu Đúng/Sai theo chuẩn HocNhanhTN Cách 3 (gạch chân, *, thẻ <MARK>, tick)
-            const isLeadingStar = charRaw.includes('*') || /^\s*[\(\[]?\s*\*\s*[a-d]/.test(line);
+            const isLeadingStar = charRaw.includes('*') || /^\s*(?:<[^>]+>\s*)*[\(\[]?\s*\*\s*[a-d]/.test(line);
             const isUnderlined = /<\/?u>/i.test(line);
             const isMarked = /<\/?MARK>/i.test(line);
             const hasCorrectTag = /\[(ĐÚNG|DUNG|Đ|TRUE|T)\]|\((Đúng|Dung|Đ|True|T)\)|[✓✔☑]/i.test(line);
@@ -9502,6 +9606,12 @@ function parseEditorText(text) {
             
             let isTrue = isLeadingStar || isUnderlined || isMarked || hasCorrectTag;
             if (hasFalseTag) isTrue = false;
+
+            // Nhận diện nhãn Đúng/Sai ở cuối dòng chuẩn xác (tuyệt đối không nhận nhầm đơn vị giây 's' hay ký hiệu 'd', 'D', 'S')
+            const trailingTf = matchTrailingTf(line);
+            if (trailingTf && !isLeadingStar) {
+                isTrue = trailingTf.isTrue;
+            }
 
             // Làm sạch nội dung phương án và giữ lại nhãn ma trận HocNhanhTN nếu có
             let optContent = line.replace(/\[(ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|[✓✔☑✗✘]/gi, '').trim();
@@ -9511,7 +9621,7 @@ function parseEditorText(text) {
                 azotaTag = mTag[1].trim();
                 optContent = optContent.substring(mTag[0].length).trim();
             }
-            optContent = optContent.replace(/^\s*(?:<MARK>\s*)*(?:<u>\s*)*(?:\*\s*)?[\(\[]?[a-d](?:\s*<\/u>)*(?:\s*<\/MARK>)*[\)\.\:\-\]\/](?:\s*<\/u>)*(?:\s*<\/MARK>)*\s*/, '').trim();
+            optContent = optContent.replace(tfOptRegex, '').trim();
             if (!azotaTag) {
                 const mTagPost = optContent.match(/^\s*(\[\s*\d*\s*\,?\s*(?:NB|TH|VD|VDC)\s*\])\s*(.*)/i);
                 if (mTagPost) {
@@ -9520,6 +9630,11 @@ function parseEditorText(text) {
                 }
             }
             optContent = optContent.replace(/<\/?(?:MARK|u)>/gi, '').replace(/^\*+\s*/g, '').trim();
+
+            if (trailingTf) {
+                optContent = optContent.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(?:\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$/i, '').trim();
+                optContent = optContent.replace(/(?:[\t\xa0]+|[\:\-–—]\s*)([ĐS])\s*$/, '').trim();
+            }
             if (azotaTag) {
                 optContent = `${azotaTag} ${optContent}`.trim();
             }
@@ -9527,12 +9642,12 @@ function parseEditorText(text) {
             const fullOpt = `${char}) ${optContent}`;
             currentQ.options.push(fullOpt);
             currentQ.correct_answer[char] = isTrue;
-        } else if (currentQ && currentQ.type === 'true_false' && currentQ.options && currentQ.options.length >= 2 && trimmed.length <= 60 && (trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi) || []).length === 4) {
+        } else if (currentQ && currentQ.type === 'true_false' && currentQ.options && currentQ.options.length >= 2 && matchTf4Sequence(trimmed)) {
             // Chuỗi 4 chữ Đ/S từ bảng đáp án ngang HocNhanhTN (chỉ nhận sau khi đã có các phương án a, b, c, d)
-            const seq = trimmed.match(/(?<![a-zA-ZÀ-ỹ])(Đ|S|Đúng|Sai|True|False)(?![a-zA-ZÀ-ỹ])/gi);
-            ['a', 'b', 'c', 'd'].forEach((k, idx) => {
-                currentQ.correct_answer[k] = ['đ', 'đúng', 'true'].includes(seq[idx].toLowerCase());
-            });
+            const seqDict = matchTf4Sequence(trimmed);
+            if (seqDict) {
+                Object.assign(currentQ.correct_answer, seqDict);
+            }
         } else if (shortAnsRegex.test(line)) {
             if (currentQ) {
                 const ansMatch = line.match(shortAnsRegex);
@@ -9619,7 +9734,7 @@ function parseEditorText(text) {
     if (currentQ) data.push(currentQ);
     
     // Chuẩn hóa loại câu hỏi và đáp án mặc định
-    data.forEach(q => {
+    data.forEach((q, qIndex) => {
         const realType = getRealQuestionType(q);
         q.type = realType;
         if (realType === 'mcq') {
@@ -9627,8 +9742,13 @@ function parseEditorText(text) {
                 q.correct_answer = q.options[0] || null;
             }
         } else if (realType === 'true_false') {
-            if (typeof q.correct_answer !== 'object' || !q.correct_answer) {
-                q.correct_answer = { a: true, b: false, c: true, d: false };
+            if (typeof q.correct_answer !== 'object' || !q.correct_answer || Object.keys(q.correct_answer).length === 0) {
+                // Bảo toàn đáp án đã thiết lập trước đó nếu có
+                if (existingData && existingData[qIndex] && typeof existingData[qIndex].correct_answer === 'object' && Object.keys(existingData[qIndex].correct_answer).length > 0) {
+                    q.correct_answer = { ...existingData[qIndex].correct_answer };
+                } else {
+                    q.correct_answer = { a: true, b: false, c: true, d: false };
+                }
             }
         } else if (realType === 'short_answer') {
             q.options = [];
@@ -11971,7 +12091,7 @@ function insertTextToEditor(text) {
     editor.focus();
     
     updateSyntaxHighlight();
-    currentData = parseEditorText(editor.value);
+    currentData = parseEditorText(editor.value, currentData);
     renderPreviewAll();
 }
 

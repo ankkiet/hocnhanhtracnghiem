@@ -1785,6 +1785,37 @@ input[type="checkbox"]:checked + .switch-toggle::after {
             initPublishPage();
         });
 
+        // --- HÀM KHÔI PHỤC VÀ HOÀN TÁC ĐẢO ĐỀ (BẢO TOÀN ĐÁP ÁN GỐC TRƯỚC KHI XUẤT BẢN) ---
+        function getCleanUnshuffledQuizData(dataList) {
+            if (!Array.isArray(dataList) || dataList.length === 0) return [];
+
+            let cloned = JSON.parse(JSON.stringify(dataList));
+
+            const hasOrigIdx = cloned.some(q => q && q._originalIndex !== undefined);
+            if (hasOrigIdx) {
+                cloned.sort((a, b) => {
+                    const idxA = (a && a._originalIndex !== undefined) ? a._originalIndex : 999999;
+                    const idxB = (b && b._originalIndex !== undefined) ? b._originalIndex : 999999;
+                    return idxA - idxB;
+                });
+            }
+
+            cloned.forEach(q => {
+                if (!q) return;
+                if (Array.isArray(q._originalOptions) && q._originalOptions.length > 0) {
+                    q.options = [...q._originalOptions];
+                }
+                if (q._originalCorrectAnswer !== undefined && q._originalCorrectAnswer !== null) {
+                    q.correct_answer = q._originalCorrectAnswer;
+                }
+                delete q._originalIndex;
+                delete q._originalOptions;
+                delete q._originalCorrectAnswer;
+            });
+
+            return cloned;
+        }
+
         async function initPublishPage() {
             isInitializingPublishUI = true;
             authToken = getAuthToken();
@@ -1833,7 +1864,15 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         const json = await res.json();
                         // Nếu session đã có đầy đủ questions kèm đáp án thì ưu tiên câu hỏi từ session
                         if (currentQuiz.questions && currentQuiz.questions.length > 0) {
-                            if (json.settings && (!currentQuiz.settings || Object.keys(currentQuiz.settings).length === 0)) {
+                            const hasAnswersInSession = currentQuiz.questions.some(q => q && (q.correct_answer || (typeof q.correct_answer === 'object' && Object.keys(q.correct_answer).length > 0)));
+                            const hasAnswersInApi = Array.isArray(json.data) && json.data.some(q => q && (q.correct_answer || (typeof q.correct_answer === 'object' && Object.keys(q.correct_answer).length > 0)));
+
+                            if (hasAnswersInSession && !hasAnswersInApi) {
+                                // API bị giấu đáp án do Anti-cheat (chưa đăng nhập / guest), bảo toàn câu hỏi từ session
+                                applyQuizToUI({ ...json, data: currentQuiz.questions });
+                            } else if (hasAnswersInApi) {
+                                applyQuizToUI(json);
+                            } else {
                                 applyQuizToUI({ ...json, data: currentQuiz.questions });
                             }
                         } else {
@@ -2595,8 +2634,9 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                 part4_point_per_q: part4Pt
             };
 
-            // Gán điểm trực tiếp vào từng câu hỏi sao cho tổng toàn đề đúng chính xác 10.00 điểm
+            // Gán điểm trực tiếp vào từng câu hỏi sao cho tổng toàn đề đúng chính xác 10.00 điểm (bảo toàn câu hỏi gốc)
             if (Array.isArray(currentQuiz.questions)) {
+                currentQuiz.questions = getCleanUnshuffledQuizData(currentQuiz.questions);
                 assignExactPointsToQuestions(currentQuiz.questions, scoringMode, {
                     part1Pt, part2Pt, part3Pt, part4Pt
                 });
