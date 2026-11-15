@@ -2253,6 +2253,70 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     outline-offset: 2px !important;
 }
 
+.editor-formula.editor-formula-selected {
+    background: rgba(192, 38, 211, 0.22) !important;
+    border-color: #c026d3 !important;
+    box-shadow: 0 0 0 2px rgba(192, 38, 211, 0.35) !important;
+}
+
+.editor-formula-action-pill {
+    position: absolute;
+    z-index: 100;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    background: #1e293b;
+    border-radius: 20px;
+    padding: 3px 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    pointer-events: auto;
+    user-select: none;
+    animation: formulaPillFadeIn 0.15s ease-out;
+}
+
+@keyframes formulaPillFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.formula-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+    white-space: nowrap;
+}
+
+.formula-pill-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.formula-pill-btn-edit {
+    color: #38bdf8;
+}
+
+.formula-pill-btn-edit:hover {
+    background: rgba(56, 189, 248, 0.18);
+    color: #7dd3fc;
+}
+
+.formula-pill-btn-delete {
+    color: #f87171;
+}
+
+.formula-pill-btn-delete:hover {
+    background: rgba(248, 113, 113, 0.18);
+    color: #fca5a5;
+}
+
 .editor-img-resizer-overlay {
     position: absolute;
     border: 2px solid #2563eb;

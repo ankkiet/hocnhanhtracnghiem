@@ -2123,9 +2123,16 @@ function setupEditorEvents() {
         if (slashMenu && slashMenu.contains(e.relatedTarget)) {
             return;
         }
+        const formulaPill = document.getElementById('editorFormulaActionPill');
+        if (formulaPill && (formulaPill.contains(e.relatedTarget) || formulaPill.contains(document.activeElement))) {
+            return;
+        }
         // Nếu modal soạn thảo LaTeX đang mở hoặc đang có công thức được chọn sửa thì không ghi đè innerHTML
         const latexModal = document.getElementById('latexMathModal');
-        if ((latexModal && latexModal.style.display !== 'none') || __activeEditingFormulaSpan || __activeEditingFormulaRange) {
+        if ((latexModal && latexModal.style.display !== 'none') || __activeEditingFormulaSpan || __activeEditingFormulaRange || (typeof activeEditorFormulaSpan !== 'undefined' && activeEditorFormulaSpan)) {
+            return;
+        }
+        if (e.relatedTarget && (e.relatedTarget.closest('#btnInsertLatex') || e.relatedTarget.closest('#latexMathModal') || e.relatedTarget.closest('#editorFormulaActionPill'))) {
             return;
         }
         const currentHtml = codeEditor.innerHTML;
@@ -6196,6 +6203,32 @@ function clearEditorFormatting() {
 let __mathtype_typeset_done = false;
 let __activeEditingFormulaRange = null;
 let __activeEditingFormulaSpan = null;
+let __activeEditingFormulaId = null;
+let __activeEditingFormulaOriginalText = null;
+let activeEditorFormulaSpan = null;
+
+function cleanupEditingFormulaState() {
+    if (__activeEditingFormulaSpan) {
+        try {
+            __activeEditingFormulaSpan.removeAttribute('data-hntn-editing-formula');
+            __activeEditingFormulaSpan.removeAttribute('data-hntn-formula-id');
+        } catch (_) {}
+        __activeEditingFormulaSpan = null;
+    }
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        try {
+            const marked = editor.querySelectorAll('[data-hntn-editing-formula="true"], [data-hntn-formula-id]');
+            marked.forEach(el => {
+                el.removeAttribute('data-hntn-editing-formula');
+                el.removeAttribute('data-hntn-formula-id');
+            });
+        } catch (_) {}
+    }
+    __activeEditingFormulaId = null;
+    __activeEditingFormulaOriginalText = null;
+    __activeEditingFormulaRange = null;
+}
 
 function ensureMathKeyboardReady() {
     try {
@@ -6237,13 +6270,53 @@ function openLatexMathModal(customPrefill = null, isEditMode = false) {
         saveCurrentEditorSelection();
     } catch (_) {}
 
+    const editor = document.getElementById('codeEditor');
     const modal = document.getElementById('latexMathModal');
     if (!modal) {
         console.warn("Không tìm thấy modal latexMathModal");
         return;
     }
 
-    // 1. Cập nhật tiêu đề & nút bấm theo chế độ
+    // Tự động phát hiện xem con trỏ chuột hoặc vùng chọn có đang nằm ở công thức nào không
+    let targetSpan = null;
+    if (__activeEditingFormulaSpan && editor && editor.contains(__activeEditingFormulaSpan)) {
+        targetSpan = __activeEditingFormulaSpan;
+    } else if (activeEditorFormulaSpan && editor && editor.contains(activeEditorFormulaSpan)) {
+        targetSpan = activeEditorFormulaSpan;
+    } else if (editor) {
+        const sel = window.getSelection();
+        let anchor = (sel && sel.anchorNode && editor.contains(sel.anchorNode)) ? sel.anchorNode : (savedEditorSelection ? savedEditorSelection.commonAncestorContainer : null);
+        if (anchor) {
+            targetSpan = (anchor.nodeType === Node.ELEMENT_NODE)
+                ? (anchor.classList && anchor.classList.contains('editor-formula') ? anchor : anchor.closest('.editor-formula'))
+                : (anchor.parentElement ? anchor.parentElement.closest('.editor-formula') : null);
+        }
+    }
+
+    if (targetSpan && editor && editor.contains(targetSpan)) {
+        isEditMode = true;
+        const formulaId = 'formula_' + Date.now();
+        targetSpan.setAttribute('data-hntn-editing-formula', 'true');
+        targetSpan.setAttribute('data-hntn-formula-id', formulaId);
+        __activeEditingFormulaSpan = targetSpan;
+        __activeEditingFormulaId = formulaId;
+        __activeEditingFormulaOriginalText = targetSpan.textContent.trim();
+
+        if (customPrefill === null) {
+            const rawFormula = targetSpan.textContent.trim();
+            customPrefill = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
+            const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
+            const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
+            const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
+            if (isDisplay && radioDisplay) {
+                radioDisplay.checked = true;
+            } else if (radioInline) {
+                radioInline.checked = true;
+            }
+        }
+    }
+
+    // 1. Cập nhật tiêu đề & nút bấm theo đúng chuẩn Sentence case tiếng Việt
     const titleEl = document.getElementById('latexModalTitleText');
     const confirmBtn = document.getElementById('btnConfirmLatexInsert');
     if (titleEl) {
@@ -6251,6 +6324,10 @@ function openLatexMathModal(customPrefill = null, isEditMode = false) {
     }
     if (confirmBtn) {
         confirmBtn.textContent = isEditMode ? 'Cập nhật' : 'Chèn';
+    }
+
+    if (typeof hideEditorFormulaActionPill === 'function') {
+        hideEditorFormulaActionPill();
     }
 
     // 2. Hiển thị modal (neo ở trên cùng, chừa 340px đáy cho bàn phím ảo MathLive)
@@ -6317,18 +6394,7 @@ function closeLatexMathModal() {
     const modal = document.getElementById('latexMathModal');
     if (modal) modal.style.display = 'none';
 
-    if (__activeEditingFormulaSpan) {
-        try {
-            __activeEditingFormulaSpan.removeAttribute('data-hntn-editing-formula');
-        } catch (_) {}
-        __activeEditingFormulaSpan = null;
-    }
-    try {
-        const marked = document.querySelector('#codeEditor [data-hntn-editing-formula="true"]');
-        if (marked) marked.removeAttribute('data-hntn-editing-formula');
-    } catch (_) {}
-
-    __activeEditingFormulaRange = null;
+    cleanupEditingFormulaState();
 
     try {
         if (window.mathVirtualKeyboard) {
@@ -6752,105 +6818,262 @@ function createEditorFormulaSpan(formula) {
     span.setAttribute('contenteditable', 'false');
     span.setAttribute('draggable', 'true');
     span.style.cssText = 'color: #c026d3; font-weight: 600;';
-    span.title = 'Nhấn đúp để chỉnh sửa công thức, kéo thả để di chuyển';
+    span.title = 'Nhấn để chọn và sửa công thức, kéo thả để di chuyển';
     span.textContent = formula;
     return span;
+}
+
+function selectEditorFormula(span) {
+    if (!span) return;
+    if (activeEditorFormulaSpan && activeEditorFormulaSpan !== span) {
+        activeEditorFormulaSpan.classList.remove('editor-formula-selected');
+    }
+    activeEditorFormulaSpan = span;
+    activeEditorFormulaSpan.classList.add('editor-formula-selected');
+    updateFormulaActionPillPosition();
+}
+
+function deselectEditorFormula() {
+    if (activeEditorFormulaSpan) {
+        activeEditorFormulaSpan.classList.remove('editor-formula-selected');
+        activeEditorFormulaSpan = null;
+    }
+    hideEditorFormulaActionPill();
+}
+
+function updateFormulaActionPillPosition() {
+    let pill = document.getElementById('editorFormulaActionPill');
+    const editor = document.getElementById('codeEditor');
+    if (!editor || !activeEditorFormulaSpan || !editor.contains(activeEditorFormulaSpan)) {
+        if (pill) pill.style.display = 'none';
+        return;
+    }
+
+    if (!pill) {
+        pill = document.createElement('div');
+        pill.id = 'editorFormulaActionPill';
+        pill.className = 'editor-formula-action-pill';
+        pill.style.display = 'none';
+        pill.setAttribute('onmousedown', 'event.preventDefault();');
+        pill.innerHTML = `
+            <button type="button" class="formula-pill-btn formula-pill-btn-edit" onclick="editSelectedEditorFormula()" title="Chỉnh sửa công thức">
+                <i class="ri-edit-line"></i> Sửa công thức
+            </button>
+            <button type="button" class="formula-pill-btn formula-pill-btn-delete" onclick="deleteSelectedEditorFormula()" title="Xóa công thức khỏi bài">
+                <i class="ri-delete-bin-line"></i> Xóa
+            </button>
+        `;
+        const wrapper = document.getElementById('codeEditorWrapper') || editor.parentElement;
+        if (wrapper) wrapper.appendChild(pill);
+        else document.body.appendChild(pill);
+    }
+
+    const wrapper = document.getElementById('codeEditorWrapper') || editor.parentElement;
+    if (!wrapper) return;
+
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const spanRect = activeEditorFormulaSpan.getBoundingClientRect();
+
+    let top = spanRect.top - wrapperRect.top - 34;
+    let left = spanRect.left - wrapperRect.left + (spanRect.width / 2) - 80;
+
+    if (top < 4) {
+        top = spanRect.bottom - wrapperRect.top + 6;
+    }
+    if (left < 8) left = 8;
+    if (left + 175 > wrapperRect.width) {
+        left = Math.max(8, wrapperRect.width - 185);
+    }
+
+    pill.style.top = top + 'px';
+    pill.style.left = left + 'px';
+    pill.style.display = 'flex';
+}
+
+function hideEditorFormulaActionPill() {
+    const pill = document.getElementById('editorFormulaActionPill');
+    if (pill) pill.style.display = 'none';
+}
+
+function editSelectedEditorFormula() {
+    if (!activeEditorFormulaSpan) return;
+    const formulaSpan = activeEditorFormulaSpan;
+    const rawFormula = formulaSpan.textContent.trim();
+    const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
+    const cleanLatex = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
+
+    const formulaId = 'formula_' + Date.now();
+    formulaSpan.setAttribute('data-hntn-editing-formula', 'true');
+    formulaSpan.setAttribute('data-hntn-formula-id', formulaId);
+    __activeEditingFormulaSpan = formulaSpan;
+    __activeEditingFormulaId = formulaId;
+    __activeEditingFormulaOriginalText = rawFormula;
+
+    const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
+    const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
+    if (isDisplay && radioDisplay) {
+        radioDisplay.checked = true;
+    } else if (radioInline) {
+        radioInline.checked = true;
+    }
+
+    hideEditorFormulaActionPill();
+    openLatexMathModal(cleanLatex, true);
+}
+
+function deleteSelectedEditorFormula() {
+    if (!activeEditorFormulaSpan) return;
+    const span = activeEditorFormulaSpan;
+    const parent = span.parentNode;
+    if (parent) {
+        parent.removeChild(span);
+    }
+    deselectEditorFormula();
+    const editor = document.getElementById('codeEditor');
+    if (editor) {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (typeof showToast === 'function') {
+        showToast('✓ Đã xóa công thức!');
+    }
 }
 
 function confirmInsertLatexFormula() {
     const mf = document.getElementById('mathLiveEditor');
     if (!mf) return;
     let raw = ((typeof mf.getValue === 'function' ? mf.getValue('latex') : mf.value) || '').trim();
-    if (!raw) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức toán học!');
+
+    let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+
+    const editor = document.getElementById('codeEditor');
+    if (!editor) {
+        closeLatexMathModal();
         return;
     }
 
-    let clean = raw.replace(/^\[|^\(|^\$\$|^\$/, '').replace(/\]$|\)$|\$\$$|\$$/, '').trim();
+    // Tìm thẻ công thức mục tiêu đang được chỉnh sửa
+    let targetSpan = null;
+    if (__activeEditingFormulaSpan && editor.contains(__activeEditingFormulaSpan)) {
+        targetSpan = __activeEditingFormulaSpan;
+    } else if (__activeEditingFormulaId) {
+        targetSpan = editor.querySelector(`[data-hntn-formula-id="${__activeEditingFormulaId}"]`);
+    }
+    if (!targetSpan) {
+        targetSpan = editor.querySelector('[data-hntn-editing-formula="true"]');
+    }
+    if (!targetSpan && __activeEditingFormulaOriginalText) {
+        const allSpans = editor.querySelectorAll('.editor-formula');
+        for (const sp of allSpans) {
+            if (sp.textContent.trim() === __activeEditingFormulaOriginalText.trim()) {
+                targetSpan = sp;
+                break;
+            }
+        }
+    }
+
+    // Trường hợp: Người dùng xóa sạch ký tự công thức trong khi đang sửa
     if (!clean) {
-        if (typeof showToast === 'function') showToast('Vui lòng nhập công thức toán học!');
-        return;
+        if (targetSpan && targetSpan.parentNode) {
+            const parent = targetSpan.parentNode;
+            const nextNode = targetSpan.nextSibling;
+            parent.removeChild(targetSpan);
+            if (nextNode) {
+                const r = document.createRange();
+                r.setStartBefore(nextNode);
+                r.collapse(true);
+                const s = window.getSelection();
+                if (s) { s.removeAllRanges(); s.addRange(r); }
+                savedEditorSelection = r.cloneRange();
+            }
+            deselectEditorFormula();
+            cleanupEditingFormulaState();
+            closeLatexMathModal();
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof showToast === 'function') {
+                showToast('✓ Đã xóa công thức khỏi đề thi!');
+            }
+            return;
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Vui lòng nhập công thức toán học!');
+            }
+            return;
+        }
     }
 
     const isDisplay = document.querySelector('input[name="latexDisplayType"]:checked')?.value === 'display';
     const formula = isDisplay ? ('$$' + clean + '$$') : ('$' + clean + '$');
-
-    const editor = document.getElementById('codeEditor');
     let isUpdated = false;
 
-    if (editor) {
-        let targetSpan = null;
-        if (__activeEditingFormulaSpan && editor.contains(__activeEditingFormulaSpan)) {
-            targetSpan = __activeEditingFormulaSpan;
-        } else {
-            targetSpan = editor.querySelector('[data-hntn-editing-formula="true"]');
-        }
+    if (targetSpan && targetSpan.parentNode) {
+        // 1. Chế độ cập nhật trực tiếp tại chỗ (In-place atomic replace)
+        const newSpan = createEditorFormulaSpan(formula);
+        targetSpan.parentNode.replaceChild(newSpan, targetSpan);
 
-        if (targetSpan) {
-            // 1. Chế độ cập nhật trực tiếp vào thẻ công thức đang sửa (In-place update)
-            targetSpan.textContent = formula;
-            try {
-                targetSpan.removeAttribute('data-hntn-editing-formula');
-            } catch (_) {}
-            isUpdated = true;
-
-            const newRange = document.createRange();
-            newRange.setStartAfter(targetSpan);
-            newRange.collapse(true);
-            const sel = window.getSelection();
+        // Đặt con trỏ ngay sau công thức vừa cập nhật
+        const newRange = document.createRange();
+        newRange.setStartAfter(newSpan);
+        newRange.collapse(true);
+        const sel = window.getSelection();
+        if (sel) {
             sel.removeAllRanges();
             sel.addRange(newRange);
-            savedEditorSelection = newRange.cloneRange();
+        }
+        savedEditorSelection = newRange.cloneRange();
+        isUpdated = true;
 
-            __activeEditingFormulaSpan = null;
-            __activeEditingFormulaRange = null;
-        } else if (__activeEditingFormulaRange && editor.contains(__activeEditingFormulaRange.commonAncestorContainer)) {
-            // 2. Chế độ thay thế bằng Range hợp lệ
-            try {
-                __activeEditingFormulaRange.deleteContents();
-                const formulaSpan = createEditorFormulaSpan(formula);
-                __activeEditingFormulaRange.insertNode(formulaSpan);
-                __activeEditingFormulaRange.setStartAfter(formulaSpan);
-                __activeEditingFormulaRange.setEndAfter(formulaSpan);
-                const sel = window.getSelection();
+        selectEditorFormula(newSpan);
+    } else if (__activeEditingFormulaRange && editor.contains(__activeEditingFormulaRange.commonAncestorContainer)) {
+        // 2. Chế độ thay thế bằng Range hợp lệ
+        try {
+            __activeEditingFormulaRange.deleteContents();
+            const formulaSpan = createEditorFormulaSpan(formula);
+            __activeEditingFormulaRange.insertNode(formulaSpan);
+            __activeEditingFormulaRange.setStartAfter(formulaSpan);
+            __activeEditingFormulaRange.collapse(true);
+            const sel = window.getSelection();
+            if (sel) {
                 sel.removeAllRanges();
                 sel.addRange(__activeEditingFormulaRange);
-                savedEditorSelection = __activeEditingFormulaRange.cloneRange();
-                isUpdated = true;
-            } catch (e) {
-                console.warn("Lỗi thay thế công thức đang sửa:", e);
-                const formulaSpan = createEditorFormulaSpan(formula);
-                editor.appendChild(formulaSpan);
             }
-            __activeEditingFormulaSpan = null;
-            __activeEditingFormulaRange = null;
-        } else {
-            restoreEditorSelection();
-            editor.focus();
-
-            const sel = window.getSelection();
-            if (sel && sel.rangeCount > 0) {
-                const range = sel.getRangeAt(0);
-                range.deleteContents();
-                const formulaSpan = createEditorFormulaSpan(formula);
-                range.insertNode(formulaSpan);
-
-                range.setStartAfter(formulaSpan);
-                range.setEndAfter(formulaSpan);
-                sel.removeAllRanges();
-                sel.addRange(range);
-                savedEditorSelection = range.cloneRange();
-            } else {
-                const formulaSpan = createEditorFormulaSpan(formula);
-                editor.appendChild(formulaSpan);
-                saveCurrentEditorSelection();
-            }
+            savedEditorSelection = __activeEditingFormulaRange.cloneRange();
+            isUpdated = true;
+            selectEditorFormula(formulaSpan);
+        } catch (e) {
+            console.warn("Lỗi thay thế Range công thức đang sửa:", e);
+            const formulaSpan = createEditorFormulaSpan(formula);
+            editor.appendChild(formulaSpan);
         }
+    } else {
+        // 3. Chèn công thức mới vào vị trí con trỏ
+        restoreEditorSelection();
+        editor.focus();
 
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+            const range = sel.getRangeAt(0);
+            range.deleteContents();
+            const formulaSpan = createEditorFormulaSpan(formula);
+            range.insertNode(formulaSpan);
+
+            range.setStartAfter(formulaSpan);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            savedEditorSelection = range.cloneRange();
+            selectEditorFormula(formulaSpan);
+        } else {
+            const formulaSpan = createEditorFormulaSpan(formula);
+            editor.appendChild(formulaSpan);
+            saveCurrentEditorSelection();
+            selectEditorFormula(formulaSpan);
+        }
     }
 
+    cleanupEditingFormulaState();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
     closeLatexMathModal();
+
     if (typeof showToast === 'function') {
         showToast(isUpdated ? '✓ Đã cập nhật công thức vào đề thi!' : '✓ Đã chèn công thức vào đề thi!');
     }
@@ -6925,41 +7148,33 @@ function initFormulaClickToEdit() {
     const editor = document.getElementById('codeEditor');
     if (!editor) return;
 
-    function handleFormulaTrigger(e) {
-        // 1. Ưu tiên kiểm tra nếu click trực tiếp vào thẻ .editor-formula
-        const formulaSpan = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : (e.target.parentElement ? e.target.parentElement.closest('.editor-formula') : null))) : null;
+    // 1. Nhấp chuột đơn (Single Click): Chọn công thức và hiển thị thanh tác vụ nổi
+    editor.addEventListener('click', function(e) {
+        const formulaSpan = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : null)) : null;
         if (formulaSpan && editor.contains(formulaSpan)) {
-            const rawFormula = formulaSpan.textContent.trim();
-            if (rawFormula.includes('$') || rawFormula.includes('\\(') || rawFormula.includes('\\[') || rawFormula.includes('\\begin')) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const isDisplay = rawFormula.startsWith('$$') || rawFormula.startsWith('\\[');
-                const cleanLatex = rawFormula.replace(/^(\$\$|\$|\\\[|\\\()/, '').replace(/(\$\$|\$|\\\]|\\\))$/, '').trim();
-
-                formulaSpan.setAttribute('data-hntn-editing-formula', 'true');
-                __activeEditingFormulaSpan = formulaSpan;
-                const formulaRange = document.createRange();
-                formulaRange.selectNode(formulaSpan);
-                __activeEditingFormulaRange = formulaRange;
-
-                const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
-                const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
-                if (isDisplay && radioDisplay) {
-                    radioDisplay.checked = true;
-                } else if (radioInline) {
-                    radioInline.checked = true;
-                }
-
-                openLatexMathModal(cleanLatex, true);
-                return;
+            e.stopPropagation();
+            selectEditorFormula(formulaSpan);
+        } else {
+            const pill = document.getElementById('editorFormulaActionPill');
+            if (pill && !pill.contains(e.target)) {
+                deselectEditorFormula();
             }
+        }
+    });
+
+    // 2. Nhấp đúp chuột (Double Click): Mở ngay modal soạn thảo để chỉnh sửa
+    editor.addEventListener('dblclick', function(e) {
+        const formulaSpan = e.target ? (e.target.classList && e.target.classList.contains('editor-formula') ? e.target : (e.target.closest ? e.target.closest('.editor-formula') : null)) : null;
+        if (formulaSpan && editor.contains(formulaSpan)) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectEditorFormula(formulaSpan);
+            editSelectedEditorFormula();
+            return;
         }
 
         let node = null;
         let offset = 0;
-
-        // 2. Lấy vị trí click chính xác từ tọa độ chuột nếu công thức ở dạng text thường
         const caret = getCaretRangeFromPoint(e.clientX, e.clientY);
         if (caret && editor.contains(caret.startContainer)) {
             node = caret.startContainer;
@@ -6973,40 +7188,30 @@ function initFormulaClickToEdit() {
         }
 
         if (!node) return;
-
         const formulaInfo = findFormulaAtPosition(node, offset);
         if (formulaInfo) {
             e.preventDefault();
             e.stopPropagation();
-
-            // Đóng gói ngay text node thành thẻ .editor-formula để có node DOM cố định
             const newSpan = createEditorFormulaSpan(formulaInfo.rawFormula);
             formulaInfo.range.deleteContents();
             formulaInfo.range.insertNode(newSpan);
 
-            newSpan.setAttribute('data-hntn-editing-formula', 'true');
-            __activeEditingFormulaSpan = newSpan;
-
-            const formulaRange = document.createRange();
-            formulaRange.selectNode(newSpan);
-            __activeEditingFormulaRange = formulaRange;
-
-            // Đồng bộ kiểu hiển thị Trong dòng / Riêng một dòng
-            const radioDisplay = document.querySelector('input[name="latexDisplayType"][value="display"]');
-            const radioInline = document.querySelector('input[name="latexDisplayType"][value="inline"]');
-            if (formulaInfo.isDisplay && radioDisplay) {
-                radioDisplay.checked = true;
-            } else if (radioInline) {
-                radioInline.checked = true;
-            }
-
-            // Chuyển sang mở modal soạn thảo công thức với mã LaTeX được nạp sẵn
-            openLatexMathModal(formulaInfo.cleanLatex, true);
+            selectEditorFormula(newSpan);
+            editSelectedEditorFormula();
         }
-    }
+    });
 
-    // Chỉ kích hoạt mở bảng soạn thảo công thức khi nhấn đúp chuột (Double Click)
-    editor.addEventListener('dblclick', handleFormulaTrigger);
+    // 3. Cuộn trang & thay đổi kích thước: Cập nhật vị trí thanh tác vụ nổi
+    editor.addEventListener('scroll', function() {
+        if (activeEditorFormulaSpan) {
+            updateFormulaActionPillPosition();
+        }
+    });
+    window.addEventListener('resize', function() {
+        if (activeEditorFormulaSpan) {
+            updateFormulaActionPillPosition();
+        }
+    });
 }
 
 // Giữ lại alias để tương thích ngược
@@ -7031,6 +7236,12 @@ window.backspaceLatexFormula = backspaceLatexFormula;
 window.copyLatexFormula = copyLatexFormula;
 window.insertLatexSnippet = insertLatexSnippet;
 window.updateLatexLivePreview = updateLatexLivePreview;
+window.selectEditorFormula = selectEditorFormula;
+window.deselectEditorFormula = deselectEditorFormula;
+window.editSelectedEditorFormula = editSelectedEditorFormula;
+window.deleteSelectedEditorFormula = deleteSelectedEditorFormula;
+window.updateFormulaActionPillPosition = updateFormulaActionPillPosition;
+window.hideEditorFormulaActionPill = hideEditorFormulaActionPill;
 window.__activeEditingFormulaSpan = null;
 
 // Khởi tạo các listener khi trang tải xong
@@ -7477,6 +7688,7 @@ function initEditorImageInteractions() {
             isDraggingEditorText = false;
             draggedEditorTextRange = null;
             draggedEditorTextContent = '';
+            hideEditorFormulaActionPill();
             e.dataTransfer.effectAllowed = 'move';
             try {
                 e.dataTransfer.setData('text/plain', formulaEl.textContent || '');
@@ -7636,6 +7848,7 @@ function initEditorImageInteractions() {
             sel.removeAllRanges();
             sel.addRange(newRange);
             saveCurrentEditorSelection();
+            selectEditorFormula(targetFormula);
 
             // Kích hoạt re-parse đề thi và cập nhật xem trước ngay lập tức
             editor.dispatchEvent(new Event('input', { bubbles: true }));

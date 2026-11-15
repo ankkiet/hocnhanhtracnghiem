@@ -640,7 +640,7 @@
                                 <input type="file" id="editorHiddenImageInput" accept="image/*" style="display: none;" onchange="handleImageFileSelected(this)">
                             </div>
 
-                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection();" onclick="openLatexMathModal()" title="Chèn & xem trước công thức toán học LaTeX">
+                            <button type="button" class="toolbar-btn toolbar-btn-latex" id="btnInsertLatex" onmousedown="saveCurrentEditorSelection(); event.preventDefault();" onclick="openLatexMathModal()" title="Chèn & xem trước công thức toán học LaTeX">
                                 <i class="ri-functions" style="color: #ea580c;"></i> <span class="btn-text-sm">LaTeX</span>
                             </button>
                         </div>
@@ -689,6 +689,17 @@
                     </div>
                     <!-- Caret nhấp nháy chỉ báo vị trí thả ảnh chuẩn xác -->
                     <div id="editorDropCaret" class="editor-drop-caret" style="display: none;"></div>
+
+                    <!-- Thanh tác vụ nổi cho công thức toán học -->
+                    <div id="editorFormulaActionPill" class="editor-formula-action-pill" style="display: none;" onmousedown="event.preventDefault();">
+                        <button type="button" class="formula-pill-btn formula-pill-btn-edit" onclick="editSelectedEditorFormula()" title="Chỉnh sửa công thức">
+                            <i class="ri-edit-line"></i> Sửa công thức
+                        </button>
+                        <button type="button" class="formula-pill-btn formula-pill-btn-delete" onclick="deleteSelectedEditorFormula()" title="Xóa công thức khỏi bài">
+                            <i class="ri-delete-bin-line"></i> Xóa
+                        </button>
+                    </div>
+
                     <div id="codeEditor" class="studio-code-font" contenteditable="true" spellcheck="false" placeholder="Nhập hoặc dán nội dung đề thi vào đây..."></div>
 
                     <!-- Menu lệnh nhanh / (Floating Slash Command Palette) -->
