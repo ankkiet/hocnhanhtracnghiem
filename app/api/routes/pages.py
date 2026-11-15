@@ -94,7 +94,7 @@ def _guard_static_asset(raw_path: Optional[str]):
             asset_file = os.path.join(settings.BASE_DIR, raw_path)
         if os.path.exists(asset_file):
             media_type = "application/javascript" if raw_path.endswith(".js") else ("text/css" if raw_path.endswith(".css") else None)
-            return FileResponse(asset_file, media_type=media_type)
+            return FileResponse(asset_file, media_type=media_type, headers={"Cache-Control": "public, max-age=0, must-revalidate"})
         raise HTTPException(status_code=404, detail="File not found")
     return None
 
@@ -225,7 +225,7 @@ async def home_page(request: Request, id: Optional[str] = None, quiz_id: Optiona
     if not os.path.exists(index_path):
         raise HTTPException(status_code=404, detail="Không tìm thấy index.html")
     with open(index_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read(), media_type="text/html")
+        return HTMLResponse(content=f.read(), media_type="text/html", headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"})
 
 
 # -------------------------------------------------------------

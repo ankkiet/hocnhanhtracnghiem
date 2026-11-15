@@ -167,4 +167,13 @@ def test_tobooltf_returns_null_for_undefined_and_no_auto_tick_false():
     assert "window.currentPracticeTF = {};" in src
 
 
+def test_cache_busting_version_updated():
+    """Đảm bảo chuỗi phiên bản cache buster được nâng cấp mới để vượt qua bộ nhớ đệm Cloudflare/trình duyệt."""
+    with open('templates/index.html', 'r', encoding='utf-8') as f:
+        html = f.read()
+    assert 'script.js?v=20261115_fix_tf_clean_v3' in html
+    assert '20261113_ai_check_v1' not in html
+
+
+
 
