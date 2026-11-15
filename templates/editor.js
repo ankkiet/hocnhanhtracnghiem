@@ -2675,7 +2675,7 @@ function parseEditorText(text, existingData = null) {
                     }
                 } else if (isTfAns || tfOptsCount >= 2 || currentQ.type === 'true_false') {
                     currentQ.type = 'true_false';
-                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
+                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : {};
                     ['a', 'b', 'c', 'd'].forEach(k => {
                         const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
                         if (m) {
@@ -2895,7 +2895,7 @@ function parseEditorText(text, existingData = null) {
                 if (existingData && existingData[qIndex] && typeof existingData[qIndex].correct_answer === 'object' && Object.keys(existingData[qIndex].correct_answer).length > 0) {
                     q.correct_answer = { ...existingData[qIndex].correct_answer };
                 } else {
-                    q.correct_answer = { a: true, b: false, c: true, d: false };
+                    q.correct_answer = {};
                 }
             }
         } else if (realType === 'short_answer') {
@@ -3183,6 +3183,7 @@ function renderPreviewAll() {
                 let charMatch = opt.match(/^[a-d]/);
                 let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
                 let isTrue = tfMap[char] === true;
+                let isFalse = tfMap[char] === false;
                 let optClean = formatSubscriptsAndFormulas(opt.replace(/^[a-d][\.\:\)]\s*/, ''));
                 html += `
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -3192,7 +3193,7 @@ function renderPreviewAll() {
                         </div>
                         <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
                             <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', true); event.stopPropagation();" title="Chọn làm đáp án đúng">Đúng</span>
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', false); event.stopPropagation();" title="Chọn làm đáp án sai">Sai</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isFalse ? '#fca5a5' : '#cbd5e1'}; background: ${isFalse ? '#fee2e2' : '#ffffff'}; color: ${isFalse ? '#b91c1c' : '#94a3b8'}; cursor: pointer; transition: 0.2s;" onclick="changeTfAnswer(${qIndex}, '${char}', false); event.stopPropagation();" title="Chọn làm đáp án sai">Sai</span>
                         </div>
                     </div>`;
             });
@@ -3626,7 +3627,7 @@ window.changeQuestionType = function(qIndex, newType) {
             });
         }
         if (typeof q.correct_answer !== 'object' || q.correct_answer === null) {
-            q.correct_answer = { a: true, b: false, c: true, d: false };
+            q.correct_answer = {};
         }
     } else { // mcq
         q.type = 'mcq';
@@ -5472,6 +5473,10 @@ function slugifyVietnamese(text) {
 function showSuccessModal(quizId) {
     const modal = document.getElementById('successModal');
     if (!modal) return;
+    try {
+        localStorage.removeItem(`quiz_progress_${quizId}`);
+        sessionStorage.removeItem(`quiz_progress_${quizId}`);
+    } catch(e) {}
 
     document.getElementById('successQuizCode').innerText = quizId;
     const origin = (window.location.origin && window.location.origin !== "null") ? window.location.origin : "";

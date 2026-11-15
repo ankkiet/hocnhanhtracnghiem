@@ -2725,6 +2725,8 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                         sessionStorage.setItem(`export_quiz_${finalId}`, JSON.stringify(updatedQuizObj));
                         sessionStorage.setItem('export_quiz_data', JSON.stringify(updatedQuizObj));
                         sessionStorage.setItem(`export_quiz_title_${finalId}`, title);
+                        // Xóa dữ liệu tiến trình thi thử cũ để khi vào thi sẽ luôn bắt đầu bài thi mới hoàn toàn
+                        localStorage.removeItem(`quiz_progress_${finalId}`);
                     } catch(e) {}
 
                     // Cập nhật các liên kết trong modal thành công

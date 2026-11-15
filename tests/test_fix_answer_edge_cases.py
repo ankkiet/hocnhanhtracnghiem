@@ -131,3 +131,40 @@ d) Khoảng cách từ gốc O đến (P) bằng 2
     assert ans["c"] is False, "Câu c có đường thẳng d không được coi là Đúng"
     assert ans["d"] is False
 
+
+def test_no_dummy_hardcoded_true_false_answers():
+    """Đảm bảo không còn gán bậy đáp án mặc định { a: true, b: false, c: true, d: false }."""
+    for fpath in ['static/js/script.source.js', 'static/js/editor.js']:
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert 'a: true, b: false, c: true, d: false' not in content, f"{fpath} chứa đáp án mẫu giả định gán bừa!"
+
+
+def test_preview_no_false_highlighting_when_undefined():
+    """Đảm bảo giao diện xem trước không dùng !isTrue làm nhãn Sai tự động đỏ khi chưa chọn."""
+    for fpath in ['static/js/script.source.js', 'static/js/editor.js']:
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert '!isTrue ? \'#fca5a5\'' not in content, f"{fpath} bị lỗi gán nhãn Sai tự động khi chưa chọn đáp án!"
+
+
+def test_publish_clears_local_progress():
+    """Đảm bảo khi xuất bản đề thi mới, tiến trình làm thử cũ của đề thi trên trình duyệt được xóa sạch."""
+    for fpath in ['static/publish.html', 'templates/publish.html']:
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert 'localStorage.removeItem(`quiz_progress_${finalId}`)' in content, f"{fpath} chưa xóa quiz_progress cũ!"
+
+
+def test_tobooltf_returns_null_for_undefined_and_no_auto_tick_false():
+    """Đảm bảo toBoolTF(undefined/null) trả về null thay vì false, tránh tự động tick 4 câu sai khi vào làm."""
+    with open('static/js/script.source.js', 'r', encoding='utf-8') as f:
+        src = f.read()
+    # Kiểm tra toBoolTF xử lý giá trị rỗng/undefined
+    assert "if (val === undefined || val === null || val === '') return null;" in src
+    # Kiểm tra startStudentQuiz reset biến tiến trình luyện tập khi không phải resume
+    assert "quizProgress.practiceIndex = 0;" in src
+    assert "window.currentPracticeTF = {};" in src
+
+
+

@@ -108,6 +108,10 @@ test_*.docx
 de_thi_*.docx
 *.pdf.tmp
 test_*.pdf
+test_*.png
+screenshot_*.png
+.hypothesis/
+.benchmarks/
 
 # --- Logs & Runtime Output ---
 *.log

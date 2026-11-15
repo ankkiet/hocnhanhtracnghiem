@@ -2684,11 +2684,19 @@ async function initApp() {
                 if (loadedProgress) {
                     try {
                         let localTs = loadedProgress.quizUpdatedAt || 0;
-                        if (localTs > 0 && serverUpdatedAt > 0 && localTs < serverUpdatedAt) {
-                            alert("⚠️ Đề thi đã được giáo viên cập nhật nội dung/đáp án mới!\nTiến trình làm bài cũ của bạn sẽ được làm mới lại để đảm bảo tính chính xác.");
+                        if (serverUpdatedAt > 0 && (!localTs || localTs < serverUpdatedAt)) {
+                            showToast("⚠️ Đề thi đã được giáo viên cập nhật mới. Tiến trình làm bài cũ đã được làm mới.", "info");
                             let oldHistory = loadedProgress.history || [];
                             let sName = loadedProgress.studentName || "";
-                            loadedProgress = { history: oldHistory, studentName: sName, quizUpdatedAt: serverUpdatedAt, timeLimit: currentTimeLimit };
+                            loadedProgress = { 
+                                history: oldHistory, 
+                                studentName: sName, 
+                                quizUpdatedAt: serverUpdatedAt, 
+                                timeLimit: currentTimeLimit,
+                                answers: {},
+                                flagged: {},
+                                practiceResults: {}
+                            };
                             localStorage.setItem(`quiz_progress_${quizId}`, JSON.stringify(loadedProgress));
                         } else {
                             if (!loadedProgress.quizUpdatedAt) loadedProgress.quizUpdatedAt = serverUpdatedAt;
@@ -3068,14 +3076,16 @@ function closeRewardAdModal() {
 
 // Xử lý khi bấm nút "Bắt đầu làm bài thi"
 function handleStartQuizWithAdCheck() {
+    const startBtn = document.getElementById('startBtn');
+    const isContinuing = Boolean(startBtn && startBtn.innerText.includes('Tiếp tục'));
     // NẾU TÍNH NĂNG QUẢNG CÁO ĐANG TẠM ẨN -> CHO HỌC SINH VÀO LÀM BÀI NGAY LẬP TỨC 100%
     if (!window.ENABLE_REWARD_ADS) {
-        startStudentQuiz();
+        startStudentQuiz(isContinuing);
         return;
     }
     // Nếu học sinh đã có vé 12h hợp lệ -> Cho vào làm bài ngay lập tức
     if (hasValid12hPass()) {
-        startStudentQuiz();
+        startStudentQuiz(isContinuing);
         return;
     }
     // Nếu chưa có vé -> Mở popup xem quảng cáo
@@ -3142,13 +3152,17 @@ function startWatchingAdProcess() {
 function finishRewardAndEnterQuiz() {
     grant12hPass();
     closeRewardAdModal();
-    startStudentQuiz();
+    const startBtn = document.getElementById('startBtn');
+    const isContinuing = Boolean(startBtn && startBtn.innerText.includes('Tiếp tục'));
+    startStudentQuiz(isContinuing);
 }
 
 // Bỏ qua khẩn cấp (cho học sinh đang thi gấp)
 function bypassAdOnceForEmergency() {
     closeRewardAdModal();
-    startStudentQuiz();
+    const startBtn = document.getElementById('startBtn');
+    const isContinuing = Boolean(startBtn && startBtn.innerText.includes('Tiếp tục'));
+    startStudentQuiz(isContinuing);
 }
 
 async function startStudentQuiz(isResume = false) {
@@ -3320,9 +3334,15 @@ async function startStudentQuiz(isResume = false) {
             passwordVerified: true,
             answers: {},
             flagged: {},
+            practiceResults: {},
+            practiceIndex: 0,
+            practiceScore: 0,
             completed: false,
             paused: false
         };
+        currentQuestionIndex = 0;
+        practiceScore = 0;
+        window.currentPracticeTF = {};
         flaggedQuestions = {};
         currentData = JSON.parse(JSON.stringify(serverData)); // KHÔI PHỤC DATA MỚI NHẤT TỪ SERVER
         if (isShuffleEnabled) shuffleQuiz(true);
@@ -3335,17 +3355,36 @@ async function startStudentQuiz(isResume = false) {
         }
     } else {
         // Lần đầu vào hoặc tiếp tục bài làm đang dở
-        if (!quizProgress.startedAt) {
+        if (!quizProgress.startedAt || !isResume) {
             quizProgress.startedAt = Date.now();
         }
         quizProgress.timeLimit = currentTimeLimit;
         quizProgress.quizUpdatedAt = quizProgress.quizUpdatedAt || currentQuizServerUpdatedAt;
         quizProgress.completed = false;
         quizProgress.paused = false;
-        if (!quizProgress.answers) quizProgress.answers = {};
-        if (!quizProgress.flagged) quizProgress.flagged = {};
-        flaggedQuestions = quizProgress.flagged;
-        if (!quizProgress.shuffledData) quizProgress.shuffledData = currentData;
+        if (!isResume) {
+            // Người dùng bắt đầu một lượt làm bài mới (không phải tiếp tục bài làm dở): khởi tạo sạch đáp án
+            quizProgress.answers = {};
+            quizProgress.flagged = {};
+            quizProgress.practiceResults = {};
+            quizProgress.practiceIndex = 0;
+            quizProgress.practiceScore = 0;
+            currentQuestionIndex = 0;
+            practiceScore = 0;
+            window.currentPracticeTF = {};
+            flaggedQuestions = {};
+            if (Array.isArray(currentData)) {
+                currentData.forEach(q => {
+                    delete q._practiceStatus;
+                    delete q.user_answer_practice;
+                });
+            }
+        } else {
+            if (!quizProgress.answers) quizProgress.answers = {};
+            if (!quizProgress.flagged) quizProgress.flagged = {};
+            flaggedQuestions = quizProgress.flagged;
+        }
+        if (!quizProgress.shuffledData || !isResume) quizProgress.shuffledData = currentData;
     }
     
     quizProgress.studentName = studentName;
@@ -3401,7 +3440,7 @@ async function startStudentQuiz(isResume = false) {
         document.documentElement.requestFullscreen().catch(err => console.log("Fullscreen error:", err));
     }
     
-    const isContinuing = Boolean(quizProgress.startedAt && (!quizProgress.completed || isResume));
+    const isContinuing = Boolean(isResume);
     switchMode(currentDataMode, isContinuing); 
     startTimer(currentTimeLimit);
 
@@ -7994,10 +8033,11 @@ function renderData() {
                 boxHtml += `<div class="azota-tf-container">`;
                 let userAnsObj = (quizProgress && quizProgress.answers && typeof quizProgress.answers[qIndex] === 'object') ? quizProgress.answers[qIndex] : {};
                 (q.options || []).forEach((opt, oIndex) => {
-                    let charMatch = opt.match(/^[a-d]/);
-                    let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
+                    let char = extractTfOptionChar(opt, oIndex);
                     let optClean = opt.replace(/^[a-d][\.\:\)]\s*/, '');
-                    let val = userAnsObj[char];
+                    optClean = optClean.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(?:\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$/i, '').trim();
+                    optClean = optClean.replace(/(?:[\t\xa0]+|[\:\-–—]\s*)([ĐS])\s*$/, '').trim();
+                    let val = toBoolTF(userAnsObj[char]);
                     boxHtml += `
                         <div class="azota-tf-row" id="exam_tf_${qIndex}_${char}">
                             <div class="azota-tf-statement">
@@ -8188,6 +8228,8 @@ function renderPracticeQuestion() {
         (q.options || []).forEach((opt, oIndex) => {
             let char = extractTfOptionChar(opt, oIndex);
             let optClean = String(opt || '').replace(/^[a-d][\.\:\)]\s*/i, '');
+            optClean = optClean.replace(/(?:[\s\t\xa0]+|(?<=[;\.\:\?!]))(?:\[(?:ĐÚNG|DUNG|SAI|Đ|S|TRUE|FALSE|T|F)\]|\((?:Đúng|Dung|Sai|Đ|S|True|False|T|F)\)|Đúng|Sai|True|False)\s*$/i, '').trim();
+            optClean = optClean.replace(/(?:[\t\xa0]+|[\:\-–—]\s*)([ĐS])\s*$/, '').trim();
             let isUserTrue = (toBoolTF(window.currentPracticeTF[char]) === true);
             let isUserFalse = (toBoolTF(window.currentPracticeTF[char]) === false);
             let correctVal = toBoolTF(correctMap[char]);
@@ -9677,7 +9719,7 @@ function parseEditorText(text, existingData = null) {
                     }
                 } else if (isTfAns || tfOptsCount >= 2 || currentQ.type === 'true_false') {
                     currentQ.type = 'true_false';
-                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : { a: true, b: false, c: true, d: false };
+                    const tfDict = (typeof currentQ.correct_answer === 'object' && currentQ.correct_answer !== null) ? currentQ.correct_answer : {};
                     ['a', 'b', 'c', 'd'].forEach(k => {
                         const m = ansContent.match(new RegExp("(?:^|[\\s,;\\(\\[])" + k + "[\\.\\:\\-\\)\\s=]*([^\\s,;\\/]+)", "i"));
                         if (m) {
@@ -9747,7 +9789,7 @@ function parseEditorText(text, existingData = null) {
                 if (existingData && existingData[qIndex] && typeof existingData[qIndex].correct_answer === 'object' && Object.keys(existingData[qIndex].correct_answer).length > 0) {
                     q.correct_answer = { ...existingData[qIndex].correct_answer };
                 } else {
-                    q.correct_answer = { a: true, b: false, c: true, d: false };
+                    q.correct_answer = {};
                 }
             }
         } else if (realType === 'short_answer') {
@@ -9815,6 +9857,7 @@ function renderPreviewAll() {
                 let charMatch = opt.match(/^[a-d]/);
                 let char = charMatch ? charMatch[0].toLowerCase() : String.fromCharCode(97 + oIndex);
                 let isTrue = tfMap[char] === true;
+                let isFalse = tfMap[char] === false;
                 let optClean = opt.replace(/^[a-d][\.\:\)]\s*/, '');
                 html += `
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -9824,7 +9867,7 @@ function renderPreviewAll() {
                         </div>
                         <div style="display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0;">
                             <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isTrue ? '#86efac' : '#cbd5e1'}; background: ${isTrue ? '#dcfce7' : '#ffffff'}; color: ${isTrue ? '#15803d' : '#94a3b8'};">Đúng</span>
-                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${!isTrue ? '#fca5a5' : '#cbd5e1'}; background: ${!isTrue ? '#fee2e2' : '#ffffff'}; color: ${!isTrue ? '#b91c1c' : '#94a3b8'};">Sai</span>
+                            <span style="padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: 1px solid ${isFalse ? '#fca5a5' : '#cbd5e1'}; background: ${isFalse ? '#fee2e2' : '#ffffff'}; color: ${isFalse ? '#b91c1c' : '#94a3b8'};">Sai</span>
                         </div>
                     </div>`;
             });
@@ -10313,15 +10356,18 @@ function filterReviewQuestions(filterType) {
     });
 }
 
-// Hàm chuẩn hóa boolean cho câu hỏi Đúng/Sai
+// Hàm chuẩn hóa boolean cho câu hỏi Đúng/Sai (trả về null nếu chưa chọn/rỗng)
 function toBoolTF(val) {
+    if (val === undefined || val === null || val === '') return null;
     if (val === true || val === false) return val;
     if (typeof val === 'number') return val !== 0;
     if (typeof val === 'string') {
         const s = val.trim().toLowerCase();
-        return ['true', 't', 'đúng', 'dung', 'đ', 'd', '1', 'yes', 'y'].includes(s);
+        if (['true', 't', 'đúng', 'dung', 'đ', 'd', '1', 'yes', 'y'].includes(s)) return true;
+        if (['false', 'f', 'sai', 's', '0', 'no', 'n'].includes(s)) return false;
+        return null;
     }
-    return Boolean(val);
+    return null;
 }
 window.toBoolTF = toBoolTF;
 
@@ -11400,7 +11446,7 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                             </div>
                             <div class="review-tf-badges">
                                 <span class="review-tf-user-pick">
-                                    Bạn chọn: <b>${userVal === undefined ? 'Chưa chọn' : (toBoolTF(userVal) ? 'Đúng' : 'Sai')}</b>
+                                    Bạn chọn: <b>${userVal === undefined || toBoolTF(userVal) === null ? 'Chưa chọn' : (toBoolTF(userVal) === true ? 'Đúng' : 'Sai')}</b>
                                 </span>
                             </div>
                         </div>
@@ -11412,11 +11458,11 @@ function renderSubmissionReview(score, totalQues, totalTimeElapsed, userAnswers,
                                 <b class="review-tf-char">${char})</b> <span>${formatRichContent(optText)}</span>
                             </div>
                             <div class="review-tf-badges">
-                                <span class="review-tf-user-pick ${userVal === undefined ? 'skipped' : (isMatch ? 'correct' : 'wrong')}">
-                                    Bạn chọn: <b>${userVal === undefined ? 'Chưa chọn' : (toBoolTF(userVal) ? 'Đúng' : 'Sai')}</b>
+                                <span class="review-tf-user-pick ${userVal === undefined || toBoolTF(userVal) === null ? 'skipped' : (isMatch ? 'correct' : 'wrong')}">
+                                    Bạn chọn: <b>${userVal === undefined || toBoolTF(userVal) === null ? 'Chưa chọn' : (toBoolTF(userVal) === true ? 'Đúng' : 'Sai')}</b>
                                 </span>
                                 <span class="review-tf-correct-ans">
-                                    Đáp án: <b>${toBoolTF(isCorrectVal) ? 'Đúng' : 'Sai'}</b>
+                                    Đáp án: <b>${toBoolTF(isCorrectVal) === true ? 'Đúng' : (toBoolTF(isCorrectVal) === false ? 'Sai' : 'Chưa có')}</b>
                                 </span>
                                 <span class="review-tf-icon">${userVal === undefined ? '⚠️' : (isMatch ? '✅' : '❌')}</span>
                             </div>
