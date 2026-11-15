@@ -617,6 +617,49 @@ def test_student_submit_exam_exact_ten_points_with_fractional_questions():
         assert res["score"] == 10.0, f"score phải là 10.0 nhưng nhận {res['score']}"
 
 
+def test_mobile_publish_button_visibility():
+    """Kiểm tra nút xuất bản mobile: ẩn trên máy tính (desktop) và chỉ hiển thị ở giao diện mobile."""
+    with open("templates/editor.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Nút xuất bản mobile phải có id, class studio-mobile-publish-btn, display: none inline để ẩn mặc định trên máy tính
+    assert 'id="btnOpenPublishMobile"' in html
+    assert 'class="studio-mobile-publish-btn"' in html
+    assert 'style="display: none;"' in html
+    assert 'btn-studio-primary studio-mobile-publish-btn' not in html
+
+    for css_path in ["static/css/editor.css", "templates/editor.css"]:
+        with open(css_path, "r", encoding="utf-8") as f:
+            css = f.read()
+        # Desktop: phải ẩn tuyệt đối
+        assert "#btnOpenPublishMobile,\n.studio-mobile-publish-btn {\n    display: none !important;\n}" in css or "#btnOpenPublishMobile,\r\n.studio-mobile-publish-btn {\r\n    display: none !important;\r\n}" in css, f"Thiếu quy tắc ẩn nút mobile publish trên desktop trong {css_path}"
+        # Mobile: hiển thị inline-flex !important
+        assert "#btnOpenPublishMobile,\n  .studio-mobile-publish-btn {\n    display: inline-flex !important;" in css or "#btnOpenPublishMobile,\r\n  .studio-mobile-publish-btn {\r\n    display: inline-flex !important;" in css, f"Thiếu quy tắc hiển thị nút mobile publish trên mobile trong {css_path}"
+
+
+def test_editor_status_bar_responsiveness_and_cache_buster():
+    """Kiểm tra thanh trạng thái editor: chống lỗi tràn vỡ hàng trên MacBook và màn hình laptop nhỏ."""
+    with open("templates/editor.html", "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Phải có cache buster mới (không dùng bản cũ 20261112)
+    assert 'href="/editor.css?v=20261115_mac_statusbar_v2"' in html
+
+    # Thẻ editorStatusBar phải có thuộc tính inline chống vỡ layout khi mạng chậm hoặc chưa nạp kịp CSS
+    assert 'id="editorStatusBar"' in html
+    assert 'style="height: 36px; min-height: 36px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; background: #f8fafc; border-top: 1px solid #e2e8f0; box-sizing: border-box; flex-wrap: nowrap;"' in html
+
+    # Kiểm tra cả 2 file CSS đồng bộ 100%
+    for css_path in ["static/css/editor.css", "templates/editor.css"]:
+        with open(css_path, "r", encoding="utf-8") as f:
+            css = f.read()
+        assert "flex-wrap: nowrap !important;" in css
+        assert "@container (max-width: 780px)" in css
+        assert "@media (max-width: 1440px)" in css
+
+
+
+
 
 
 

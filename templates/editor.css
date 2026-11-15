@@ -291,6 +291,7 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
 }
 
+#btnOpenPublishMobile,
 .studio-mobile-publish-btn {
     display: none !important;
 }
@@ -509,12 +510,14 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     flex-shrink: 0;
     width: 100%;
     height: 36px;
+    min-height: 36px;
+    max-height: 36px;
     background: #f8fafc;
     border-top: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     padding: 0 14px;
     font-size: 0.78rem;
     color: #475569;
@@ -522,27 +525,31 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     box-sizing: border-box;
     user-select: none;
     overflow: hidden;
+    flex-wrap: nowrap !important;
 }
 
 .status-bar-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-shrink: 0;
     min-width: 0;
+    max-width: 65%;
     white-space: nowrap;
+    overflow: hidden;
 }
 
 .status-bar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex-shrink: 1;
     min-width: 0;
     margin-left: auto;
     white-space: nowrap;
     overflow: hidden;
     justify-content: flex-end;
+    flex-wrap: nowrap !important;
 }
 
 .status-divider {
@@ -581,6 +588,10 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     border: 1px solid #dbeafe;
     cursor: pointer;
     transition: background 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .status-pill-q:hover {
@@ -594,6 +605,7 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     color: #64748b;
     font-size: 0.72rem;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .status-shortcut-hint kbd {
@@ -608,26 +620,39 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     box-shadow: 0 1px 0 rgba(0,0,0,0.06);
 }
 
-/* Responsive theo chiều rộng thực tế của khung soạn thảo (Container Queries) */
-@container editorWrapper (max-width: 720px) {
+/* Responsive theo chiều rộng thực tế của khung soạn thảo (Container Queries - cả anonymous lẫn named cho Safari WebKit) */
+@container (max-width: 780px) {
     .hide-on-compact {
         display: none !important;
     }
 }
 
-@container editorWrapper (max-width: 520px) {
+@container editorWrapper (max-width: 780px) {
+    .hide-on-compact {
+        display: none !important;
+    }
+}
+
+@container (max-width: 560px) {
     .status-shortcut-hint {
         display: none !important;
     }
 }
 
-@media (max-width: 1200px) {
+@container editorWrapper (max-width: 560px) {
+    .status-shortcut-hint {
+        display: none !important;
+    }
+}
+
+/* Fallback Media Queries cho máy tính xách tay (MacBook 13"/14" với độ phân giải 1280px - 1440px) */
+@media (max-width: 1440px) {
     .hide-on-compact {
         display: none !important;
     }
 }
 
-@media (max-width: 800px) {
+@media (max-width: 1024px) {
     .status-shortcut-hint {
         display: none !important;
     }
@@ -1177,6 +1202,7 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
   .studio-brand-badge {
     display: none !important;
   }
+  #btnOpenPublishMobile,
   .studio-mobile-publish-btn {
     display: inline-flex !important;
     align-items: center !important;
@@ -1193,6 +1219,7 @@ button:hover i[class^="ri-"], button:hover i[class*=" ri-"],
     white-space: nowrap !important;
     flex-shrink: 0 !important;
   }
+  #btnOpenPublishMobile:hover,
   .studio-mobile-publish-btn:hover {
     background: var(--studio-primary-hover) !important;
   }

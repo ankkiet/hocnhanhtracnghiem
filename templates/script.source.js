@@ -2174,9 +2174,24 @@ function checkAuthState() {
         if (studentInput) studentInput.value = authName;
 
         if (authRole === 'student') {
+            if (path.startsWith('/giao-vien/de/')) {
+                const qId = path.split('/giao-vien/de/')[1].split('/')[0];
+                if (qId) {
+                    if (typeof showToast === 'function') {
+                        showToast("Đang chuyển bạn đến phòng thi...", "info");
+                    }
+                    window.location.replace(`/thi/${encodeURIComponent(qId)}`);
+                    return;
+                }
+            } else if (path.startsWith('/giao-vien')) {
+                window.location.replace('/lich-su');
+                return;
+            }
             document.getElementById('creationHub').style.display = 'none';
             document.getElementById('teacherDashboard').style.display = 'none';
             document.getElementById('studentDashboard').style.display = 'block';
+            const welcomeEl = document.getElementById('welcomeScreen');
+            if (welcomeEl) welcomeEl.style.display = 'none';
             const navCreate = document.getElementById('navTabCreate');
             if (navCreate) navCreate.style.display = 'none';
             const navStudio = document.getElementById('navTabStudio');
@@ -2186,24 +2201,32 @@ function checkAuthState() {
             loadStudentHistory();
         } else if (authRole === 'teacher') {
             document.getElementById('studentDashboard').style.display = 'none';
-            document.getElementById('teacherDashboard').style.display = 'block';
+            const welcomeEl = document.getElementById('welcomeScreen');
+            if (welcomeEl) welcomeEl.style.display = 'none';
             const navCreate = document.getElementById('navTabCreate');
             if (navCreate) navCreate.style.display = 'inline-flex';
             const navStudio = document.getElementById('navTabStudio');
             if (navStudio) navStudio.style.display = 'inline-flex';
             const navDash = document.getElementById('navTabDashboard');
             if (navDash) navDash.innerHTML = '<i class="ri-dashboard-3-line"></i> Đề thi của tôi';
-            loadTeacherQuizzes();
 
             if (path.startsWith('/giao-vien/de/')) {
                 const qId = path.split('/giao-vien/de/')[1].split('/')[0];
                 if (qId) {
-                    setTimeout(() => { openQuizStats(qId); }, 200);
+                    document.getElementById('teacherDashboard').style.display = 'none';
+                    openQuizStats(qId);
+                } else {
+                    document.getElementById('teacherDashboard').style.display = 'block';
+                    loadTeacherQuizzes();
                 }
+            } else {
+                const statsDash = document.getElementById('quizStatsDashboard');
+                if (statsDash) statsDash.style.display = 'none';
+                document.getElementById('teacherDashboard').style.display = 'block';
+                loadTeacherQuizzes();
             }
         }
         hidePageInitialLoader();
-        initApp();
     }
 }
 
@@ -2246,6 +2269,13 @@ function updateNavbarUser(name, role) {
 function showDashboardView() {
     document.getElementById('navTabDashboard')?.classList.add('active');
     document.getElementById('navTabCreate')?.classList.remove('active');
+    const statsDash = document.getElementById('quizStatsDashboard');
+    if (statsDash) statsDash.style.display = 'none';
+    const welcomeEl = document.getElementById('welcomeScreen');
+    if (welcomeEl) welcomeEl.style.display = 'none';
+    if (window.location.pathname.startsWith('/giao-vien/de/')) {
+        history.pushState({ page: 'teacher' }, '', '/giao-vien');
+    }
     if (authRole === 'student') {
         document.getElementById('studentDashboard').style.display = 'block';
         document.getElementById('creationHub').style.display = 'none';
@@ -2264,6 +2294,13 @@ function showDashboardView() {
 function showCreateView() {
     document.getElementById('navTabCreate')?.classList.add('active');
     document.getElementById('navTabDashboard')?.classList.remove('active');
+    const statsDash = document.getElementById('quizStatsDashboard');
+    if (statsDash) statsDash.style.display = 'none';
+    const welcomeEl = document.getElementById('welcomeScreen');
+    if (welcomeEl) welcomeEl.style.display = 'none';
+    if (window.location.pathname.startsWith('/giao-vien/de/')) {
+        history.pushState({ page: 'teacher' }, '', '/giao-vien');
+    }
     document.getElementById('creationHub').style.display = 'grid';
     document.getElementById('teacherDashboard').style.display = 'none';
     document.getElementById('studentDashboard').style.display = 'none';
@@ -2439,6 +2476,10 @@ function getCurrentQuizId() {
 }
 
 async function initApp() {
+    const path = window.location.pathname;
+    if (path.startsWith('/giao-vien') || path.startsWith('/admin') || path === '/lich-su') {
+        return;
+    }
     const quizId = getCurrentQuizId();
     if (quizId) {
         document.getElementById('creationHub').style.display = 'none';
@@ -4693,19 +4734,34 @@ async function openQuizStats(quizId, quizTitle, forceRefresh = false) {
         history.pushState({ page: 'quiz_stats', quizId: quizId }, '', `/giao-vien/de/${quizId}`);
     }
     currentStatsQuizId = quizId;
-    currentStatsQuizTitle = quizTitle || 'Thống kê đề thi';
+    currentStatsQuizTitle = (quizTitle && quizTitle !== 'Thống kê đề thi') ? quizTitle : '';
     
-    // Ẩn Dashboard giáo viên, mở Bảng thống kê điểm thi
+    // Ẩn Dashboard giáo viên & các màn hình khác, mở Bảng thống kê điểm thi
     const teacherDash = document.getElementById('teacherDashboard');
     const statsDash = document.getElementById('quizStatsDashboard');
-    if (!statsDash) return;
-    
+    const welcomeEl = document.getElementById('welcomeScreen');
+    const creationHub = document.getElementById('creationHub');
+    const studentDash = document.getElementById('studentDashboard');
+    const quizContainer = document.getElementById('quiz-container');
+    const scoreBoard = document.getElementById('score-board');
+    const studentHeader = document.getElementById('studentHeader');
+
+    if (welcomeEl) welcomeEl.style.display = 'none';
+    if (creationHub) creationHub.style.display = 'none';
+    if (studentDash) studentDash.style.display = 'none';
+    if (quizContainer) quizContainer.innerHTML = '';
+    if (scoreBoard) scoreBoard.style.display = 'none';
+    if (studentHeader) studentHeader.style.display = 'none';
     if (teacherDash) teacherDash.style.display = 'none';
+
+    if (!statsDash) return;
     statsDash.style.display = 'block';
     
     // Cập nhật tiêu đề & mã đề
     const titleEl = document.getElementById('quizStatsTitle');
-    if (titleEl) titleEl.innerText = "Thống kê: " + currentStatsQuizTitle;
+    if (titleEl) {
+        titleEl.innerText = currentStatsQuizTitle ? ("Thống kê: " + currentStatsQuizTitle) : "Thống kê điểm thi";
+    }
     
     const subTitleEl = document.getElementById('quizStatsSubtitle');
     if (subTitleEl) subTitleEl.innerHTML = `<i class="ri-file-list-3-line"></i> Mã đề: ${quizId}`;
@@ -4780,6 +4836,12 @@ async function openQuizStats(quizId, quizTitle, forceRefresh = false) {
         }
         
         currentStatsData = data;
+        if (data.title) {
+            currentStatsQuizTitle = data.title;
+            const titleEl = document.getElementById('quizStatsTitle');
+            if (titleEl) titleEl.innerText = "Thống kê: " + data.title;
+            document.title = `Thống kê điểm thi: ${data.title} - HocNhanhTN`;
+        }
         
         // Cập nhật thời điểm tải mới nhất
         const timeEl = document.getElementById('quizStatsUpdatedTime');
@@ -4922,11 +4984,17 @@ function switchStatsSubTab(tabName) {
 function closeQuizStats() {
     const statsDash = document.getElementById('quizStatsDashboard');
     const teacherDash = document.getElementById('teacherDashboard');
+    const welcomeEl = document.getElementById('welcomeScreen');
+    if (welcomeEl) welcomeEl.style.display = 'none';
     if (statsDash) statsDash.style.display = 'none';
     if (teacherDash) teacherDash.style.display = 'block';
     currentStatsQuizId = null;
     if (window.location.pathname.startsWith('/giao-vien/de/')) {
         history.pushState({ page: 'teacher' }, '', '/giao-vien');
+    }
+    const grid = document.getElementById('teacherQuizGrid');
+    if (!grid || !grid.children || grid.children.length === 0) {
+        loadTeacherQuizzes();
     }
 }
 

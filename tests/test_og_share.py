@@ -114,6 +114,16 @@ def test_og_share():
 
     print("Test 8 Passed: All semantic view routes (/dang-nhap, /de-thi, /ket-qua/:id, /lich-su, /giao-vien, /admin) respond 200 OK with custom metadata")
 
+    # 9. Test script logic: Đảm bảo không nạp nhầm welcomeScreen vào route /giao-vien/de/{id}
+    js_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'js', 'script.source.js')
+    with open(js_path, 'r', encoding='utf-8') as f:
+        js_content = f.read()
+
+    assert "path.startsWith('/giao-vien')" in js_content, "initApp phải có guard chặn route /giao-vien"
+    assert "openQuizStats(quizId" in js_content and "welcomeEl.style.display = 'none'" in js_content, "openQuizStats phải chủ động ẩn welcomeScreen"
+    assert "hidePageInitialLoader();\n    }" in js_content or "hidePageInitialLoader();\r\n    }" in js_content, "checkAuthState không được gọi nhầm initApp ở cuối block xác thực"
+    print("Test 9 Passed: Frontend script guards against loading student exam welcomeScreen on teacher routes")
+
 if __name__ == '__main__':
     test_og_share()
     print("ALL TESTS PASSED SUCCESSFULLY!")

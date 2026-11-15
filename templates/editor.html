@@ -25,7 +25,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css?v=20261106_mathtype_bulletproof_v2">
-    <link rel="stylesheet" href="/editor.css?v=20261112_cortex_fix_v12">
+    <link rel="stylesheet" href="/editor.css?v=20261115_mac_statusbar_v2">
     <!-- MathLive Virtual Keyboard & LaTeX Modal Layering -->
     <style id="mathlive-overlay-layering-fix">
         :root, body {
@@ -339,7 +339,7 @@
             </div>
 
             <!-- Nút xuất bản trên mobile (thay thế vị trí khung xanh HocNhanhTN) -->
-            <button id="btnOpenPublishMobile" class="btn-studio-primary studio-mobile-publish-btn" onclick="openPublishModal()" title="Lưu và xuất bản đề thi">
+            <button id="btnOpenPublishMobile" class="studio-mobile-publish-btn" onclick="openPublishModal()" title="Lưu và xuất bản đề thi" style="display: none;">
                 <i class="ri-send-plane-fill"></i> <span>Xuất bản</span>
             </button>
 
@@ -701,13 +701,13 @@
                     </div>
 
                     <!-- Thanh trạng thái bộ soạn thảo thông minh -->
-                    <div id="editorStatusBar" class="editor-status-bar">
-                        <div class="status-bar-left">
-                            <span class="status-pill status-pill-q" id="statusCurrentQuestion" title="Nhấn để cuộn đến câu này trong bản xem trước"><i class="ri-map-pin-2-line"></i> Đang soạn: Chưa có câu hỏi</span>
+                    <div id="editorStatusBar" class="editor-status-bar" style="height: 36px; min-height: 36px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; background: #f8fafc; border-top: 1px solid #e2e8f0; box-sizing: border-box; flex-wrap: nowrap;">
+                        <div class="status-bar-left" style="display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; overflow: hidden;">
+                            <span class="status-pill status-pill-q" id="statusCurrentQuestion" title="Nhấn để cuộn đến câu này trong bản xem trước" style="white-space: nowrap;"><i class="ri-map-pin-2-line"></i> Đang soạn: Chưa có câu hỏi</span>
                             <span class="status-divider"></span>
-                            <span class="status-text-count" id="statusCounts"><i class="ri-file-text-line"></i> 0 từ • 0 ký tự</span>
+                            <span class="status-text-count" id="statusCounts" style="white-space: nowrap;"><i class="ri-file-text-line"></i> 0 từ • 0 ký tự</span>
                         </div>
-                        <div class="status-bar-right">
+                        <div class="status-bar-right" style="display: flex; align-items: center; gap: 8px; margin-left: auto; white-space: nowrap; overflow: hidden; justify-content: flex-end;">
                             <span class="status-shortcut-hint" title="Nhấn Tab để tạo nhanh câu mới (hoặc gõ câu rồi nhấn Tab)" onclick="insertNewQuestionSnippet('mcq')" style="cursor: pointer;"><kbd>Tab</kbd> câu</span>
                             <span class="status-shortcut-hint hide-on-compact" title="Nhấn Enter trên dòng phương án để tự động sinh phương án kế tiếp"><kbd>Enter</kbd> phương án</span>
                             <span class="status-shortcut-hint" title="Gõ / để mở danh sách lệnh nhanh" onclick="showSlashMenu()" style="cursor: pointer;"><kbd>/</kbd> lệnh</span>
