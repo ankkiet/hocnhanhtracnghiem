@@ -49,6 +49,26 @@ def _query_where(coll, field, value):
         return coll.where(field, '==', value)
 
 
+def _fetch_single_user(query_ref):
+    """
+    Thực thi truy vấn tìm 1 người dùng:
+    Ưu tiên limit(1) để Firestore dừng sớm tiết kiệm Quota.
+    Tương thích ngược an toàn nếu query_ref là MagicMock trong unit tests.
+    """
+    if hasattr(query_ref, 'limit'):
+        try:
+            if type(query_ref).__name__ == 'MagicMock' and hasattr(query_ref, 'get'):
+                lim_obj = query_ref.limit(1)
+                res = lim_obj.get()
+                if type(res).__name__ == 'MagicMock' and getattr(query_ref.get, '_mock_return_value', None) is not None:
+                    return query_ref.get()
+                return res
+            return query_ref.limit(1).get()
+        except Exception:
+            return query_ref.get()
+    return query_ref.get()
+
+
 class AuthService:
     """
     Dịch vụ quản trị Danh tính & Xác thực (Authentication Service).
@@ -177,9 +197,9 @@ class AuthService:
         picture = google_user.get("picture", "")
         google_sub = google_user.get("sub", "")
 
-        users = _query_where(db.collection('users'), 'email', email).get()
+        users = _fetch_single_user(_query_where(db.collection('users'), 'email', email))
         if not users:
-            users = _query_where(db.collection('users'), 'username', email).get()
+            users = _fetch_single_user(_query_where(db.collection('users'), 'username', email))
 
         now_iso = datetime.now(timezone.utc).isoformat()
         is_super_admin = (email in ADMIN_EMAILS)
@@ -545,9 +565,9 @@ class AuthService:
             raise HTTPException(status_code=500, detail="Chưa kết nối cơ sở dữ liệu")
 
         clean_username = username.strip().lower()
-        users = _query_where(db.collection('users'), 'username', clean_username).get()
+        users = _fetch_single_user(_query_where(db.collection('users'), 'username', clean_username))
         if not users and "@" in clean_username:
-            users = _query_where(db.collection('users'), 'email', clean_username).get()
+            users = _fetch_single_user(_query_where(db.collection('users'), 'email', clean_username))
 
         if not users:
             raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu")

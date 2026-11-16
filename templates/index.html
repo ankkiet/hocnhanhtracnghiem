@@ -3930,7 +3930,7 @@ body.minimal-mode #publicLandingExtras {
                         <span>Góc học tập &amp; lịch sử làm bài</span>
                     </h2>
                     <p style="color: #64748b; font-size: 0.92rem; margin: 3px 0 0 0;">
-                        Xin chào <b id="studentGreetingName" style="color: #0f172a;">học sinh</b>! Dưới đây là bảng điểm và lịch sử các bài thi bạn đã hoàn thành.
+                        Xin chào <b id="studentGreetingName" style="color: #0f172a;">học sinh</b>! Dưới đây là bảng điểm và lịch sử các bài thi bạn đã hoàn thành (lưu trữ trong 30 ngày gần nhất).
                     </p>
                 </div>
             </div>
@@ -3986,6 +3986,21 @@ body.minimal-mode #publicLandingExtras {
                 <button class="azota-tab-btn" data-filter="low" onclick="setStudentHistoryFilter('low')">
                     Cần cố gắng (&lt; 5.0) (<span id="filterCountStudentLow">0</span>)
                 </button>
+            </div>
+            <div class="azota-sort-control">
+                <div class="azota-sort-pill" title="Sắp xếp danh sách bài thi">
+                    <i class="ri-arrow-up-down-line azota-sort-icon"></i>
+                    <span class="azota-sort-label">Sắp xếp:</span>
+                    <div class="azota-sort-select-wrapper">
+                        <select id="studentHistorySortSelect" class="azota-sort-select" onchange="renderStudentHistoryList()" aria-label="Sắp xếp danh sách bài thi đã làm">
+                            <option value="date_desc" selected>Mới làm gần nhất</option>
+                            <option value="date_asc">Cũ nhất trước</option>
+                            <option value="score_desc">Điểm cao nhất</option>
+                            <option value="score_asc">Điểm thấp nhất</option>
+                        </select>
+                        <i class="ri-arrow-down-s-line azota-sort-chevron"></i>
+                    </div>
+                </div>
             </div>
             <button class="btn-outline" onclick="loadStudentHistory(true)" style="padding: 8px 14px; font-size: 0.88rem; border-radius: 8px; margin: 0; background: white;" title="Tải lại lịch sử">
                 <i class="ri-refresh-line"></i> Làm mới
@@ -4165,6 +4180,7 @@ body.minimal-mode #publicLandingExtras {
                             <select id="quizSortSelect" class="azota-sort-select" onchange="renderFilteredQuizzes()" aria-label="Sắp xếp danh sách đề thi">
                                 <option value="updated_desc" selected>Mới sửa đổi / xuất bản</option>
                                 <option value="created_desc">Mới tạo nhất</option>
+                                <option value="subs_desc">Lượt làm bài (nhiều nhất)</option>
                                 <option value="title_asc">Tên đề thi (A - Z)</option>
                                 <option value="title_desc">Tên đề thi (Z - A)</option>
                             </select>

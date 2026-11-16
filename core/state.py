@@ -15,6 +15,7 @@ LEADERBOARD_CACHE = BoundedTTLCache(max_size=200, default_ttl=60, name="leaderbo
 SUBMISSIONS_CACHE = BoundedTTLCache(max_size=300, default_ttl=180, name="submissions")
 USER_CACHE = BoundedTTLCache(max_size=1000, default_ttl=1800, name="users")
 SETTINGS_CACHE = BoundedTTLCache(max_size=100, default_ttl=600, name="settings")
+STUDENT_HISTORY_CACHE = BoundedTTLCache(max_size=500, default_ttl=120, name="student_history")
 
 # Security & Session Tracking
 EXAM_SESSIONS = BoundedTTLCache(max_size=1000, default_ttl=7200, name="exam_sessions")

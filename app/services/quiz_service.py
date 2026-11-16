@@ -344,8 +344,13 @@ class QuizService:
                 )
             raise HTTPException(status_code=500, detail=f"Lỗi khi lưu vào cơ sở dữ liệu: {str(e)}")
 
-        # Xóa cache để học sinh nhận ngay đề mới nhất
+        # Xóa cache để học sinh nhận ngay đề mới nhất và danh sách đề của giáo viên được cập nhật
         QUIZ_CACHE.pop(target_id, None)
+        try:
+            from app.api.routes.teacher import invalidate_teacher_quizzes_cache
+            invalidate_teacher_quizzes_cache(creator_uid)
+        except Exception:
+            pass
         return {"status": "success", "quiz_id": target_id, "link": f"/?id={target_id}"}
 
     def discard_draft(

@@ -38,6 +38,16 @@ try:
 except ImportError:
     json_repair = None
 
+TEACHER_QUIZZES_CACHE: Dict[str, Any] = {}
+
+
+def invalidate_teacher_quizzes_cache(user_uid: Optional[str] = None):
+    """Xóa bộ đệm danh sách đề thi của giáo viên khi có thêm mới/sửa/xóa đề."""
+    if user_uid:
+        TEACHER_QUIZZES_CACHE.pop(str(user_uid), None)
+    else:
+        TEACHER_QUIZZES_CACHE.clear()
+
 def _get_db(force_refresh: bool = False):
     import sys
     for mod_name in ('routers.teacher', 'app.api.routes.teacher'):
@@ -128,6 +138,11 @@ async def get_teacher_quizzes(teacher_token: str):
         except Exception:
             raise HTTPException(status_code=403, detail="Phiên đăng nhập không hợp lệ hoặc đã hết hạn.")
 
+    now = time.time()
+    cache_key = str(user_uid)
+    if cache_key in TEACHER_QUIZZES_CACHE and (now - TEACHER_QUIZZES_CACHE[cache_key]['time'] < 60):
+        return {"status": "success", "data": TEACHER_QUIZZES_CACHE[cache_key]['data']}
+
     try:
         from google.cloud.firestore_v1.base_query import FieldFilter
         def _q_where(coll, field, value):
@@ -185,6 +200,47 @@ async def get_teacher_quizzes(teacher_token: str):
         else:
             created_at_str = None
 
+        # Tổng số lượt làm bài (tính cả học sinh tự do không đăng nhập và học sinh đã đăng nhập)
+        total_subs = data.get('total_submissions')
+        if total_subs is None:
+            total_subs = data.get('submission_count')
+
+        if total_subs is None:
+            doc_id = getattr(doc, 'id', '')
+            if doc_id and doc_id in SUBMISSIONS_CACHE:
+                try:
+                    total_subs = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
+                except Exception:
+                    total_subs = 0
+            else:
+                try:
+                    if hasattr(doc, 'reference') and doc.reference is not None:
+                        subs_ref = doc.reference.collection('submissions')
+                        if hasattr(subs_ref, 'count'):
+                            agg = subs_ref.count().get()
+                            total_subs = int(agg[0][0].value)
+                        else:
+                            docs_list = subs_ref.get()
+                            total_subs = len(docs_list) if docs_list else 0
+                    else:
+                        total_subs = 0
+                except Exception:
+                    total_subs = 0
+        else:
+            try:
+                total_subs = int(total_subs or 0)
+            except (ValueError, TypeError):
+                total_subs = 0
+
+        # Nếu trong RAM cache có số lượng nộp bài nhiều hơn, ưu tiên lấy số mới nhất
+        doc_id = getattr(doc, 'id', '')
+        if doc_id and doc_id in SUBMISSIONS_CACHE:
+            try:
+                cached_count = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
+                total_subs = max(total_subs, cached_count)
+            except Exception:
+                pass
+
         results.append({
             'id': doc.id,
             'title': data.get('title', 'Không tên'),
@@ -192,6 +248,8 @@ async def get_teacher_quizzes(teacher_token: str):
             'status': data.get('status', 'published'),
             'question_count': len(data.get('data', [])),
             'time_limit': data.get('time_limit', 0),
+            'total_submissions': total_subs,
+            'submission_count': total_subs,
             'created_at': created_at_str,
             'updated_at': updated_at_str
         })
@@ -202,6 +260,7 @@ async def get_teacher_quizzes(teacher_token: str):
         return str(val)
 
     results.sort(key=_get_sort_time, reverse=True)
+    TEACHER_QUIZZES_CACHE[cache_key] = {'time': now, 'data': results}
     return {"status": "success", "data": results}
 
 @router.post("/quiz_action", summary="Thao tác với đề thi (Thùng rác, Khôi phục, Xóa vĩnh viễn)")
@@ -277,6 +336,7 @@ async def quiz_action(req: QuizActionRequest):
         QUIZ_CACHE.pop(req.quiz_id, None)
         SUBMISSIONS_CACHE.pop(req.quiz_id, None)
         LEADERBOARD_CACHE.pop(req.quiz_id, None)
+    invalidate_teacher_quizzes_cache(user_uid)
     return {"status": "success"}
 
 @router.post("/toggle_publish", summary="Bật/Tắt xuất bản đề thi")
@@ -297,6 +357,7 @@ async def toggle_publish(req: TogglePublishRequest):
         
     doc_ref.update({'status': req.status, 'updated_at': firestore.SERVER_TIMESTAMP})
     QUIZ_CACHE.pop(req.quiz_id, None)
+    invalidate_teacher_quizzes_cache(user_uid)
     return {"status": "success"}
 
 @router.get("/monitor/{quiz_id}", summary="Lấy danh sách trạng thái làm bài trực tiếp")
@@ -1366,11 +1427,14 @@ async def diagnose_ai_endpoint(req: Optional[DiagnoseAIRequest] = None):
     api_keys = []
     now = time.time()
     
-    if db is not None:
+    if 'gemini' in SETTINGS_CACHE and (now - SETTINGS_CACHE['gemini']['time'] < 600):
+        api_keys = SETTINGS_CACHE['gemini']['data']
+    elif db is not None:
         try:
             settings_doc = db.collection('settings').document('gemini').get()
             if settings_doc.exists and settings_doc.to_dict().get('api_keys'):
                 api_keys = settings_doc.to_dict().get('api_keys')
+                SETTINGS_CACHE['gemini'] = {'time': now, 'data': api_keys}
         except Exception as e:
             logger.warning(f"Không thể đọc gemini api keys: {e}")
 

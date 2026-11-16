@@ -58,15 +58,30 @@ class PingKeyRequest(BaseModel):
     api_key: str
 
 
+_USERS_CACHE = {'time': 0.0, 'data': []}
+
+
+def invalidate_admin_users_cache():
+    """Xóa bộ đệm danh sách người dùng của trang quản trị."""
+    _USERS_CACHE['time'] = 0.0
+    _USERS_CACHE['data'] = []
+
+
 @router.get("/users", summary="Lấy danh sách user (Admin)")
-async def get_all_users(admin_token: str):
+async def get_all_users(admin_token: str, limit: int = 100):
     db = _get_db()
     if db is None:
         raise HTTPException(status_code=500, detail="Lỗi DB")
         
     verify_admin_access(admin_token, db)
+    
+    now = time.time()
+    # Cache danh sách người dùng trong 60 giây để tránh đọc lại Firestore liên tục khi chuyển tab
+    if _USERS_CACHE['data'] and (now - _USERS_CACHE['time'] < 60):
+        return {"status": "success", "data": _USERS_CACHE['data']}
         
-    users = db.collection('users').get()
+    safe_limit = max(10, min(limit, 300))
+    users = db.collection('users').limit(safe_limit).get()
     res = []
     for u in users:
         d = u.to_dict()
@@ -82,6 +97,8 @@ async def get_all_users(admin_token: str):
             'school': d.get('school', ''),
             'created_at': d.get('created_at', '')
         })
+    _USERS_CACHE['time'] = now
+    _USERS_CACHE['data'] = res
     return {"status": "success", "data": res}
 
 
@@ -94,6 +111,7 @@ async def approve_user(req: ApproveUserRequest):
     admin_user, admin_uid = verify_admin_access(req.admin_token, db)
     db.collection('users').document(req.user_id).update({'status': 'approved'})
     invalidate_user_cache(req.user_id)
+    invalidate_admin_users_cache()
 
     audit_service.record_event(
         action="ADMIN_APPROVE_USER",
@@ -114,6 +132,7 @@ async def delete_user(req: ApproveUserRequest):
     admin_user, admin_uid = verify_admin_access(req.admin_token, db)
     db.collection('users').document(req.user_id).delete()
     invalidate_user_cache(req.user_id)
+    invalidate_admin_users_cache()
 
     audit_service.record_event(
         action="ADMIN_DELETE_USER",
@@ -159,6 +178,7 @@ async def reset_user_password(req: ResetPasswordRequest):
     new_salted = hash_password(req.new_password)
     db.collection('users').document(req.user_id).update({'password': new_salted, 'password_hash': new_salted})
     invalidate_user_cache(req.user_id)
+    invalidate_admin_users_cache()
 
     audit_service.record_event(
         action="ADMIN_RESET_USER_PASSWORD",

@@ -88,8 +88,18 @@ async def get_leaderboard(quiz_id: str):
 
 
 @router.get("/student/history", summary="Lấy danh sách lịch sử thi của học sinh")
-async def get_student_history(student_token: str):
-    return await student_service.get_student_history(student_token=student_token)
+async def get_student_history(
+    student_token: str,
+    limit: int = 5,
+    offset: int = 0,
+    force_refresh: bool = False
+):
+    return await student_service.get_student_history(
+        student_token=student_token,
+        limit=limit,
+        offset=offset,
+        force_refresh=force_refresh
+    )
 
 
 @router.get("/student/history/{history_id}", summary="Lấy chi tiết một bài thi đã nộp trong lịch sử")

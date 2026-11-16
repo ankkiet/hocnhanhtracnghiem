@@ -26,7 +26,7 @@ from app.utils.helpers import (
     resolve_question_type,
 )
 from core.logging_config import get_logger
-from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SUBMISSIONS_CACHE
+from core.state import LEADERBOARD_CACHE, QUIZ_CACHE, SUBMISSIONS_CACHE, STUDENT_HISTORY_CACHE
 from services.exam_session_service import exam_session_service
 
 logger = get_logger(__name__)
@@ -114,12 +114,70 @@ class StudentService:
     """
     Dịch vụ quản lý Bài thi & Tiến trình học sinh.
     """
+    HISTORY_RETENTION_DAYS = 30
+    HISTORY_RETENTION_SECONDS = 30 * 24 * 3600
 
     def get_db(self):
         return _get_db()
 
     def get_user(self, token: str, db: Any):
         return _get_user_from_token(token, db)
+
+    @staticmethod
+    def _parse_time_to_epoch(item: Any) -> float:
+        if not item or not isinstance(item, dict):
+            return 0.0
+        # 1. Kiểm tra timestamp (Firestore Timestamp / datetime object / int / float)
+        ts = item.get('timestamp')
+        if hasattr(ts, 'timestamp'):
+            try:
+                return ts.timestamp()
+            except Exception:
+                pass
+        if isinstance(ts, (int, float)):
+            return float(ts)
+
+        # 2. Quét các trường thời gian ứng viên
+        candidates = [
+            item.get('submitted_at'),
+            item.get('timestamp'),
+            item.get('updatedAt'),
+            item.get('date'),
+            item.get('created_at'),
+            item.get('updated_at')
+        ]
+        for cand in candidates:
+            if not cand:
+                continue
+            if hasattr(cand, 'timestamp'):
+                try:
+                    return cand.timestamp()
+                except Exception:
+                    pass
+            if isinstance(cand, (int, float)):
+                return float(cand)
+            if isinstance(cand, str):
+                s = cand.strip()
+                try:
+                    clean_iso = s.replace('Z', '+00:00')
+                    return datetime.datetime.fromisoformat(clean_iso).timestamp()
+                except Exception:
+                    pass
+                for fmt in (
+                    "%H:%M:%S %d/%m/%Y",
+                    "%d/%m/%Y, %H:%M:%S",
+                    "%d/%m/%Y %H:%M:%S",
+                    "%d/%m/%Y, %H:%M",
+                    "%d/%m/%Y %H:%M",
+                    "%Y-%m-%d %H:%M:%S",
+                    "%Y-%m-%d",
+                    "%d/%m/%Y"
+                ):
+                    try:
+                        return datetime.datetime.strptime(s, fmt).replace(tzinfo=datetime.timezone.utc).timestamp()
+                    except Exception:
+                        pass
+        return 0.0
 
     def _get_candidate_key(self, item: dict) -> str:
         """
@@ -376,9 +434,25 @@ class StudentService:
 
         submission_ref.set(submission_data)
 
+        # Tăng tổng số lượt làm bài trên tài liệu đề thi (tính cả học sinh tự do và đã đăng nhập)
+        try:
+            quiz_ref = db.collection('quizzes').document(req.quiz_id)
+            inc_val = getattr(firestore, 'Increment', None)
+            val = inc_val(1) if callable(inc_val) else 1
+            quiz_ref.set({'total_submissions': val}, merge=True)
+        except Exception as inc_err:
+            logger.warning(f"Lỗi khi cập nhật total_submissions cho đề {req.quiz_id}: {inc_err}")
+
+        if req.quiz_id in QUIZ_CACHE and isinstance(QUIZ_CACHE[req.quiz_id].get('data'), dict):
+            curr_cnt = QUIZ_CACHE[req.quiz_id]['data'].get('total_submissions') or 0
+            QUIZ_CACHE[req.quiz_id]['data']['total_submissions'] = curr_cnt + 1
+            QUIZ_CACHE[req.quiz_id]['data']['submission_count'] = curr_cnt + 1
+
         # Lưu bản ghi vào lịch sử cá nhân của học sinh nếu đã đăng nhập tài khoản
         if not is_guest and user:
             try:
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                expire_at_dt = now_utc + datetime.timedelta(days=self.HISTORY_RETENTION_DAYS)
                 user_history_ref = db.collection('users').document(user['id']).collection('history').document(submission_ref.id)
                 user_history_ref.set({
                     'id': submission_ref.id,
@@ -390,9 +464,11 @@ class StudentService:
                     'time_elapsed': req.time_elapsed,
                     'submitted_at': now_iso,
                     'timestamp': firestore.SERVER_TIMESTAMP,
+                    'expire_at': expire_at_dt,
                     'results': results,
                     'answers': req.answers
                 })
+                STUDENT_HISTORY_CACHE.pop(user['id'], None)
             except Exception:
                 pass
 
@@ -450,6 +526,20 @@ class StudentService:
             'timestamp': firestore.SERVER_TIMESTAMP
         }
         doc_ref.set(sub_data)
+
+        # Tăng tổng số lượt làm bài trên tài liệu đề thi (tính cả học sinh tự do và đã đăng nhập)
+        try:
+            quiz_ref = db.collection('quizzes').document(request.quiz_id)
+            inc_val = getattr(firestore, 'Increment', None)
+            val = inc_val(1) if callable(inc_val) else 1
+            quiz_ref.set({'total_submissions': val}, merge=True)
+        except Exception as inc_err:
+            logger.warning(f"Lỗi khi cập nhật total_submissions (legacy) cho đề {request.quiz_id}: {inc_err}")
+
+        if request.quiz_id in QUIZ_CACHE and isinstance(QUIZ_CACHE[request.quiz_id].get('data'), dict):
+            curr_cnt = QUIZ_CACHE[request.quiz_id]['data'].get('total_submissions') or 0
+            QUIZ_CACHE[request.quiz_id]['data']['total_submissions'] = curr_cnt + 1
+            QUIZ_CACHE[request.quiz_id]['data']['submission_count'] = curr_cnt + 1
 
         now_ts = time.time()
         if request.quiz_id in SUBMISSIONS_CACHE:
@@ -543,14 +633,16 @@ class StudentService:
         else:
             subs_ref = db.collection('quizzes').document(quiz_id).collection('submissions')
             try:
-                # Lấy tối đa 100 bài điểm cao nhất từ Firestore để xét chuẩn tie-break và lọc thí sinh duy nhất
-                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(100).get()
+                # Lấy tối đa 20 bài điểm cao nhất từ Firestore để xét chuẩn tie-break và lọc top 5 thí sinh duy nhất (tiết kiệm 80% Read)
+                docs = subs_ref.order_by('score', direction=firestore.Query.DESCENDING).limit(20).get()
             except Exception:
-                docs = subs_ref.limit(100).get()
+                docs = subs_ref.limit(20).get()
             raw_submissions = [doc.to_dict() for doc in docs]
             SUBMISSIONS_CACHE[quiz_id] = {'time': now, 'data': raw_submissions}
 
         quiz_total_q = None
+        if quiz_doc_dict and 'data' in quiz_doc_dict:
+            quiz_total_q = len(quiz_doc_dict.get('data', []))
         results = []
         for data in raw_submissions:
             try:
@@ -606,7 +698,7 @@ class StudentService:
 
         return {"status": "success", "data": final_results}
 
-    async def get_student_history(self, student_token: str):
+    async def get_student_history(self, student_token: str, limit: int = 5, offset: int = 0, force_refresh: bool = False):
         db = self.get_db()
         if db is None:
             raise HTTPException(status_code=500, detail="Chưa kết nối CSDL Firebase")
@@ -619,6 +711,24 @@ class StudentService:
             raise HTTPException(status_code=401, detail="Phiên đăng nhập học sinh không hợp lệ hoặc đã hết hạn")
 
         user_id = user['id']
+
+        # 1. Kiểm tra cache RAM (TTL 120s): Tiết kiệm 100% Firestore reads khi phân trang, chuyển tab hoặc tải lại nhanh
+        if not force_refresh and user_id in STUDENT_HISTORY_CACHE:
+            cached_items = STUDENT_HISTORY_CACHE[user_id]
+            if isinstance(cached_items, list):
+                total_items = len(cached_items)
+                sliced = cached_items[offset:offset + limit] if limit > 0 else cached_items[offset:]
+                has_more = (offset + len(sliced)) < total_items
+                return {
+                    "status": "success",
+                    "data": sliced,
+                    "total": total_items,
+                    "has_more": has_more,
+                    "offset": offset,
+                    "limit": limit,
+                    "cached": True
+                }
+
         history_coll = db.collection('users').document(user_id).collection('history')
 
         try:
@@ -626,15 +736,41 @@ class StudentService:
         except Exception:
             docs = []
 
+        now_ts = time.time()
+        retention_cutoff = now_ts - self.HISTORY_RETENTION_SECONDS
+
         items = []
         seen_ids = set()
+        expired_docs = []
         for doc in docs:
             d = doc.to_dict()
             d['id'] = doc.id
             if 'timestamp' in d and hasattr(d['timestamp'], 'isoformat'):
                 d['timestamp'] = d['timestamp'].isoformat()
+
+            # Tự động phát hiện và xóa các bản ghi lịch sử đã quá 30 ngày khỏi CSDL Firebase
+            item_epoch = self._parse_time_to_epoch(d)
+            if item_epoch > 0 and item_epoch < retention_cutoff:
+                expired_docs.append(doc)
+                continue
+
+            # Tối ưu hóa tải trọng mạng & RAM: Bỏ mảng results và answers chi tiết trong danh sách tổng quan
+            # Chi tiết câu hỏi và lời giải sẽ được nạp khi học sinh bấm "Xem lại bài làm"
+            d.pop('results', None)
+            d.pop('answers', None)
             items.append(d)
             seen_ids.add(doc.id)
+
+        # Xóa vĩnh viễn các bản ghi quá hạn 30 ngày khỏi CSDL
+        if expired_docs:
+            for exp_doc in expired_docs:
+                try:
+                    if hasattr(exp_doc, 'reference'):
+                        exp_doc.reference.delete()
+                    else:
+                        history_coll.document(exp_doc.id).delete()
+                except Exception as exp_err:
+                    logger.warning(f"Lỗi khi tự động xóa bài thi quá hạn 30 ngày ({getattr(exp_doc, 'id', '')}): {exp_err}")
 
         # Hỗ trợ tự động đọc thêm từ subcollection progress nếu history chưa có bài thi nào
         if len(items) == 0:
@@ -646,6 +782,9 @@ class StudentService:
                     hist_list = pdata.get('history') or []
                     if hist_list:
                         for h_idx, h in enumerate(hist_list):
+                            h_epoch = self._parse_time_to_epoch(h)
+                            if h_epoch > 0 and h_epoch < retention_cutoff:
+                                continue
                             p_score = float(h.get('score', 0))
                             p_total = int(h.get('total', 10))
                             items.append({
@@ -655,10 +794,12 @@ class StudentService:
                                 'score': p_score,
                                 'total_questions': p_total,
                                 'time_elapsed': int(h.get('timeElapsed', 0)),
-                                'submitted_at': h.get('date', ''),
-                                'results': []
+                                'submitted_at': h.get('date', '')
                             })
                     elif pdata.get('completed'):
+                        p_epoch = self._parse_time_to_epoch({'updatedAt': pdata.get('updatedAt')})
+                        if p_epoch > 0 and p_epoch < retention_cutoff:
+                            continue
                         items.append({
                             'id': f"prog_{q_id}",
                             'quiz_id': q_id,
@@ -666,23 +807,29 @@ class StudentService:
                             'score': float(pdata.get('score', 0)),
                             'total_questions': int(pdata.get('total', 10)),
                             'time_elapsed': int(pdata.get('timeElapsed', 0)),
-                            'submitted_at': pdata.get('updatedAt', ''),
-                            'results': []
+                            'submitted_at': pdata.get('updatedAt', '')
                         })
             except Exception:
                 pass
 
-        def _sort_key(item):
-            s_at = str(item.get('submitted_at') or '')
-            ts = str(item.get('timestamp') or '')
-            return s_at or ts
+        # Sắp xếp các đề thi đã làm theo thời gian nộp bài mới nhất lên đầu
+        items.sort(key=self._parse_time_to_epoch, reverse=True)
 
-        items.sort(key=_sort_key, reverse=True)
+        # Lưu danh sách đã sắp xếp vào bộ nhớ đệm RAM (TTL 120s)
+        STUDENT_HISTORY_CACHE[user_id] = items
+
+        total_items = len(items)
+        sliced = items[offset:offset + limit] if limit > 0 else items[offset:]
+        has_more = (offset + len(sliced)) < total_items
 
         return {
             "status": "success",
-            "data": items,
-            "total": len(items)
+            "data": sliced,
+            "total": total_items,
+            "has_more": has_more,
+            "offset": offset,
+            "limit": limit,
+            "cached": False
         }
 
     async def get_student_history_detail(self, history_id: str, student_token: str):
@@ -727,6 +874,15 @@ class StudentService:
         if 'timestamp' in data and hasattr(data['timestamp'], 'isoformat'):
             data['timestamp'] = data['timestamp'].isoformat()
 
+        # Kiểm tra tự động xóa nếu bài thi đã quá hạn 30 ngày
+        doc_epoch = self._parse_time_to_epoch(data)
+        if doc_epoch > 0 and doc_epoch < (time.time() - self.HISTORY_RETENTION_SECONDS):
+            try:
+                doc_ref.delete()
+            except Exception:
+                pass
+            raise HTTPException(status_code=404, detail="Bài thi này đã quá hạn lưu trữ 30 ngày và đã tự động được xóa khỏi hệ thống")
+
         return {
             "status": "success",
             "data": data
@@ -747,9 +903,14 @@ class StudentService:
         if doc.exists:
             doc_ref.delete()
 
+        STUDENT_HISTORY_CACHE.pop(user_id, None)
+
         return {"status": "success", "message": "Đã xóa bài thi khỏi lịch sử"}
 
     async def sync_student_history(self, req: SyncHistoryRequest):
+        if not req.history_items:
+            return {"status": "success", "saved_count": 0}
+
         db = self.get_db()
         if db is None:
             return {"status": "error", "message": "Chưa kết nối CSDL"}
@@ -761,8 +922,8 @@ class StudentService:
         user_id = user['id']
         hist_coll = db.collection('users').document(user_id).collection('history')
 
-        # Lấy danh sách quiz_id hiện có để tránh lưu trùng lặp
-        existing_docs = hist_coll.limit(100).get()
+        # Lấy danh sách bài thi gần nhất để tránh lưu trùng lặp (giới hạn 30 thay vì 100 để tiết kiệm Quota)
+        existing_docs = hist_coll.limit(30).get()
         existing_keys = set()
         for ed in existing_docs:
             ed_data = ed.to_dict()
@@ -770,10 +931,19 @@ class StudentService:
 
         saved_count = 0
         now_utc = datetime.datetime.now(datetime.timezone.utc)
+        retention_cutoff_ts = now_utc.timestamp() - self.HISTORY_RETENTION_SECONDS
         for item in req.history_items:
             key = f"{item.quiz_id}_{round(float(item.score), 2)}"
             if key in existing_keys:
                 continue
+
+            # Bỏ qua không lưu những bài thi từ máy học sinh đã cũ quá 30 ngày
+            item_raw = item.model_dump() if hasattr(item, 'model_dump') else item.dict()
+            item_epoch = self._parse_time_to_epoch(item_raw)
+            if item_epoch > 0 and item_epoch < retention_cutoff_ts:
+                continue
+
+            expire_at_dt = datetime.datetime.fromtimestamp(item_epoch, tz=datetime.timezone.utc) + datetime.timedelta(days=self.HISTORY_RETENTION_DAYS) if item_epoch > 0 else (now_utc + datetime.timedelta(days=self.HISTORY_RETENTION_DAYS))
 
             doc_ref = hist_coll.document()
             doc_data = {
@@ -786,12 +956,16 @@ class StudentService:
                 'time_elapsed': int(item.time_elapsed),
                 'submitted_at': item.submitted_at or now_utc.isoformat(),
                 'timestamp': firestore.SERVER_TIMESTAMP,
+                'expire_at': expire_at_dt,
                 'results': item.results or [],
                 'answers': item.answers or {}
             }
             doc_ref.set(doc_data)
             existing_keys.add(key)
             saved_count += 1
+
+        if saved_count > 0:
+            STUDENT_HISTORY_CACHE.pop(user_id, None)
 
         return {"status": "success", "saved_count": saved_count}
 

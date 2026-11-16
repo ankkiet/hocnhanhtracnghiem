@@ -206,7 +206,7 @@ def _seed_default_admins(db_client):
                 return collection_ref.where(field, '==', value)
 
         # 1. Khởi tạo Admin mặc định NẾU CHƯA TỒN TẠI
-        users = query_where(db_client.collection('users'), 'username', 'admin').get()
+        users = query_where(db_client.collection('users'), 'username', 'admin').limit(1).get()
         if not users:
             admin_pwd_hash = hash_password('a@a@ankk')
             db_client.collection('users').add({
@@ -220,9 +220,9 @@ def _seed_default_admins(db_client):
 
         # 2. Đảm bảo tài khoản Quản trị viên kiet0905478167@gmail.com luôn có quyền Admin cao nhất
         admin_email = "kiet0905478167@gmail.com"
-        kiet_users = query_where(db_client.collection('users'), 'username', admin_email).get()
+        kiet_users = query_where(db_client.collection('users'), 'username', admin_email).limit(1).get()
         if not kiet_users:
-            kiet_by_email = query_where(db_client.collection('users'), 'email', admin_email).get()
+            kiet_by_email = query_where(db_client.collection('users'), 'email', admin_email).limit(1).get()
             if kiet_by_email:
                 db_client.collection('users').document(kiet_by_email[0].id).update({
                     'role': 'admin',

@@ -3305,7 +3305,7 @@ async function startStudentQuiz(isResume = false) {
             subtitle: "Đang nạp câu hỏi và thiết lập lại lượt thi mới..."
         });
         
-        if (quizId) {
+        if (quizId && (!serverData || !serverData.length)) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
                 const result = await response.json();
@@ -3479,7 +3479,7 @@ async function fetchLatestDataAndRestart(mode) {
     const container = document.getElementById('quiz-container');
     if (container) container.innerHTML = renderHntnInlineLoader('Đang tải dữ liệu mới nhất...', 'Hệ thống đang đồng bộ với máy chủ...', 85);
     
-    if (quizId) {
+    if (quizId && (!serverData || !serverData.length)) {
         try {
             const response = await fetch(`${API_BASE_URL}/api/get_quiz/${quizId}?teacher_token=${getTeacherTokenParam()}`);
             const result = await response.json();
@@ -3701,6 +3701,11 @@ function renderFilteredQuizzes() {
             const timeB = new Date(b.created_at || b.updated_at || 0).getTime() || 0;
             return timeB - timeA;
         }
+        if (sortMode === 'subs_desc') {
+            const subsA = a.total_submissions || a.submission_count || 0;
+            const subsB = b.total_submissions || b.submission_count || 0;
+            return subsB - subsA;
+        }
         // updated_desc (mặc định: ngày xuất bản / sửa đổi mới nhất)
         const timeA = new Date(a.updated_at || a.created_at || 0).getTime() || 0;
         const timeB = new Date(b.updated_at || b.created_at || 0).getTime() || 0;
@@ -3786,6 +3791,7 @@ function renderFilteredQuizzes() {
                     <span class="quiz-meta-item"><i class="${modeIcon}"></i> ${modeText}</span>
                     <span class="quiz-meta-item"><i class="ri-hashtag"></i> ${q.question_count || 0} câu</span>
                     <span class="quiz-meta-item"><i class="ri-time-line"></i> ${timeText}</span>
+                    <span class="quiz-meta-item" title="Tổng số lượt làm bài (kể cả học sinh đăng nhập và tự do)"><i class="ri-group-line" style="color: #0284c7;"></i> <span style="font-weight: 600; color: #0f172a;" id="subs_count_${q.id}">${q.total_submissions ?? q.submission_count ?? 0}</span> lượt làm</span>
                     ${dateText ? `<span class="quiz-meta-item" title="Ngày cập nhật / xuất bản"><i class="ri-calendar-line"></i> ${dateText}</span>` : ''}
                 </div>
                 <div class="quiz-card-actions">
@@ -3803,12 +3809,18 @@ function renderFilteredQuizzes() {
 // ========================================================
 let rawStudentHistory = [];
 let studentHistoryFilter = 'all';
+let studentHistoryHasMore = false;
+let studentHistoryTotal = 0;
+let isLoadingMoreStudentHistory = false;
 let currentHistReviewDetail = null;
 let currentHistReviewFilter = 'all';
 
 async function syncLocalCompletedQuizzesToCloud() {
     if (!authToken || authRole !== 'student') return;
     const itemsToSync = [];
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+
     try {
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
@@ -3819,6 +3831,11 @@ async function syncLocalCompletedQuizzesToCloud() {
                     const qid = key.replace('quiz_progress_', '');
                     if (prog.history && Array.isArray(prog.history) && prog.history.length > 0) {
                         prog.history.forEach(h => {
+                            const itemTime = parseStudentHistoryTime({ submitted_at: h.date });
+                            // Bỏ qua các bài thi cũ hơn 30 ngày để đồng bộ chuẩn với quy định tự động xóa
+                            if (itemTime > 0 && (nowMs - itemTime) > THIRTY_DAYS_MS) {
+                                return;
+                            }
                             itemsToSync.push({
                                 quiz_id: qid,
                                 quiz_title: prog.title || `Đề thi #${qid}`,
@@ -3830,6 +3847,10 @@ async function syncLocalCompletedQuizzesToCloud() {
                             });
                         });
                     } else if (prog.completed) {
+                        const itemTime = parseStudentHistoryTime({ submitted_at: prog.updatedAt });
+                        if (itemTime > 0 && (nowMs - itemTime) > THIRTY_DAYS_MS) {
+                            continue;
+                        }
                         itemsToSync.push({
                             quiz_id: qid,
                             quiz_title: prog.title || `Đề thi #${qid}`,
@@ -3880,7 +3901,16 @@ async function loadStudentHistory(forceRefresh = false) {
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/student/history?student_token=${encodeURIComponent(authToken)}`);
+        const queryParams = new URLSearchParams({
+            student_token: authToken,
+            limit: '5',
+            offset: '0'
+        });
+        if (forceRefresh) {
+            queryParams.append('force_refresh', 'true');
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/student/history?${queryParams.toString()}`);
         const data = await res.json();
         if (res.status === 403) {
             console.warn("Phiên đăng nhập học sinh đã hết hạn hoặc không hợp lệ (403).");
@@ -3890,53 +3920,15 @@ async function loadStudentHistory(forceRefresh = false) {
         }
         if (res.ok && data.status === 'success') {
             rawStudentHistory = data.data || [];
+            studentHistoryTotal = typeof data.total === 'number' ? data.total : rawStudentHistory.length;
+            studentHistoryHasMore = Boolean(data.has_more);
+
+            // Sắp xếp các đề đã làm theo thời gian làm bài mới nhất lên đầu
+            rawStudentHistory.sort((a, b) => parseStudentHistoryTime(b) - parseStudentHistoryTime(a));
             
-            // Tính toán KPIs
-            const totalTests = rawStudentHistory.length;
-            let sumScaled = 0;
-            let maxScaled = 0;
-            let passedCount = 0;
-
-            let highCount = 0;
-            let passCount = 0;
-            let lowCount = 0;
-
-            rawStudentHistory.forEach(item => {
-                const scaled = computeScaledScore10(item.score, item, 1);
-                sumScaled += scaled;
-                if (scaled > maxScaled) maxScaled = scaled;
-                if (scaled >= 5.0) passedCount++;
-
-                if (scaled >= 8.0) highCount++;
-                else if (scaled >= 5.0) passCount++;
-                else lowCount++;
-            });
-
-            const avgScaled = totalTests > 0 ? (sumScaled / totalTests).toFixed(1) : '--';
-            const maxScaledStr = totalTests > 0 ? maxScaled.toFixed(1) : '--';
-            const passedRate = totalTests > 0 ? Math.round((passedCount / totalTests) * 100) + '%' : '--%';
-
-            // Cập nhật thẻ KPI
-            const elTotal = document.getElementById('statStudentTotalTests');
-            const elAvg = document.getElementById('statStudentAvgScore');
-            const elMax = document.getElementById('statStudentMaxScore');
-            const elRate = document.getElementById('statStudentPassedRate');
-            if (elTotal) elTotal.innerText = totalTests;
-            if (elAvg) elAvg.innerText = avgScaled;
-            if (elMax) elMax.innerText = maxScaledStr;
-            if (elRate) elRate.innerText = passedRate;
-
-            // Cập nhật tab số lượng
-            const elAll = document.getElementById('filterCountStudentAll');
-            const elHigh = document.getElementById('filterCountStudentHigh');
-            const elPass = document.getElementById('filterCountStudentPass');
-            const elLow = document.getElementById('filterCountStudentLow');
-            if (elAll) elAll.innerText = totalTests;
-            if (elHigh) elHigh.innerText = highCount;
-            if (elPass) elPass.innerText = passCount;
-            if (elLow) elLow.innerText = lowCount;
-
+            updateStudentHistoryKPIs();
             renderStudentHistoryList();
+
             if (forceRefresh) {
                 showToast("Đã làm mới lịch sử bài thi thành công!", "success");
             }
@@ -3947,6 +3939,108 @@ async function loadStudentHistory(forceRefresh = false) {
         console.error("Lỗi khi tải lịch sử học sinh:", err);
         container.innerHTML = `<div class="student-history-empty"><p style="color: #ef4444;">Lỗi kết nối khi tải lịch sử làm bài. Vui lòng thử lại sau.</p></div>`;
     }
+}
+
+async function loadMoreStudentHistory() {
+    if (isLoadingMoreStudentHistory || !studentHistoryHasMore) return;
+    if (!authToken || authRole !== 'student') return;
+
+    const btn = document.getElementById('btnLoadMoreStudentHistory');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Đang tải thêm bài làm...';
+    }
+    isLoadingMoreStudentHistory = true;
+
+    try {
+        const offset = rawStudentHistory.length;
+        const queryParams = new URLSearchParams({
+            student_token: authToken,
+            limit: '5',
+            offset: String(offset)
+        });
+
+        const res = await fetch(`${API_BASE_URL}/api/student/history?${queryParams.toString()}`);
+        const data = await res.json();
+
+        if (res.ok && data.status === 'success') {
+            const newItems = data.data || [];
+            studentHistoryTotal = typeof data.total === 'number' ? data.total : (rawStudentHistory.length + newItems.length);
+            studentHistoryHasMore = Boolean(data.has_more);
+
+            // Gộp danh sách, loại bỏ trùng ID nếu có
+            const seenIds = new Set(rawStudentHistory.map(item => item.id));
+            newItems.forEach(item => {
+                if (!seenIds.has(item.id)) {
+                    rawStudentHistory.push(item);
+                    seenIds.add(item.id);
+                }
+            });
+
+            updateStudentHistoryKPIs();
+            renderStudentHistoryList();
+            showToast(`Đã tải thêm ${newItems.length} bài thi cũ hơn`, "success");
+        } else {
+            showToast(data.detail || "Không thể tải thêm bài làm", "error");
+        }
+    } catch (err) {
+        console.error("Lỗi khi tải thêm lịch sử:", err);
+        showToast("Lỗi kết nối khi tải thêm lịch sử", "error");
+    } finally {
+        isLoadingMoreStudentHistory = false;
+        const btnAfter = document.getElementById('btnLoadMoreStudentHistory');
+        if (btnAfter) {
+            btnAfter.disabled = false;
+        }
+    }
+}
+window.loadMoreStudentHistory = loadMoreStudentHistory;
+
+function updateStudentHistoryKPIs() {
+    const totalLoaded = rawStudentHistory.length;
+    let sumScaled = 0;
+    let maxScaled = 0;
+    let passedCount = 0;
+
+    let highCount = 0;
+    let passCount = 0;
+    let lowCount = 0;
+
+    rawStudentHistory.forEach(item => {
+        const scaled = computeScaledScore10(item.score, item, 1);
+        sumScaled += scaled;
+        if (scaled > maxScaled) maxScaled = scaled;
+        if (scaled >= 5.0) passedCount++;
+
+        if (scaled >= 8.0) highCount++;
+        else if (scaled >= 5.0) passCount++;
+        else lowCount++;
+    });
+
+    const displayTotal = studentHistoryTotal > totalLoaded ? `${totalLoaded}/${studentHistoryTotal}` : String(totalLoaded);
+    const avgScaled = totalLoaded > 0 ? (sumScaled / totalLoaded).toFixed(1) : '--';
+    const maxScaledStr = totalLoaded > 0 ? maxScaled.toFixed(1) : '--';
+    const passedRate = totalLoaded > 0 ? Math.round((passedCount / totalLoaded) * 100) + '%' : '--%';
+
+    // Cập nhật thẻ KPI
+    const elTotal = document.getElementById('statStudentTotalTests');
+    const elAvg = document.getElementById('statStudentAvgScore');
+    const elMax = document.getElementById('statStudentMaxScore');
+    const elRate = document.getElementById('statStudentPassedRate');
+    if (elTotal) elTotal.innerText = displayTotal;
+    if (elAvg) elAvg.innerText = avgScaled;
+    if (elMax) elMax.innerText = maxScaledStr;
+    if (elRate) elRate.innerText = passedRate;
+
+    // Cập nhật tab số lượng
+    const elAll = document.getElementById('filterCountStudentAll');
+    const elHigh = document.getElementById('filterCountStudentHigh');
+    const elPass = document.getElementById('filterCountStudentPass');
+    const elLow = document.getElementById('filterCountStudentLow');
+    if (elAll) elAll.innerText = displayTotal;
+    if (elHigh) elHigh.innerText = highCount;
+    if (elPass) elPass.innerText = passCount;
+    if (elLow) elLow.innerText = lowCount;
 }
 
 function setStudentHistoryFilter(filter) {
@@ -3986,20 +4080,47 @@ function extractTfOptionChar(opt, oIndex) {
     return charMatch ? charMatch[1].toLowerCase() : String.fromCharCode(97 + oIndex);
 }
 
-function formatHistoryDateTime(dateStr) {
-    if (!dateStr) return '--';
+function parseStudentHistoryTime(item) {
+    if (!item) return 0;
+    const candidates = [item.submitted_at, item.timestamp, item.updatedAt, item.date, item.created_at];
+    for (const c of candidates) {
+        if (!c) continue;
+        if (typeof c === 'number') return c;
+        if (typeof c === 'string') {
+            const trimmed = c.trim();
+            const parsed = Date.parse(trimmed);
+            if (!isNaN(parsed)) return parsed;
+
+            // Xử lý định dạng ngày tiếng Việt (DD/MM/YYYY)
+            const dmy = trimmed.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (dmy) {
+                const timeMatch = trimmed.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+                const h = timeMatch ? parseInt(timeMatch[1], 10) : 0;
+                const m = timeMatch ? parseInt(timeMatch[2], 10) : 0;
+                const s = (timeMatch && timeMatch[3]) ? parseInt(timeMatch[3], 10) : 0;
+                const d = new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10), h, m, s);
+                if (!isNaN(d.getTime())) return d.getTime();
+            }
+        }
+    }
+    return 0;
+}
+
+function formatHistoryDateTime(dateVal) {
+    if (!dateVal) return '--';
     try {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleDateString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
+        let t = 0;
+        if (typeof dateVal === 'object' && dateVal !== null) {
+            t = parseStudentHistoryTime(dateVal);
+        } else {
+            t = parseStudentHistoryTime({ submitted_at: dateVal });
+        }
+        if (!t) return String(dateVal);
+        const d = new Date(t);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
     } catch(e) {
-        return dateStr;
+        return String(dateVal);
     }
 }
 
@@ -4011,6 +4132,26 @@ function renderStudentHistoryList() {
     const qSearch = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
     let list = rawStudentHistory.slice();
+
+    // Cơ chế sắp xếp: Mặc định sắp xếp theo thời gian làm mới nhất lên đầu (date_desc)
+    const sortMode = document.getElementById('studentHistorySortSelect')?.value || 'date_desc';
+    list.sort((a, b) => {
+        if (sortMode === 'date_asc') {
+            return parseStudentHistoryTime(a) - parseStudentHistoryTime(b);
+        }
+        if (sortMode === 'score_desc') {
+            const scA = computeScaledScore10(a.score, a, 1);
+            const scB = computeScaledScore10(b.score, b, 1);
+            return scB - scA;
+        }
+        if (sortMode === 'score_asc') {
+            const scA = computeScaledScore10(a.score, a, 1);
+            const scB = computeScaledScore10(b.score, b, 1);
+            return scA - scB;
+        }
+        // date_desc (mặc định: thời gian làm mới nhất lên đầu)
+        return parseStudentHistoryTime(b) - parseStudentHistoryTime(a);
+    });
 
     // Lọc theo search
     if (qSearch) {
@@ -4042,7 +4183,7 @@ function renderStudentHistoryList() {
                     ${qSearch || studentHistoryFilter !== 'all' ? 'Không tìm thấy bài thi phù hợp' : 'Bạn chưa có bài thi nào được ghi nhận'}
                 </h3>
                 <p style="margin: 0 0 16px 0; font-size: 0.92rem; color: #64748b; max-width: 440px; margin-left: auto; margin-right: auto;">
-                    ${qSearch || studentHistoryFilter !== 'all' ? 'Hãy thử đổi từ khóa tìm kiếm hoặc bấm tab Tất cả.' : 'Hãy nhập mã đề thi ở phía trên hoặc dán link do giáo viên gửi để bắt đầu làm bài và lưu điểm số vào đây nhé!'}
+                    ${qSearch || studentHistoryFilter !== 'all' ? 'Hãy thử đổi từ khóa tìm kiếm hoặc bấm tab Tất cả.' : 'Hãy nhập mã đề thi ở phía trên hoặc dán link do giáo viên gửi để bắt đầu làm bài. Lịch sử bài làm sẽ được lưu giữ tự động trong 30 ngày gần nhất nhé!'}
                 </p>
                 ${(qSearch || studentHistoryFilter !== 'all') ? `<button class="btn-outline" style="background: white;" onclick="document.getElementById('studentHistorySearchInput').value=''; setStudentHistoryFilter('all');"><i class="ri-refresh-line"></i> Đặt lại bộ lọc</button>` : ''}
             </div>
@@ -4101,6 +4242,22 @@ function renderStudentHistoryList() {
             </div>
         `;
     });
+
+    if (studentHistoryHasMore) {
+        html += `
+            <div id="studentHistoryLoadMoreContainer" style="text-align: center; margin-top: 20px; margin-bottom: 16px;">
+                <button type="button" class="btn-outline" id="btnLoadMoreStudentHistory" onclick="loadMoreStudentHistory()" style="background: #ffffff; padding: 10px 24px; border-radius: 999px; font-weight: 600; color: #4338ca; border: 1.5px solid #c7d2fe; box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08); transition: all 0.2s ease; cursor: pointer;">
+                    <i class="ri-arrow-down-line"></i> Xem thêm 5 bài làm cũ hơn (${rawStudentHistory.length}/${studentHistoryTotal})
+                </button>
+            </div>
+        `;
+    } else if (rawStudentHistory.length > 5) {
+        html += `
+            <div style="text-align: center; margin-top: 18px; margin-bottom: 10px; color: #94a3b8; font-size: 0.85rem;">
+                <i class="ri-checkbox-circle-line"></i> Đã hiển thị toàn bộ bài thi đã làm trong 30 ngày gần nhất (${rawStudentHistory.length} bài)
+            </div>
+        `;
+    }
 
     container.innerHTML = html;
 }
@@ -4394,7 +4551,9 @@ async function deleteStudentHistoryItem(historyId) {
         if (res.ok && data.status === 'success') {
             showToast("Đã xóa bài thi khỏi lịch sử thành công!", "success");
             rawStudentHistory = rawStudentHistory.filter(x => x.id !== historyId);
-            loadStudentHistory(false);
+            studentHistoryTotal = Math.max(0, studentHistoryTotal - 1);
+            updateStudentHistoryKPIs();
+            renderStudentHistoryList();
         } else {
             alert("Lỗi khi xóa bài thi: " + (data.detail || data.message || "Lỗi không xác định"));
         }
@@ -4897,6 +5056,17 @@ async function openQuizStats(quizId, quizTitle, forceRefresh = false) {
         if (kpiAvg) kpiAvg.innerText = data.total_submissions > 0 ? (data.average_score || 0) + 'đ' : '--';
         if (kpiMax) kpiMax.innerText = data.total_submissions > 0 ? (data.max_score || 0) + 'đ' : '--';
         if (kpiMin) kpiMin.innerText = data.total_submissions > 0 ? (data.min_score || 0) + 'đ' : '--';
+
+        // Đồng bộ số lượt làm vào danh sách đề thi giáo viên nếu có
+        if (typeof rawTeacherQuizzes !== 'undefined' && Array.isArray(rawTeacherQuizzes)) {
+            const targetQuiz = rawTeacherQuizzes.find(q => q.id === quizId);
+            if (targetQuiz) {
+                targetQuiz.total_submissions = data.total_submissions || 0;
+                targetQuiz.submission_count = data.total_submissions || 0;
+                const elCount = document.getElementById(`subs_count_${quizId}`);
+                if (elCount) elCount.innerText = targetQuiz.total_submissions;
+            }
+        }
         
         // Cập nhật số lượng học sinh trên Tab Header
         const tabStudentCountEl = document.getElementById('statsTabStudentCount');
