@@ -171,8 +171,74 @@ def test_cache_busting_version_updated():
     """Đảm bảo chuỗi phiên bản cache buster được nâng cấp mới để vượt qua bộ nhớ đệm Cloudflare/trình duyệt."""
     with open('templates/index.html', 'r', encoding='utf-8') as f:
         html = f.read()
-    assert 'script.js?v=20261115_fix_tf_clean_v3' in html
-    assert '20261113_ai_check_v1' not in html
+    assert 'script.js?v=20261117_submissions_v1' in html
+    assert '20261115_fix_tf_clean_v3' not in html
+
+
+def test_publish_preserves_edited_questions_from_session():
+    """Đảm bảo trang publish ưu tiên câu hỏi và đáp án mới từ session khi người dùng sửa đề từ editor."""
+    for fpath in ['static/publish.html', 'templates/publish.html']:
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert 'if (loadedFromSession && currentQuiz.questions && currentQuiz.questions.length > 0)' in content, \
+                f"{fpath} thiếu logic bảo toàn câu hỏi từ session khi người dùng vừa sửa đề từ editor!"
+
+
+def test_quiz_service_preserves_all_false_tf_answers():
+    """Kiểm tra backend _restore_and_protect_questions không đè lại đáp án cũ khi giáo viên đổi đáp án Đúng/Sai thành 4 ý Sai."""
+    from app.services.quiz_service import quiz_service
+
+    old_questions = [
+        {
+            'question': 'Câu 1: Xét tính đúng sai của hàm số',
+            'options': ['a) f(x) đồng biến', 'b) f(x) nghịch biến', 'c) f(x) có cực trị', 'd) f(x) liên tục'],
+            'correct_answer': {'a': True, 'b': False, 'c': True, 'd': False},
+            'type': 'true_false'
+        }
+    ]
+
+    # Giáo viên sửa đề: đổi toàn bộ 4 ý thành False
+    new_questions = [
+        {
+            'question': 'Câu 1: Xét tính đúng sai của hàm số',
+            'options': ['a) f(x) đồng biến', 'b) f(x) nghịch biến', 'c) f(x) có cực trị', 'd) f(x) liên tục'],
+            'correct_answer': {'a': False, 'b': False, 'c': False, 'd': False},
+            'type': 'true_false'
+        }
+    ]
+
+    restored = quiz_service._restore_and_protect_questions(new_questions, old_questions=old_questions)
+    assert restored[0]['correct_answer'] == {'a': False, 'b': False, 'c': False, 'd': False}, \
+        "Backend đã đè lại đáp án cũ khi câu hỏi Đúng/Sai có 4 ý False!"
+
+
+def test_quiz_service_preserves_edited_mcq_answer():
+    """Kiểm tra backend _restore_and_protect_questions giữ nguyên đáp án MCQ mới khi giáo viên đổi từ A sang C."""
+    from app.services.quiz_service import quiz_service
+
+    old_questions = [
+        {
+            'question': 'Câu 1: Thủ đô nước Pháp là gì?',
+            'options': ['A. Paris', 'B. London', 'C. Berlin', 'D. Rome'],
+            'correct_answer': 'A. Paris',
+            'type': 'mcq'
+        }
+    ]
+
+    new_questions = [
+        {
+            'question': 'Câu 1: Thủ đô nước Đức là gì?',
+            'options': ['A. Paris', 'B. London', 'C. Berlin', 'D. Rome'],
+            'correct_answer': 'C. Berlin',
+            'type': 'mcq',
+            '_originalCorrectAnswer': 'A. Paris'  # Trường tạm còn sót lại không được ghi đè đáp án mới
+        }
+    ]
+
+    restored = quiz_service._restore_and_protect_questions(new_questions, old_questions=old_questions)
+    assert restored[0]['correct_answer'] == 'C. Berlin', \
+        "Backend đã để _originalCorrectAnswer đè lên đáp án mới vừa sửa!"
+
 
 
 

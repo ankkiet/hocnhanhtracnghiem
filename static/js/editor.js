@@ -753,6 +753,17 @@ async function loadQuizById(quizId) {
             
             document.getElementById('studioQuizTitle').value = editingQuizSettings.title;
             currentData = normalizeImageUrls(result.data || []);
+            // Dọn sạch hoàn toàn các trường tạm của client (_originalIndex, _originalOptions, _originalCorrectAnswer)
+            // để bảo đảm khi biên tập, sửa đổi đáp án, không bị các trường tạm cũ đè lại đáp án
+            if (Array.isArray(currentData)) {
+                currentData.forEach(q => {
+                    if (q && typeof q === 'object') {
+                        delete q._originalIndex;
+                        delete q._originalOptions;
+                        delete q._originalCorrectAnswer;
+                    }
+                });
+            }
             
             syncDataToEditor();
             renderPreviewAll();
@@ -3532,6 +3543,8 @@ function scrollToQuestionInEditor(qIndex) {
 window.changeCorrectAnswer = function(qIndex, oIndex) {
     if (!currentData[qIndex] || !currentData[qIndex].options) return;
     currentData[qIndex].correct_answer = currentData[qIndex].options[oIndex];
+    delete currentData[qIndex]._originalCorrectAnswer;
+    delete currentData[qIndex]._originalOptions;
     syncDataToEditor();
     renderPreviewAll();
     saveDraftToSession();
@@ -3544,6 +3557,8 @@ window.changeTfAnswer = function(qIndex, char, isTrue) {
         currentData[qIndex].correct_answer = {};
     }
     currentData[qIndex].correct_answer[char.toLowerCase()] = isTrue;
+    delete currentData[qIndex]._originalCorrectAnswer;
+    delete currentData[qIndex]._originalOptions;
     syncDataToEditor();
     renderPreviewAll();
     saveDraftToSession();
@@ -4591,9 +4606,13 @@ function getCleanUnshuffledQuizData(dataList) {
         if (!q) return;
         if (Array.isArray(q._originalOptions) && q._originalOptions.length > 0) {
             q.options = [...q._originalOptions];
-        }
-        if (q._originalCorrectAnswer !== undefined && q._originalCorrectAnswer !== null) {
-            q.correct_answer = q._originalCorrectAnswer;
+            if (q._originalCorrectAnswer !== undefined && q._originalCorrectAnswer !== null) {
+                q.correct_answer = q._originalCorrectAnswer;
+            }
+        } else if (q._originalCorrectAnswer !== undefined && q._originalCorrectAnswer !== null) {
+            if (q.correct_answer === undefined || q.correct_answer === null || q.correct_answer === '') {
+                q.correct_answer = q._originalCorrectAnswer;
+            }
         }
         delete q._originalIndex;
         delete q._originalOptions;

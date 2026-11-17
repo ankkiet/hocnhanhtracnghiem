@@ -210,8 +210,13 @@ class QuizService:
                 continue
             if '_originalOptions' in q and isinstance(q['_originalOptions'], list) and len(q['_originalOptions']) > 0:
                 q['options'] = list(q['_originalOptions'])
-            if '_originalCorrectAnswer' in q and q['_originalCorrectAnswer'] is not None:
-                q['correct_answer'] = q['_originalCorrectAnswer']
+                # Khi phương án bị đảo được hoàn tác, đáp án đúng cũng phải hoàn tác theo thứ tự gốc
+                if '_originalCorrectAnswer' in q and q['_originalCorrectAnswer'] is not None:
+                    q['correct_answer'] = q['_originalCorrectAnswer']
+            elif '_originalCorrectAnswer' in q and q['_originalCorrectAnswer'] is not None:
+                # Chỉ khôi phục đáp án gốc nếu câu hỏi chưa có đáp án, không đè lên đáp án giáo viên vừa sửa
+                if q.get('correct_answer') is None or q.get('correct_answer') == '':
+                    q['correct_answer'] = q['_originalCorrectAnswer']
 
             # Xóa các thuộc tính tạm của client
             q.pop('_originalIndex', None)
@@ -236,7 +241,7 @@ class QuizService:
                 if not isinstance(q, dict):
                     continue
                 ca = q.get('correct_answer')
-                has_valid_ca = bool(ca) if not isinstance(ca, dict) else any(bool(v) for v in ca.values())
+                has_valid_ca = bool(ca) if not isinstance(ca, dict) else (len(ca) > 0 and any(k in ca for k in ['a', 'b', 'c', 'd']))
 
                 if not has_valid_ca:
                     # Ưu tiên 1: Khôi phục theo đúng vị trí index trong đề cũ
@@ -332,6 +337,7 @@ class QuizService:
 
         if not quiz_id:
             data_to_save['created_at'] = firestore.SERVER_TIMESTAMP
+            data_to_save['total_submissions'] = 0
 
         try:
             doc_ref.set(data_to_save, merge=True)

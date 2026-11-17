@@ -1862,8 +1862,21 @@ input[type="checkbox"]:checked + .switch-toggle::after {
                     const res = await fetch(`/api/get_quiz/${encodeURIComponent(targetId)}${tokenParam}`);
                     if (res.ok) {
                         const json = await res.json();
-                        // Nếu session đã có đầy đủ questions kèm đáp án thì ưu tiên câu hỏi từ session
-                        if (currentQuiz.questions && currentQuiz.questions.length > 0) {
+                        // Nếu session đã có câu hỏi (từ Studio Editor vừa chuyển sang xuất bản),
+                        // BẮT BUỘC bảo toàn 100% câu hỏi và đáp án mới từ session, tuyệt đối không để dữ liệu cũ trên server ghi đè!
+                        if (loadedFromSession && currentQuiz.questions && currentQuiz.questions.length > 0) {
+                            const mergedSettings = Object.assign({}, json.settings || {}, currentQuiz.settings || {});
+                            applyQuizToUI({
+                                ...json,
+                                title: currentQuiz.title || json.title,
+                                mode: currentQuiz.mode || json.mode,
+                                time_limit: currentQuiz.time_limit !== undefined ? currentQuiz.time_limit : json.time_limit,
+                                is_shuffle: currentQuiz.is_shuffle !== undefined ? currentQuiz.is_shuffle : json.is_shuffle,
+                                data: currentQuiz.questions,
+                                questions: currentQuiz.questions,
+                                settings: mergedSettings
+                            });
+                        } else if (currentQuiz.questions && currentQuiz.questions.length > 0) {
                             const hasAnswersInSession = currentQuiz.questions.some(q => q && (q.correct_answer || (typeof q.correct_answer === 'object' && Object.keys(q.correct_answer).length > 0)));
                             const hasAnswersInApi = Array.isArray(json.data) && json.data.some(q => q && (q.correct_answer || (typeof q.correct_answer === 'object' && Object.keys(q.correct_answer).length > 0)));
 

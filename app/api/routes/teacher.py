@@ -140,7 +140,7 @@ async def get_teacher_quizzes(teacher_token: str):
 
     now = time.time()
     cache_key = str(user_uid)
-    if cache_key in TEACHER_QUIZZES_CACHE and (now - TEACHER_QUIZZES_CACHE[cache_key]['time'] < 60):
+    if cache_key in TEACHER_QUIZZES_CACHE and (now - TEACHER_QUIZZES_CACHE[cache_key]['time'] < 180):
         return {"status": "success", "data": TEACHER_QUIZZES_CACHE[cache_key]['data']}
 
     try:
@@ -175,6 +175,79 @@ async def get_teacher_quizzes(teacher_token: str):
                 )
             raise HTTPException(status_code=500, detail=f"Lỗi truy vấn cơ sở dữ liệu: {retry_err}")
         
+    import concurrent.futures
+
+    def _resolve_submissions_for_doc(doc_item, data_item):
+        total_s = data_item.get('total_submissions')
+        if total_s is None:
+            total_s = data_item.get('submission_count')
+
+        if total_s is None:
+            doc_id = getattr(doc_item, 'id', '')
+            if doc_id and doc_id in SUBMISSIONS_CACHE:
+                try:
+                    total_s = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
+                except Exception:
+                    total_s = 0
+            else:
+                try:
+                    if hasattr(doc_item, 'reference') and doc_item.reference is not None:
+                        subs_ref = doc_item.reference.collection('submissions')
+                        if hasattr(subs_ref, 'count'):
+                            agg = subs_ref.count().get()
+                            total_s = int(agg[0][0].value)
+                        else:
+                            docs_list = subs_ref.get()
+                            total_s = len(docs_list) if docs_list else 0
+                        # Tự động cập nhật vào doc để lần sau đọc chỉ tốn 0 read phụ
+                        try:
+                            doc_item.reference.set({'total_submissions': total_s, 'submission_count': total_s}, merge=True)
+                        except Exception:
+                            pass
+                    else:
+                        total_s = 0
+                except Exception:
+                    total_s = 0
+        else:
+            try:
+                total_s = int(total_s or 0)
+            except (ValueError, TypeError):
+                total_s = 0
+
+        # Nếu trong RAM cache có số lượng nộp bài nhiều hơn, ưu tiên lấy số mới nhất
+        doc_id = getattr(doc_item, 'id', '')
+        if doc_id and doc_id in SUBMISSIONS_CACHE:
+            try:
+                cached_count = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
+                total_s = max(total_s, cached_count)
+            except Exception:
+                pass
+        return total_s
+
+    # Tối ưu hóa: Đề thi đã có sẵn total_submissions tính tức thì O(1).
+    # Đề thi cũ chưa có field được đếm song song qua ThreadPool để loại bỏ nghẽn mạng tuần tự.
+    subs_map = {}
+    docs_to_fetch = []
+    for doc in docs:
+        d = doc.to_dict()
+        if d.get('total_submissions') is not None or d.get('submission_count') is not None:
+            subs_map[doc.id] = _resolve_submissions_for_doc(doc, d)
+        else:
+            docs_to_fetch.append((doc, d))
+
+    if docs_to_fetch:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(docs_to_fetch))) as executor:
+            future_to_doc = {
+                executor.submit(_resolve_submissions_for_doc, item[0], item[1]): item[0].id
+                for item in docs_to_fetch
+            }
+            for future in concurrent.futures.as_completed(future_to_doc):
+                d_id = future_to_doc[future]
+                try:
+                    subs_map[d_id] = future.result()
+                except Exception:
+                    subs_map[d_id] = 0
+
     results = []
     for doc in docs:
         data = doc.to_dict()
@@ -200,46 +273,7 @@ async def get_teacher_quizzes(teacher_token: str):
         else:
             created_at_str = None
 
-        # Tổng số lượt làm bài (tính cả học sinh tự do không đăng nhập và học sinh đã đăng nhập)
-        total_subs = data.get('total_submissions')
-        if total_subs is None:
-            total_subs = data.get('submission_count')
-
-        if total_subs is None:
-            doc_id = getattr(doc, 'id', '')
-            if doc_id and doc_id in SUBMISSIONS_CACHE:
-                try:
-                    total_subs = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
-                except Exception:
-                    total_subs = 0
-            else:
-                try:
-                    if hasattr(doc, 'reference') and doc.reference is not None:
-                        subs_ref = doc.reference.collection('submissions')
-                        if hasattr(subs_ref, 'count'):
-                            agg = subs_ref.count().get()
-                            total_subs = int(agg[0][0].value)
-                        else:
-                            docs_list = subs_ref.get()
-                            total_subs = len(docs_list) if docs_list else 0
-                    else:
-                        total_subs = 0
-                except Exception:
-                    total_subs = 0
-        else:
-            try:
-                total_subs = int(total_subs or 0)
-            except (ValueError, TypeError):
-                total_subs = 0
-
-        # Nếu trong RAM cache có số lượng nộp bài nhiều hơn, ưu tiên lấy số mới nhất
-        doc_id = getattr(doc, 'id', '')
-        if doc_id and doc_id in SUBMISSIONS_CACHE:
-            try:
-                cached_count = len(SUBMISSIONS_CACHE[doc_id].get('data', []))
-                total_subs = max(total_subs, cached_count)
-            except Exception:
-                pass
+        total_subs = subs_map.get(doc.id, 0)
 
         results.append({
             'id': doc.id,
